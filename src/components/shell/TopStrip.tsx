@@ -18,7 +18,7 @@ export function TopStrip({
   onCommandOpen?: () => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 h-14 flex items-center gap-3 px-3 md:px-5 border-b border-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
+    <div className="sticky top-0 z-30 h-14 flex items-center gap-3 px-3 md:px-6 border-b border-hairline bg-surface">
       <div className="md:hidden">
         <IconButton icon={<Menu size={20} />} label="開啟選單" onClick={onMenuClick} />
       </div>
@@ -30,7 +30,7 @@ export function TopStrip({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onCommandOpen}
-          className="hidden md:inline-flex items-center gap-2 h-9 pl-3 pr-2 text-body-sm text-neutral-500 bg-white hover:bg-neutral-25 border border-subtle hover:border-strong rounded-lg focus-ring transition-all duration-180"
+          className="hidden md:inline-flex items-center gap-2 h-9 pl-3 pr-2 text-body-sm text-neutral-500 bg-white hover:bg-neutral-50 border border-hairline hover:border-subtle rounded-lg focus-ring transition-all duration-180"
           aria-label="開啟命令面板"
         >
           <Search size={15} className="text-neutral-400" />

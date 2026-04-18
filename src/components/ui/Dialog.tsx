@@ -45,26 +45,26 @@ export function Dialog({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-neutral-900/25 backdrop-blur-[2px]"
         onClick={() => onOpenChange(false)}
       />
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-xl border border-neutral-200 animate-slide-up',
+          'relative w-full bg-white rounded-2xl shadow-lg border border-hairline animate-slide-up',
           w,
         )}
       >
         {(title || description) && (
           <div className="px-6 pt-6">
-            {title && <h2 className="text-title text-neutral-900">{title}</h2>}
+            {title && <h2 className="text-title-lg text-neutral-900">{title}</h2>}
             {description && (
-              <p className="mt-1.5 text-body-sm text-neutral-600">{description}</p>
+              <p className="mt-2 text-body-sm text-neutral-600 leading-relaxed">{description}</p>
             )}
           </div>
         )}
-        {children && <div className="px-6 py-4">{children}</div>}
+        {children && <div className="px-6 py-5">{children}</div>}
         {footer && (
-          <div className="px-6 pb-6 pt-2 flex items-center justify-end gap-2 border-t border-neutral-100 mt-2 pt-4">
+          <div className="px-6 pb-5 pt-4 flex items-center justify-end gap-2 border-t border-hairline">
             {footer}
           </div>
         )}

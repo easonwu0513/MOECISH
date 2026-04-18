@@ -24,7 +24,7 @@ export function Tabs({
 
   return (
     <div className={cn('', className)}>
-      <div role="tablist" className="flex gap-0.5 border-b border-neutral-200">
+      <div role="tablist" className="flex gap-0.5 border-b border-hairline">
         {tabs.map((t) => {
           const selected = t.id === active;
           return (
@@ -35,9 +35,7 @@ export function Tabs({
               onClick={() => setActive(t.id)}
               className={cn(
                 'relative px-4 py-2.5 text-body-sm font-medium transition-colors focus-ring rounded-t-md',
-                selected
-                  ? 'text-primary-700'
-                  : 'text-neutral-500 hover:text-neutral-900',
+                selected ? 'text-primary-700' : 'text-neutral-500 hover:text-neutral-800',
               )}
             >
               <span className="inline-flex items-center gap-1.5">
@@ -45,7 +43,7 @@ export function Tabs({
                 {t.badge}
               </span>
               {selected && (
-                <span className="absolute left-0 right-0 bottom-0 h-0.5 bg-primary-600 rounded-t" />
+                <span className="absolute left-0 right-0 -bottom-px h-[1.5px] bg-primary-600 rounded-t" />
               )}
             </button>
           );

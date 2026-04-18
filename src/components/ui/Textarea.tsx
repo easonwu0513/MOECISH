@@ -32,11 +32,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
         aria-invalid={hasError}
         aria-describedby={hasError ? `${inputId}-err` : helperText ? `${inputId}-help` : undefined}
         className={cn(
-          'rounded-lg border bg-white px-3 py-2.5 text-body outline-none transition-all duration-180 ease-smooth resize-y',
-          'placeholder:text-neutral-400 focus:border-primary-500 focus:shadow-focus leading-relaxed',
+          'rounded-lg border bg-white px-3.5 py-2.5 text-body outline-none transition-all duration-180 ease-smooth resize-y leading-relaxed',
+          'placeholder:text-neutral-400 focus:border-primary-500 focus:shadow-focus',
           hasError
             ? 'border-danger-500 shadow-focus-danger'
-            : 'border-subtle hover:border-strong',
+            : 'border-hairline hover:border-subtle',
           disabled && 'bg-neutral-50 opacity-70 cursor-not-allowed',
         )}
         {...rest}

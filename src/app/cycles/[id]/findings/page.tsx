@@ -98,9 +98,9 @@ export default async function FindingsPage({ params }: { params: { id: string } 
         </Card>
       ) : (
         (['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as FindingAspect[]).map((aspect) => (
-          <section key={aspect} className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Chip tone={aspectTone[aspect]} size="md">{FINDING_ASPECT_LABELS[aspect]}</Chip>
+          <section key={aspect} className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Chip tone={aspectTone[aspect]} variant="outlined" size="md">{FINDING_ASPECT_LABELS[aspect]}</Chip>
               <span className="text-caption text-neutral-500">{byAspect[aspect].length} 項</span>
             </div>
             {byAspect[aspect].length === 0 ? (

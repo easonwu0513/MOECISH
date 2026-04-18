@@ -37,43 +37,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center px-4 py-10 overflow-hidden">
-      {/* Background */}
+    <div className="min-h-screen relative flex items-center justify-center px-4 py-10 overflow-hidden bg-surface">
+      {/* Very subtle background halo */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 20% 30%, rgba(74,125,181,0.12), transparent 60%),' +
-            'radial-gradient(ellipse 60% 50% at 80% 70%, rgba(107,139,110,0.10), transparent 60%),' +
-            'linear-gradient(180deg, #fbfbf9 0%, #f4f4f0 100%)',
+            'radial-gradient(ellipse 50% 40% at 20% 25%, rgba(84,135,189,0.06), transparent 70%),' +
+            'radial-gradient(ellipse 50% 40% at 85% 75%, rgba(103,134,105,0.05), transparent 70%)',
         }}
         aria-hidden
       />
-      <div className="absolute inset-0 bg-noise pointer-events-none opacity-50" aria-hidden />
 
       <div className="relative w-full max-w-[420px]">
         {/* Brand */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative">
-            <Logo size={64} />
-            <span
-              className="absolute -inset-4 -z-10 rounded-full blur-2xl opacity-40"
-              style={{ background: 'radial-gradient(closest-side, #4a7db5 0%, transparent 70%)' }}
-              aria-hidden
-            />
-          </div>
-          <h1 className="mt-5 text-display-sm text-neutral-900">MOECISH</h1>
-          <p className="mt-1.5 text-body-sm text-neutral-500 tracking-wide">
+        <div className="flex flex-col items-center mb-10">
+          <Logo size={56} />
+          <h1 className="mt-5 text-display-sm text-neutral-900 font-semibold">MOECISH</h1>
+          <p className="mt-1.5 text-body-sm text-neutral-500">
             資通安全稽核管考平台
           </p>
-          <p className="mt-5 text-body-sm text-neutral-600 text-center text-balance max-w-[280px] leading-relaxed">
+          <p className="mt-6 text-body-sm text-neutral-600 text-center text-balance max-w-[300px] leading-relaxed">
             讓每一次稽核都清楚、從容、留得下軌跡。
           </p>
         </div>
 
         {/* Card */}
-        <div className="relative bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-subtle p-7 sm:p-8">
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <div className="relative bg-white rounded-2xl border border-hairline p-7 sm:p-8">
+          <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <TextField
               label="Email"
               type="email"
@@ -100,12 +91,12 @@ export default function LoginPage() {
                 <span>{err}</span>
               </div>
             )}
-            <Button type="submit" loading={loading} fullWidth size="lg" className="mt-2">
+            <Button type="submit" loading={loading} fullWidth size="lg" className="mt-1">
               登入
             </Button>
           </form>
 
-          <div className="mt-7 pt-6 border-t border-hairline">
+          <div className="mt-8 pt-6 border-t border-hairline">
             <div className="flex items-center justify-between mb-3">
               <p className="text-label text-neutral-600">快速測試帳號</p>
               <span className="text-caption text-neutral-400">
@@ -123,8 +114,8 @@ export default function LoginPage() {
                     className={
                       'group text-left rounded-lg border px-3 py-2.5 transition-all duration-180 ease-smooth focus-ring ' +
                       (isSelected
-                        ? 'bg-primary-50 border-primary-200 shadow-xs'
-                        : 'bg-white hover:bg-neutral-25 border-subtle hover:border-strong')
+                        ? 'bg-primary-50/60 border-primary-200'
+                        : 'bg-white hover:bg-neutral-50 border-hairline hover:border-subtle')
                     }
                   >
                     <div className="flex items-center gap-1.5 mb-1.5">

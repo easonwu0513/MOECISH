@@ -32,12 +32,12 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           'focus-within:border-primary-500 focus-within:shadow-focus',
           hasError
             ? 'border-danger-500 shadow-focus-danger'
-            : 'border-subtle hover:border-strong',
+            : 'border-hairline hover:border-subtle',
           disabled && 'bg-neutral-50 opacity-70',
         )}
       >
         {leadingIcon && (
-          <span className="pl-3 text-neutral-400 shrink-0 flex items-center">{leadingIcon}</span>
+          <span className="pl-3.5 text-neutral-400 shrink-0 flex items-center">{leadingIcon}</span>
         )}
         <input
           ref={ref}
@@ -46,7 +46,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           aria-invalid={hasError}
           aria-describedby={hasError ? `${inputId}-err` : helperText ? `${inputId}-help` : undefined}
           className={cn(
-            'flex-1 min-w-0 bg-transparent px-3 h-10 text-body outline-none',
+            'flex-1 min-w-0 bg-transparent px-3.5 h-10 text-body outline-none',
             'placeholder:text-neutral-400 disabled:cursor-not-allowed',
             leadingIcon && 'pl-2',
             trailingIcon && 'pr-2',
@@ -54,7 +54,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           {...rest}
         />
         {trailingIcon && (
-          <span className="pr-3 text-neutral-400 shrink-0 flex items-center">{trailingIcon}</span>
+          <span className="pr-3.5 text-neutral-400 shrink-0 flex items-center">{trailingIcon}</span>
         )}
       </div>
       {hasError ? (

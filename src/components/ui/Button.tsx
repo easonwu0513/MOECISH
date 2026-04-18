@@ -18,25 +18,25 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    'bg-primary-600 text-white border border-primary-700/30 shadow-xs ' +
-    'hover:bg-primary-700 hover:shadow-sm active:bg-primary-800 active:shadow-xs',
+    'bg-primary-600 text-white ' +
+    'hover:bg-primary-700 hover:shadow-xs active:bg-primary-800',
   tonal:
     'bg-primary-50 text-primary-700 border border-primary-100 ' +
-    'hover:bg-primary-100 hover:border-primary-200 active:bg-primary-200/70',
+    'hover:bg-primary-100 active:bg-primary-200/70',
   secondary:
-    'bg-white text-neutral-700 border border-subtle shadow-xs ' +
-    'hover:bg-neutral-25 hover:border-strong active:bg-neutral-50',
+    'bg-white text-neutral-700 border border-hairline ' +
+    'hover:bg-neutral-50 hover:border-subtle active:bg-neutral-100',
   ghost:
     'bg-transparent text-neutral-600 border border-transparent ' +
-    'hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-150',
+    'hover:bg-neutral-50 hover:text-neutral-900 active:bg-neutral-100',
   danger:
-    'bg-danger-500 text-white border border-danger-600/40 shadow-xs ' +
+    'bg-danger-500 text-white ' +
     'hover:bg-danger-600 active:bg-danger-700',
   success:
-    'bg-success-500 text-white border border-success-600/40 shadow-xs ' +
+    'bg-success-500 text-white ' +
     'hover:bg-success-600 active:bg-success-700',
   warning:
-    'bg-warning-500 text-white border border-warning-600/40 shadow-xs ' +
+    'bg-warning-500 text-white ' +
     'hover:bg-warning-600 active:bg-warning-700',
 };
 

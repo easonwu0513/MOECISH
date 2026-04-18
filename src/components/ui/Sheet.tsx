@@ -38,16 +38,16 @@ export function Sheet({
   return (
     <div className="fixed inset-0 z-[90] animate-fade-in" role="dialog" aria-modal="true">
       <div
-        className="absolute inset-0 bg-neutral-900/30"
+        className="absolute inset-0 bg-neutral-900/20 backdrop-blur-[2px]"
         onClick={() => onOpenChange(false)}
       />
       <div
         className={cn(
-          'absolute right-0 top-0 bottom-0 w-full bg-white shadow-xl border-l border-neutral-200 flex flex-col animate-slide-in-right',
+          'absolute right-0 top-0 bottom-0 w-full bg-white shadow-lg border-l border-hairline flex flex-col animate-slide-in-right',
           w,
         )}
       >
-        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-hairline px-5 py-3.5">
           <h2 className="text-title text-neutral-900">{title}</h2>
           <IconButton icon={<X size={18} />} label="關閉" onClick={() => onOpenChange(false)} />
         </div>

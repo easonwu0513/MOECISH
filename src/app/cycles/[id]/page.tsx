@@ -84,7 +84,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       </header>
 
       {/* Overview stats */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <Card>
           <div className="flex items-center gap-4">
             <ProgressRing
@@ -140,7 +140,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       </section>
 
       {/* Module navigation */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
           tone="primary"
@@ -172,7 +172,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           .filter((s) => s.signerRole === myRole)
           .sort((a, b) => b.signedAt.getTime() - a.signedAt.getTime())[0];
         return (
-          <section className="mb-6">
+          <section className="mb-8">
             <SignedDocumentUpload
               cycleId={cycle.id}
               signerRole={myRole}
@@ -188,7 +188,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       })()}
 
       {/* Exports */}
-      <Card className="mb-6">
+      <Card className="mb-8">
         <CardTitle>匯出</CardTitle>
         <CardDescription>產出制式公文格式檔案</CardDescription>
         <div className="mt-4 flex flex-wrap gap-2">

@@ -206,9 +206,9 @@ export default function ChecklistItemCard({
     <div
       data-item-id={item.id}
       className={cn(
-        'relative bg-white rounded-xl border transition-all shadow-xs',
-        focused ? 'border-primary-500 ring-2 ring-primary-200' : 'border-neutral-200',
-        expanded ? 'shadow-sm' : 'hover:shadow-sm hover:border-neutral-300',
+        'relative bg-white rounded-xl border transition-all duration-180 ease-smooth',
+        focused ? 'border-primary-400 ring-2 ring-primary-100' : 'border-hairline',
+        expanded ? 'shadow-xs' : 'hover:border-subtle',
       )}
     >
       {/* left color bar */}
@@ -226,7 +226,7 @@ export default function ChecklistItemCard({
         className="w-full flex items-start gap-3 text-left px-4 py-3 focus-ring rounded-xl"
         aria-expanded={expanded}
       >
-        <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">
+        <Chip tone="neutral" size="sm" className="font-mono shrink-0 mt-0.5">
           {item.itemNo}
         </Chip>
         <div className="flex-1 min-w-0">

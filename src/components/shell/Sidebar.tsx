@@ -51,10 +51,10 @@ const groups: Group[] = [
 ];
 
 const roleAccent: Record<Role, string> = {
-  ADMIN: 'bg-primary-500',
-  AUDITOR: 'bg-sage-500',
-  RESPONDENT: 'bg-neutral-400',
-  SUPERVISOR: 'bg-warning-500',
+  ADMIN: 'bg-primary-400',
+  AUDITOR: 'bg-sage-400',
+  RESPONDENT: 'bg-neutral-300',
+  SUPERVISOR: 'bg-warning-400',
 };
 
 export function Sidebar({
@@ -77,8 +77,8 @@ export function Sidebar({
         collapsed ? 'w-16' : 'w-64',
       )}
     >
-      {/* Subtle role accent strip */}
-      <span className={cn('absolute left-0 top-0 h-full w-[2px]', roleAccent[role])} aria-hidden />
+      {/* Role accent strip — subtle */}
+      <span className={cn('absolute left-0 top-0 h-full w-[3px] opacity-70', roleAccent[role])} aria-hidden />
 
       {showBrand && !collapsed && (
         <div className="h-14 flex items-center px-5 border-b border-hairline">
@@ -86,14 +86,14 @@ export function Sidebar({
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-4">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin py-5">
         {groups.map((g, gi) => {
           const items = g.items.filter((i) => i.allow.includes(role));
           if (items.length === 0) return null;
           return (
-            <div key={gi} className="mb-5 last:mb-0">
+            <div key={gi} className="mb-6 last:mb-0">
               {g.label && !collapsed && (
-                <div className="px-5 mb-1.5 text-[0.6875rem] uppercase tracking-[0.08em] text-neutral-500 font-medium">
+                <div className="px-5 mb-2 text-[0.6875rem] uppercase tracking-[0.1em] text-neutral-400 font-medium">
                   {g.label}
                 </div>
               )}
@@ -108,24 +108,24 @@ export function Sidebar({
                         href={i.href}
                         onClick={onClose}
                         className={cn(
-                          'group relative flex items-center gap-2.5 rounded-lg px-3 h-9 text-body-sm transition-all duration-180 ease-smooth focus-ring',
+                          'group relative flex items-center gap-2.5 rounded-md px-3 h-9 text-body-sm transition-colors duration-180 ease-smooth focus-ring',
                           active
-                            ? 'bg-white text-primary-700 font-medium shadow-xs'
-                            : 'text-neutral-600 hover:bg-white/60 hover:text-neutral-900',
+                            ? 'text-primary-700 font-medium'
+                            : 'text-neutral-600 hover:bg-white hover:text-neutral-900',
                           collapsed && 'justify-center px-0',
                         )}
                         title={collapsed ? i.label : undefined}
                       >
                         {active && (
                           <span
-                            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-primary-500 rounded-full"
+                            className="absolute left-0 top-2 bottom-2 w-[2px] bg-primary-600 rounded-full"
                             aria-hidden
                           />
                         )}
                         <span
                           className={cn(
                             'transition-colors',
-                            active ? 'text-primary-600' : 'text-neutral-400 group-hover:text-neutral-600',
+                            active ? 'text-primary-600' : 'text-neutral-400 group-hover:text-neutral-700',
                           )}
                         >
                           {i.icon}
@@ -143,7 +143,7 @@ export function Sidebar({
 
       {!collapsed && (
         <div className="px-5 py-4 border-t border-hairline text-caption text-neutral-400">
-          <span className="font-medium text-neutral-500">MOECISH</span> · v0.2 雛形
+          <span className="font-medium text-neutral-500">MOECISH</span> · v0.3
         </div>
       )}
     </aside>

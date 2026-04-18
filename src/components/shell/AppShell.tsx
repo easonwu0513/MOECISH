@@ -51,7 +51,7 @@ export function AppShell({
   ];
 
   return (
-    <div className="min-h-screen flex bg-neutral-50">
+    <div className="min-h-screen flex bg-app">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
         <Sidebar role={user.role} />

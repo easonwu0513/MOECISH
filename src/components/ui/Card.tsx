@@ -16,19 +16,18 @@ const elevationMap = {
 };
 
 export const Card = forwardRef<HTMLDivElement, Props>(function Card(
-  { elevation = 1, interactive, padded = true, surface = 'default', className, children, ...rest },
+  { elevation = 0, interactive, padded = true, surface = 'default', className, children, ...rest },
   ref,
 ) {
   return (
     <div
       ref={ref}
       className={cn(
-        'border border-subtle rounded-xl transition-all duration-180 ease-smooth',
+        'border border-hairline rounded-xl transition-all duration-180 ease-smooth',
         surface === 'muted' ? 'bg-surface-muted' :
         surface === 'raised' ? 'bg-surface-raised' : 'bg-surface',
         elevationMap[elevation],
-        interactive &&
-          'hover:shadow-md hover:-translate-y-px hover:border-strong cursor-pointer',
+        interactive && 'hover:border-subtle hover:shadow-sm cursor-pointer',
         padded && 'p-6',
         className,
       )}
@@ -44,12 +43,7 @@ export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement
 }
 
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
-  return (
-    <h3
-      className={cn('text-title text-neutral-900', className)}
-      {...rest}
-    />
-  );
+  return <h3 className={cn('text-title text-neutral-900', className)} {...rest} />;
 }
 
 export function CardDescription({ className, ...rest }: HTMLAttributes<HTMLParagraphElement>) {

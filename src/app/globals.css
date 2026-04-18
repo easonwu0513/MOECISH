@@ -3,31 +3,27 @@
 @tailwind utilities;
 
 /* ============================================================
-   Design Tokens — refined with breathing warmth
+   Tokens — white-first, airy
    ============================================================ */
 :root {
   color-scheme: light;
 
-  /* Surfaces (warm paper — 不是純白) */
-  --bg-app: #f7f7f4;           /* 極淡米灰背景 */
-  --bg-surface: #ffffff;
-  --bg-surface-muted: #f1f1ec;
+  --bg-app:           #ffffff;
+  --bg-surface:       #ffffff;
+  --bg-surface-muted: #fafafa;
+  --bg-surface-sunken:#f5f5f5;
 
-  /* Borders (都偏暖、避免 iOS 灰冷感) */
-  --border-hairline: #ededea;
-  --border-subtle: #e4e4df;
-  --border-strong: #c9c9c2;
+  --border-hairline:  #f0f0f0;
+  --border-subtle:    #e8e8e8;
+  --border-strong:    #d0d0d0;
 
-  /* Text */
-  --text-primary: #131312;
-  --text-secondary: #3b3b38;
-  --text-tertiary: #6d6d68;
-  --text-muted: #8a8a85;
+  --text-primary:   #18181a;
+  --text-secondary: #4a4a4d;
+  --text-tertiary:  #7a7a7d;
+  --text-muted:     #9a9a9d;
 
-  /* Focus */
-  --focus-ring: 0 0 0 3px rgba(74, 125, 181, 0.22);
+  --focus-ring: 0 0 0 3px rgba(62, 114, 168, 0.18);
 
-  /* Type */
   --font-sans: var(--font-inter), var(--font-noto), ui-sans-serif, system-ui,
     -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -39,12 +35,11 @@
 html {
   font-family: var(--font-sans);
   font-feature-settings:
-    'cv11' 1,   /* more modern single-story 'a' */
-    'ss01' 1,   /* stylistic set 1 */
-    'ss03' 1,   /* stylistic set 3 */
-    'cv02' 1,   /* alt 'g' */
-    'cv03' 1;   /* alt 'i' */
-  font-variation-settings: 'slnt' 0;
+    'cv11' 1,
+    'ss01' 1,
+    'ss03' 1,
+    'cv02' 1,
+    'cv03' 1;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,12 +48,11 @@ html {
 body {
   background: var(--bg-app);
   color: var(--text-primary);
-  font-size: 0.9375rem;      /* 15px — a touch bigger than default for comfort */
-  line-height: 1.55;
-  letter-spacing: -0.003em;  /* very subtle tightening */
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  letter-spacing: -0.003em;
 }
 
-/* Tabular numerals for all numeric-heavy UI */
 .tabular-nums,
 [class*='tabular-'],
 .kbd,
@@ -67,20 +61,12 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
-/* Headings: tighter tracking for larger text */
-h1, h2, h3, h4 {
-  letter-spacing: -0.018em;
-}
+h1, h2, h3, h4 { letter-spacing: -0.02em; }
 
-/* Links inside flowing text */
-a {
-  color: inherit;
-  text-decoration: none;
-}
+a { color: inherit; text-decoration: none; }
 
-/* Selection color */
 ::selection {
-  background: rgba(74, 125, 181, 0.22);
+  background: rgba(62, 114, 168, 0.18);
   color: inherit;
 }
 
@@ -88,9 +74,10 @@ a {
    Utilities
    ============================================================ */
 @layer utilities {
-  .bg-surface { background-color: var(--bg-surface); }
-  .bg-app    { background-color: var(--bg-app); }
-  .bg-muted  { background-color: var(--bg-surface-muted); }
+  .bg-surface        { background-color: var(--bg-surface); }
+  .bg-surface-muted  { background-color: var(--bg-surface-muted); }
+  .bg-surface-sunken { background-color: var(--bg-surface-sunken); }
+  .bg-app            { background-color: var(--bg-app); }
 
   .border-hairline { border-color: var(--border-hairline); }
   .border-subtle   { border-color: var(--border-subtle); }
@@ -99,38 +86,18 @@ a {
   .text-balance { text-wrap: balance; }
   .text-pretty  { text-wrap: pretty; }
 
-  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #d4d4d1 transparent; }
+  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #d4d4d4 transparent; }
   .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d4d1; border-radius: 999px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #a8a8a3; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 999px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
 
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
   }
 
-  /* Subtle background noise for hero sections (0 network cost) */
   .bg-noise {
-    background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(0, 0, 0, 0.018) 1px, transparent 1px);
     background-size: 3px 3px;
-  }
-
-  /* Soft gradient border effect */
-  .gradient-border {
-    position: relative;
-  }
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, rgba(74,125,181,0.25), rgba(107,143,122,0.15));
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
   }
 }
 
@@ -139,23 +106,21 @@ a {
    ============================================================ */
 @layer components {
   .kbd {
-    @apply inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 text-[11px] font-mono font-medium text-neutral-600 bg-white border border-subtle rounded-[5px];
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    @apply inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 text-[11px] font-mono font-medium text-neutral-500 bg-white border border-subtle rounded-[5px];
   }
 
-  /* Dotted separator for refined sections */
   .dotted-divider {
     background-image: radial-gradient(currentColor 1px, transparent 1px);
     background-size: 4px 1px;
     background-repeat: repeat-x;
     background-position: center;
     height: 1px;
-    color: #d4d4d1;
+    color: #dddddd;
   }
 }
 
 /* ============================================================
-   Motion (reduced-motion aware)
+   Motion
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

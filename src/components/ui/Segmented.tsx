@@ -19,10 +19,10 @@ type Props<T extends string> = {
 };
 
 const toneSelectedBg: Record<NonNullable<Option<string>['tone']>, string> = {
-  neutral: 'bg-primary-600 text-white shadow-sm',
-  success: 'bg-success-500 text-white shadow-sm',
-  warning: 'bg-warning-500 text-white shadow-sm',
-  danger: 'bg-danger-500 text-white shadow-sm',
+  neutral: 'bg-primary-600 text-white',
+  success: 'bg-success-500 text-white',
+  warning: 'bg-warning-500 text-white',
+  danger:  'bg-danger-500 text-white',
 };
 
 export function Segmented<T extends string>({
@@ -39,7 +39,7 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex rounded-lg border border-subtle bg-neutral-50 p-0.5 shadow-inner-sm',
+        'inline-flex rounded-lg border border-hairline bg-neutral-50 p-0.5',
         disabled && 'opacity-60',
         className,
       )}
@@ -58,8 +58,8 @@ export function Segmented<T extends string>({
               'flex-1 font-medium transition-all duration-180 ease-smooth focus-ring rounded-md',
               size === 'sm' ? 'h-7 px-3 text-[0.8125rem]' : 'h-8 px-4 text-body-sm',
               selected
-                ? toneSelectedBg[tone]
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60',
+                ? toneSelectedBg[tone] + ' shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/70',
             )}
           >
             {opt.label}

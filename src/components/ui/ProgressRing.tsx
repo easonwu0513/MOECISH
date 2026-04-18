@@ -4,7 +4,7 @@ export function ProgressRing({
   value,
   max = 100,
   size = 88,
-  strokeWidth = 8,
+  strokeWidth = 7,
   tone = 'primary',
   label,
   sublabel,
@@ -39,7 +39,7 @@ export function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          className="stroke-neutral-200"
+          className="stroke-neutral-100"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -47,7 +47,7 @@ export function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          className={cn(color, 'transition-all duration-500')}
+          className={cn(color, 'transition-all duration-500 ease-out-expo')}
           strokeWidth={strokeWidth}
           strokeDasharray={c}
           strokeDashoffset={offset}
@@ -56,8 +56,8 @@ export function ProgressRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {label && <span className="text-title text-neutral-900 leading-none">{label}</span>}
-        {sublabel && <span className="text-caption text-neutral-500 mt-0.5">{sublabel}</span>}
+        {label && <span className="text-title text-neutral-900 leading-none tabular-nums">{label}</span>}
+        {sublabel && <span className="text-caption text-neutral-500 mt-0.5 tabular-nums">{sublabel}</span>}
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ export function ProgressBar({
     warning: 'bg-warning-500',
     danger: 'bg-danger-500',
   }[tone];
-  const h = size === 'sm' ? 'h-1.5' : 'h-2';
+  const h = size === 'sm' ? 'h-1' : 'h-1.5';
 
   return (
     <div className={cn('w-full', className)}>
@@ -32,10 +32,10 @@ export function ProgressBar({
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={max}
-        className={cn('w-full bg-neutral-200 rounded-full overflow-hidden', h)}
+        className={cn('w-full bg-neutral-100 rounded-full overflow-hidden', h)}
       >
         <div
-          className={cn('h-full rounded-full transition-all', toneBg)}
+          className={cn('h-full rounded-full transition-all duration-250 ease-smooth', toneBg)}
           style={{ width: `${pct}%` }}
         />
       </div>

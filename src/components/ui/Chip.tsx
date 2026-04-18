@@ -14,21 +14,21 @@ type Props = HTMLAttributes<HTMLSpanElement> & {
 };
 
 const softTones: Record<Tone, string> = {
-  neutral: 'bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-200',
-  primary: 'bg-primary-50  text-primary-700 ring-1 ring-inset ring-primary-100',
-  sage:    'bg-sage-50     text-sage-700    ring-1 ring-inset ring-sage-100',
-  success: 'bg-success-50  text-success-700 ring-1 ring-inset ring-success-100',
-  warning: 'bg-warning-50  text-warning-700 ring-1 ring-inset ring-warning-100',
-  danger:  'bg-danger-50   text-danger-700  ring-1 ring-inset ring-danger-100',
+  neutral: 'bg-neutral-50    text-neutral-700 ring-1 ring-inset ring-neutral-150',
+  primary: 'bg-primary-50/60 text-primary-700 ring-1 ring-inset ring-primary-100',
+  sage:    'bg-sage-50/60    text-sage-700    ring-1 ring-inset ring-sage-100',
+  success: 'bg-success-50/70 text-success-700 ring-1 ring-inset ring-success-100',
+  warning: 'bg-warning-50/70 text-warning-700 ring-1 ring-inset ring-warning-100',
+  danger:  'bg-danger-50/70  text-danger-700  ring-1 ring-inset ring-danger-100',
 };
 
 const outlinedTones: Record<Tone, string> = {
-  neutral: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-300',
-  primary: 'bg-white text-primary-700 ring-1 ring-inset ring-primary-300',
-  sage:    'bg-white text-sage-700    ring-1 ring-inset ring-sage-300',
-  success: 'bg-white text-success-700 ring-1 ring-inset ring-success-500/40',
-  warning: 'bg-white text-warning-700 ring-1 ring-inset ring-warning-500/40',
-  danger:  'bg-white text-danger-700  ring-1 ring-inset ring-danger-500/40',
+  neutral: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200',
+  primary: 'bg-white text-primary-700 ring-1 ring-inset ring-primary-200',
+  sage:    'bg-white text-sage-700    ring-1 ring-inset ring-sage-200',
+  success: 'bg-white text-success-700 ring-1 ring-inset ring-success-500/30',
+  warning: 'bg-white text-warning-700 ring-1 ring-inset ring-warning-500/30',
+  danger:  'bg-white text-danger-700  ring-1 ring-inset ring-danger-500/30',
 };
 
 const filledTones: Record<Tone, string> = {
@@ -41,7 +41,7 @@ const filledTones: Record<Tone, string> = {
 };
 
 const dotColor: Record<Tone, string> = {
-  neutral: 'bg-neutral-500',
+  neutral: 'bg-neutral-400',
   primary: 'bg-primary-500',
   sage:    'bg-sage-500',
   success: 'bg-success-500',
@@ -57,7 +57,7 @@ const sizes: Record<Size, string> = {
 
 export function Chip({
   tone = 'neutral',
-  size = 'md',
+  size = 'sm',
   variant = 'soft',
   dot,
   icon,

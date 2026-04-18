@@ -163,8 +163,8 @@ export default function ChecklistShell({
   return (
     <div ref={containerRef}>
       {/* Sticky toolbar */}
-      <div className="sticky top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-neutral-50/90 backdrop-blur border-b border-neutral-200 mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-white/95 backdrop-blur-sm border-b border-hairline mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 max-w-md">
             <TextField
               leadingIcon={<Search size={16} />}
@@ -234,12 +234,12 @@ export default function ChecklistShell({
         />
       ) : (
         grouped.map(({ dim, items }) => (
-          <section key={dim} className="mb-8">
-            <h2 id={`dim-${dim}`} className="flex items-center gap-2 text-title text-neutral-900 mb-3 scroll-mt-40">
+          <section key={dim} className="mb-10">
+            <h2 id={`dim-${dim}`} className="flex items-center gap-2 text-title text-neutral-900 mb-4 scroll-mt-40">
               <span>{DIMENSION_LABELS[dim as Dimension]}</span>
               <Chip size="sm" tone="neutral">{items.length}</Chip>
             </h2>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               {items.map((it) => {
                 const r = responsesByItem.get(it.id);
                 const isFocused = flatIds[focusedIdx] === it.id;
