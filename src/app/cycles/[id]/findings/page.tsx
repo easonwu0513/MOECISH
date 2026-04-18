@@ -1,17 +1,34 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { AppShell } from '@/components/shell/AppShell';
+import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Chip } from '@/components/ui/Chip';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { AlertTriangle } from '@/components/icons';
 import {
   FINDING_ASPECT_LABELS,
   FINDING_TYPE_LABELS,
   type FindingAspect,
   type FindingType,
+  type Dimension,
 } from '@/lib/types';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import type { Dimension } from '@/lib/types';
+import { EMPTY } from '@/lib/copy';
 import FindingForm from './FindingForm';
 import RemediationEditor from './RemediationEditor';
+
+const aspectTone: Record<FindingAspect, 'primary' | 'sage' | 'neutral'> = {
+  STRATEGY: 'primary',
+  MANAGEMENT: 'sage',
+  TECHNICAL: 'neutral',
+};
+
+const typeTone: Record<FindingType, 'success' | 'warning' | 'primary'> = {
+  LEGAL_COMPLIANT: 'success',
+  NEEDS_IMPROVEMENT: 'warning',
+  SUGGESTION: 'primary',
+};
 
 export default async function FindingsPage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -23,9 +40,7 @@ export default async function FindingsPage({ params }: { params: { id: string } 
     include: {
       organization: true,
       findings: {
-        include: {
-          remediation: { include: { decisions: { orderBy: { round: 'asc' } } } },
-        },
+        include: { remediation: { include: { decisions: { orderBy: { round: 'asc' } } } } },
         orderBy: [{ findingNo: 'asc' }],
       },
     },
@@ -39,6 +54,8 @@ export default async function FindingsPage({ params }: { params: { id: string } 
     redirect('/');
   }
 
+  const canOpenFinding = user.role === 'AUDITOR' || user.role === 'ADMIN';
+
   const byAspect: Record<FindingAspect, typeof cycle.findings> = {
     STRATEGY: [],
     MANAGEMENT: [],
@@ -47,72 +64,81 @@ export default async function FindingsPage({ params }: { params: { id: string } 
   for (const f of cycle.findings) byAspect[f.aspect as FindingAspect].push(f);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      <header className="mb-6">
-        <Link href={`/cycles/${cycle.id}`} className="text-sm text-slate-500 hover:text-brand-600">← 回稽核週期</Link>
-        <h1 className="mt-2 text-2xl font-bold text-brand-700">模組二　稽核發現與改善</h1>
-        <p className="text-sm text-slate-600 mt-1">
-          {cycle.organization.name} · {cycle.year - 1911} 年度 · 狀態 {cycle.status} · 共 {cycle.findings.length} 項發現
-        </p>
+    <AppShell
+      user={{
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organizationName: user.organizationName,
+      }}
+      cycleId={cycle.id}
+      crumbs={[
+        { label: '總覽', href: '/' },
+        { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
+        { label: '模組二 · 稽核發現' },
+      ]}
+    >
+      <header className="mb-5 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-headline text-neutral-900">模組二　稽核發現與改善</h1>
+          <p className="text-body-sm text-neutral-500 mt-1">
+            {cycle.organization.name} · 共 {cycle.findings.length} 項發現
+          </p>
+        </div>
+        {canOpenFinding && <FindingForm cycleId={cycle.id} />}
       </header>
 
-      {(user.role === 'AUDITOR' || user.role === 'ADMIN') && (
-        <section className="mb-6">
-          <FindingForm cycleId={cycle.id} />
-        </section>
-      )}
-
-      {(['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as FindingAspect[]).map((aspect) => (
-        <section key={aspect} className="mb-8">
-          <h2 className="text-lg font-semibold text-brand-700 mb-3 border-l-4 border-brand-500 pl-3">
-            {FINDING_ASPECT_LABELS[aspect]}（{byAspect[aspect].length} 項）
-          </h2>
-          {byAspect[aspect].length === 0 ? (
-            <p className="text-sm text-slate-400 pl-4">無發現</p>
-          ) : (
-            <div className="space-y-4">
-              {byAspect[aspect].map((f) => (
-                <div key={f.id} className="bg-white border rounded-xl p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="font-mono font-semibold text-brand-700">{f.findingNo}</span>
-                        <span className={`px-2 py-0.5 rounded-full ${typeBadge(f.type as FindingType)}`}>
-                          {FINDING_TYPE_LABELS[f.type as FindingType]}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          {DIMENSION_LABELS[f.dimension as Dimension].split('、')[0]}
-                        </span>
-                      </div>
-                      <p className="mt-1 font-semibold text-slate-800">{f.title}</p>
-                      <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{f.description}</p>
-                    </div>
-                  </div>
-
-                  {f.type === 'NEEDS_IMPROVEMENT' && (
-                    <RemediationEditor
-                      finding={{
-                        id: f.id,
-                        findingNo: f.findingNo,
-                      }}
-                      remediation={f.remediation}
-                      userRole={user.role}
-                    />
-                  )}
-                </div>
-              ))}
+      {cycle.findings.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<AlertTriangle size={28} />}
+            title={EMPTY.noFindings.title}
+            description={EMPTY.noFindings.description}
+          />
+        </Card>
+      ) : (
+        (['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as FindingAspect[]).map((aspect) => (
+          <section key={aspect} className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Chip tone={aspectTone[aspect]} size="md">{FINDING_ASPECT_LABELS[aspect]}</Chip>
+              <span className="text-caption text-neutral-500">{byAspect[aspect].length} 項</span>
             </div>
-          )}
-        </section>
-      ))}
-    </div>
-  );
-}
+            {byAspect[aspect].length === 0 ? (
+              <p className="text-body-sm text-neutral-400 mb-4 pl-1">本構面目前無發現</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {byAspect[aspect].map((f) => (
+                  <Card key={f.id} elevation={1}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className="font-mono text-title text-primary-700">{f.findingNo}</span>
+                          <Chip tone={typeTone[f.type as FindingType]} size="sm">
+                            {FINDING_TYPE_LABELS[f.type as FindingType]}
+                          </Chip>
+                          <Chip tone="neutral" size="sm">
+                            {DIMENSION_LABELS[f.dimension as Dimension].split('、')[0]}
+                          </Chip>
+                        </div>
+                        <p className="font-semibold text-body text-neutral-900">{f.title}</p>
+                        <p className="mt-1 text-body-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">{f.description}</p>
+                      </div>
+                    </div>
 
-function typeBadge(t: FindingType) {
-  switch (t) {
-    case 'LEGAL_COMPLIANT': return 'bg-green-100 text-green-700';
-    case 'NEEDS_IMPROVEMENT': return 'bg-red-100 text-red-700';
-    case 'SUGGESTION': return 'bg-blue-100 text-blue-700';
-  }
+                    {f.type === 'NEEDS_IMPROVEMENT' && (
+                      <RemediationEditor
+                        finding={{ id: f.id, findingNo: f.findingNo }}
+                        remediation={f.remediation}
+                        userRole={user.role}
+                      />
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
+          </section>
+        ))
+      )}
+    </AppShell>
+  );
 }

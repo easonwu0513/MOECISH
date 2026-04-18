@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/cn';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
+import { Textarea } from '@/components/ui/Textarea';
+import { TextField } from '@/components/ui/TextField';
+import { Timeline, type TimelineNode } from '@/components/ui/Timeline';
+import { ConfirmDialog } from '@/components/ui/Dialog';
+import { useToast } from '@/components/ui/Toast';
+import { Check, AlertTriangle, Paperclip, Upload } from '@/components/icons';
 import { REM_STATUS_LABELS } from '@/lib/state-machine';
+import { TOAST } from '@/lib/copy';
 import type { RemediationStatus } from '@/lib/types';
 
 const ACTION_TAGS = [
@@ -20,7 +30,7 @@ type Decision = {
   round: number;
   decision: string;
   comment: string | null;
-  decidedAt: Date;
+  decidedAt: Date | string;
 };
 
 type Remediation = {
@@ -29,7 +39,7 @@ type Remediation = {
   rootCause: string | null;
   actions: string | null;
   actionTagsJson: string | null;
-  plannedDueDate: Date | null;
+  plannedDueDate: Date | string | null;
   trackingMethod: string | null;
   executionStatus: string | null;
   currentRound: number;
@@ -47,6 +57,8 @@ export default function RemediationEditor({
   userRole: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
+
   const status = (remediation?.status ?? 'PENDING') as RemediationStatus;
   const canEditResp = (userRole === 'RESPONDENT' || userRole === 'SUPERVISOR') &&
     (status === 'PENDING' || status === 'DRAFT' || status === 'NEEDS_REWORK');
@@ -64,9 +76,12 @@ export default function RemediationEditor({
   const [trackingMethod, setTrackingMethod] = useState(remediation?.trackingMethod ?? '');
   const [executionStatus, setExecutionStatus] = useState(remediation?.executionStatus ?? '');
   const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+
+  const [decideOpen, setDecideOpen] = useState<'APPROVED' | 'NEEDS_REWORK' | null>(null);
+  const [decideComment, setDecideComment] = useState('');
 
   const [evidences, setEvidences] = useState<{ id: string; originalName: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
   useEffect(() => {
     if (!remediation) return;
     fetch(`/api/evidences?targetType=REMEDIATION&targetId=${remediation.id}`)
@@ -80,7 +95,7 @@ export default function RemediationEditor({
   }
 
   async function save(submit: boolean) {
-    setErr(null); setSaving(true);
+    setSaving(true);
     const res = await fetch(`/api/findings/${finding.id}/remediation`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -98,214 +113,260 @@ export default function RemediationEditor({
     setSaving(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-      setErr(j.error ?? '儲存失敗');
+      toast.error('儲存失敗', j.error);
       return;
     }
+    const t = submit ? TOAST.submittedRemediation() : TOAST.savedRemediation();
+    toast.success(t.title, t.description);
     router.refresh();
   }
 
-  async function decide(decision: 'APPROVED' | 'NEEDS_REWORK') {
-    const c = decision === 'NEEDS_REWORK'
-      ? prompt('請填寫持續改正原因：') ?? ''
-      : prompt('（可留空）核可說明：') ?? '';
-    if (decision === 'NEEDS_REWORK' && !c) return;
-
+  async function decide() {
+    if (!decideOpen) return;
+    const decision = decideOpen;
+    if (decision === 'NEEDS_REWORK' && !decideComment.trim()) {
+      toast.error('請填寫持續改正原因', '退回補正必須附說明');
+      return;
+    }
+    setSaving(true);
     const res = await fetch(`/api/findings/${finding.id}/remediation/decisions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ decision, comment: c }),
+      body: JSON.stringify({ decision, comment: decideComment }),
     });
-    if (res.ok) router.refresh();
-    else alert((await res.json()).error ?? '失敗');
+    setSaving(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '失敗' }));
+      toast.error('審核失敗', j.error);
+      return;
+    }
+    const t = decision === 'APPROVED' ? TOAST.approvedRemediation() : TOAST.needsReworkRemediation();
+    toast.success(t.title, t.description);
+    setDecideOpen(null);
+    setDecideComment('');
+    router.refresh();
   }
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f || !remediation) return;
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error('上傳失敗', '檔案超過 5MB 上限');
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
     const fd = new FormData();
     fd.append('file', f);
     fd.append('targetType', 'REMEDIATION');
     fd.append('targetId', remediation.id);
     const res = await fetch('/api/evidences', { method: 'POST', body: fd });
+    setUploading(false);
     if (res.ok) {
       const j = await res.json();
       setEvidences((prev) => [...prev, j.item]);
+      toast.success('已上傳佐證', f.name);
+    } else {
+      const j = await res.json().catch(() => ({ error: '上傳失敗' }));
+      toast.error('上傳失敗', j.error);
     }
     e.target.value = '';
   }
 
-  return (
-    <div className="mt-4 pt-4 border-t bg-slate-50/50 -mx-5 px-5 pb-4">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs text-slate-500">改善情形（第 {remediation?.currentRound ?? 1} 輪）</span>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadge(status)}`}>
-          {REM_STATUS_LABELS[status]}
-        </span>
-      </div>
+  // Build Timeline nodes
+  const timelineNodes: TimelineNode[] = [];
+  // Past rounds from decisions
+  (remediation?.decisions ?? []).forEach((d) => {
+    timelineNodes.push({
+      id: d.id,
+      tone: d.decision === 'APPROVED' ? 'success' : 'warning',
+      icon: d.decision === 'APPROVED' ? <Check size={10} /> : <AlertTriangle size={10} />,
+      title: (
+        <>
+          <span>第 {d.round} 輪</span>
+          <Chip tone={d.decision === 'APPROVED' ? 'success' : 'warning'} size="sm">
+            {d.decision === 'APPROVED' ? '審核通過' : '持續改正'}
+          </Chip>
+        </>
+      ),
+      meta: new Date(d.decidedAt).toLocaleString('zh-TW'),
+      body: d.comment ? <p className="whitespace-pre-wrap">{d.comment}</p> : null,
+    });
+  });
+  // Current round node
+  if (status !== 'APPROVED' || (remediation?.decisions ?? []).length === 0) {
+    timelineNodes.push({
+      id: 'current',
+      tone: status === 'APPROVED' ? 'success' : 'sage',
+      pulse: status === 'DRAFT' || status === 'NEEDS_REWORK' || status === 'SUBMITTED',
+      title: (
+        <>
+          <span>第 {remediation?.currentRound ?? 1} 輪（當前）</span>
+          <Chip tone={status === 'APPROVED' ? 'success' : 'sage'} size="sm">
+            {REM_STATUS_LABELS[status]}
+          </Chip>
+        </>
+      ),
+      meta: status === 'PENDING' ? '尚待受稽機關開始填報' : undefined,
+    });
+  }
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  return (
+    <div className="mt-4 pt-4 border-t border-neutral-100">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-5">
+        {/* Left: timeline */}
         <div>
-          <label className="block text-xs text-slate-500 mb-1">發生原因（根因分析）</label>
-          <textarea
-            disabled={!canEditResp}
+          <p className="text-label text-neutral-500 mb-3">審核歷程</p>
+          <Timeline nodes={timelineNodes} />
+        </div>
+
+        {/* Right: editor */}
+        <div className="flex flex-col gap-4">
+          <Textarea
+            label="發生原因（根因分析）"
             value={rootCause}
             onChange={(e) => setRootCause(e.target.value)}
+            disabled={!canEditResp}
             rows={3}
-            className="w-full border rounded px-2 py-1.5 text-sm disabled:bg-white disabled:text-slate-500"
           />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">預計完成時程</label>
-          <input
-            type="date"
-            disabled={!canEditResp}
-            value={plannedDueDate}
-            onChange={(e) => setPlannedDueDate(e.target.value)}
-            className="w-full border rounded px-2 py-1.5 text-sm disabled:bg-white disabled:text-slate-500"
-          />
-          <label className="block text-xs text-slate-500 mb-1 mt-2">進度追蹤方式</label>
-          <textarea
-            disabled={!canEditResp}
-            value={trackingMethod}
-            onChange={(e) => setTrackingMethod(e.target.value)}
-            rows={2}
-            className="w-full border rounded px-2 py-1.5 text-sm disabled:bg-white disabled:text-slate-500"
-          />
-        </div>
-      </div>
-
-      <div className="mt-3">
-        <label className="block text-xs text-slate-500 mb-1">改善措施（可複選）</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {ACTION_TAGS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              disabled={!canEditResp}
-              onClick={() => toggleTag(t)}
-              className={`px-2 py-1 text-xs rounded border ${
-                tags.includes(t)
-                  ? 'bg-brand-600 text-white border-transparent'
-                  : 'bg-white hover:border-brand-500 disabled:opacity-60'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        <textarea
-          disabled={!canEditResp}
-          value={actions}
-          onChange={(e) => setActions(e.target.value)}
-          rows={3}
-          placeholder="詳細說明改善措施…"
-          className="w-full border rounded px-2 py-1.5 text-sm disabled:bg-white disabled:text-slate-500"
-        />
-      </div>
-
-      <div className="mt-3">
-        <label className="block text-xs text-slate-500 mb-1">執行情形</label>
-        <textarea
-          disabled={!canEditResp}
-          value={executionStatus}
-          onChange={(e) => setExecutionStatus(e.target.value)}
-          rows={3}
-          className="w-full border rounded px-2 py-1.5 text-sm disabled:bg-white disabled:text-slate-500"
-        />
-      </div>
-
-      {remediation && (
-        <div className="mt-3">
-          <p className="text-xs text-slate-500 mb-1">佐證</p>
-          {evidences.length > 0 ? (
-            <ul className="space-y-0.5 text-sm mb-2">
-              {evidences.map((f) => (
-                <li key={f.id}>
-                  <a className="text-brand-600 hover:underline" href={`/api/evidences/${f.id}/download`}>📎 {f.originalName}</a>
-                </li>
+          <div>
+            <label className="block text-label text-neutral-700 mb-2">改善措施（可複選）</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {ACTION_TAGS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  disabled={!canEditResp}
+                  onClick={() => toggleTag(t)}
+                  className={cn(
+                    'h-7 px-3 text-label rounded-full border transition-colors focus-ring',
+                    tags.includes(t)
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400',
+                    !canEditResp && 'opacity-60 cursor-not-allowed',
+                  )}
+                >
+                  {t}
+                </button>
               ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-slate-400 mb-2">尚未上傳佐證</p>
+            </div>
+            <Textarea
+              value={actions}
+              onChange={(e) => setActions(e.target.value)}
+              disabled={!canEditResp}
+              rows={3}
+              placeholder="詳細說明改善措施…"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TextField
+              label="預計完成時程"
+              type="date"
+              value={plannedDueDate}
+              onChange={(e) => setPlannedDueDate(e.target.value)}
+              disabled={!canEditResp}
+            />
+            <Textarea
+              label="進度追蹤方式"
+              value={trackingMethod}
+              onChange={(e) => setTrackingMethod(e.target.value)}
+              disabled={!canEditResp}
+              rows={2}
+            />
+          </div>
+          <Textarea
+            label="執行情形"
+            value={executionStatus}
+            onChange={(e) => setExecutionStatus(e.target.value)}
+            disabled={!canEditResp}
+            rows={3}
+          />
+
+          {/* Evidence */}
+          {remediation && (
+            <div>
+              <p className="text-label text-neutral-700 mb-2">佐證文件</p>
+              {evidences.length === 0 ? (
+                <p className="text-body-sm text-neutral-400 mb-2">尚未上傳</p>
+              ) : (
+                <ul className="mb-2 space-y-1">
+                  {evidences.map((f) => (
+                    <li key={f.id}>
+                      <a className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline" href={`/api/evidences/${f.id}/download`}>
+                        <Paperclip size={14} />
+                        {f.originalName}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canEditResp && (
+                <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-white border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
+                  <input type="file" className="hidden" onChange={upload} disabled={uploading} />
+                  <Upload size={14} />
+                  <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳佐證'}</span>
+                </label>
+              )}
+            </div>
           )}
-          {canEditResp && (
-            <label className="inline-flex items-center gap-2 text-sm cursor-pointer text-brand-600">
-              <input type="file" className="hidden" onChange={upload} />
-              + 上傳佐證
-            </label>
-          )}
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {canEditResp && (
+              <>
+                <Button variant="secondary" loading={saving} onClick={() => save(false)}>
+                  儲存草稿
+                </Button>
+                <Button variant="primary" loading={saving} onClick={() => save(true)}>
+                  送出審核
+                </Button>
+              </>
+            )}
+            {canAudit && (
+              <>
+                <Button variant="success" onClick={() => setDecideOpen('APPROVED')}>
+                  審核通過
+                </Button>
+                <Button variant="warning" onClick={() => setDecideOpen('NEEDS_REWORK')}>
+                  持續改正
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      )}
-
-      {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {canEditResp && (
-          <>
-            <button
-              onClick={() => save(false)}
-              disabled={saving}
-              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm rounded-md disabled:opacity-60"
-            >
-              儲存草稿
-            </button>
-            <button
-              onClick={() => save(true)}
-              disabled={saving}
-              className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm rounded-md disabled:opacity-60"
-            >
-              送出審核
-            </button>
-          </>
-        )}
-        {canAudit && (
-          <>
-            <button
-              onClick={() => decide('APPROVED')}
-              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md"
-            >
-              審核通過
-            </button>
-            <button
-              onClick={() => decide('NEEDS_REWORK')}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-md"
-            >
-              持續改正
-            </button>
-          </>
-        )}
       </div>
 
-      {remediation && remediation.decisions.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs text-slate-500">審核紀錄</p>
-          {remediation.decisions.map((d) => (
-            <div
-              key={d.id}
-              className={`text-sm rounded-md p-2 ${
-                d.decision === 'APPROVED'
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-amber-50 border border-amber-200'
-              }`}
-            >
-              <div className="text-xs text-slate-500">
-                第 {d.round} 輪 · {d.decision === 'APPROVED' ? '審核通過' : '持續改正'} · {new Date(d.decidedAt).toLocaleString('zh-TW')}
-              </div>
-              {d.comment && <p className="mt-1 whitespace-pre-wrap">{d.comment}</p>}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Decide dialog */}
+      <ConfirmDialog
+        open={decideOpen === 'APPROVED'}
+        onOpenChange={(o) => !o && setDecideOpen(null)}
+        title="審核通過"
+        description="確認本項改善已符合要求？"
+        confirmLabel="通過"
+        tone="primary"
+        onConfirm={decide}
+        loading={saving}
+      />
+      <ConfirmDialog
+        open={decideOpen === 'NEEDS_REWORK'}
+        onOpenChange={(o) => !o && setDecideOpen(null)}
+        title="要求持續改正"
+        description={
+          <div className="mt-2">
+            <Textarea
+              label="持續改正原因"
+              value={decideComment}
+              onChange={(e) => setDecideComment(e.target.value)}
+              rows={3}
+              placeholder="例：佐證文件不足，請補附會議紀錄…"
+            />
+          </div>
+        }
+        confirmLabel="送出"
+        tone="warning"
+        onConfirm={decide}
+        loading={saving}
+      />
     </div>
   );
-}
-
-function statusBadge(s: RemediationStatus) {
-  switch (s) {
-    case 'PENDING': return 'bg-slate-200 text-slate-700';
-    case 'DRAFT': return 'bg-yellow-100 text-yellow-800';
-    case 'SUBMITTED': return 'bg-blue-100 text-blue-700';
-    case 'APPROVED': return 'bg-green-100 text-green-700';
-    case 'NEEDS_REWORK': return 'bg-amber-100 text-amber-800';
-  }
 }

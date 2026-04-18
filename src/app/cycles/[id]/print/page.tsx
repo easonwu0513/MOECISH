@@ -61,7 +61,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
         `}</style>
 
         <div className="no-print mb-6 flex justify-between items-center">
-          <a href={`/cycles/${cycle.id}`} className="text-sm text-slate-500 hover:text-brand-600">← 返回</a>
+          <a href={`/cycles/${cycle.id}`} className="text-sm text-slate-500 hover:text-primary-600">← 返回</a>
           <button onClick={undefined} className="opacity-0 pointer-events-none"></button>
         </div>
 
@@ -74,7 +74,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
         </header>
 
         <section className="mb-8">
-          <h2 className="text-lg font-bold border-b-2 border-brand-500 pb-1 mb-3">壹、稽核基本資料</h2>
+          <h2 className="text-lg font-bold border-b-2 border-primary-500 pb-1 mb-3">壹、稽核基本資料</h2>
           <table className="w-full text-sm border">
             <tbody>
               <tr><th className="bg-slate-50 text-left w-32 p-2 border">受稽機關</th><td className="p-2 border">{cycle.organization.name}</td></tr>
@@ -86,7 +86,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
         </section>
 
         <section className="mb-8">
-          <h2 className="text-lg font-bold border-b-2 border-brand-500 pb-1 mb-3">貳、檢核表填答結果</h2>
+          <h2 className="text-lg font-bold border-b-2 border-primary-500 pb-1 mb-3">貳、檢核表填答結果</h2>
           {DIMENSION_ORDER.map((dim) => {
             const items = cycle.checklistVersion.items.filter((i) => i.dimension === dim);
             return (
@@ -124,7 +124,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
 
         {cycle.findings.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-lg font-bold border-b-2 border-brand-500 pb-1 mb-3">參、稽核發現與改善情形</h2>
+            <h2 className="text-lg font-bold border-b-2 border-primary-500 pb-1 mb-3">參、稽核發現與改善情形</h2>
             {cycle.findings.map((f) => {
               const r = f.remediation;
               let tags: string[] = [];
@@ -141,7 +141,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
                       <tbody>
                         <tr><th className="bg-slate-50 w-32 p-2 border text-left align-top">發生原因（根因分析）</th><td className="p-2 border whitespace-pre-wrap">{r.rootCause ?? ''}</td></tr>
                         <tr><th className="bg-slate-50 p-2 border text-left align-top">改善措施</th><td className="p-2 border whitespace-pre-wrap">
-                          {tags.length ? <div className="mb-1 text-brand-700">標記：{tags.join('、')}</div> : null}
+                          {tags.length ? <div className="mb-1 text-primary-700">標記：{tags.join('、')}</div> : null}
                           {r.actions ?? ''}
                         </td></tr>
                         <tr><th className="bg-slate-50 p-2 border text-left align-top">預計完成時程</th><td className="p-2 border">{r.plannedDueDate ? new Date(r.plannedDueDate).toLocaleDateString('zh-TW') : ''}</td></tr>
@@ -170,7 +170,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
         )}
 
         <section className="mt-10 pt-4">
-          <h2 className="text-lg font-bold border-b-2 border-brand-500 pb-1 mb-3">肆、簽章</h2>
+          <h2 className="text-lg font-bold border-b-2 border-primary-500 pb-1 mb-3">肆、簽章</h2>
           <table className="w-full text-sm border">
             <tbody>
               <tr>

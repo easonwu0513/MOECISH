@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
+import { AppShell } from '@/components/shell/AppShell';
 import type { Dimension } from '@/lib/types';
-import ChecklistItemRow from './ChecklistItemRow';
+import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -15,9 +15,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     where: { id: params.id },
     include: {
       organization: true,
-      checklistVersion: {
-        include: { items: { orderBy: { orderIndex: 'asc' } } },
-      },
+      checklistVersion: { include: { items: { orderBy: { orderIndex: 'asc' } } } },
       responses: { include: { comments: { orderBy: { createdAt: 'asc' } } } },
     },
   });
@@ -34,43 +32,59 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     (user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') &&
     (cycle.status === 'DRAFT' || cycle.status === 'COMMENTS_RETURNED');
 
-  const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
+  const items = cycle.checklistVersion.items.map((i) => ({
+    id: i.id,
+    itemNo: i.itemNo,
+    content: i.content,
+    dimension: i.dimension as Dimension,
+    orderIndex: i.orderIndex,
+  }));
 
-  const grouped = DIMENSION_ORDER.map((dim) => ({
-    dim,
-    items: cycle.checklistVersion.items.filter((i) => i.dimension === dim),
+  const responses = cycle.responses.map((r) => ({
+    id: r.id,
+    checklistItemId: r.checklistItemId,
+    compliance: r.compliance as ('COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NON_COMPLIANT' | 'NOT_APPLICABLE' | null),
+    description: r.description,
+    version: r.version,
+    comments: r.comments.map((c) => ({
+      id: c.id,
+      content: c.content,
+      round: c.round,
+      resolvedAt: c.resolvedAt,
+      createdAt: c.createdAt,
+    })),
   }));
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      <header className="mb-6">
-        <Link href={`/cycles/${cycle.id}`} className="text-sm text-slate-500 hover:text-brand-600">← 回稽核週期</Link>
-        <h1 className="mt-2 text-2xl font-bold text-brand-700">模組一　檢核表填報</h1>
-        <p className="text-sm text-slate-600 mt-1">
-          {cycle.organization.name} · {cycle.year - 1911} 年度 · 共 {cycle.checklistVersion.items.length} 題
-          {canEdit ? '' : ' · 目前不可編輯（狀態為 ' + cycle.status + '）'}
+    <AppShell
+      user={{
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organizationName: user.organizationName,
+      }}
+      cycleId={cycle.id}
+      crumbs={[
+        { label: '總覽', href: '/' },
+        { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
+        { label: '模組一 · 檢核表' },
+      ]}
+    >
+      <header className="mb-5">
+        <h1 className="text-headline text-neutral-900">模組一　檢核表填報</h1>
+        <p className="text-body-sm text-neutral-500 mt-1">
+          {cycle.organization.name} · 共 {cycle.checklistVersion.items.length} 題 ·{' '}
+          {canEdit ? '填寫中' : `目前狀態不可編輯（${cycle.status}）`}
         </p>
       </header>
 
-      {grouped.map(({ dim, items }) => (
-        <section key={dim} className="mb-8">
-          <h2 className="text-lg font-semibold text-brand-700 mb-3 border-l-4 border-brand-500 pl-3">
-            {DIMENSION_LABELS[dim as Dimension]}（{items.length} 題）
-          </h2>
-          <div className="space-y-3">
-            {items.map((item) => (
-              <ChecklistItemRow
-                key={item.id}
-                cycleId={cycle.id}
-                item={item}
-                response={responsesByItem.get(item.id) ?? null}
-                canEdit={canEdit}
-                userRole={user.role}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+      <ChecklistShell
+        cycleId={cycle.id}
+        items={items}
+        responses={responses}
+        canEdit={canEdit}
+        userRole={user.role}
+      />
+    </AppShell>
   );
 }
