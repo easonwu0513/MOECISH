@@ -27,6 +27,56 @@
   --font-sans: var(--font-inter), var(--font-noto), ui-sans-serif, system-ui,
     -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* ===== Color scales (CSS variables for use outside Tailwind) ===== */
+  --primary-50:  #f2f6fb; --primary-100: #e0ebf5; --primary-200: #bfd4e8;
+  --primary-300: #95b7d6; --primary-400: #6d9bc3; --primary-500: #5487bd;
+  --primary-600: #3e72a8; --primary-700: #2f5b88; --primary-800: #254868;
+  --primary-900: #1a334a; --primary-950: #0f2233;
+
+  --sage-50:  #f4f7f4; --sage-100: #e5ede5; --sage-200: #c7d6c7;
+  --sage-300: #a3bba5; --sage-400: #809f83; --sage-500: #678669;
+  --sage-600: #526e55; --sage-700: #405743; --sage-800: #2e4030;
+  --sage-900: #1f2c20; --sage-950: #131c14;
+
+  --success-50: #f1f7f2; --success-100: #dceadc;
+  --success-200: #bfd9c4; --success-300: #97c1a2; --success-400: #73ac83;
+  --success-500: #5a9e72; --success-600: #468459; --success-700: #366946;
+
+  --warning-50: #fcf7eb; --warning-100: #f6e6c3;
+  --warning-200: #ecd08a; --warning-300: #e0b65b; --warning-400: #d89c45;
+  --warning-500: #d08b3b; --warning-600: #b0722c; --warning-700: #895923;
+
+  --danger-50: #fbf0f0; --danger-100: #f2d6d6;
+  --danger-200: #e3b0b1; --danger-300: #d28789; --danger-400: #c36e70;
+  --danger-500: #b8585a; --danger-600: #9b4548; --danger-700: #7a3537;
+
+  --neutral-0:   #ffffff; --neutral-25:  #fcfcfc; --neutral-50:  #f7f7f7;
+  --neutral-100: #f0f0f0; --neutral-150: #e8e8e8; --neutral-200: #dddddd;
+  --neutral-300: #c7c7c7; --neutral-400: #a0a0a0; --neutral-500: #6b6b6b;
+  --neutral-600: #515151; --neutral-700: #3a3a3a; --neutral-800: #242424;
+  --neutral-900: #121212;
+
+  /* ===== Role accent (sidebar strip + avatar ring) ===== */
+  --role-admin:      var(--primary-400);
+  --role-auditor:    var(--sage-400);
+  --role-respondent: var(--neutral-300);
+  --role-supervisor: var(--warning-400);
+
+  /* ===== Motion ===== */
+  --dur-fast: 80ms;
+  --dur-base: 180ms;
+  --dur-slow: 250ms;
+  --ease-smooth:   cubic-bezier(.4, 0, .2, 1);
+  --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
+
+  /* ===== Focus (add danger variant) ===== */
+  --focus-ring-danger: 0 0 0 3px rgba(184, 88, 90, 0.18);
+
+  /* ===== Radii ===== */
+  --radius-xs: 4px;  --radius-sm: 6px;  --radius:    8px;
+  --radius-md: 10px; --radius-lg: 12px; --radius-xl: 14px;
+  --radius-2xl:18px; --radius-3xl:24px;
 }
 
 /* ============================================================
@@ -117,6 +167,16 @@ a { color: inherit; text-decoration: none; }
     height: 1px;
     color: #dddddd;
   }
+
+  /* Design-system semantic type helpers */
+  .ds-display-sm { @apply text-display-sm; }
+  .ds-headline   { @apply text-headline; }
+  .ds-title-lg   { @apply text-title-lg; }
+  .ds-title      { @apply text-title; }
+  .ds-body       { @apply text-body; }
+  .ds-body-sm    { @apply text-body-sm; }
+  .ds-label      { @apply text-label; }
+  .ds-caption    { @apply text-caption text-neutral-500; }
 }
 
 /* ============================================================

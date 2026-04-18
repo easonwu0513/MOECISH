@@ -1,0 +1,292 @@
+/* ============================================================
+   MOECISH Design System — Colors + Type + Tokens
+   White-first, airy, audit-document lineage
+   ============================================================ */
+
+/* Webfonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  color-scheme: light;
+
+  /* ---------- Primary — desaturated clinical blue ---------- */
+  --primary-50:  #f2f6fb;
+  --primary-100: #e0ebf5;
+  --primary-200: #bfd4e8;
+  --primary-300: #95b7d6;
+  --primary-400: #6d9bc3;
+  --primary-500: #5487bd;
+  --primary-600: #3e72a8;
+  --primary-700: #2f5b88;
+  --primary-800: #254868;
+  --primary-900: #1a334a;
+  --primary-950: #0f2233;
+
+  /* ---------- Sage — softer accent ---------- */
+  --sage-50:  #f4f7f4;
+  --sage-100: #e5ede5;
+  --sage-200: #c7d6c7;
+  --sage-300: #a3bba5;
+  --sage-400: #809f83;
+  --sage-500: #678669;
+  --sage-600: #526e55;
+  --sage-700: #405743;
+  --sage-800: #2e4030;
+  --sage-900: #1f2c20;
+
+  /* ---------- Semantic — de-saturated ---------- */
+  --success-50:  #f1f7f2;
+  --success-100: #dceadc;
+  --success-500: #5a9e72;
+  --success-600: #468459;
+  --success-700: #366946;
+
+  --warning-50:  #fcf7eb;
+  --warning-100: #f6e6c3;
+  --warning-500: #d08b3b;
+  --warning-600: #b0722c;
+  --warning-700: #895923;
+
+  --danger-50:  #fbf0f0;
+  --danger-100: #f2d6d6;
+  --danger-500: #b8585a;
+  --danger-600: #9b4548;
+  --danger-700: #7a3537;
+
+  /* ---------- Cool neutrals — white-first ---------- */
+  --neutral-0:   #ffffff;
+  --neutral-25:  #fcfcfc;
+  --neutral-50:  #f7f7f7;
+  --neutral-100: #f0f0f0;
+  --neutral-150: #e8e8e8;
+  --neutral-200: #dddddd;
+  --neutral-300: #c7c7c7;
+  --neutral-400: #a0a0a0;
+  --neutral-500: #6b6b6b;
+  --neutral-600: #515151;
+  --neutral-700: #3a3a3a;
+  --neutral-800: #242424;
+  --neutral-900: #121212;
+
+  /* ---------- Surfaces ---------- */
+  --bg-app:            #ffffff;
+  --bg-surface:        #ffffff;
+  --bg-surface-muted:  #fafafa;
+  --bg-surface-sunken: #f5f5f5;
+  --bg-surface-raised: #ffffff;
+
+  /* ---------- Text ---------- */
+  --text-primary:   #18181a;
+  --text-secondary: #4a4a4d;
+  --text-tertiary:  #7a7a7d;
+  --text-muted:     #9a9a9d;
+  --text-on-brand:  #ffffff;
+
+  /* ---------- Borders ---------- */
+  --border-hairline: #f0f0f0;
+  --border-subtle:   #e8e8e8;
+  --border-strong:   #d0d0d0;
+
+  /* ---------- Role accents ---------- */
+  --role-admin:      var(--primary-400);
+  --role-auditor:    var(--sage-400);
+  --role-respondent: var(--neutral-300);
+  --role-supervisor: var(--warning-400);
+
+  /* ---------- Type ---------- */
+  --font-sans: 'Inter', 'Noto Sans TC', ui-sans-serif, system-ui, -apple-system,
+               'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Size / line-height / tracking / weight */
+  --text-caption:    0.75rem;    /* 12 */
+  --lh-caption:      1.125rem;
+  --text-label:      0.8125rem;  /* 13 */
+  --lh-label:        1.125rem;
+  --text-body-sm:    0.875rem;   /* 14 */
+  --lh-body-sm:      1.45;
+  --text-body:       0.9375rem;  /* 15 */
+  --lh-body:         1.6;
+  --text-title:      1.0625rem;  /* 17 */
+  --lh-title:        1.5;
+  --text-title-lg:   1.1875rem;  /* 19 */
+  --lh-title-lg:     1.45;
+  --text-headline:   1.5rem;     /* 24 */
+  --lh-headline:     1.25;
+  --text-display-sm: 2rem;       /* 32 */
+  --lh-display-sm:   1.18;
+  --text-display:    2.5rem;     /* 40 */
+  --lh-display:      1.12;
+  --text-display-lg: 3rem;       /* 48 */
+  --lh-display-lg:   1.08;
+
+  --tracking-body:       -0.003em;
+  --tracking-title:      -0.012em;
+  --tracking-title-lg:   -0.018em;
+  --tracking-headline:   -0.024em;
+  --tracking-display-sm: -0.028em;
+  --tracking-display:    -0.032em;
+  --tracking-display-lg: -0.038em;
+
+  /* ---------- Spacing (4px base, 8px grid) ---------- */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------- Radii ---------- */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius:     8px;
+  --radius-md:  10px;
+  --radius-lg:  12px;
+  --radius-xl:  14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ---------- Shadows (Linear/Notion-subtle) ---------- */
+  --shadow-xs:    0 1px 0 0 rgba(15,20,30,.04);
+  --shadow-sm:    0 1px 2px 0 rgba(15,20,30,.05);
+  --shadow:       0 2px 8px -2px rgba(15,20,30,.06);
+  --shadow-md:    0 6px 16px -6px rgba(15,20,30,.08), 0 2px 4px -2px rgba(15,20,30,.04);
+  --shadow-lg:    0 12px 28px -10px rgba(15,20,30,.10), 0 4px 10px -4px rgba(15,20,30,.05);
+  --shadow-xl:    0 24px 48px -16px rgba(15,20,30,.14);
+  --shadow-inner: inset 0 1px 2px rgba(15,20,30,.04);
+  --focus-ring:        0 0 0 3px rgba(62,114,168,.18);
+  --focus-ring-danger: 0 0 0 3px rgba(184,88,90,.18);
+
+  /* ---------- Motion ---------- */
+  --dur-80:  80ms;
+  --dur-180: 180ms;
+  --dur-250: 250ms;
+  --dur-500: 500ms;
+  --ease-smooth:    cubic-bezier(.4, 0, .2, 1);
+  --ease-out-expo:  cubic-bezier(.16, 1, .3, 1);
+
+  /* ---------- Z layers ---------- */
+  --z-sticky: 20;
+  --z-topbar: 30;
+  --z-drawer: 40;
+  --z-modal:  50;
+  --z-toast:  60;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html {
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11' 1, 'ss01' 1, 'ss03' 1, 'cv02' 1, 'cv03' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--tracking-body);
+  margin: 0;
+}
+
+/* ============================================================
+   Semantic type — drop-in classes
+   ============================================================ */
+.ds-caption   { font-size: var(--text-caption);    line-height: var(--lh-caption);    color: var(--text-tertiary); }
+.ds-label     { font-size: var(--text-label);      line-height: var(--lh-label);      font-weight: 500; color: var(--text-secondary); }
+.ds-body-sm   { font-size: var(--text-body-sm);    line-height: var(--lh-body-sm);    letter-spacing: var(--tracking-body); }
+.ds-body      { font-size: var(--text-body);       line-height: var(--lh-body);       letter-spacing: var(--tracking-body); }
+.ds-title     { font-size: var(--text-title);      line-height: var(--lh-title);      letter-spacing: var(--tracking-title);    font-weight: 500; color: var(--text-primary); }
+.ds-title-lg  { font-size: var(--text-title-lg);   line-height: var(--lh-title-lg);   letter-spacing: var(--tracking-title-lg); font-weight: 600; color: var(--text-primary); }
+.ds-headline  { font-size: var(--text-headline);   line-height: var(--lh-headline);   letter-spacing: var(--tracking-headline); font-weight: 600; color: var(--text-primary); }
+.ds-display-sm{ font-size: var(--text-display-sm); line-height: var(--lh-display-sm); letter-spacing: var(--tracking-display-sm); font-weight: 600; color: var(--text-primary); }
+.ds-display   { font-size: var(--text-display);    line-height: var(--lh-display);    letter-spacing: var(--tracking-display);    font-weight: 600; color: var(--text-primary); }
+.ds-display-lg{ font-size: var(--text-display-lg); line-height: var(--lh-display-lg); letter-spacing: var(--tracking-display-lg); font-weight: 700; color: var(--text-primary); }
+
+/* Numbers */
+.tabular-nums, [class*='tabular-'], code, kbd { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3, h4 { letter-spacing: -0.02em; margin: 0; }
+
+/* Selection */
+::selection { background: rgba(62,114,168,.18); color: inherit; }
+
+/* ============================================================
+   Component primitives
+   ============================================================ */
+
+/* Keyboard hint */
+.ds-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding: 0 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--neutral-500);
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+}
+
+/* Dotted divider — government-form flavor */
+.ds-dotted-divider {
+  background-image: radial-gradient(currentColor 1px, transparent 1px);
+  background-size: 4px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 1px;
+  color: #dddddd;
+}
+
+/* Noise — for vast empty surfaces only */
+.ds-bg-noise {
+  background-image: radial-gradient(rgba(0,0,0,.018) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+/* ============================================================
+   Motion keyframes
+   ============================================================ */
+@keyframes ds-fade-in {
+  0%   { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes ds-slide-up {
+  0%   { opacity: 0; transform: translateY(8px) scale(.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ds-slide-in-right {
+  0%   { opacity: .8; transform: translateX(100%); }
+  100% { opacity: 1;  transform: translateX(0); }
+}
+@keyframes ds-soft-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print */
+@media print {
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+}

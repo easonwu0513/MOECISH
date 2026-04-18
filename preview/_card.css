@@ -1,0 +1,98 @@
+/* Preview card shared styles — uses colors_and_type.css tokens */
+@import url('../colors_and_type.css');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+}
+
+.pc-root {
+  width: 700px;
+  padding: 22px 26px;
+  box-sizing: border-box;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  line-height: var(--lh-body-sm);
+}
+
+.pc-row { display: flex; align-items: center; gap: 14px; }
+.pc-col { display: flex; flex-direction: column; gap: 14px; }
+.pc-grid { display: grid; gap: 10px; }
+.pc-gap-sm { gap: 6px; }
+.pc-gap-md { gap: 10px; }
+.pc-gap-lg { gap: 14px; }
+
+.pc-caption {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pc-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pc-hair { height: 1px; background: var(--border-hairline); width: 100%; }
+
+/* Swatches */
+.sw {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.04);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.sw-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  margin-top: 6px;
+  line-height: 1.1;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.sw-label b { color: var(--text-secondary); font-weight: 500; }
+
+/* Chip */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+  white-space: nowrap;
+}
+.chip-dot { width: 6px; height: 6px; border-radius: 999px; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+.btn-primary   { background: var(--primary-600); color: #fff; }
+.btn-tonal     { background: var(--primary-50); color: var(--primary-700); border-color: var(--primary-100); }
+.btn-secondary { background: #fff; color: var(--neutral-700); border-color: var(--border-hairline); }
+.btn-ghost     { background: transparent; color: var(--neutral-600); }
+.btn-danger    { background: var(--danger-500); color: #fff; }
+.btn-success   { background: var(--success-500); color: #fff; }
+
+/* Card surface (for components preview) */
+.surface {
+  background: #fff;
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+}
