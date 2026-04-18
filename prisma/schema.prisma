@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite: enum 以 String 儲存，類型常數定義於 src/lib/types.ts。
+
+model Organization {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  shortName String?
+  parentId  String?
+  parent    Organization?  @relation("OrgTree", fields: [parentId], references: [id])
+  children  Organization[] @relation("OrgTree")
+  users     User[]
+  cycles    AuditCycle[]
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           String   // Role: ADMIN | AUDITOR | RESPONDENT | SUPERVISOR
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  auditorAssignments AuditorAssignment[]
+  cycleTransitions   CycleStateTransition[]
+  auditLogs          AuditLog[]
+}
+
+model ChecklistVersion {
+  id          String   @id @default(cuid())
+  year        Int      @unique
+  name        String
+  publishedAt DateTime?
+  isActive    Boolean  @default(false)
+  items       ChecklistItem[]
+  cycles      AuditCycle[]
+}
+
+model ChecklistItem {
+  id         String   @id @default(cuid())
+  versionId  String
+  version    ChecklistVersion @relation(fields: [versionId], references: [id])
+  dimension  String   // Dimension
+  itemNo     String
+  content    String
+  orderIndex Int
+  responses  ChecklistResponse[]
+
+  @@unique([versionId, itemNo])
+  @@index([versionId, dimension])
+}
+
+model AuditCycle {
+  id                 String   @id @default(cuid())
+  year               Int
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  checklistVersionId String
+  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
+  status             String   @default("DRAFT") // CycleStatus
+  startDate          DateTime
+  dueDate            DateTime
+  onsiteDate         DateTime?
+  closedAt           DateTime?
+  version            Int @default(0)
+
+  responses        ChecklistResponse[]
+  findings         Finding[]
+  signatures       Signature[]
+  stateTransitions CycleStateTransition[]
+  assignments      AuditorAssignment[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([organizationId, year])
+}
+
+model AuditorAssignment {
+  id        String   @id @default(cuid())
+  cycleId   String
+  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
+  auditorId String
+  auditor   User @relation(fields: [auditorId], references: [id])
+  role      String   @default("MEMBER") // LEAD / DEPUTY / MEMBER
+  createdAt DateTime @default(now())
+
+  @@unique([cycleId, auditorId])
+}
+
+model CycleStateTransition {
+  id         String   @id @default(cuid())
+  cycleId    String
+  cycle      AuditCycle @relation(fields: [cycleId], references: [id])
+  fromStatus String?  // CycleStatus
+  toStatus   String   // CycleStatus
+  actorId    String
+  actor      User @relation(fields: [actorId], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now())
+}
+
+model ChecklistResponse {
+  id              String   @id @default(cuid())
+  cycleId         String
+  cycle           AuditCycle @relation(fields: [cycleId], references: [id])
+  checklistItemId String
+  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
+  compliance      String?  // ComplianceLevel
+  description     String?
+  version         Int      @default(0)
+  lastEditorId    String?
+  lastEditedAt    DateTime?
+  createdAt       DateTime @default(now())
+
+  comments AuditorComment[]
+
+  @@unique([cycleId, checklistItemId])
+}
+
+model AuditorComment {
+  id           String   @id @default(cuid())
+  responseId   String
+  response     ChecklistResponse @relation(fields: [responseId], references: [id])
+  auditorId    String
+  content      String
+  round        Int
+  resolvedAt   DateTime?
+  resolvedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([responseId, round])
+}
+
+model Finding {
+  id          String   @id @default(cuid())
+  cycleId     String
+  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
+  findingNo   String
+  aspect      String   // FindingAspect
+  type        String   // FindingType
+  dimension   String   // Dimension
+  title       String
+  description String
+  issuedById  String
+  issuedAt    DateTime @default(now())
+  remediation Remediation?
+
+  @@unique([cycleId, findingNo])
+}
+
+model Remediation {
+  id              String   @id @default(cuid())
+  findingId       String   @unique
+  finding         Finding  @relation(fields: [findingId], references: [id])
+  status          String   @default("PENDING") // RemediationStatus
+  rootCause       String?
+  actions         String?
+  actionTagsJson  String?
+  plannedDueDate  DateTime?
+  trackingMethod  String?
+  executionStatus String?
+  currentRound    Int      @default(1)
+  version         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  decisions ReviewDecision[]
+}
+
+model ReviewDecision {
+  id            String   @id @default(cuid())
+  remediationId String
+  remediation   Remediation @relation(fields: [remediationId], references: [id])
+  round         Int
+  decision      String   // RemediationStatus: APPROVED | NEEDS_REWORK
+  comment       String?
+  decidedById   String
+  decidedAt     DateTime @default(now())
+
+  @@index([remediationId, round])
+}
+
+model Evidence {
+  id           String   @id @default(cuid())
+  targetType   String   // EvidenceTargetType
+  targetId     String
+  fileName     String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String
+  sha256       String
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+}
+
+model Signature {
+  id          String   @id @default(cuid())
+  cycleId     String
+  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
+  signerRole  String   // SignatureRole
+  signerId    String
+  signerName  String
+  imageKey    String
+  imageSha256 String
+  signedAt    DateTime @default(now())
+  ipAddress   String?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  beforeJson String?
+  afterJson  String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}

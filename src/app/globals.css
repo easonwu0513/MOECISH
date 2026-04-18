@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  font-family: system-ui, -apple-system, 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}

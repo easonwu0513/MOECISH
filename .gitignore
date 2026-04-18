@@ -1,0 +1,17 @@
+node_modules
+.next
+.env
+.env.local
+uploads/
+prisma/dev.db
+prisma/dev.db-journal
+
+# Editor / tool local state
+.claude/
+.vscode/
+.idea/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
