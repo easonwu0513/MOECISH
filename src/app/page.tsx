@@ -48,13 +48,7 @@ export default async function HomePage() {
   const nonCompliant = primary?.responses.filter((r) => r.compliance === 'NON_COMPLIANT').length ?? 0;
   const notApplicable = primary?.responses.filter((r) => r.compliance === 'NOT_APPLICABLE').length ?? 0;
 
-  const todos: {
-    key: string;
-    tone: 'warning' | 'primary' | 'sage' | 'neutral';
-    title: string;
-    href: string;
-    cta: string;
-  }[] = [];
+  const todos: { key: string; tone: 'warning' | 'primary' | 'sage' | 'neutral'; title: string; href: string; cta: string }[] = [];
 
   if (primary) {
     if (user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') {
@@ -62,89 +56,52 @@ export default async function HomePage() {
         where: { response: { cycleId: primary.id }, resolvedAt: null },
       });
       if (unresolvedCount > 0) {
-        todos.push({
-          key: 'comments',
-          tone: 'warning',
-          title: `${unresolvedCount} 條委員意見待補正`,
-          href: `/cycles/${primary.id}/checklist`,
-          cta: '去補正',
-        });
+        todos.push({ key: 'comments', tone: 'warning', title: `${unresolvedCount} 條委員意見待補正`, href: `/cycles/${primary.id}/checklist`, cta: '去補正' });
       }
       const draftCount = primary.findings.filter(
         (f) => f.type === 'NEEDS_IMPROVEMENT' && (f.remediation?.status === 'DRAFT' || f.remediation?.status === 'NEEDS_REWORK' || f.remediation?.status === 'PENDING'),
       ).length;
       if (draftCount > 0) {
-        todos.push({
-          key: 'remediation',
-          tone: 'primary',
-          title: `${draftCount} 項改善措施待填報`,
-          href: `/cycles/${primary.id}/findings`,
-          cta: '繼續填',
-        });
+        todos.push({ key: 'remediation', tone: 'primary', title: `${draftCount} 項改善措施待填報`, href: `/cycles/${primary.id}/findings`, cta: '繼續填' });
       }
       const myRole = user.role === 'SUPERVISOR' ? 'SUPERVISOR' : 'RESPONDENT';
       const hasSig = primary.signatures.some((s) => s.signerRole === myRole);
       if (!hasSig) {
-        todos.push({
-          key: 'sig',
-          tone: 'neutral',
-          title: `${myRole === 'SUPERVISOR' ? '單位主管' : '填報人'}簽章尚未上傳`,
-          href: `/cycles/${primary.id}`,
-          cta: '下載範本',
-        });
+        todos.push({ key: 'sig', tone: 'neutral', title: `${myRole === 'SUPERVISOR' ? '單位主管' : '填報人'}簽章尚未上傳`, href: `/cycles/${primary.id}`, cta: '下載範本' });
       }
     } else if (user.role === 'AUDITOR' || user.role === 'ADMIN') {
       const submittedCount = primary.findings.filter((f) => f.remediation?.status === 'SUBMITTED').length;
       if (submittedCount > 0) {
-        todos.push({
-          key: 'decisions',
-          tone: 'warning',
-          title: `${submittedCount} 項改善待審核`,
-          href: `/cycles/${primary.id}/findings`,
-          cta: '去審核',
-        });
+        todos.push({ key: 'decisions', tone: 'warning', title: `${submittedCount} 項改善待審核`, href: `/cycles/${primary.id}/findings`, cta: '去審核' });
       }
       if (primary.status === 'RESPONDENT_SUBMITTED' || primary.status === 'SUPERVISOR_APPROVED' || primary.status === 'IN_REVIEW') {
-        todos.push({
-          key: 'review',
-          tone: 'primary',
-          title: '稽核週期等待委員審閱',
-          href: `/cycles/${primary.id}/review`,
-          cta: '進入審閱',
-        });
+        todos.push({ key: 'review', tone: 'primary', title: '稽核週期等待委員審閱', href: `/cycles/${primary.id}/review`, cta: '進入審閱' });
       }
     }
   }
 
   const now = new Date();
   const greeting = greetingByHour(now.getHours());
-  const today = now.toLocaleDateString('zh-TW', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
-  });
+  const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
   return (
     <AppShell
-      user={{
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        organizationName: user.organizationName,
-      }}
+      user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽' }]}
     >
       {/* Hero header */}
       <section className="mb-10">
-        <p className="text-caption text-neutral-400 tracking-[0.08em] uppercase">{today}</p>
-        <h1 className="mt-1.5 text-display-sm text-neutral-900 text-balance font-medium">
+        <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
+        <h1 className="mt-2 text-display-sm text-on-surface text-balance">
           {greeting}，{user.name}。
         </h1>
         {primary && todos.length > 0 ? (
-          <p className="mt-3 text-body text-neutral-600 max-w-2xl text-pretty">
-            今天有 <span className="font-semibold text-neutral-900 tabular-nums">{todos.length}</span> 項待辦需處理。
+          <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
+            今天有 <span className="font-semibold text-on-surface tabular-nums">{todos.length}</span> 項待辦需處理。
             先把待辦清掉再進稽核週期會比較順。
           </p>
         ) : primary ? (
-          <p className="mt-3 text-body text-neutral-600">
+          <p className="mt-3 text-body-lg text-on-surface-variant">
             目前沒有待辦，隨時可進入稽核週期檢視進度。
           </p>
         ) : null}
@@ -153,11 +110,11 @@ export default async function HomePage() {
       {primary ? (
         <>
           <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-10">
-            <Card className="lg:col-span-3" padded={false}>
-              <div className="p-6 sm:p-8">
+            <Card className="lg:col-span-3" padded={false} variant="elevated">
+              <div className="p-7 sm:p-8">
                 <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
                   <div className="min-w-0">
-                    <p className="text-caption text-neutral-400 tracking-[0.06em] uppercase">本次稽核</p>
+                    <p className="text-label-sm uppercase tracking-[0.06em] text-on-surface-variant">本次稽核</p>
                     <CardTitle className="mt-1.5 text-title-lg">填答進度</CardTitle>
                     <CardDescription>
                       {primary.year - 1911} 年度 · {primary.organization.name}
@@ -172,8 +129,8 @@ export default async function HomePage() {
                   <ProgressRing
                     value={filled}
                     max={totalItems}
-                    size={128}
-                    strokeWidth={8}
+                    size={136}
+                    strokeWidth={10}
                     label={`${totalItems ? Math.round((filled / totalItems) * 100) : 0}%`}
                     sublabel={`${filled} / ${totalItems} 題`}
                   />
@@ -184,20 +141,20 @@ export default async function HomePage() {
                       <StatLine label="不符合"   count={nonCompliant}  total={totalItems} tone="danger"  />
                       <StatLine label="不適用"   count={notApplicable} total={totalItems} tone="neutral" />
                     </div>
-                    <p className="mt-6 text-body-sm text-neutral-500">
+                    <p className="mt-6 text-body-sm text-on-surface-variant">
                       {totalItems - filled > 0
-                        ? <>尚餘 <span className="font-semibold text-neutral-900 tabular-nums">{totalItems - filled}</span> 題未作答</>
+                        ? <>尚餘 <span className="font-semibold text-on-surface tabular-nums">{totalItems - filled}</span> 題未作答</>
                         : <>全部題目已作答</>}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-7 flex gap-2">
+                <div className="mt-7 flex gap-2 flex-wrap">
                   <Link href={`/cycles/${primary.id}`}>
-                    <Button size="md">進入稽核週期</Button>
+                    <Button>進入稽核週期</Button>
                   </Link>
                   <Link href={`/cycles/${primary.id}/checklist`}>
-                    <Button variant="secondary" size="md" leadingIcon={<ClipboardCheck size={16} />}>
+                    <Button variant="tonal" leadingIcon={<ClipboardCheck size={18} />}>
                       直接填答
                     </Button>
                   </Link>
@@ -205,41 +162,41 @@ export default async function HomePage() {
               </div>
             </Card>
 
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2" variant="elevated">
               <div className="flex items-center justify-between mb-4">
                 <CardTitle className="text-title-lg">待辦</CardTitle>
-                <span className="text-caption text-neutral-400">按緊急度排序</span>
+                <span className="text-caption text-on-surface-variant">按緊急度排序</span>
               </div>
               <div className="flex flex-col gap-1">
                 {todos.length === 0 ? (
                   <div className="flex flex-col items-center text-center py-8 px-2">
-                    <div className="w-11 h-11 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
-                      <CheckCircle size={22} />
+                    <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
+                      <CheckCircle size={26} />
                     </div>
-                    <p className="text-body font-medium text-neutral-800">{EMPTY.noTodos.title}</p>
-                    <p className="text-caption text-neutral-500 mt-0.5">{EMPTY.noTodos.description}</p>
+                    <p className="text-title text-on-surface">{EMPTY.noTodos.title}</p>
+                    <p className="text-caption text-on-surface-variant mt-1">{EMPTY.noTodos.description}</p>
                   </div>
                 ) : (
                   todos.map((t) => (
                     <Link
                       key={t.key}
                       href={t.href}
-                      className="group relative flex items-center gap-3 rounded-md px-3 py-3 hover:bg-neutral-50 transition-colors duration-180 ease-smooth focus-ring"
+                      className="group relative flex items-center gap-3 rounded-sm px-3 py-3 hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
                     >
                       <span
                         className={
-                          'w-1.5 h-1.5 rounded-full shrink-0 ' +
+                          'w-2 h-2 rounded-full shrink-0 ' +
                           {
                             warning: 'bg-warning-500',
                             primary: 'bg-primary-500',
                             sage: 'bg-sage-500',
-                            neutral: 'bg-neutral-400',
+                            neutral: 'bg-neutral-500',
                           }[t.tone]
                         }
                         aria-hidden
                       />
-                      <span className="flex-1 text-body-sm text-neutral-800 truncate">{t.title}</span>
-                      <span className="text-caption text-neutral-400 group-hover:text-primary-700 shrink-0 inline-flex items-center gap-0.5 transition-colors">
+                      <span className="flex-1 text-body-sm text-on-surface truncate">{t.title}</span>
+                      <span className="text-caption text-on-surface-variant group-hover:text-primary-700 shrink-0 inline-flex items-center gap-0.5 transition-colors">
                         {t.cta}
                         <ChevronRight size={14} />
                       </span>
@@ -252,8 +209,8 @@ export default async function HomePage() {
 
           <section className="mb-12">
             <div className="flex items-baseline justify-between mb-4">
-              <h2 className="text-title-lg text-neutral-900">我的稽核週期</h2>
-              <span className="text-caption text-neutral-400">共 {cycles.length} 筆</span>
+              <h2 className="text-title-lg text-on-surface">我的稽核週期</h2>
+              <span className="text-caption text-on-surface-variant">共 {cycles.length} 筆</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {cycles.map((c) => {
@@ -262,13 +219,13 @@ export default async function HomePage() {
                 const pct = total ? Math.round((done / total) * 100) : 0;
                 return (
                   <Link key={c.id} href={`/cycles/${c.id}`}>
-                    <Card interactive>
+                    <Card interactive variant="elevated">
                       <div className="flex items-center justify-between gap-3 mb-4">
                         <div className="min-w-0">
-                          <p className="text-title text-neutral-900 truncate">
+                          <p className="text-title text-on-surface truncate">
                             {c.year - 1911} 年度 · {c.organization.name}
                           </p>
-                          <p className="text-caption text-neutral-500 mt-1">
+                          <p className="text-caption text-on-surface-variant mt-1">
                             截止 {new Date(c.dueDate).toLocaleDateString('zh-TW')}
                           </p>
                         </div>
@@ -278,11 +235,11 @@ export default async function HomePage() {
                       </div>
                       <ProgressBar value={done} max={total} tone="primary" size="sm" />
                       <div className="mt-2 flex items-center justify-between text-caption">
-                        <span className="text-neutral-500">
-                          <span className="font-semibold text-neutral-900 tabular-nums">{done}</span>
-                          <span className="text-neutral-400"> / {total}</span>
+                        <span className="text-on-surface-variant">
+                          <span className="font-semibold text-on-surface tabular-nums">{done}</span>
+                          <span className="text-on-surface-variant"> / {total}</span>
                         </span>
-                        <span className="text-neutral-500 tabular-nums">{pct}%</span>
+                        <span className="text-on-surface-variant tabular-nums">{pct}%</span>
                       </div>
                     </Card>
                   </Link>
@@ -292,7 +249,7 @@ export default async function HomePage() {
           </section>
         </>
       ) : (
-        <Card padded={false}>
+        <Card variant="outlined" padded={false}>
           <div className="p-6">
             <EmptyState
               icon={<ClipboardCheck size={28} />}
@@ -306,31 +263,24 @@ export default async function HomePage() {
   );
 }
 
-function StatLine({
-  label,
-  count,
-  total,
-  tone,
-}: {
-  label: string;
-  count: number;
-  total: number;
+function StatLine({ label, count, total, tone }: {
+  label: string; count: number; total: number;
   tone: 'success' | 'warning' | 'danger' | 'neutral';
 }) {
   const dot = {
     success: 'bg-success-500',
     warning: 'bg-warning-500',
-    danger: 'bg-danger-500',
-    neutral: 'bg-neutral-400',
+    danger:  'bg-danger-500',
+    neutral: 'bg-neutral-500',
   }[tone];
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div className="flex items-center gap-2.5 py-0.5">
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} aria-hidden />
-      <span className="text-body-sm text-neutral-700">{label}</span>
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} aria-hidden />
+      <span className="text-body-sm text-on-surface">{label}</span>
       <span className="flex-1 text-right">
-        <span className="text-title text-neutral-900 tabular-nums">{count}</span>
-        <span className="text-caption text-neutral-400 ml-1 tabular-nums">{pct}%</span>
+        <span className="text-title-md text-on-surface tabular-nums">{count}</span>
+        <span className="text-caption text-on-surface-variant ml-1 tabular-nums">{pct}%</span>
       </span>
     </div>
   );

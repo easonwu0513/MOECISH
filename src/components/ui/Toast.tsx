@@ -4,6 +4,9 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, u
 import { cn } from '@/lib/cn';
 import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from '../icons';
 
+/**
+ * Material 3 Snackbar-like toast.
+ */
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 type Toast = {
   id: string;
@@ -29,11 +32,11 @@ export function useToast() {
   return v;
 }
 
-const toneMap: Record<ToastType, { icon: React.ReactNode; bar: string; text: string; bg: string }> = {
-  success: { icon: <CheckCircle size={20} />, bar: 'bg-success-500', text: 'text-success-700', bg: 'bg-success-50' },
-  error:   { icon: <AlertCircle size={20} />, bar: 'bg-danger-500',  text: 'text-danger-700',  bg: 'bg-danger-50' },
-  warning: { icon: <AlertTriangle size={20} />, bar: 'bg-warning-500', text: 'text-warning-700', bg: 'bg-warning-50' },
-  info:    { icon: <Info size={20} />, bar: 'bg-primary-500', text: 'text-primary-700', bg: 'bg-primary-50' },
+const toneMap: Record<ToastType, { icon: ReactNode; accent: string }> = {
+  success: { icon: <CheckCircle size={20} />, accent: 'text-success-400' },
+  error:   { icon: <AlertCircle size={20} />, accent: 'text-danger-300' },
+  warning: { icon: <AlertTriangle size={20} />, accent: 'text-warning-300' },
+  info:    { icon: <Info size={20} />, accent: 'text-primary-200' },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -43,10 +46,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const remove = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
     const timer = timers.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      timers.current.delete(id);
-    }
+    if (timer) { clearTimeout(timer); timers.current.delete(id); }
   }, []);
 
   const show = useCallback<ToastContextValue['show']>(
@@ -65,9 +65,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const value: ToastContextValue = {
     show,
     success: (title, description) => show({ type: 'success', title, description }),
-    error: (title, description) => show({ type: 'error', title, description, duration: 6000 }),
+    error:   (title, description) => show({ type: 'error',   title, description, duration: 6000 }),
     warning: (title, description) => show({ type: 'warning', title, description }),
-    info: (title, description) => show({ type: 'info', title, description }),
+    info:    (title, description) => show({ type: 'info',    title, description }),
   };
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="region"
         aria-label="通知"
-        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm"
+        className="pointer-events-none fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-md px-4"
       >
         {toasts.map((t) => {
           const tone = toneMap[t.type];
@@ -91,24 +91,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className={cn(
-                'pointer-events-auto relative flex gap-3 rounded-xl bg-white border border-neutral-200 shadow-lg overflow-hidden pl-4 pr-3 py-3 animate-slide-up',
-              )}
+              className="pointer-events-auto flex gap-3 rounded-xs bg-neutral-800 shadow-elev-3 pl-4 pr-2 py-3 animate-slide-up"
             >
-              <div className={cn('absolute left-0 top-0 bottom-0 w-1', tone.bar)} />
-              <div className={cn(tone.text, 'shrink-0')}>{tone.icon}</div>
+              <div className={cn(tone.accent, 'shrink-0')}>{tone.icon}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-body-sm font-medium text-neutral-900">{t.title}</p>
+                <p className="text-body-sm font-medium text-white">{t.title}</p>
                 {t.description && (
-                  <p className="text-caption text-neutral-600 mt-0.5 break-words">{t.description}</p>
+                  <p className="text-caption text-white/75 mt-0.5 break-words">{t.description}</p>
                 )}
               </div>
               <button
                 onClick={() => remove(t.id)}
                 aria-label="關閉通知"
-                className="shrink-0 text-neutral-400 hover:text-neutral-700 focus-ring rounded"
+                className="shrink-0 text-white/60 hover:text-white hover:bg-white/10 rounded-full w-7 h-7 flex items-center justify-center transition-colors"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
           );

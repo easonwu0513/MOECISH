@@ -1,5 +1,9 @@
 import { cn } from '@/lib/cn';
 
+/**
+ * Material 3 LinearProgressIndicator.
+ * Track on surface-container-highest; indicator on primary.
+ */
 export function ProgressBar({
   value,
   max = 100,
@@ -32,15 +36,15 @@ export function ProgressBar({
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={max}
-        className={cn('w-full bg-neutral-100 rounded-full overflow-hidden', h)}
+        className={cn('w-full bg-surface-container-highest rounded-full overflow-hidden', h)}
       >
         <div
-          className={cn('h-full rounded-full transition-all duration-250 ease-smooth', toneBg)}
+          className={cn('h-full rounded-full transition-all duration-300 ease-emphasized-decel', toneBg)}
           style={{ width: `${pct}%` }}
         />
       </div>
       {showLabel && (
-        <div className="mt-1 flex justify-between text-caption text-neutral-500">
+        <div className="mt-1 flex justify-between text-caption text-on-surface-variant">
           <span>{Math.round(pct)}%</span>
           <span>{value} / {max}</span>
         </div>

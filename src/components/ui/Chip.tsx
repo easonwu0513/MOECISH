@@ -1,6 +1,12 @@
 import { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
+/**
+ * Material 3 chips:
+ *  - assist / suggestion → outlined
+ *  - filter (selected)   → filled (primary-container)
+ *  - input (with dot)    → soft
+ */
 type Tone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger';
 type Size = 'xs' | 'sm' | 'md';
 type Variant = 'soft' | 'outlined' | 'filled';
@@ -14,34 +20,34 @@ type Props = HTMLAttributes<HTMLSpanElement> & {
 };
 
 const softTones: Record<Tone, string> = {
-  neutral: 'bg-neutral-50    text-neutral-700 ring-1 ring-inset ring-neutral-150',
-  primary: 'bg-primary-50/60 text-primary-700 ring-1 ring-inset ring-primary-100',
-  sage:    'bg-sage-50/60    text-sage-700    ring-1 ring-inset ring-sage-100',
-  success: 'bg-success-50/70 text-success-700 ring-1 ring-inset ring-success-100',
-  warning: 'bg-warning-50/70 text-warning-700 ring-1 ring-inset ring-warning-100',
-  danger:  'bg-danger-50/70  text-danger-700  ring-1 ring-inset ring-danger-100',
+  neutral: 'bg-surface-container-high text-on-surface',
+  primary: 'bg-primary-50 text-primary-800 ring-1 ring-inset ring-primary-200',
+  sage:    'bg-sage-50    text-sage-800    ring-1 ring-inset ring-sage-200',
+  success: 'bg-success-50 text-success-700 ring-1 ring-inset ring-success-200',
+  warning: 'bg-warning-50 text-warning-700 ring-1 ring-inset ring-warning-200',
+  danger:  'bg-danger-50  text-danger-700  ring-1 ring-inset ring-danger-200',
 };
 
 const outlinedTones: Record<Tone, string> = {
-  neutral: 'bg-white text-neutral-700 ring-1 ring-inset ring-neutral-200',
-  primary: 'bg-white text-primary-700 ring-1 ring-inset ring-primary-200',
-  sage:    'bg-white text-sage-700    ring-1 ring-inset ring-sage-200',
-  success: 'bg-white text-success-700 ring-1 ring-inset ring-success-500/30',
-  warning: 'bg-white text-warning-700 ring-1 ring-inset ring-warning-500/30',
-  danger:  'bg-white text-danger-700  ring-1 ring-inset ring-danger-500/30',
+  neutral: 'bg-transparent text-on-surface-variant border border-outline-variant',
+  primary: 'bg-transparent text-primary-700 border border-primary-300',
+  sage:    'bg-transparent text-sage-700    border border-sage-300',
+  success: 'bg-transparent text-success-700 border border-success-300',
+  warning: 'bg-transparent text-warning-700 border border-warning-300',
+  danger:  'bg-transparent text-danger-700  border border-danger-300',
 };
 
 const filledTones: Record<Tone, string> = {
-  neutral: 'bg-neutral-900 text-white',
-  primary: 'bg-primary-600 text-white',
-  sage:    'bg-sage-600 text-white',
+  neutral: 'bg-neutral-800 text-white',
+  primary: 'bg-primary-container text-on-primary-container',
+  sage:    'bg-sage-100 text-sage-800',
   success: 'bg-success-600 text-white',
-  warning: 'bg-warning-600 text-white',
+  warning: 'bg-warning-500 text-white',
   danger:  'bg-danger-600 text-white',
 };
 
 const dotColor: Record<Tone, string> = {
-  neutral: 'bg-neutral-400',
+  neutral: 'bg-neutral-500',
   primary: 'bg-primary-500',
   sage:    'bg-sage-500',
   success: 'bg-success-500',
@@ -50,9 +56,9 @@ const dotColor: Record<Tone, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  xs: 'h-5 px-1.5 text-[0.6875rem] gap-1 rounded-md',
-  sm: 'h-5 px-2   text-caption     gap-1 rounded-full',
-  md: 'h-6 px-2.5 text-label       gap-1.5 rounded-full',
+  xs: 'h-5 px-2   text-[0.6875rem] gap-1   rounded-full',
+  sm: 'h-6 px-2.5 text-label        gap-1   rounded-full',
+  md: 'h-7 px-3   text-label-lg     gap-1.5 rounded-full',
 };
 
 export function Chip({
@@ -67,7 +73,7 @@ export function Chip({
 }: Props) {
   const palette =
     variant === 'outlined' ? outlinedTones[tone] :
-    variant === 'filled' ? filledTones[tone] :
+    variant === 'filled'   ? filledTones[tone]   :
     softTones[tone];
 
   return (

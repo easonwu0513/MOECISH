@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, TextareaHTMLAttributes, useId } from 'react';
+import { forwardRef, TextareaHTMLAttributes, useId, useState } from 'react';
 import { cn } from '@/lib/cn';
 
 type Props = TextareaHTMLAttributes<HTMLTextAreaElement> & {
@@ -10,41 +10,67 @@ type Props = TextareaHTMLAttributes<HTMLTextAreaElement> & {
 };
 
 export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea(
-  { label, helperText, errorText, id, className, disabled, rows = 4, ...rest },
+  { label, helperText, errorText, id, className, disabled, rows = 4, value, defaultValue, onFocus, onBlur, ...rest },
   ref,
 ) {
   const genId = useId();
   const inputId = id ?? genId;
   const hasError = Boolean(errorText);
+  const [focused, setFocused] = useState(false);
+  const filled = Boolean(value ?? defaultValue);
+  const raised = focused || filled;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && (
-        <label htmlFor={inputId} className="text-label text-neutral-700">
-          {label}
-        </label>
-      )}
-      <textarea
-        ref={ref}
-        id={inputId}
-        rows={rows}
-        disabled={disabled}
-        aria-invalid={hasError}
-        aria-describedby={hasError ? `${inputId}-err` : helperText ? `${inputId}-help` : undefined}
+      <div
         className={cn(
-          'rounded-lg border bg-white px-3.5 py-2.5 text-body outline-none transition-all duration-180 ease-smooth resize-y leading-relaxed',
-          'placeholder:text-neutral-400 focus:border-primary-500 focus:shadow-focus',
+          'relative rounded-t-md overflow-hidden transition-all duration-200 ease-standard',
+          'bg-surface-container',
           hasError
-            ? 'border-danger-500 shadow-focus-danger'
-            : 'border-hairline hover:border-subtle',
-          disabled && 'bg-neutral-50 opacity-70 cursor-not-allowed',
+            ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-danger-500'
+            : focused
+            ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-primary-600'
+            : 'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-outline',
+          !focused && !hasError && 'hover:bg-surface-container-high',
+          disabled && 'opacity-50',
         )}
-        {...rest}
-      />
+      >
+        {label && (
+          <label
+            htmlFor={inputId}
+            className={cn(
+              'absolute pointer-events-none transition-all duration-200 ease-standard left-3.5',
+              raised
+                ? 'top-2 text-[0.75rem]'
+                : 'top-3 text-body',
+              hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-on-surface-variant',
+            )}
+          >
+            {label}
+          </label>
+        )}
+        <textarea
+          ref={ref}
+          id={inputId}
+          rows={rows}
+          disabled={disabled}
+          aria-invalid={hasError}
+          value={value}
+          defaultValue={defaultValue}
+          onFocus={(e) => { setFocused(true); onFocus?.(e); }}
+          onBlur={(e) => { setFocused(false); onBlur?.(e); }}
+          className={cn(
+            'block w-full bg-transparent px-3.5 py-3 pt-6 text-body outline-none resize-y leading-relaxed',
+            'placeholder:text-on-surface-variant disabled:cursor-not-allowed',
+            !label && 'pt-3',
+          )}
+          {...rest}
+        />
+      </div>
       {hasError ? (
-        <p id={`${inputId}-err`} className="text-caption text-danger-700">{errorText}</p>
+        <p className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p id={`${inputId}-help`} className="text-caption text-neutral-500">{helperText}</p>
+        <p className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
       ) : null}
     </div>
   );

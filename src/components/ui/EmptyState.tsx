@@ -15,19 +15,19 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-col items-center justify-center text-center py-10 px-6', className)}>
+    <div className={cn('flex flex-col items-center justify-center text-center py-12 px-6', className)}>
       {icon && (
-        <div className="mb-4 w-14 h-14 rounded-full bg-neutral-100 text-neutral-400 flex items-center justify-center">
+        <div className="mb-5 w-16 h-16 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center">
           {icon}
         </div>
       )}
-      <h3 className="text-title text-neutral-800">{title}</h3>
+      <h3 className="text-title-lg text-on-surface">{title}</h3>
       {description && (
-        <p className="mt-1.5 text-body-sm text-neutral-500 max-w-md text-balance">
+        <p className="mt-2 text-body-sm text-on-surface-variant max-w-md text-balance leading-relaxed">
           {description}
         </p>
       )}
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   );
 }

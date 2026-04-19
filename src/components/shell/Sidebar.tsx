@@ -22,41 +22,35 @@ type Item = {
   allow: Role[];
 };
 
-type Group = {
-  label?: string;
-  items: Item[];
-};
+type Group = { label?: string; items: Item[] };
 
 const groups: Group[] = [
   {
     items: [
-      { href: '/', label: '總覽', icon: <LayoutDashboard size={17} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
+      { href: '/', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
     ],
   },
   {
     label: '稽核作業',
     items: [
-      { href: '/cycles', label: '稽核週期', icon: <ClipboardCheck size={17} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
-      { href: '/findings-overview', label: '稽核發現', icon: <AlertTriangle size={17} />, allow: ['ADMIN', 'AUDITOR'] },
+      { href: '/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
+      { href: '/findings-overview', label: '稽核發現', icon: <AlertTriangle size={20} />, allow: ['ADMIN', 'AUDITOR'] },
     ],
   },
   {
     label: '管理',
     items: [
-      { href: '/admin/users', label: '使用者', icon: <Users size={17} />, allow: ['ADMIN'] },
-      { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={17} />, allow: ['ADMIN', 'AUDITOR'] },
-      { href: '/admin/settings', label: '設定', icon: <Settings size={17} />, allow: ['ADMIN'] },
+      { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['ADMIN'] },
+      { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['ADMIN', 'AUDITOR'] },
+      { href: '/admin/settings', label: '設定', icon: <Settings size={20} />, allow: ['ADMIN'] },
     ],
   },
 ];
 
-const roleAccent: Record<Role, string> = {
-  ADMIN: 'bg-primary-400',
-  AUDITOR: 'bg-sage-400',
-  RESPONDENT: 'bg-neutral-300',
-  SUPERVISOR: 'bg-warning-400',
-};
-
+/**
+ * Material 3 Navigation Drawer.
+ * Uses pill-shaped active indicator on primary-container background.
+ */
 export function Sidebar({
   role,
   collapsed,
@@ -73,31 +67,28 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        'relative flex flex-col bg-surface-muted border-r border-hairline transition-all duration-180 ease-smooth',
-        collapsed ? 'w-16' : 'w-64',
+        'relative flex flex-col bg-surface-container-low transition-all duration-200 ease-standard',
+        collapsed ? 'w-20' : 'w-[18rem]',
       )}
     >
-      {/* Role accent strip — subtle */}
-      <span className={cn('absolute left-0 top-0 h-full w-[3px] opacity-70', roleAccent[role])} aria-hidden />
-
       {showBrand && !collapsed && (
-        <div className="h-14 flex items-center px-5 border-b border-hairline">
+        <div className="h-16 flex items-center px-5">
           <Wordmark />
         </div>
       )}
 
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-5">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin pb-6">
         {groups.map((g, gi) => {
           const items = g.items.filter((i) => i.allow.includes(role));
           if (items.length === 0) return null;
           return (
-            <div key={gi} className="mb-6 last:mb-0">
+            <div key={gi} className="mt-2 first:mt-0">
               {g.label && !collapsed && (
-                <div className="px-5 mb-2 text-[0.6875rem] uppercase tracking-[0.1em] text-neutral-400 font-medium">
+                <div className="px-7 py-3 text-label-sm uppercase tracking-[0.08em] text-on-surface-variant font-medium">
                   {g.label}
                 </div>
               )}
-              <ul className="flex flex-col gap-0.5 px-2">
+              <ul className="flex flex-col gap-0.5 px-3">
                 {items.map((i) => {
                   const active =
                     pathname === i.href ||
@@ -108,24 +99,18 @@ export function Sidebar({
                         href={i.href}
                         onClick={onClose}
                         className={cn(
-                          'group relative flex items-center gap-2.5 rounded-md px-3 h-9 text-body-sm transition-colors duration-180 ease-smooth focus-ring',
+                          'group relative flex items-center gap-3 h-14 px-4 text-label-lg transition-all duration-200 ease-standard focus-ring rounded-full',
                           active
-                            ? 'text-primary-700 font-medium'
-                            : 'text-neutral-600 hover:bg-white hover:text-neutral-900',
+                            ? 'bg-primary-container text-on-primary-container font-medium'
+                            : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
                           collapsed && 'justify-center px-0',
                         )}
                         title={collapsed ? i.label : undefined}
                       >
-                        {active && (
-                          <span
-                            className="absolute left-0 top-2 bottom-2 w-[2px] bg-primary-600 rounded-full"
-                            aria-hidden
-                          />
-                        )}
                         <span
                           className={cn(
                             'transition-colors',
-                            active ? 'text-primary-600' : 'text-neutral-400 group-hover:text-neutral-700',
+                            active ? 'text-on-primary-container' : 'text-on-surface-variant group-hover:text-on-surface',
                           )}
                         >
                           {i.icon}
@@ -142,8 +127,8 @@ export function Sidebar({
       </nav>
 
       {!collapsed && (
-        <div className="px-5 py-4 border-t border-hairline text-caption text-neutral-400">
-          <span className="font-medium text-neutral-500">MOECISH</span> · v0.3
+        <div className="px-6 py-4 text-caption text-on-surface-variant">
+          <span className="font-medium">MOECISH</span> · v0.4
         </div>
       )}
     </aside>

@@ -1,7 +1,12 @@
 'use client';
 
 import { cn } from '@/lib/cn';
+import { Check } from '../icons';
 
+/**
+ * Material 3 Segmented Button (single-select form).
+ * Outlined group where the selected option gets a filled-tonal surface.
+ */
 type Option<T extends string> = {
   value: T;
   label: string;
@@ -18,9 +23,9 @@ type Props<T extends string> = {
   ariaLabel?: string;
 };
 
-const toneSelectedBg: Record<NonNullable<Option<string>['tone']>, string> = {
-  neutral: 'bg-primary-600 text-white',
-  success: 'bg-success-500 text-white',
+const selectedStyle: Record<NonNullable<Option<string>['tone']>, string> = {
+  neutral: 'bg-primary-container text-on-primary-container',
+  success: 'bg-success-600 text-white',
   warning: 'bg-warning-500 text-white',
   danger:  'bg-danger-500 text-white',
 };
@@ -39,12 +44,12 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex rounded-lg border border-hairline bg-neutral-50 p-0.5',
-        disabled && 'opacity-60',
+        'inline-flex rounded-full overflow-hidden border border-outline-variant',
+        disabled && 'opacity-50',
         className,
       )}
     >
-      {options.map((opt) => {
+      {options.map((opt, idx) => {
         const selected = opt.value === value;
         const tone = opt.tone ?? 'neutral';
         return (
@@ -55,13 +60,15 @@ export function Segmented<T extends string>({
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'flex-1 font-medium transition-all duration-180 ease-smooth focus-ring rounded-md',
-              size === 'sm' ? 'h-7 px-3 text-[0.8125rem]' : 'h-8 px-4 text-body-sm',
+              'flex items-center justify-center gap-1.5 font-medium transition-colors duration-150 ease-standard focus-ring',
+              idx > 0 && 'border-l border-outline-variant',
+              size === 'sm' ? 'h-8 px-3 text-[0.8125rem]' : 'h-10 px-4 text-label-lg',
               selected
-                ? toneSelectedBg[tone] + ' shadow-xs'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/70',
+                ? selectedStyle[tone]
+                : 'bg-surface text-on-surface hover:bg-surface-container',
             )}
           >
+            {selected && <Check size={14} />}
             {opt.label}
           </button>
         );

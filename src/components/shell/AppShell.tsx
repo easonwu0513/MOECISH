@@ -51,7 +51,7 @@ export function AppShell({
   ];
 
   return (
-    <div className="min-h-screen flex bg-app">
+    <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
         <Sidebar role={user.role} />
@@ -60,8 +60,8 @@ export function AppShell({
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-neutral-900/40" onClick={() => setMobileOpen(false)} />
-          <div className="relative z-50 animate-slide-in-right">
+          <div className="absolute inset-0 bg-[rgba(20,20,30,0.45)]" onClick={() => setMobileOpen(false)} />
+          <div className="relative z-50 animate-slide-in-right shadow-elev-5">
             <Sidebar role={user.role} onClose={() => setMobileOpen(false)} />
           </div>
         </div>

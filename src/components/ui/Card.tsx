@@ -1,33 +1,49 @@
 import { forwardRef, HTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
 
+/**
+ * Material 3 Card variants:
+ *  - elevated (default): bg-surface-container-low + shadow-elev-1
+ *  - filled:             bg-surface-container-highest, no shadow
+ *  - outlined:           border + transparent bg (on surface)
+ */
+type Variant = 'elevated' | 'filled' | 'outlined';
+
 type Props = HTMLAttributes<HTMLDivElement> & {
-  elevation?: 0 | 1 | 2 | 3;
+  variant?: Variant;
   interactive?: boolean;
   padded?: boolean;
+  /* back-compat */
+  elevation?: 0 | 1 | 2 | 3;
   surface?: 'default' | 'muted' | 'raised';
 };
 
-const elevationMap = {
-  0: 'shadow-none',
-  1: 'shadow-xs',
-  2: 'shadow-sm',
-  3: 'shadow-md',
-};
-
 export const Card = forwardRef<HTMLDivElement, Props>(function Card(
-  { elevation = 0, interactive, padded = true, surface = 'default', className, children, ...rest },
+  { variant = 'elevated', interactive, padded = true, elevation, className, children, ...rest },
   ref,
 ) {
+  // Back-compat: elevation=0 → outlined
+  const resolved: Variant = elevation === 0 ? 'outlined' : variant;
+
+  const styles: Record<Variant, string> = {
+    elevated:
+      'bg-surface-container-low shadow-elev-1 ' +
+      (interactive ? 'hover:shadow-elev-3 hover:bg-surface-container' : ''),
+    filled:
+      'bg-surface-container-highest ' +
+      (interactive ? 'hover:bg-surface-container-high' : ''),
+    outlined:
+      'bg-surface border border-outline-variant ' +
+      (interactive ? 'hover:border-outline hover:bg-surface-container-low' : ''),
+  };
+
   return (
     <div
       ref={ref}
       className={cn(
-        'border border-hairline rounded-xl transition-all duration-180 ease-smooth',
-        surface === 'muted' ? 'bg-surface-muted' :
-        surface === 'raised' ? 'bg-surface-raised' : 'bg-surface',
-        elevationMap[elevation],
-        interactive && 'hover:border-subtle hover:shadow-sm cursor-pointer',
+        'rounded-md transition-all duration-200 ease-standard',
+        styles[resolved],
+        interactive && 'cursor-pointer',
         padded && 'p-6',
         className,
       )}
@@ -43,9 +59,9 @@ export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement
 }
 
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-title text-neutral-900', className)} {...rest} />;
+  return <h3 className={cn('text-title-md text-on-surface', className)} {...rest} />;
 }
 
 export function CardDescription({ className, ...rest }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-body-sm text-neutral-500 mt-1 leading-relaxed', className)} {...rest} />;
+  return <p className={cn('text-body-sm text-on-surface-variant mt-1', className)} {...rest} />;
 }

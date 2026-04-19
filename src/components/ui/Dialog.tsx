@@ -12,6 +12,7 @@ export function Dialog({
   children,
   footer,
   size = 'md',
+  icon,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -20,6 +21,7 @@ export function Dialog({
   children?: ReactNode;
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  icon?: ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -45,26 +47,31 @@ export function Dialog({
       aria-modal="true"
     >
       <div
-        className="absolute inset-0 bg-neutral-900/25 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-[rgba(20,20,30,0.32)] backdrop-blur-[2px]"
         onClick={() => onOpenChange(false)}
       />
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-lg border border-hairline animate-slide-up',
+          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 animate-slide-up',
           w,
         )}
       >
-        {(title || description) && (
-          <div className="px-6 pt-6">
-            {title && <h2 className="text-title-lg text-neutral-900">{title}</h2>}
+        {(icon || title || description) && (
+          <div className="px-6 pt-6 text-center sm:text-left">
+            {icon && (
+              <div className="mb-4 inline-flex w-10 h-10 rounded-full bg-primary-container text-on-primary-container items-center justify-center">
+                {icon}
+              </div>
+            )}
+            {title && <h2 className="text-title-lg text-on-surface">{title}</h2>}
             {description && (
-              <p className="mt-2 text-body-sm text-neutral-600 leading-relaxed">{description}</p>
+              <p className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</p>
             )}
           </div>
         )}
         {children && <div className="px-6 py-5">{children}</div>}
         {footer && (
-          <div className="px-6 pb-5 pt-4 flex items-center justify-end gap-2 border-t border-hairline">
+          <div className="px-6 pb-5 pt-3 flex items-center justify-end gap-2">
             {footer}
           </div>
         )}
@@ -102,11 +109,11 @@ export function ConfirmDialog({
       description={description}
       footer={
         <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
+          <Button variant="text" onClick={() => onOpenChange(false)} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button
-            variant={tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : 'primary'}
+            variant={tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : 'filled'}
             onClick={onConfirm}
             loading={loading}
           >
