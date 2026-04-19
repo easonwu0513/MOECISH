@@ -25,7 +25,7 @@ const avatarBg: Record<Role, string> = {
   ADMIN: 'bg-primary-container text-on-primary-container',
   AUDITOR: 'bg-sage-100 text-sage-800',
   RESPONDENT: 'bg-surface-container-highest text-on-surface',
-  SUPERVISOR: 'bg-warning-100 text-warning-700',
+  SUPERVISOR: 'bg-tertiary-100 text-tertiary-700',
 };
 
 export function UserMenu({

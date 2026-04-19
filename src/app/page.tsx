@@ -89,22 +89,33 @@ export default async function HomePage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽' }]}
     >
-      {/* Hero header */}
-      <section className="mb-10">
-        <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
-        <h1 className="mt-2 text-display-sm text-on-surface text-balance">
-          {greeting}，{user.name}。
-        </h1>
-        {primary && todos.length > 0 ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
-            今天有 <span className="font-semibold text-on-surface tabular-nums">{todos.length}</span> 項待辦需處理。
-            先把待辦清掉再進稽核週期會比較順。
-          </p>
-        ) : primary ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant">
-            目前沒有待辦，隨時可進入稽核週期檢視進度。
-          </p>
-        ) : null}
+      {/* Hero header with amber-tinted ambient glow */}
+      <section className="relative mb-10">
+        <div
+          className="absolute -top-8 -left-8 -right-8 h-48 pointer-events-none opacity-80"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 70% at 85% 30%, rgba(245,173,59,0.14), transparent 65%),' +
+              'radial-gradient(ellipse 60% 80% at 10% 40%, rgba(62,109,209,0.08), transparent 70%)',
+          }}
+          aria-hidden
+        />
+        <div className="relative">
+          <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
+          <h1 className="mt-2 text-display-sm text-on-surface text-balance">
+            {greeting}，{user.name}。
+          </h1>
+          {primary && todos.length > 0 ? (
+            <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
+              今天有 <span className="font-semibold text-tertiary-700 tabular-nums">{todos.length}</span> 項待辦需處理。
+              先把待辦清掉再進稽核週期會比較順。
+            </p>
+          ) : primary ? (
+            <p className="mt-3 text-body-lg text-on-surface-variant">
+              目前沒有待辦，隨時可進入稽核週期檢視進度。
+            </p>
+          ) : null}
+        </div>
       </section>
 
       {primary ? (
@@ -170,7 +181,7 @@ export default async function HomePage() {
               <div className="flex flex-col gap-1">
                 {todos.length === 0 ? (
                   <div className="flex flex-col items-center text-center py-8 px-2">
-                    <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
+                    <div className="w-14 h-14 rounded-full bg-tertiary-100 text-tertiary-700 flex items-center justify-center mb-3">
                       <CheckCircle size={26} />
                     </div>
                     <p className="text-title text-on-surface">{EMPTY.noTodos.title}</p>
