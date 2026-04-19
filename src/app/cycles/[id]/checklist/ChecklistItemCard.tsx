@@ -18,7 +18,7 @@ const complianceColor: Record<ComplianceLevel, string> = {
   COMPLIANT: 'bg-success-500',
   PARTIALLY_COMPLIANT: 'bg-warning-500',
   NON_COMPLIANT: 'bg-danger-500',
-  NOT_APPLICABLE: 'bg-neutral-400',
+  NOT_APPLICABLE: 'bg-outline-variant',
 };
 
 export default function ChecklistItemCard({
@@ -206,16 +206,17 @@ export default function ChecklistItemCard({
     <div
       data-item-id={item.id}
       className={cn(
-        'relative bg-white rounded-xl border transition-all duration-180 ease-smooth',
-        focused ? 'border-primary-400 ring-2 ring-primary-100' : 'border-hairline',
-        expanded ? 'shadow-xs' : 'hover:border-subtle',
+        'relative bg-surface-container-lowest rounded-md border transition-all duration-180 ease-standard overflow-hidden',
+        focused ? 'border-primary-400 shadow-elev-2' : 'border-outline-variant/60',
+        !focused && expanded && 'shadow-elev-1',
+        !focused && !expanded && 'hover:border-outline-variant',
       )}
     >
-      {/* left color bar */}
+      {/* top compliance stripe — replaces the old full-height left bar */}
       <span
         className={cn(
-          'absolute left-0 top-0 bottom-0 w-1 rounded-l-xl',
-          compliance ? complianceColor[compliance] : 'bg-neutral-200',
+          'block h-[3px]',
+          compliance ? complianceColor[compliance] : 'bg-surface-container-high',
         )}
         aria-hidden
       />
@@ -223,7 +224,7 @@ export default function ChecklistItemCard({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-start gap-3 text-left px-4 py-3 focus-ring rounded-xl"
+        className="w-full flex items-start gap-3 text-left px-4 py-3.5 focus-ring"
         aria-expanded={expanded}
       >
         <Chip tone="neutral" size="sm" className="font-mono shrink-0 mt-0.5">
@@ -257,7 +258,7 @@ export default function ChecklistItemCard({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-neutral-100">
+        <div className="px-4 pb-4 pt-1 border-t border-outline-variant/60">
           <Tabs tabs={tabs} />
         </div>
       )}

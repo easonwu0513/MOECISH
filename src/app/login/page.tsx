@@ -38,14 +38,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center px-4 py-10 overflow-hidden bg-surface-container-low">
-      {/* Material ambient background — warm highlights */}
+      {/* Ambient — navy gradient */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 60% 50% at 12% 15%, rgba(62,109,209,0.14), transparent 65%),' +
-            'radial-gradient(ellipse 55% 45% at 88% 85%, rgba(245,173,59,0.12), transparent 65%),' +
-            'radial-gradient(ellipse 60% 45% at 50% 110%, rgba(104,138,96,0.08), transparent 60%)',
+            'radial-gradient(ellipse 65% 55% at 15% 20%, rgba(40,82,160,0.12), transparent 70%),' +
+            'radial-gradient(ellipse 60% 50% at 85% 85%, rgba(40,82,160,0.06), transparent 70%)',
         }}
         aria-hidden
       />

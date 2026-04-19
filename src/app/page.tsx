@@ -13,6 +13,8 @@ import {
   ClipboardCheck,
   ChevronRight,
   CheckCircle,
+  AlertCircle,
+  ShieldCheck,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
@@ -89,37 +91,51 @@ export default async function HomePage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽' }]}
     >
-      {/* Hero header with amber-tinted ambient glow */}
-      <section className="relative mb-10">
-        <div
-          className="absolute -top-8 -left-8 -right-8 h-48 pointer-events-none opacity-80"
-          style={{
-            background:
-              'radial-gradient(ellipse 50% 70% at 85% 30%, rgba(245,173,59,0.14), transparent 65%),' +
-              'radial-gradient(ellipse 60% 80% at 10% 40%, rgba(62,109,209,0.08), transparent 70%)',
-          }}
-          aria-hidden
-        />
-        <div className="relative">
-          <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
-          <h1 className="mt-2 text-display-sm text-on-surface text-balance">
-            {greeting}，{user.name}。
-          </h1>
-          {primary && todos.length > 0 ? (
-            <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
-              今天有 <span className="font-semibold text-tertiary-700 tabular-nums">{todos.length}</span> 項待辦需處理。
-              先把待辦清掉再進稽核週期會比較順。
-            </p>
-          ) : primary ? (
-            <p className="mt-3 text-body-lg text-on-surface-variant">
-              目前沒有待辦，隨時可進入稽核週期檢視進度。
-            </p>
-          ) : null}
-        </div>
+      {/* Hero header */}
+      <section className="mb-6">
+        <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
+        <h1 className="mt-2 text-display-sm text-on-surface text-balance">
+          {greeting}，{user.name}。
+        </h1>
+        {primary && todos.length > 0 ? (
+          <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
+            今天有 <span className="font-semibold text-primary-700 tabular-nums">{todos.length}</span> 項待辦需處理。
+            先把待辦清掉再進稽核週期會比較順。
+          </p>
+        ) : primary ? (
+          <p className="mt-3 text-body-lg text-on-surface-variant">
+            目前沒有待辦，隨時可進入稽核週期檢視進度。
+          </p>
+        ) : null}
       </section>
 
       {primary ? (
         <>
+          {/* Top stat strip — NTU ISMS style, colored top borders */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+            <StatTopBar
+              tone="primary"
+              icon={<ClipboardCheck size={20} />}
+              primary={`${filled}/${totalItems}`}
+              label="填答進度"
+              sub={`${totalItems ? Math.round((filled / totalItems) * 100) : 0}% 完成`}
+            />
+            <StatTopBar
+              tone="success"
+              icon={<ShieldCheck size={20} />}
+              primary={`${totalItems ? Math.round(((comp + partial) / totalItems) * 100) : 0}%`}
+              label="符合率"
+              sub={`符合 ${comp} · 部分 ${partial}`}
+            />
+            <StatTopBar
+              tone="danger"
+              icon={<AlertCircle size={20} />}
+              primary={`${todos.length}`}
+              label="待處理事項"
+              sub={todos.length > 0 ? '需儘速處理' : '全部已清空'}
+            />
+          </section>
+
           <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-10">
             <Card className="lg:col-span-3" padded={false} variant="elevated">
               <div className="p-7 sm:p-8">
@@ -181,7 +197,7 @@ export default async function HomePage() {
               <div className="flex flex-col gap-1">
                 {todos.length === 0 ? (
                   <div className="flex flex-col items-center text-center py-8 px-2">
-                    <div className="w-14 h-14 rounded-full bg-tertiary-100 text-tertiary-700 flex items-center justify-center mb-3">
+                    <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
                       <CheckCircle size={26} />
                     </div>
                     <p className="text-title text-on-surface">{EMPTY.noTodos.title}</p>
@@ -271,6 +287,55 @@ export default async function HomePage() {
         </Card>
       )}
     </AppShell>
+  );
+}
+
+function StatTopBar({
+  tone,
+  icon,
+  primary,
+  label,
+  sub,
+}: {
+  tone: 'primary' | 'success' | 'warning' | 'danger' | 'sage' | 'tertiary';
+  icon: React.ReactNode;
+  primary: string;
+  label: string;
+  sub: string;
+}) {
+  const bar = {
+    primary: 'bg-primary-500',
+    success: 'bg-success-500',
+    warning: 'bg-warning-500',
+    danger: 'bg-danger-500',
+    sage: 'bg-sage-500',
+    tertiary: 'bg-tertiary-500',
+  }[tone];
+  const iconBg = {
+    primary: 'bg-primary-50 text-primary-700',
+    success: 'bg-success-50 text-success-700',
+    warning: 'bg-warning-50 text-warning-700',
+    danger: 'bg-danger-50 text-danger-700',
+    sage: 'bg-sage-50 text-sage-700',
+    tertiary: 'bg-tertiary-50 text-tertiary-700',
+  }[tone];
+
+  return (
+    <div className="relative bg-surface-container-lowest rounded-md shadow-elev-1 overflow-hidden border border-outline-variant/60">
+      <div className={`h-1 ${bar}`} aria-hidden />
+      <div className="p-5 flex items-center gap-4">
+        <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-headline-sm font-semibold text-on-surface tabular-nums">{primary}</span>
+          </div>
+          <div className="mt-0.5 text-body-sm text-on-surface font-medium">{label}</div>
+          <div className="text-caption text-on-surface-variant mt-0.5 truncate">{sub}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
