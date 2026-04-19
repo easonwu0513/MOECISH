@@ -19,7 +19,44 @@ model Organization {
   children  Organization[] @relation("OrgTree")
   users     User[]
   cycles    AuditCycle[]
+  invitations Invitation[]
   createdAt DateTime @default(now())
+}
+
+model Invitation {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  email          String
+  name           String
+  role           String    // Role
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdById    String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  userId         String?   // 填入使用者 id（接受後）
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([email])
+  @@index([organizationId])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  toEmail   String
+  toName    String?
+  subject   String
+  body      String
+  kind      String   // "invitation" | "cycle-notify" | "password-reset" | "other"
+  context   String?  // JSON
+  relatedInvitationId String?
+  relatedCycleId      String?
+  sentAt    DateTime @default(now())
+
+  @@index([sentAt])
+  @@index([toEmail])
+  @@index([kind])
 }
 
 model User {

@@ -11,6 +11,8 @@ import {
   Users,
   History,
   Settings,
+  Briefcase,
+  FileText,
 } from '../icons';
 import type { Role } from '@/lib/types';
 import { Wordmark } from '../brand/Logo';
@@ -40,9 +42,11 @@ const groups: Group[] = [
   {
     label: '管理',
     items: [
+      { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['ADMIN'] },
       { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['ADMIN'] },
+      { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['ADMIN'] },
+      { href: '/admin/emails', label: 'Email 紀錄', icon: <FileText size={20} />, allow: ['ADMIN'] },
       { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['ADMIN', 'AUDITOR'] },
-      { href: '/admin/settings', label: '設定', icon: <Settings size={20} />, allow: ['ADMIN'] },
     ],
   },
 ];

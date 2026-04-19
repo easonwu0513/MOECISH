@@ -18,6 +18,7 @@ import {
   Upload,
 } from '@/components/icons';
 import SignedDocumentUpload from './SignedDocumentUpload';
+import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
 
 export default async function CyclePage({ params }: { params: { id: string } }) {
@@ -209,6 +210,17 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           </Link>
         </div>
       </Card>
+
+      {/* Admin / Auditor actions */}
+      {(user.role === 'ADMIN' || user.role === 'AUDITOR') && (
+        <Card className="mb-6">
+          <CardTitle>管理動作</CardTitle>
+          <CardDescription>僅管理員與稽核委員可執行</CardDescription>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <NotifyButton cycleId={cycle.id} />
+          </div>
+        </Card>
+      )}
 
       {/* Transitions */}
       {transitions.length > 0 && (
