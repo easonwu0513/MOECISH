@@ -72,6 +72,7 @@ export default function ChecklistShell({
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusedIdx, setFocusedIdx] = useState(0);
+  const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -129,6 +130,20 @@ export default function ChecklistShell({
     setExpanded(new Set(unans));
   }
 
+  function toggleDim(dim: string) {
+    setCollapsedDims((prev) => {
+      const next = new Set(prev);
+      if (next.has(dim)) next.delete(dim); else next.add(dim);
+      return next;
+    });
+  }
+  function collapseAllDims() {
+    setCollapsedDims(new Set(DIMENSION_ORDER));
+  }
+  function expandAllDims() {
+    setCollapsedDims(new Set());
+  }
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -176,15 +191,24 @@ export default function ChecklistShell({
               ) : undefined}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
-              展開未作答
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-caption text-on-surface-variant ml-1 mr-1 hidden lg:inline">題目</span>
+            <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
+              未作答
             </Button>
-            <Button size="sm" variant="ghost" onClick={expandAll} leadingIcon={<ChevronDown size={14} />}>
-              展開全部
+            <Button size="sm" variant="text" onClick={expandAll} leadingIcon={<ChevronDown size={14} />}>
+              全展開
             </Button>
-            <Button size="sm" variant="ghost" onClick={collapseAll} leadingIcon={<ChevronUp size={14} />}>
-              收合全部
+            <Button size="sm" variant="text" onClick={collapseAll} leadingIcon={<ChevronUp size={14} />}>
+              全收合
+            </Button>
+            <span className="mx-2 h-4 w-px bg-outline-variant hidden lg:inline-block" aria-hidden />
+            <span className="text-caption text-on-surface-variant mr-1 hidden lg:inline">構面</span>
+            <Button size="sm" variant="text" onClick={expandAllDims} leadingIcon={<ChevronDown size={14} />}>
+              展開
+            </Button>
+            <Button size="sm" variant="text" onClick={collapseAllDims} leadingIcon={<ChevronUp size={14} />}>
+              收合
             </Button>
           </div>
         </div>
@@ -233,33 +257,77 @@ export default function ChecklistShell({
           action={<Button variant="secondary" onClick={() => { setSearch(''); setFilter('all'); }}>清除條件</Button>}
         />
       ) : (
-        grouped.map(({ dim, items }) => (
-          <section key={dim} className="mb-10">
-            <h2 id={`dim-${dim}`} className="flex items-center gap-2 text-title text-neutral-900 mb-4 scroll-mt-40">
-              <span>{DIMENSION_LABELS[dim as Dimension]}</span>
-              <Chip size="sm" tone="neutral">{items.length}</Chip>
-            </h2>
-            <div className="flex flex-col gap-3">
-              {items.map((it) => {
-                const r = responsesByItem.get(it.id);
-                const isFocused = flatIds[focusedIdx] === it.id;
-                return (
-                  <ChecklistItemCard
-                    key={it.id}
-                    cycleId={cycleId}
-                    item={it}
-                    response={r ?? null}
-                    canEdit={canEdit}
-                    userRole={userRole}
-                    expanded={expanded.has(it.id)}
-                    onToggle={() => toggle(it.id)}
-                    focused={isFocused}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        ))
+        grouped.map(({ dim, items }) => {
+          const dimCollapsed = collapsedDims.has(dim);
+          const dimDone = items.filter((i) => responsesByItem.get(i.id)?.compliance).length;
+          const dimPct = items.length > 0 ? Math.round((dimDone / items.length) * 100) : 0;
+          return (
+            <section key={dim} className="mb-5">
+              <button
+                id={`dim-${dim}`}
+                type="button"
+                onClick={() => toggleDim(dim)}
+                aria-expanded={!dimCollapsed}
+                className={cn(
+                  'group w-full flex items-center gap-4 text-left rounded-md border transition-all duration-180 ease-standard focus-ring scroll-mt-40',
+                  'bg-surface-container-lowest hover:bg-surface-container-low',
+                  dimCollapsed ? 'border-outline-variant/60' : 'border-outline-variant/60 shadow-xs',
+                  'px-5 py-3.5',
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-title-md text-on-surface">
+                      {DIMENSION_LABELS[dim as Dimension]}
+                    </h2>
+                    <Chip size="sm" tone="neutral">{items.length}</Chip>
+                    {dimPct === 100 && (
+                      <Chip size="sm" tone="success" dot>已完成</Chip>
+                    )}
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-3 w-40 shrink-0">
+                  <div className="flex-1">
+                    <ProgressBar value={dimDone} max={items.length} size="sm" tone={dimPct === 100 ? 'success' : 'primary'} />
+                  </div>
+                  <span className="text-caption text-on-surface-variant tabular-nums w-14 text-right">
+                    <span className="font-semibold text-on-surface">{dimDone}</span>
+                    <span className="text-on-surface-variant"> / {items.length}</span>
+                  </span>
+                </div>
+                <ChevronDown
+                  size={18}
+                  className={cn(
+                    'text-on-surface-variant shrink-0 transition-transform duration-180',
+                    !dimCollapsed && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {!dimCollapsed && (
+                <div className="mt-3 flex flex-col gap-3 animate-fade-in">
+                  {items.map((it) => {
+                    const r = responsesByItem.get(it.id);
+                    const isFocused = flatIds[focusedIdx] === it.id;
+                    return (
+                      <ChecklistItemCard
+                        key={it.id}
+                        cycleId={cycleId}
+                        item={it}
+                        response={r ?? null}
+                        canEdit={canEdit}
+                        userRole={userRole}
+                        expanded={expanded.has(it.id)}
+                        onToggle={() => toggle(it.id)}
+                        focused={isFocused}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })
       )}
     </div>
   );
