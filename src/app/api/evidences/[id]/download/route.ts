@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const e = await prisma.evidence.findUnique({ where: { id: params.id } });
     if (!e) return NextResponse.json({ error: 'not found' }, { status: 404 });
     const buf = await readFileByKey(e.storageKey);
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         'content-type': e.mimeType || 'application/octet-stream',

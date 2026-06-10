@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       : key.endsWith('.png')
       ? 'image/png'
       : 'image/jpeg';
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         'content-type': ct,

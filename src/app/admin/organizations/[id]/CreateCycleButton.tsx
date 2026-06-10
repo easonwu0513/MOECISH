@@ -54,7 +54,7 @@ export default function CreateCycleButton({
       toast.error('建立週期失敗', j.error);
       return;
     }
-    toast.success('已建立稽核週期', `${year - 1911} 年度 · ${orgName}`);
+    toast.success('已建立稽核週期', `${Number(year) - 1911} 年度 · ${orgName}`);
     setOpen(false);
     router.refresh();
   }

@@ -91,8 +91,8 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
             className={cn(
               'flex-1 min-w-0 bg-transparent px-3.5 h-14 text-body outline-none',
               'placeholder:text-transparent disabled:cursor-not-allowed',
-              leadingIcon && 'pl-2',
-              trailingIcon && 'pr-2',
+              !!leadingIcon && 'pl-2',
+              !!trailingIcon && 'pr-2',
             )}
             {...rest}
           />
@@ -156,8 +156,8 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
             'flex-1 min-w-0 bg-transparent px-3.5 h-14 pt-4 text-body outline-none',
             'placeholder:text-transparent disabled:cursor-not-allowed',
             !label && 'pt-0',
-            leadingIcon && 'pl-2',
-            trailingIcon && 'pr-2',
+            !!leadingIcon && 'pl-2',
+            !!trailingIcon && 'pr-2',
           )}
           {...rest}
         />

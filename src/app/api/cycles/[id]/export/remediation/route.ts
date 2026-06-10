@@ -227,7 +227,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const buf = await Packer.toBuffer(doc);
     const filename = `${data.organization.code}_${data.year - 1911}_改善執行情形報告.docx`;
 
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {
         'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
