@@ -1,0 +1,30 @@
+[Unit]
+Description=MOECISH - Next.js app (port 3001)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=moecish
+Group=moecish
+WorkingDirectory=/srv/moecish
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOSTNAME=0.0.0.0
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+MemoryMax=1500M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+# 可寫路徑:上傳檔、Next build 輸出、Graph token(自動續期需寫回)
+ReadWritePaths=/srv/moecish/uploads /srv/moecish/.next /srv/moecish/.graph-token.json
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=moecish
+
+[Install]
+WantedBy=multi-user.target
