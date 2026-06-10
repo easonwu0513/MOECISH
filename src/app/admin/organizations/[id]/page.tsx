@@ -30,7 +30,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
       cycles: {
         include: {
           checklistVersion: { select: { year: true } },
-          _count: { select: { responses: true, findings: true } },
+          _count: { select: { responses: true, deficiencies: true } },
         },
         orderBy: { year: 'desc' },
       },
@@ -159,7 +159,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                   <th className="text-left px-5 py-3 font-medium">題庫版本</th>
                   <th className="text-left px-5 py-3 font-medium">狀態</th>
                   <th className="text-right px-5 py-3 font-medium">填答</th>
-                  <th className="text-right px-5 py-3 font-medium">發現</th>
+                  <th className="text-right px-5 py-3 font-medium">缺失</th>
                   <th className="text-right px-5 py-3 font-medium">截止日</th>
                   <th className="text-right px-5 py-3 font-medium">進入</th>
                 </tr>
@@ -173,7 +173,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       <Chip size="sm" tone="neutral">{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{c._count.responses}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{c._count.findings}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{c._count.deficiencies}</td>
                     <td className="px-5 py-3 text-right text-on-surface-variant">
                       {new Date(c.dueDate).toLocaleDateString('zh-TW')}
                     </td>

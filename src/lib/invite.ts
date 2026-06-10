@@ -46,10 +46,9 @@ export async function createInvitation(input: {
 
   const link = `${input.appBaseUrl}/invite/${token}`;
   const roleLabel: Record<Role, string> = {
-    ADMIN: '平台管理員',
+    SUPER_ADMIN: '最高管理員',
     AUDITOR: '稽核委員',
-    RESPONDENT: '填報人',
-    SUPERVISOR: '單位主管',
+    ORG_ADMIN: '機關管理員',
   };
 
   const body =
