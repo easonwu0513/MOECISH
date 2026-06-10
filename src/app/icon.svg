@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <circle cx="100" cy="100" r="97" fill="#ffffff" stroke="#1B6C97" stroke-width="3"/>
+  <circle cx="100" cy="100" r="89" fill="#ffffff" stroke="#1B6C97" stroke-width="6"/>
+  <path d="M38 58 L38 96 L100 152 L100 132 L52 89 L52 58 Z" fill="#1B6C97"/>
+  <path d="M162 58 L162 96 L100 152 L100 132 L148 89 L148 58 Z" fill="#14587E"/>
+  <path d="M54 56 L96 70 L96 120 L54 92 Z" fill="#B7D7E8"/>
+  <path d="M146 56 L104 70 L104 120 L146 92 Z" fill="#B7D7E8"/>
+  <path d="M72 106 C71 98 72 92 76 86" stroke="#1B6C97" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M73 96 C64 95 59 89 59 82 C67 83 72 88 73 96 Z" fill="#1B6C97"/>
+  <path d="M75 90 C83 87 86 81 85 74 C78 77 74 82 75 90 Z" fill="#1B6C97"/>
+  <line x1="120" y1="48" x2="120" y2="126" stroke="#14587E" stroke-width="6" stroke-linecap="round"/>
+  <line x1="99" y1="56" x2="139" y2="56" stroke="#1B6C97" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="96" cy="56" r="6" fill="#1B6C97"/>
+  <circle cx="94.5" cy="54.5" r="1.6" fill="#ffffff"/>
+  <path d="M120 68 C137 70 137 84 120 86 C103 88 103 101 120 103 C135 105 135 117 121 119 C114 120 111 123 113 127" stroke="#1B6C97" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <text x="100" y="179" text-anchor="middle" font-family="'Inter','Noto Sans TC',sans-serif" font-size="19" font-weight="700" letter-spacing="3.5" fill="#14587E">C.I.S.H</text>
+</svg>
