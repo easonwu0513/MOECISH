@@ -30,7 +30,7 @@ export function AppShell({
   useCommandHotkey(setCmdOpen);
 
   const commands: Command[] = [
-    { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/') },
+    { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/dashboard') },
     ...(cycleId
       ? [
           { id: 'deficiencies', group: '導覽', label: '缺失與矯正', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/deficiencies`) } as Command,

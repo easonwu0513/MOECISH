@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
@@ -27,11 +28,16 @@ export default async function AdminCyclesPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '稽核週期' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">稽核週期管理</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
-          跨機關的所有稽核週期。要建立新週期請到醫院管理選擇對應醫院。
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-headline text-on-surface">稽核週期管理</h1>
+          <p className="mt-1 text-body-sm text-on-surface-variant">
+            跨機關的所有稽核週期。要建立新週期請到醫院管理選擇對應醫院。
+          </p>
+        </div>
+        <a href="/api/admin/export/summary">
+          <Button size="sm" variant="tonal">下載全機關彙整表(Excel)</Button>
+        </a>
       </header>
 
       {cycles.length === 0 ? (

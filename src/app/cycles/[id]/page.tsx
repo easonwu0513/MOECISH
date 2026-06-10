@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
@@ -29,8 +30,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   });
   if (!cycle) notFound();
 
-  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/');
+  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
 
   const total = cycle.deficiencies.length;
   const byStatus = (s: string) => cycle.deficiencies.filter((d) => d.action?.status === s).length;
@@ -47,7 +48,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
+        { label: '總覽', href: '/dashboard' },
         { label: '稽核週期', href: '/cycles' },
         { label: `${yearROC} 年度 · ${cycle.organization.name}` },
       ]}
@@ -143,6 +144,27 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/checklist`}
         />
       </section>
+
+      {/* 匯出 */}
+      <Card className="mb-6">
+        <CardTitle>匯出</CardTitle>
+        <CardDescription>產出制式公文格式檔案</CardDescription>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              Word 改善報告
+            </Button>
+          </a>
+          <Link href={`/cycles/${cycle.id}/print`} target="_blank" rel="noopener">
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              列印版(瀏覽器另存 PDF)
+            </Button>
+          </Link>
+          <a href={`/api/cycles/${cycle.id}/export/checklist`}>
+            <Button variant="text" size="sm">Excel 檢核表(選用)</Button>
+          </a>
+        </div>
+      </Card>
 
       {/* SUPER_ADMIN:委員指派 */}
       {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}

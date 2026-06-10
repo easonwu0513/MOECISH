@@ -27,7 +27,7 @@ type Group = { label?: string; items: Item[] };
 const groups: Group[] = [
   {
     items: [
-      { href: '/', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
+      { href: '/dashboard', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
     ],
   },
   {
@@ -42,7 +42,8 @@ const groups: Group[] = [
       { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/emails', label: 'Email 紀錄', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/posts', label: '公告管理', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/emails', label: 'Email', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR'] },
     ],
   },

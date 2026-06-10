@@ -215,6 +215,50 @@ async function main() {
     }
   }
 
+  // ── 前台示範公告 ──
+  const demoPosts = [
+    {
+      slug: 'platform-launch',
+      category: 'ANNOUNCEMENT',
+      title: 'MOECISH 平台正式啟用:115 年度醫療領域資安稽核管考作業上線',
+      important: false, pinned: true,
+      contentMd:
+        '## 平台啟用\n\n本平台自即日起提供醫療領域受稽機關進行**稽核前資料準備**、**缺失矯正填報**與**委員審查**作業。\n\n- 機關管理員帳號由平台統一邀請開通\n- 操作問題請聯絡資安推動中心\n\n> 請各機關於收到邀請信後 14 日內完成帳號啟用。',
+    },
+    {
+      slug: 'vuln-alert-edge-devices',
+      category: 'VULN_ALERT',
+      title: '【漏洞警訊】網路邊界設備重大漏洞,請儘速確認版本並修補',
+      important: true, pinned: false,
+      contentMd:
+        '## 摘要\n\n近期多款 VPN / 防火牆設備揭露遠端程式碼執行漏洞,已有在野攻擊紀錄。\n\n## 建議作為\n\n1. 立即盤點機關邊界設備廠牌與版本\n2. 依原廠公告升級至已修補版本\n3. 檢視近 90 日登入紀錄是否異常\n\n如有入侵疑慮,請依資通安全事件通報程序於 **1 小時內** 完成通報。',
+    },
+    {
+      slug: 'intel-healthcare-ransomware',
+      category: 'INTEL',
+      title: '醫療機構勒索軟體攻擊趨勢分析與防護建議',
+      important: false, pinned: false,
+      contentMd:
+        '## 趨勢觀察\n\n醫療機構因業務不可中斷特性,持續為勒索軟體高價值目標。常見入侵途徑:\n\n- 釣魚郵件夾帶惡意巨集\n- 曝險之遠端桌面服務(RDP)\n- 未修補之邊界設備漏洞\n\n## 防護建議\n\n- 落實 **3-2-1 備份**(離線備份至關重要)\n- 關鍵系統網段隔離\n- 強化特權帳號管理與 MFA',
+    },
+    {
+      slug: 'event-training-2026',
+      category: 'EVENT',
+      title: '115 年度受稽機關填報說明會(線上),開放報名',
+      important: false, pinned: false,
+      contentMd:
+        '## 活動資訊\n\n針對本年度受稽之醫療機構,說明平台填報流程與常見問題。\n\n- 時間:正式日期另行通知\n- 形式:線上會議\n- 對象:各機關資安窗口(機關管理員)\n\n報名連結將以郵件通知各機關管理員。',
+    },
+  ];
+  for (const p of demoPosts) {
+    await prisma.post.upsert({
+      where: { slug: p.slug },
+      create: { ...p, status: 'PUBLISHED', publishedAt: new Date(), authorId: admin.id },
+      update: {},
+    });
+  }
+  console.log(`[seed] 前台示範公告 ×${demoPosts.length}`);
+
   console.log('\n[seed] ✓ 完成');
   console.log('\n測試帳號 (密碼皆為 demo1234):');
   console.log('  admin@demo.tw     最高管理員');

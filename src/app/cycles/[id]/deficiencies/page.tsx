@@ -38,8 +38,8 @@ export default async function DeficienciesPage({ params }: { params: { id: strin
   if (!cycle) notFound();
 
   // 存取控制
-  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/');
+  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
@@ -57,7 +57,7 @@ export default async function DeficienciesPage({ params }: { params: { id: strin
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
+        { label: '總覽', href: '/dashboard' },
         { label: '稽核週期', href: '/cycles' },
         { label: `${yearROC} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '缺失與矯正' },

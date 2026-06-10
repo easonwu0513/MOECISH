@@ -19,7 +19,7 @@ const demoAccounts = [
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get('callbackUrl') ?? '/';
+  const callbackUrl = params.get('callbackUrl') ?? '/dashboard';
   const [email, setEmail] = useState('org@demo.tw');
   const [password, setPassword] = useState('demo1234');
   const [err, setErr] = useState<string | null>(null);

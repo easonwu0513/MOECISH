@@ -53,7 +53,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
       }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
+        { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
         { label: '委員審閱' },
       ]}

@@ -45,7 +45,7 @@ export default async function AuditLogPage({
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/admin/audit-log');
   const user = session.user;
-  if (user.role !== 'SUPER_ADMIN' && user.role !== 'AUDITOR') redirect('/');
+  if (user.role !== 'SUPER_ADMIN' && user.role !== 'AUDITOR') redirect('/dashboard');
 
   const entity = searchParams.entity || undefined;
   const logs = await prisma.auditLog.findMany({

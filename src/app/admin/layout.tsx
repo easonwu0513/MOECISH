@@ -5,6 +5,6 @@ import type { ReactNode } from 'react';
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/admin/organizations');
-  if (session.user.role !== 'SUPER_ADMIN') redirect('/');
+  if (session.user.role !== 'SUPER_ADMIN') redirect('/dashboard');
   return <>{children}</>;
 }

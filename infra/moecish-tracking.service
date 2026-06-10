@@ -1,0 +1,14 @@
+[Unit]
+Description=MOECISH daily tracking mail (D-7/D-1/overdue reminders)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=moecish
+Group=moecish
+WorkingDirectory=/srv/moecish
+EnvironmentFile=-/srv/moecish/.env
+ExecStart=/bin/bash -lc 'set -a; . /srv/moecish/.env; set +a; /usr/bin/npm run track:run'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=moecish-tracking

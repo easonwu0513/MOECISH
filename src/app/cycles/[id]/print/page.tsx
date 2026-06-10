@@ -39,8 +39,8 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
   if (!cycle) notFound();
 
   const user = session.user;
-  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/');
+  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
 
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 

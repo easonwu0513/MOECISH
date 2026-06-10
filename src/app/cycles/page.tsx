@@ -36,7 +36,7 @@ export default async function CyclesPage() {
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '總覽', href: '/' }, { label: '稽核週期' }]}
+      crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '稽核週期' }]}
     >
       <header className="mb-6 flex items-baseline justify-between">
         <h1 className="text-headline text-on-surface">稽核週期</h1>

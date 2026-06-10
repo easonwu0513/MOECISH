@@ -12,7 +12,8 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "import:checklist": "tsx src/scripts/import-checklist.ts",
-    "graph:init": "tsx src/scripts/init-graph-auth.ts"
+    "graph:init": "tsx src/scripts/init-graph-auth.ts",
+    "track:run": "tsx src/scripts/run-tracking.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

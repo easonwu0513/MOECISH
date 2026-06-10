@@ -1,313 +1,234 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { AppShell } from '@/components/shell/AppShell';
-import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
+import { auth } from '@/lib/auth';
+import { Logo, Wordmark } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { Chip } from '@/components/ui/Chip';
 import {
-  ClipboardCheck,
-  ChevronRight,
-  CheckCircle,
-  AlertCircle,
   ShieldCheck,
-  Eye,
+  FileText,
+  ClipboardCheck,
+  AlertTriangle,
+  CheckCircle,
+  ChevronRight,
 } from '@/components/icons';
-import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
-import type { CycleStatus } from '@/lib/types';
-import { greetingByHour, EMPTY } from '@/lib/copy';
+import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 
-type Todo = {
-  key: string;
-  tone: 'warning' | 'primary' | 'sage' | 'neutral' | 'danger';
-  title: string;
-  href: string;
-  cta: string;
+export const dynamic = 'force-dynamic';
+
+const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {
+  ANNOUNCEMENT: 'primary',
+  INTEL: 'sage',
+  VULN_ALERT: 'danger',
+  EVENT: 'warning',
 };
 
-export default async function HomePage() {
+export default async function LandingPage() {
   const session = await auth();
-  if (!session) redirect('/login');
-  const user = session.user;
 
-  const cyclesWhere =
-    user.role === 'ORG_ADMIN'
-      ? { organizationId: user.organizationId ?? '__none__' }
-      : user.role === 'AUDITOR'
-      ? { assignments: { some: { auditorId: user.id } } }
-      : {};
+  const [posts, orgCount, cycleCount, defStats] = await Promise.all([
+    prisma.post.findMany({
+      where: { status: 'PUBLISHED' },
+      orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
+      take: 6,
+      select: { id: true, slug: true, category: true, title: true, important: true, pinned: true, publishedAt: true },
+    }),
+    prisma.organization.count(),
+    prisma.auditCycle.count(),
+    prisma.correctiveAction.groupBy({ by: ['status'], _count: true }),
+  ]);
 
-  const cycles = await prisma.auditCycle.findMany({
-    where: cyclesWhere,
-    include: {
-      organization: true,
-      deficiencies: { include: { action: { select: { status: true } } } },
-    },
-    orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
-  });
+  const totalActions = defStats.reduce((s, x) => s + x._count, 0);
+  const passedActions = defStats.find((x) => x.status === 'PASSED')?._count ?? 0;
+  const passRate = totalActions > 0 ? Math.round((passedActions / totalActions) * 100) : 0;
 
-  // ── 全域統計(跨週期) ──
-  const allDefs = cycles.flatMap((c) => c.deficiencies.map((d) => ({ cycleId: c.id, status: d.action?.status ?? 'PENDING' })));
-  const stat = (s: string) => allDefs.filter((d) => d.status === s).length;
-  const totalDefs = allDefs.length;
-  const passed = stat('PASSED');
-  const submitted = stat('SUBMITTED');
-  const returned = stat('RETURNED');
-  const toFill = stat('PENDING') + stat('DRAFT');
-
-  // ── 角色待辦 ──
-  const todos: Todo[] = [];
-  for (const c of cycles) {
-    const cReturned = c.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
-    const cToFill = c.deficiencies.filter((d) => !d.action?.status || d.action.status === 'PENDING' || d.action.status === 'DRAFT').length;
-    const cSubmitted = c.deficiencies.filter((d) => d.action?.status === 'SUBMITTED').length;
-
-    if (user.role === 'ORG_ADMIN' && c.status === 'REMEDIATION') {
-      if (cReturned > 0) {
-        todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${cReturned} 項被退回，需補正後重送`, href: `/cycles/${c.id}/deficiencies`, cta: '去補正' });
-      }
-      if (cToFill > 0) {
-        todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${cToFill} 項矯正措施待填報`, href: `/cycles/${c.id}/deficiencies`, cta: '繼續填' });
-      }
-    }
-    if (user.role === 'AUDITOR' && cSubmitted > 0) {
-      todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${c.organization.shortName ?? c.organization.name}：${cSubmitted} 項矯正待審查`, href: `/cycles/${c.id}/deficiencies`, cta: '去審查' });
-    }
-    if (user.role === 'SUPER_ADMIN') {
-      if (c.status === 'DRAFT') {
-        todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${c.organization.shortName ?? c.organization.name}：週期開立中，尚未發布缺失`, href: `/cycles/${c.id}/deficiencies`, cta: '去發布' });
-      }
-      if (c.status === 'REMEDIATION' && c.deficiencies.length > 0 && c.deficiencies.every((d) => d.action?.status === 'PASSED')) {
-        todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${c.organization.shortName ?? c.organization.name}：全數通過，可確認用印並結案`, href: `/cycles/${c.id}`, cta: '去結案' });
-      }
-    }
-  }
-
-  const now = new Date();
-  const greeting = greetingByHour(now.getHours());
-  const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const important = posts.find((p) => p.important);
 
   return (
-    <AppShell
-      user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '總覽' }]}
-    >
-      {/* Hero */}
-      <section className="mb-6">
-        <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
-        <h1 className="mt-2 text-display-sm text-on-surface text-balance">
-          {greeting}，{user.name}。
-        </h1>
-        {todos.length > 0 ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
-            今天有 <span className="font-semibold text-primary-700 tabular-nums">{todos.length}</span> 項待辦需處理。
-          </p>
-        ) : cycles.length > 0 ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant">
-            目前沒有待辦，隨時可進入稽核週期檢視進度。
-          </p>
-        ) : null}
+    <div className="min-h-screen bg-surface flex flex-col">
+      {/* ── 頂欄 ── */}
+      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/60">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="focus-ring rounded-md">
+            <Wordmark />
+          </Link>
+          <nav className="flex items-center gap-2">
+            <Link href="/news" className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
+              資安資訊
+            </Link>
+            {session ? (
+              <Link href="/dashboard">
+                <Button size="sm">進入系統</Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button size="sm">登入</Button>
+              </Link>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      {/* ── 重要公告橫幅 ── */}
+      {important && (
+        <Link href={`/news/${important.slug}`} className="block bg-danger-50 border-b border-danger-100 hover:bg-danger-100/70 transition-colors">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-2.5 text-body-sm text-danger-700">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span className="font-medium shrink-0">重要</span>
+            <span className="truncate">{important.title}</span>
+            <ChevronRight size={14} className="shrink-0 ml-auto" />
+          </div>
+        </Link>
+      )}
+
+      {/* ── Hero ── */}
+      <section className="relative overflow-hidden">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 60% at 20% 10%, rgba(40,82,160,0.10), transparent 70%),' +
+              'radial-gradient(ellipse 55% 45% at 90% 90%, rgba(103,134,105,0.08), transparent 70%)',
+          }}
+          aria-hidden
+        />
+        <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-14 sm:pt-24 sm:pb-20">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <Logo size={48} />
+              <Chip tone="primary" size="sm">教育部 · 醫療領域</Chip>
+            </div>
+            <h1 className="text-display-sm sm:text-display text-on-surface text-balance font-semibold">
+              資通安全稽核
+              <br />
+              改善管考平台
+            </h1>
+            <p className="mt-5 text-body-lg text-on-surface-variant max-w-xl text-pretty leading-relaxed">
+              讓每一次稽核都清楚、從容、留得下軌跡。
+              從稽核前資料準備、缺失矯正填報到委員審查結案，
+              一站式完成醫療機構資通安全稽核管考作業。
+            </p>
+            <div className="mt-8 flex gap-3 flex-wrap">
+              {session ? (
+                <Link href="/dashboard">
+                  <Button size="lg">進入系統</Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button size="lg">登入系統</Button>
+                </Link>
+              )}
+              <Link href="/news">
+                <Button size="lg" variant="tonal">瀏覽資安資訊</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {cycles.length === 0 ? (
-        <Card variant="outlined" padded={false}>
-          <div className="p-6">
-            <EmptyState
-              icon={<ClipboardCheck size={28} />}
-              title={EMPTY.noCycles.title}
-              description={EMPTY.noCycles.description}
-            />
+      {/* ── 數字 ── */}
+      <section className="border-y border-outline-variant/60 bg-surface-container-lowest">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-3 gap-8">
+          <Stat icon={<ShieldCheck size={22} />} value={`${orgCount}`} label="服務醫療機構" />
+          <Stat icon={<ClipboardCheck size={22} />} value={`${cycleCount}`} label="稽核週期" />
+          <Stat icon={<CheckCircle size={22} />} value={`${passRate}%`} label="矯正措施通過率" />
+        </div>
+      </section>
+
+      {/* ── 最新資訊 ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-14 w-full">
+        <div className="flex items-baseline justify-between mb-6">
+          <h2 className="text-headline text-on-surface">最新資安資訊</h2>
+          <Link href="/news" className="text-body-sm text-primary-700 hover:underline focus-ring rounded-sm inline-flex items-center gap-0.5">
+            查看全部
+            <ChevronRight size={14} />
+          </Link>
+        </div>
+        {posts.length === 0 ? (
+          <div className="rounded-lg border border-outline-variant p-10 text-center text-body-sm text-on-surface-variant">
+            尚無公告。
           </div>
-        </Card>
-      ) : (
-        <>
-          {/* 統計列 */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatTopBar
-              tone="success"
-              icon={<ShieldCheck size={20} />}
-              primary={`${passed}/${totalDefs}`}
-              label="矯正通過"
-              sub={totalDefs ? `${Math.round((passed / totalDefs) * 100)}% 完成` : '尚無缺失'}
-            />
-            <StatTopBar
-              tone="sage"
-              icon={<Eye size={20} />}
-              primary={`${submitted}`}
-              label="待委員審查"
-              sub={submitted > 0 ? '已送審項目' : '無待審'}
-            />
-            <StatTopBar
-              tone="warning"
-              icon={<ClipboardCheck size={20} />}
-              primary={`${toFill}`}
-              label="待填報"
-              sub={toFill > 0 ? '機關尚未送審' : '全部已送'}
-            />
-            <StatTopBar
-              tone="danger"
-              icon={<AlertCircle size={20} />}
-              primary={`${returned}`}
-              label="退回補正"
-              sub={returned > 0 ? '需儘速處理' : '無退回'}
-            />
-          </section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-10">
-            {/* 週期清單 */}
-            <Card className="lg:col-span-3" variant="elevated">
-              <div className="flex items-baseline justify-between mb-4">
-                <CardTitle className="text-title-lg">
-                  {user.role === 'SUPER_ADMIN' ? '全部稽核週期' : '我的稽核週期'}
-                </CardTitle>
-                <Link href="/cycles" className="text-caption text-primary-700 hover:underline">
-                  查看全部
-                </Link>
-              </div>
-              <div className="flex flex-col gap-3">
-                {cycles.slice(0, 5).map((c) => {
-                  const t = c.deficiencies.length;
-                  const p = c.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
-                  return (
-                    <Link key={c.id} href={`/cycles/${c.id}`}>
-                      <div className="group rounded-md border border-outline-variant hover:border-outline hover:bg-surface-container transition-colors p-4">
-                        <div className="flex items-center justify-between gap-3 mb-2.5">
-                          <p className="text-body-sm font-medium text-on-surface truncate">
-                            {c.year - 1911} 年度 · {c.organization.name}
-                          </p>
-                          <Chip tone={cycleStatusTone(c.status as CycleStatus)} size="sm" dot>
-                            {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
-                          </Chip>
-                        </div>
-                        {t > 0 ? (
-                          <>
-                            <ProgressBar value={p} max={t} tone="primary" size="sm" />
-                            <div className="mt-1.5 flex justify-between text-caption text-on-surface-variant">
-                              <span>矯正通過 <span className="tabular-nums font-medium text-on-surface">{p}</span> / {t}</span>
-                              <span className="tabular-nums">{Math.round((p / t) * 100)}%</span>
-                            </div>
-                          </>
-                        ) : (
-                          <p className="text-caption text-on-surface-variant">尚未發布缺失</p>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </Card>
-
-            {/* 待辦 */}
-            <Card className="lg:col-span-2" variant="elevated">
-              <div className="flex items-center justify-between mb-4">
-                <CardTitle className="text-title-lg">待辦</CardTitle>
-                <span className="text-caption text-on-surface-variant">按緊急度排序</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {todos.length === 0 ? (
-                  <div className="flex flex-col items-center text-center py-8 px-2">
-                    <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
-                      <CheckCircle size={26} />
-                    </div>
-                    <p className="text-title text-on-surface">{EMPTY.noTodos.title}</p>
-                    <p className="text-caption text-on-surface-variant mt-1">{EMPTY.noTodos.description}</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {posts.map((p) => (
+              <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
+                <article className="h-full rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-5 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
+                      {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
+                    </Chip>
+                    {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
                   </div>
-                ) : (
-                  todos.map((t) => (
-                    <Link
-                      key={t.key}
-                      href={t.href}
-                      className="group relative flex items-center gap-3 rounded-sm px-3 py-3 hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
-                    >
-                      <span
-                        className={
-                          'w-2 h-2 rounded-full shrink-0 ' +
-                          {
-                            warning: 'bg-warning-500',
-                            primary: 'bg-primary-500',
-                            sage: 'bg-sage-500',
-                            neutral: 'bg-neutral-500',
-                            danger: 'bg-danger-500',
-                          }[t.tone]
-                        }
-                        aria-hidden
-                      />
-                      <span className="flex-1 text-body-sm text-on-surface truncate">{t.title}</span>
-                      <span className="text-caption text-on-surface-variant group-hover:text-primary-700 shrink-0 inline-flex items-center gap-0.5 transition-colors">
-                        {t.cta}
-                        <ChevronRight size={14} />
-                      </span>
-                    </Link>
-                  ))
-                )}
-              </div>
+                  <h3 className="text-title text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
+                    {p.title}
+                  </h3>
+                  <p className="mt-3 text-caption text-on-surface-variant tabular-nums">
+                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                  </p>
+                </article>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
-              {user.role === 'SUPER_ADMIN' && (
-                <div className="mt-5 pt-4 border-t border-outline-variant flex gap-2 flex-wrap">
-                  <Link href="/admin/cycles">
-                    <Button size="sm" variant="tonal">開立稽核週期</Button>
-                  </Link>
-                  <Link href="/admin/organizations">
-                    <Button size="sm" variant="text">醫院管理</Button>
-                  </Link>
-                </div>
-              )}
-            </Card>
-          </section>
-        </>
-      )}
-    </AppShell>
+      {/* ── 流程 ── */}
+      <section className="bg-surface-container-low border-y border-outline-variant/60">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+          <h2 className="text-headline text-on-surface mb-8">稽核管考流程</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Step no="01" icon={<FileText size={20} />} title="資料準備" desc="受稽機關於實地稽核前上傳檢核表與佐證文件,委員線上確認齊備。" />
+            <Step no="02" icon={<ClipboardCheck size={20} />} title="實地稽核" desc="稽核委員到場查核,平台留存當日資料與紀錄。" />
+            <Step no="03" icon={<AlertTriangle size={20} />} title="缺失矯正" desc="缺失發布後,機關填報根因分析、改善措施與佐證,逐項送審。" />
+            <Step no="04" icon={<CheckCircle size={20} />} title="審查結案" desc="委員逐項審查通過,機關用印上傳,全數完成後正式結案。" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="mt-auto">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <Wordmark />
+            <p className="mt-2 text-caption text-on-surface-variant">
+              MOECISH · 教育部資通安全稽核改善管考系統
+            </p>
+          </div>
+          <div className="text-caption text-on-surface-variant space-y-1 sm:text-right">
+            <p>主辦單位:教育部 · 維運:資安推動中心</p>
+            <p>聯絡信箱:<a className="font-mono hover:text-primary-700" href="mailto:moecish@m365.ntu.edu.tw">moecish@m365.ntu.edu.tw</a></p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
 
-function StatTopBar({
-  tone,
-  icon,
-  primary,
-  label,
-  sub,
-}: {
-  tone: 'primary' | 'success' | 'warning' | 'danger' | 'sage' | 'tertiary';
-  icon: React.ReactNode;
-  primary: string;
-  label: string;
-  sub: string;
-}) {
-  const bar = {
-    primary: 'bg-primary-500',
-    success: 'bg-success-500',
-    warning: 'bg-warning-500',
-    danger: 'bg-danger-500',
-    sage: 'bg-sage-500',
-    tertiary: 'bg-tertiary-500',
-  }[tone];
-  const iconBg = {
-    primary: 'bg-primary-50 text-primary-700',
-    success: 'bg-success-50 text-success-700',
-    warning: 'bg-warning-50 text-warning-700',
-    danger: 'bg-danger-50 text-danger-700',
-    sage: 'bg-sage-50 text-sage-700',
-    tertiary: 'bg-tertiary-50 text-tertiary-700',
-  }[tone];
-
+function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
-    <div className="relative bg-surface-container-lowest rounded-md shadow-elev-1 overflow-hidden border border-outline-variant/60">
-      <div className={`h-1 ${bar}`} aria-hidden />
-      <div className="p-5 flex items-center gap-4">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div>
+        <p className="text-display-sm font-semibold text-on-surface tabular-nums leading-none">{value}</p>
+        <p className="mt-1.5 text-body-sm text-on-surface-variant">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function Step({ no, icon, title, desc }: { no: string; icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="rounded-lg bg-surface-container-lowest border border-outline-variant/70 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center">
           {icon}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-headline-sm font-semibold text-on-surface tabular-nums">{primary}</span>
-          </div>
-          <div className="mt-0.5 text-body-sm text-on-surface font-medium">{label}</div>
-          <div className="text-caption text-on-surface-variant mt-0.5 truncate">{sub}</div>
-        </div>
+        <span className="text-display-sm font-semibold text-outline-variant tabular-nums select-none">{no}</span>
       </div>
+      <h3 className="text-title text-on-surface">{title}</h3>
+      <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
     </div>
   );
 }

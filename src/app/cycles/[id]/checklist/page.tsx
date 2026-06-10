@@ -25,7 +25,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     user.role === 'ORG_ADMIN' &&
     cycle.organizationId !== user.organizationId
   ) {
-    redirect('/');
+    redirect('/dashboard');
   }
 
   const canEdit =
@@ -65,7 +65,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
       }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
+        { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
         { label: '模組一 · 檢核表' },
       ]}

@@ -15,8 +15,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     include: { organization: true, assignments: true },
   });
   if (!cycle) notFound();
-  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/');
+  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
 
   const requirements = await prisma.prepRequirement.findMany({
     where: { cycleId: cycle.id },
@@ -41,7 +41,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
+        { label: '總覽', href: '/dashboard' },
         { label: '稽核週期', href: '/cycles' },
         { label: `${yearROC} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '稽核前資料準備' },
