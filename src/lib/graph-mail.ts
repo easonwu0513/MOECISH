@@ -28,6 +28,24 @@ type TokenCache = {
 
 let memCache: TokenCache | null = null;
 
+/** 網路層重試(undici 偶發 'fetch failed',如 NAT 環境 IPv6 解析失敗) */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  tries = 3,
+): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (e) {
+      lastErr = e;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 1000 * (i + 1) * 2));
+    }
+  }
+  throw lastErr;
+}
+
 async function loadCache(): Promise<TokenCache | null> {
   if (memCache) return memCache;
   try {
@@ -49,7 +67,7 @@ export async function isGraphConfigured(): Promise<boolean> {
 }
 
 async function refreshAccessToken(cache: TokenCache): Promise<TokenCache> {
-  const res = await fetch(TOKEN_ENDPOINT, {
+  const res = await fetchWithRetry(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -95,7 +113,7 @@ export async function sendGraphMail(input: {
   bodyText: string;
 }): Promise<void> {
   const token = await getAccessToken();
-  const res = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+  const res = await fetchWithRetry('https://graph.microsoft.com/v1.0/me/sendMail', {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

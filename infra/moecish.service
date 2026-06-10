@@ -11,6 +11,7 @@ WorkingDirectory=/srv/moecish
 Environment=NODE_ENV=production
 Environment=PORT=3001
 Environment=HOSTNAME=0.0.0.0
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=5
