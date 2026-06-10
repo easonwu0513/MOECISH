@@ -7,10 +7,8 @@ import { cn } from '@/lib/cn';
 import {
   LayoutDashboard,
   ClipboardCheck,
-  AlertTriangle,
   Users,
   History,
-  Settings,
   Briefcase,
   FileText,
 } from '../icons';
@@ -29,24 +27,23 @@ type Group = { label?: string; items: Item[] };
 const groups: Group[] = [
   {
     items: [
-      { href: '/', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
+      { href: '/', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
     ],
   },
   {
     label: '稽核作業',
     items: [
-      { href: '/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] },
-      { href: '/findings-overview', label: '稽核發現', icon: <AlertTriangle size={20} />, allow: ['ADMIN', 'AUDITOR'] },
+      { href: '/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
     ],
   },
   {
     label: '管理',
     items: [
-      { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['ADMIN'] },
-      { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['ADMIN'] },
-      { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['ADMIN'] },
-      { href: '/admin/emails', label: 'Email 紀錄', icon: <FileText size={20} />, allow: ['ADMIN'] },
-      { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['ADMIN', 'AUDITOR'] },
+      { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/emails', label: 'Email 紀錄', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR'] },
     ],
   },
 ];
@@ -132,7 +129,7 @@ export function Sidebar({
 
       {!collapsed && (
         <div className="px-6 py-4 text-caption text-on-surface-variant">
-          <span className="font-medium">MOECISH</span> · v0.4
+          <span className="font-medium">MOECISH</span> · v2.0
         </div>
       )}
     </aside>

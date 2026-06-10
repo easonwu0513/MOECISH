@@ -17,10 +17,10 @@ export async function PUT(
 ) {
   try {
     const { user, cycle } = await assertCycleAccess(params.id);
-    if (user.role !== 'RESPONDENT' && user.role !== 'SUPERVISOR') {
-      return NextResponse.json({ error: '僅填報人或主管可編輯' }, { status: 403 });
+    if (user.role !== 'ORG_ADMIN') {
+      return NextResponse.json({ error: '僅機關管理員可編輯' }, { status: 403 });
     }
-    if (cycle.status !== 'DRAFT' && cycle.status !== 'COMMENTS_RETURNED') {
+    if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
       return NextResponse.json({ error: `目前狀態不可編輯（${cycle.status}）` }, { status: 400 });
     }
 

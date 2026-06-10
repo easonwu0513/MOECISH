@@ -37,8 +37,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'bad params' }, { status: 400 });
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: '檔案超過 5MB 上限' }, { status: 400 });
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: '檔案超過 20MB 上限' }, { status: 400 });
     }
 
     const buf = Buffer.from(await file.arrayBuffer());

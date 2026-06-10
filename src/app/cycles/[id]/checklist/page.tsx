@@ -22,15 +22,15 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   if (!cycle) notFound();
 
   if (
-    (user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') &&
+    user.role === 'ORG_ADMIN' &&
     cycle.organizationId !== user.organizationId
   ) {
     redirect('/');
   }
 
   const canEdit =
-    (user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') &&
-    (cycle.status === 'DRAFT' || cycle.status === 'COMMENTS_RETURNED');
+    user.role === 'ORG_ADMIN' &&
+    (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION');
 
   const items = cycle.checklistVersion.items.map((i) => ({
     id: i.id,

@@ -8,7 +8,7 @@ const Body = z.object({ content: z.string().min(1) });
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const user = await requireRole('AUDITOR', 'ADMIN');
+    const user = await requireRole('AUDITOR', 'SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
     const response = await prisma.checklistResponse.findUnique({
@@ -27,19 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       },
     });
 
-    // Bump cycle to COMMENTS_RETURNED if currently IN_REVIEW
-    const cycle = await prisma.auditCycle.findUnique({ where: { id: response.cycleId } });
-    if (cycle && cycle.status === 'IN_REVIEW') {
-      await prisma.auditCycle.update({
-        where: { id: cycle.id },
-        data: {
-          status: 'COMMENTS_RETURNED',
-          stateTransitions: {
-            create: { fromStatus: 'IN_REVIEW', toStatus: 'COMMENTS_RETURNED', actorId: user.id },
-          },
-        },
-      });
-    }
+    // 2.0:檢核表為選用模組,委員意見不再驅動週期狀態轉換
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

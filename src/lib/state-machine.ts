@@ -1,19 +1,26 @@
-import type { CycleStatus, RemediationStatus, Role } from './types';
+import type { ActionStatus, CycleStatus, Role } from './types';
+
+// ════════════════════════════════════════════
+// 稽核週期狀態機（2.0）
+// DRAFT → (PREPARATION → READY → ONSITE →) REPORT_ISSUED → REMEDIATION → CLOSED
+// P1 實用路徑：DRAFT → REPORT_ISSUED → REMEDIATION → CLOSED
+// P2 啟用資料準備後走完整路徑
+// ════════════════════════════════════════════
 
 type CycleTransition = { from: CycleStatus; to: CycleStatus; allowedRoles: Role[] };
 
 export const CYCLE_TRANSITIONS: CycleTransition[] = [
-  { from: 'DRAFT',                   to: 'RESPONDENT_SUBMITTED',    allowedRoles: ['RESPONDENT'] },
-  { from: 'RESPONDENT_SUBMITTED',    to: 'DRAFT',                   allowedRoles: ['SUPERVISOR'] },
-  { from: 'RESPONDENT_SUBMITTED',    to: 'SUPERVISOR_APPROVED',     allowedRoles: ['SUPERVISOR'] },
-  { from: 'SUPERVISOR_APPROVED',     to: 'IN_REVIEW',               allowedRoles: ['ADMIN', 'AUDITOR'] },
-  { from: 'IN_REVIEW',               to: 'COMMENTS_RETURNED',       allowedRoles: ['AUDITOR'] },
-  { from: 'COMMENTS_RETURNED',       to: 'IN_REVIEW',               allowedRoles: ['RESPONDENT', 'SUPERVISOR'] },
-  { from: 'IN_REVIEW',               to: 'ONSITE_SCHEDULED',        allowedRoles: ['ADMIN', 'AUDITOR'] },
-  { from: 'ONSITE_SCHEDULED',        to: 'FINDINGS_ISSUED',         allowedRoles: ['AUDITOR'] },
-  { from: 'IN_REVIEW',               to: 'FINDINGS_ISSUED',         allowedRoles: ['AUDITOR'] },
-  { from: 'FINDINGS_ISSUED',         to: 'REMEDIATION_IN_PROGRESS', allowedRoles: ['ADMIN', 'AUDITOR', 'RESPONDENT'] },
-  { from: 'REMEDIATION_IN_PROGRESS', to: 'CLOSED',                  allowedRoles: ['ADMIN', 'AUDITOR'] },
+  // 完整路徑（P2 啟用資料準備）
+  { from: 'DRAFT',         to: 'PREPARATION',   allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'PREPARATION',   to: 'READY',         allowedRoles: ['SUPER_ADMIN', 'AUDITOR'] },
+  { from: 'READY',         to: 'ONSITE',        allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'ONSITE',        to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
+  // P1 快速路徑（跳過資料準備）
+  { from: 'DRAFT',         to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
+  // 缺失發布完成 → 開放機關填報
+  { from: 'REPORT_ISSUED', to: 'REMEDIATION',   allowedRoles: ['SUPER_ADMIN'] },
+  // 全數通過 + 用印掃描上傳 → 結案（API 層另行檢查前置條件）
+  { from: 'REMEDIATION',   to: 'CLOSED',        allowedRoles: ['SUPER_ADMIN'] },
 ];
 
 export function canTransition(from: CycleStatus, to: CycleStatus, role: Role) {
@@ -28,38 +35,67 @@ export function nextStatuses(from: CycleStatus, role: Role): CycleStatus[] {
   ).map((t) => t.to);
 }
 
-type RemTransition = { from: RemediationStatus; to: RemediationStatus; allowedRoles: Role[] };
+export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
+  DRAFT: '開立中',
+  PREPARATION: '資料準備中',
+  READY: '資料齊備',
+  ONSITE: '實地稽核',
+  REPORT_ISSUED: '缺失發布中',
+  REMEDIATION: '矯正執行中',
+  CLOSED: '結案',
+};
 
-export const REMEDIATION_TRANSITIONS: RemTransition[] = [
-  { from: 'PENDING',      to: 'DRAFT',        allowedRoles: ['RESPONDENT'] },
-  { from: 'DRAFT',        to: 'SUBMITTED',    allowedRoles: ['RESPONDENT'] },
-  { from: 'SUBMITTED',    to: 'APPROVED',     allowedRoles: ['AUDITOR'] },
-  { from: 'SUBMITTED',    to: 'NEEDS_REWORK', allowedRoles: ['AUDITOR'] },
-  { from: 'NEEDS_REWORK', to: 'DRAFT',        allowedRoles: ['RESPONDENT'] },
+export function cycleStatusTone(
+  status: CycleStatus,
+): 'neutral' | 'primary' | 'sage' | 'success' | 'warning' {
+  switch (status) {
+    case 'DRAFT':         return 'neutral';
+    case 'PREPARATION':   return 'primary';
+    case 'READY':         return 'sage';
+    case 'ONSITE':        return 'sage';
+    case 'REPORT_ISSUED': return 'warning';
+    case 'REMEDIATION':   return 'warning';
+    case 'CLOSED':        return 'success';
+  }
+}
+
+// ════════════════════════════════════════════
+// 矯正措施狀態機（多輪）
+// PENDING → DRAFT → SUBMITTED → PASSED
+//                       ↓ RETURN（round+1）
+//                    RETURNED → DRAFT(編輯) → SUBMITTED …
+// ════════════════════════════════════════════
+
+type ActionTransition = { from: ActionStatus; to: ActionStatus; allowedRoles: Role[] };
+
+export const ACTION_TRANSITIONS: ActionTransition[] = [
+  { from: 'PENDING',   to: 'DRAFT',     allowedRoles: ['ORG_ADMIN'] },
+  { from: 'DRAFT',     to: 'SUBMITTED', allowedRoles: ['ORG_ADMIN'] },
+  { from: 'RETURNED',  to: 'DRAFT',     allowedRoles: ['ORG_ADMIN'] },
+  { from: 'RETURNED',  to: 'SUBMITTED', allowedRoles: ['ORG_ADMIN'] },
+  { from: 'SUBMITTED', to: 'PASSED',    allowedRoles: ['AUDITOR'] },
+  { from: 'SUBMITTED', to: 'RETURNED',  allowedRoles: ['AUDITOR'] },
 ];
 
-export function canRemTransition(from: RemediationStatus, to: RemediationStatus, role: Role) {
-  return REMEDIATION_TRANSITIONS.some(
+export function canActionTransition(from: ActionStatus, to: ActionStatus, role: Role) {
+  return ACTION_TRANSITIONS.some(
     (t) => t.from === from && t.to === to && t.allowedRoles.includes(role),
   );
 }
 
-export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
-  DRAFT: '草稿中',
-  RESPONDENT_SUBMITTED: '填報人已送出',
-  SUPERVISOR_APPROVED: '主管已核可',
-  IN_REVIEW: '委員審閱中',
-  COMMENTS_RETURNED: '意見退回補正',
-  ONSITE_SCHEDULED: '已排實地稽核',
-  FINDINGS_ISSUED: '已開立稽核發現',
-  REMEDIATION_IN_PROGRESS: '改善進行中',
-  CLOSED: '結案',
-};
+/** 機關可編輯矯正內容的狀態 */
+export function actionEditable(status: ActionStatus): boolean {
+  return status === 'PENDING' || status === 'DRAFT' || status === 'RETURNED';
+}
 
-export const REM_STATUS_LABELS: Record<RemediationStatus, string> = {
-  PENDING: '尚未填寫',
-  DRAFT: '填寫中',
-  SUBMITTED: '已送審',
-  APPROVED: '審核通過',
-  NEEDS_REWORK: '持續改正',
-};
+export function actionStatusTone(
+  status: ActionStatus,
+): 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger' {
+  switch (status) {
+    case 'PENDING':   return 'neutral';
+    case 'DRAFT':     return 'primary';
+    case 'SUBMITTED': return 'sage';
+    case 'RETURNED':  return 'danger';
+    case 'PASSED':    return 'success';
+  }
+}

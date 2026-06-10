@@ -13,10 +13,9 @@ import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 
 const roleLabel: Record<Role, string> = {
-  ADMIN: '平台管理員',
+  SUPER_ADMIN: '最高管理員',
   AUDITOR: '稽核委員',
-  RESPONDENT: '填報人',
-  SUPERVISOR: '單位主管',
+  ORG_ADMIN: '機關管理員',
 };
 
 export default async function OrganizationDetail({ params }: { params: { id: string } }) {
@@ -93,7 +92,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <Chip size="sm" tone={u.role === 'SUPERVISOR' ? 'warning' : u.role === 'ADMIN' ? 'primary' : 'neutral'}>
+                      <Chip size="sm" tone={u.role === 'ORG_ADMIN' ? 'warning' : u.role === 'SUPER_ADMIN' ? 'primary' : 'neutral'}>
                         {roleLabel[u.role as Role]}
                       </Chip>
                     </td>

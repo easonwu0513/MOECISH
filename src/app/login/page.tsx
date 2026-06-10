@@ -10,17 +10,17 @@ import { Chip } from '@/components/ui/Chip';
 import { AlertCircle, Shield } from '@/components/icons';
 
 const demoAccounts = [
-  { email: 'admin@demo.tw',      label: '平台管理員', tone: 'primary' as const },
-  { email: 'auditor@demo.tw',    label: '稽核委員',   tone: 'sage' as const },
-  { email: 'respondent@demo.tw', label: '填報人',     tone: 'neutral' as const },
-  { email: 'supervisor@demo.tw', label: '單位主管',   tone: 'warning' as const },
+  { email: 'admin@demo.tw',   label: '最高管理員', tone: 'primary' as const },
+  { email: 'auditor@demo.tw', label: '稽核委員',   tone: 'sage' as const },
+  { email: 'org@demo.tw',     label: '機關管理員', tone: 'warning' as const },
+  { email: 'org2@demo.tw',    label: '機關管理員 B', tone: 'neutral' as const },
 ];
 
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get('callbackUrl') ?? '/';
-  const [email, setEmail] = useState('respondent@demo.tw');
+  const [email, setEmail] = useState('org@demo.tw');
   const [password, setPassword] = useState('demo1234');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

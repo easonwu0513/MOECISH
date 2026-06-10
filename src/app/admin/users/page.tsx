@@ -10,17 +10,15 @@ import { inviteStatus } from '@/lib/invite';
 import type { Role } from '@/lib/types';
 
 const roleLabel: Record<Role, string> = {
-  ADMIN: '平台管理員',
+  SUPER_ADMIN: '最高管理員',
   AUDITOR: '稽核委員',
-  RESPONDENT: '填報人',
-  SUPERVISOR: '單位主管',
+  ORG_ADMIN: '機關管理員',
 };
 
 const roleTone: Record<Role, 'primary' | 'sage' | 'neutral' | 'warning'> = {
-  ADMIN: 'primary',
+  SUPER_ADMIN: 'primary',
   AUDITOR: 'sage',
-  RESPONDENT: 'neutral',
-  SUPERVISOR: 'warning',
+  ORG_ADMIN: 'warning',
 };
 
 export default async function UsersPage() {

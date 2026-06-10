@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { requireRole, AuthError } from '@/lib/rbac';
-import { notifyCycleRespondents } from '@/lib/notify';
+import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const user = await requireRole('ADMIN', 'AUDITOR');
-    const result = await notifyCycleRespondents({
+    const user = await requireRole('SUPER_ADMIN');
+    const result = await notifyCycleOrgAdmins({
       cycleId: params.id,
       triggeredById: user.id,
       appBaseUrl: appBaseUrl(req),
@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
-      action: 'CYCLE_NOTIFY_RESPONDENTS',
+      action: 'CYCLE_NOTIFY_ORG_ADMINS',
       entityType: 'AuditCycle',
       entityId: params.id,
       after: result,

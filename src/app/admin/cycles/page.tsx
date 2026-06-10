@@ -17,7 +17,7 @@ export default async function AdminCyclesPage() {
     include: {
       organization: true,
       checklistVersion: { select: { year: true } },
-      _count: { select: { responses: true, findings: true, signatures: true } },
+      _count: { select: { responses: true, deficiencies: true, signedReports: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -52,8 +52,8 @@ export default async function AdminCyclesPage() {
                 <th className="text-left px-5 py-3 font-medium">題庫</th>
                 <th className="text-left px-5 py-3 font-medium">狀態</th>
                 <th className="text-right px-5 py-3 font-medium">填答</th>
-                <th className="text-right px-5 py-3 font-medium">發現</th>
-                <th className="text-right px-5 py-3 font-medium">簽章</th>
+                <th className="text-right px-5 py-3 font-medium">缺失</th>
+                <th className="text-right px-5 py-3 font-medium">用印檔</th>
                 <th className="text-right px-5 py-3 font-medium">截止</th>
                 <th className="text-right px-5 py-3 font-medium">開啟</th>
               </tr>
@@ -68,8 +68,8 @@ export default async function AdminCyclesPage() {
                     <Chip size="sm" tone="neutral">{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                   </td>
                   <td className="px-5 py-3 text-right tabular-nums">{c._count.responses}</td>
-                  <td className="px-5 py-3 text-right tabular-nums">{c._count.findings}</td>
-                  <td className="px-5 py-3 text-right tabular-nums">{c._count.signatures}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{c._count.deficiencies}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">{c._count.signedReports}</td>
                   <td className="px-5 py-3 text-right text-on-surface-variant">
                     {new Date(c.dueDate).toLocaleDateString('zh-TW')}
                   </td>

@@ -33,15 +33,14 @@ export function AppShell({
     { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/') },
     ...(cycleId
       ? [
-          { id: 'checklist', group: '導覽', label: '模組一 · 檢核表', icon: <ClipboardCheck size={16} />, action: () => router.push(`/cycles/${cycleId}/checklist`) } as Command,
-          { id: 'findings', group: '導覽', label: '模組二 · 稽核發現', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/findings`) } as Command,
-          ...(user.role === 'AUDITOR' || user.role === 'ADMIN'
-            ? [{ id: 'review', group: '導覽', label: '委員審閱', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
+          { id: 'deficiencies', group: '導覽', label: '缺失與矯正', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/deficiencies`) } as Command,
+          ...(user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN'
+            ? [{ id: 'review', group: '導覽', label: '委員審閱（檢核表）', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
             : []),
           { id: 'cycle', group: '導覽', label: '稽核週期首頁', hint: '回到本週期', action: () => router.push(`/cycles/${cycleId}`) } as Command,
         ]
       : []),
-    ...(user.role === 'ADMIN'
+    ...(user.role === 'SUPER_ADMIN'
       ? [
           { id: 'users', group: '管理', label: '使用者管理', icon: <Users size={16} />, action: () => router.push('/admin/users') } as Command,
           { id: 'audit-log', group: '管理', label: '審計軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,

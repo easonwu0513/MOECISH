@@ -173,7 +173,7 @@ export default function ChecklistItemCard({
                 </span>
                 {c.resolvedAt ? (
                   <Chip tone="success" size="sm">已補正</Chip>
-                ) : (userRole === 'RESPONDENT' || userRole === 'SUPERVISOR') ? (
+                ) : userRole === 'ORG_ADMIN' ? (
                   <Button size="sm" variant="ghost" onClick={() => resolveComment(c.id)}>
                     標記為已補正
                   </Button>

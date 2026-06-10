@@ -20,7 +20,7 @@ const complianceTone: Record<ComplianceLevel, 'success' | 'warning' | 'danger' |
 export default async function ReviewPage({ params }: { params: { id: string } }) {
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/review`);
-  if (session.user.role !== 'AUDITOR' && session.user.role !== 'ADMIN') {
+  if (session.user.role !== 'AUDITOR' && session.user.role !== 'SUPER_ADMIN') {
     redirect(`/cycles/${params.id}`);
   }
 

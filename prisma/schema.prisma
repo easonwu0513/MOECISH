@@ -3,24 +3,45 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite: enum 以 String 儲存，類型常數定義於 src/lib/types.ts。
+// 字串欄位之類型常數定義於 src/lib/types.ts（enum-as-string 模式，SQLite 相容性遺留，沿用）。
+
+// ════════════════════════════════════════════
+// 帳號與機關
+// ════════════════════════════════════════════
 
 model Organization {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  name      String
-  shortName String?
-  parentId  String?
-  parent    Organization?  @relation("OrgTree", fields: [parentId], references: [id])
-  children  Organization[] @relation("OrgTree")
-  users     User[]
-  cycles    AuditCycle[]
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  shortName   String?
+  parentId    String?
+  parent      Organization?  @relation("OrgTree", fields: [parentId], references: [id])
+  children    Organization[] @relation("OrgTree")
+  users       User[]
+  cycles      AuditCycle[]
   invitations Invitation[]
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           String   // Role: SUPER_ADMIN | ORG_ADMIN | AUDITOR
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  auditorAssignments AuditorAssignment[]
+  cycleTransitions   CycleStateTransition[]
+  auditLogs          AuditLog[]
 }
 
 model Invitation {
@@ -34,7 +55,7 @@ model Invitation {
   createdById    String
   expiresAt      DateTime
   usedAt         DateTime?
-  userId         String?   // 填入使用者 id（接受後）
+  userId         String?
   revokedAt      DateTime?
   createdAt      DateTime  @default(now())
 
@@ -42,39 +63,212 @@ model Invitation {
   @@index([organizationId])
 }
 
-model EmailLog {
+// ════════════════════════════════════════════
+// 前台公告（模組 A，P3 啟用 — schema 先到位）
+// ════════════════════════════════════════════
+
+model Post {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  category    String    // PostCategory: ANNOUNCEMENT | INTEL | VULN_ALERT | EVENT
+  title       String
+  contentMd   String
+  coverKey    String?
+  important   Boolean   @default(false)
+  pinned      Boolean   @default(false)
+  status      String    @default("DRAFT") // PostStatus: DRAFT | PUBLISHED | ARCHIVED
+  publishedAt DateTime?
+  authorId    String
+  attachments PostAttachment[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, category, publishedAt])
+}
+
+model PostAttachment {
+  id         String @id @default(cuid())
+  postId     String
+  post       Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  fileName   String
+  storageKey String
+  mimeType   String
+  sizeBytes  Int
+}
+
+// ════════════════════════════════════════════
+// 稽核週期
+// ════════════════════════════════════════════
+
+model AuditCycle {
+  id                 String   @id @default(cuid())
+  year               Int
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id])
+  checklistVersionId String                 // 沿用（檢核表模組保留為選用功能）
+  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
+  status             String   @default("DRAFT") // CycleStatus 2.0
+  startDate          DateTime
+  dueDate            DateTime              // 矯正填報截止
+  prepDueDate        DateTime?             // 資料準備截止（P2）
+  onsiteDate         DateTime?
+  closedAt           DateTime?
+  version            Int @default(0)
+
+  responses        ChecklistResponse[]
+  deficiencies     Deficiency[]
+  signedReports    SignedReport[]
+  prepRequirements PrepRequirement[]
+  stateTransitions CycleStateTransition[]
+  assignments      AuditorAssignment[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([organizationId, year])
+}
+
+model AuditorAssignment {
   id        String   @id @default(cuid())
-  toEmail   String
-  toName    String?
-  subject   String
-  body      String
-  kind      String   // "invitation" | "cycle-notify" | "password-reset" | "other"
-  context   String?  // JSON
-  relatedInvitationId String?
-  relatedCycleId      String?
-  sentAt    DateTime @default(now())
+  cycleId   String
+  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
+  auditorId String
+  auditor   User @relation(fields: [auditorId], references: [id])
+  role      String   @default("MEMBER") // LEAD / MEMBER
+  createdAt DateTime @default(now())
 
-  @@index([sentAt])
-  @@index([toEmail])
-  @@index([kind])
+  @@unique([cycleId, auditorId])
 }
 
-model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  passwordHash   String
-  role           String   // Role: ADMIN | AUDITOR | RESPONDENT | SUPERVISOR
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  isActive       Boolean  @default(true)
-  lastLoginAt    DateTime?
-  createdAt      DateTime @default(now())
-
-  auditorAssignments AuditorAssignment[]
-  cycleTransitions   CycleStateTransition[]
-  auditLogs          AuditLog[]
+model CycleStateTransition {
+  id         String   @id @default(cuid())
+  cycleId    String
+  cycle      AuditCycle @relation(fields: [cycleId], references: [id])
+  fromStatus String?
+  toStatus   String
+  actorId    String
+  actor      User @relation(fields: [actorId], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now())
 }
+
+// ════════════════════════════════════════════
+// 模組 B：稽核前資料準備（P2 啟用 — schema 先到位）
+// ════════════════════════════════════════════
+
+model PrepTemplate {
+  id    String @id @default(cuid())
+  name  String
+  items PrepTemplateItem[]
+  createdAt DateTime @default(now())
+}
+
+model PrepTemplateItem {
+  id          String  @id @default(cuid())
+  templateId  String
+  template    PrepTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  required    Boolean @default(true)
+  orderIndex  Int
+}
+
+model PrepRequirement {
+  id          String  @id @default(cuid())
+  cycleId     String
+  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
+  title       String
+  description String?
+  required    Boolean @default(true)
+  orderIndex  Int
+  submission  PrepSubmission?
+}
+
+model PrepSubmission {
+  id            String  @id @default(cuid())
+  requirementId String  @unique
+  requirement   PrepRequirement @relation(fields: [requirementId], references: [id])
+  status        String  @default("EMPTY") // PrepStatus: EMPTY | UPLOADED | CONFIRMED | INSUFFICIENT
+  note          String?
+  reviewNote    String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  updatedAt     DateTime @updatedAt
+}
+
+// ════════════════════════════════════════════
+// 模組 C：缺失發布與矯正管考（P1 核心）
+// 結構 1:1 對齊教育部「資通安全稽核改善暨執行情形報告」範本
+// ════════════════════════════════════════════
+
+model Deficiency {
+  id           String  @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id])
+  aspect       String  // DeficiencyAspect: STRATEGY | MANAGEMENT | TECHNICAL（構面）
+  type         String  // DeficiencyType: IMPROVE（待改善事項）| SUGGEST（建議事項）
+  itemNo       Int     // 構面 × 類型內之項次
+  description  String  // 缺失全文（含法源引用）
+  checklistRef String? // 檢核項參照，如 "9.10"
+  action       CorrectiveAction?
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@unique([cycleId, aspect, type, itemNo])
+  @@index([cycleId, aspect])
+}
+
+model CorrectiveAction {
+  id                String  @id @default(cuid())
+  deficiencyId      String  @unique
+  deficiency        Deficiency @relation(fields: [deficiencyId], references: [id])
+  status            String  @default("PENDING")
+  // ActionStatus: PENDING（待填報）| DRAFT（填寫中）| SUBMITTED（已送審）| RETURNED（退回補正）| PASSED（審核通過）
+  round             Int     @default(1)
+  rootCause         String? // 發生原因（根因分析）
+  measureStrategy   String? // 改善措施 — 策略面調整說明（null = 未勾選）
+  measureManagement String? // 改善措施 — 管理面調整說明
+  measureTechnical  String? // 改善措施 — 技術面調整說明
+  plannedDate       DateTime? // 預計完成時程
+  trackingMethod    String?   // 進度追蹤方式
+  execStatus        String?   // ExecStatus: ON_TIME_DONE | IN_PROGRESS | LATE_DONE | LATE_IN_PROGRESS
+  actualDate        DateTime? // 實際完成日期（如期完成/逾期完成）
+  extendedDate      DateTime? // 預計完成日期延長至（逾期辦理中）
+  delayReason       String?   // 逾期原因
+  submittedAt       DateTime?
+  updatedAt         DateTime @updatedAt
+
+  reviews ReviewRecord[]
+}
+
+model ReviewRecord {
+  id        String   @id @default(cuid())
+  actionId  String
+  action    CorrectiveAction @relation(fields: [actionId], references: [id])
+  round     Int
+  decision  String   // ReviewDecisionValue: PASS | RETURN
+  comment   String?
+  auditorId String
+  decidedAt DateTime @default(now())
+
+  @@index([actionId, round])
+}
+
+model SignedReport {
+  id            String   @id @default(cuid())
+  cycleId       String
+  cycle         AuditCycle @relation(fields: [cycleId], references: [id])
+  fileKey       String
+  fileName      String
+  sha256        String
+  uploadedById  String
+  uploadedAt    DateTime @default(now())
+  confirmedById String?
+  confirmedAt   DateTime?
+}
+
+// ════════════════════════════════════════════
+// 檢核表模組（保留為選用功能，2.0 預設不顯示於導航）
+// ════════════════════════════════════════════
 
 model ChecklistVersion {
   id          String   @id @default(cuid())
@@ -90,7 +284,7 @@ model ChecklistItem {
   id         String   @id @default(cuid())
   versionId  String
   version    ChecklistVersion @relation(fields: [versionId], references: [id])
-  dimension  String   // Dimension
+  dimension  String
   itemNo     String
   content    String
   orderIndex Int
@@ -100,62 +294,13 @@ model ChecklistItem {
   @@index([versionId, dimension])
 }
 
-model AuditCycle {
-  id                 String   @id @default(cuid())
-  year               Int
-  organizationId     String
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  checklistVersionId String
-  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
-  status             String   @default("DRAFT") // CycleStatus
-  startDate          DateTime
-  dueDate            DateTime
-  onsiteDate         DateTime?
-  closedAt           DateTime?
-  version            Int @default(0)
-
-  responses        ChecklistResponse[]
-  findings         Finding[]
-  signatures       Signature[]
-  stateTransitions CycleStateTransition[]
-  assignments      AuditorAssignment[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@unique([organizationId, year])
-}
-
-model AuditorAssignment {
-  id        String   @id @default(cuid())
-  cycleId   String
-  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
-  auditorId String
-  auditor   User @relation(fields: [auditorId], references: [id])
-  role      String   @default("MEMBER") // LEAD / DEPUTY / MEMBER
-  createdAt DateTime @default(now())
-
-  @@unique([cycleId, auditorId])
-}
-
-model CycleStateTransition {
-  id         String   @id @default(cuid())
-  cycleId    String
-  cycle      AuditCycle @relation(fields: [cycleId], references: [id])
-  fromStatus String?  // CycleStatus
-  toStatus   String   // CycleStatus
-  actorId    String
-  actor      User @relation(fields: [actorId], references: [id])
-  reason     String?
-  createdAt  DateTime @default(now())
-}
-
 model ChecklistResponse {
   id              String   @id @default(cuid())
   cycleId         String
   cycle           AuditCycle @relation(fields: [cycleId], references: [id])
   checklistItemId String
   checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
-  compliance      String?  // ComplianceLevel
+  compliance      String?
   description     String?
   version         Int      @default(0)
   lastEditorId    String?
@@ -181,58 +326,44 @@ model AuditorComment {
   @@index([responseId, round])
 }
 
-model Finding {
-  id          String   @id @default(cuid())
-  cycleId     String
-  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
-  findingNo   String
-  aspect      String   // FindingAspect
-  type        String   // FindingType
-  dimension   String   // Dimension
-  title       String
-  description String
-  issuedById  String
-  issuedAt    DateTime @default(now())
-  remediation Remediation?
+// ════════════════════════════════════════════
+// 模組 D：通知（EmailTemplate 為 P2，EmailLog 沿用）
+// ════════════════════════════════════════════
 
-  @@unique([cycleId, findingNo])
+model EmailTemplate {
+  id      String  @id @default(cuid())
+  key     String  @unique // prep-insufficient | action-returned | due-soon | overdue | quarterly | invitation
+  subject String
+  bodyMd  String
+  enabled Boolean @default(true)
+  updatedAt DateTime @updatedAt
 }
 
-model Remediation {
-  id              String   @id @default(cuid())
-  findingId       String   @unique
-  finding         Finding  @relation(fields: [findingId], references: [id])
-  status          String   @default("PENDING") // RemediationStatus
-  rootCause       String?
-  actions         String?
-  actionTagsJson  String?
-  plannedDueDate  DateTime?
-  trackingMethod  String?
-  executionStatus String?
-  currentRound    Int      @default(1)
-  version         Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+model EmailLog {
+  id        String   @id @default(cuid())
+  toEmail   String
+  toName    String?
+  subject   String
+  body      String
+  kind      String   // "invitation" | "cycle-notify" | "tracking" | "password-reset" | "other"
+  context   String?  // JSON
+  templateKey         String?
+  relatedInvitationId String?
+  relatedCycleId      String?
+  sentAt    DateTime @default(now())
 
-  decisions ReviewDecision[]
+  @@index([sentAt])
+  @@index([toEmail])
+  @@index([kind])
 }
 
-model ReviewDecision {
-  id            String   @id @default(cuid())
-  remediationId String
-  remediation   Remediation @relation(fields: [remediationId], references: [id])
-  round         Int
-  decision      String   // RemediationStatus: APPROVED | NEEDS_REWORK
-  comment       String?
-  decidedById   String
-  decidedAt     DateTime @default(now())
-
-  @@index([remediationId, round])
-}
+// ════════════════════════════════════════════
+// 共用：佐證附件 / 審計軌跡
+// ════════════════════════════════════════════
 
 model Evidence {
   id           String   @id @default(cuid())
-  targetType   String   // EvidenceTargetType
+  targetType   String   // EvidenceTargetType: CHECKLIST_RESPONSE | CORRECTIVE_ACTION | PREP_SUBMISSION | AUDIT_CYCLE
   targetId     String
   fileName     String
   originalName String
@@ -244,19 +375,6 @@ model Evidence {
   uploadedAt   DateTime @default(now())
 
   @@index([targetType, targetId])
-}
-
-model Signature {
-  id          String   @id @default(cuid())
-  cycleId     String
-  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
-  signerRole  String   // SignatureRole
-  signerId    String
-  signerName  String
-  imageKey    String
-  imageSha256 String
-  signedAt    DateTime @default(now())
-  ipAddress   String?
 }
 
 model AuditLog {

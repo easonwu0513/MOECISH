@@ -11,8 +11,7 @@ import { Plus, Paperclip, CheckCircle } from '@/components/icons';
 import type { Role } from '@/lib/types';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: 'RESPONDENT', label: '填報人' },
-  { value: 'SUPERVISOR', label: '單位主管' },
+  { value: 'ORG_ADMIN', label: '機關管理員' },
 ];
 
 export default function InvitePanel({ orgId, orgName }: { orgId: string; orgName: string }) {
@@ -21,7 +20,7 @@ export default function InvitePanel({ orgId, orgName }: { orgId: string; orgName
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<Role>('RESPONDENT');
+  const [role, setRole] = useState<Role>('ORG_ADMIN');
   const [saving, setSaving] = useState(false);
   const [link, setLink] = useState<string | null>(null);
 
@@ -49,7 +48,7 @@ export default function InvitePanel({ orgId, orgName }: { orgId: string; orgName
   }
 
   function reset() {
-    setEmail(''); setName(''); setRole('RESPONDENT');
+    setEmail(''); setName(''); setRole('ORG_ADMIN');
     setLink(null);
   }
 

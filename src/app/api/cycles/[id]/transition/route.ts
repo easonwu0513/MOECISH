@@ -19,23 +19,33 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '不允許的狀態轉換' }, { status: 400 });
     }
 
-    // Module 1 gate: 送出前要求 >= 1 題已作答
-    if (from === 'DRAFT' && to === 'RESPONDENT_SUBMITTED') {
-      const count = await prisma.checklistResponse.count({
-        where: { cycleId: cycle.id, NOT: { compliance: null } },
-      });
+    // 缺失發布 → 矯正執行:至少要有一筆缺失
+    if (to === 'REMEDIATION') {
+      const count = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
       if (count === 0) {
-        return NextResponse.json({ error: '請至少填寫一題再送出' }, { status: 400 });
+        return NextResponse.json({ error: '尚未發布任何缺失，無法開放填報' }, { status: 400 });
       }
     }
 
-    // Module 1 gate: 主管核可須先有簽章
-    if (from === 'RESPONDENT_SUBMITTED' && to === 'SUPERVISOR_APPROVED') {
-      const sig = await prisma.signature.findFirst({
-        where: { cycleId: cycle.id, signerRole: 'SUPERVISOR' },
+    // 結案前置條件:全數缺失審核通過 + 已上傳用印掃描檔
+    if (to === 'CLOSED') {
+      const notPassed = await prisma.deficiency.count({
+        where: { cycleId: cycle.id, NOT: { action: { status: 'PASSED' } } },
       });
-      if (!sig) {
-        return NextResponse.json({ error: '主管核可前請先上傳簽章' }, { status: 400 });
+      if (notPassed > 0) {
+        return NextResponse.json(
+          { error: `尚有 ${notPassed} 項缺失未審核通過，無法結案` },
+          { status: 400 },
+        );
+      }
+      const signed = await prisma.signedReport.findFirst({
+        where: { cycleId: cycle.id, confirmedAt: { not: null } },
+      });
+      if (!signed) {
+        return NextResponse.json(
+          { error: '請先上傳並確認用印掃描檔，再行結案' },
+          { status: 400 },
+        );
       }
     }
 
