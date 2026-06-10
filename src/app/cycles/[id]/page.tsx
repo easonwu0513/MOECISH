@@ -8,7 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
-import { AlertTriangle, ClipboardCheck, Eye } from '@/components/icons';
+import { AlertTriangle, ClipboardCheck, Eye, FileText } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
@@ -120,7 +120,14 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       </section>
 
       {/* 模組入口 */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <ModuleTile
+          icon={<FileText size={22} />}
+          tone="sage"
+          title="稽核前資料準備"
+          desc="實地稽核前，機關上傳稽核表與相關文件；委員確認資料齊備或標記缺件。"
+          href={`/cycles/${cycle.id}/prep`}
+        />
         <ModuleTile
           icon={<AlertTriangle size={22} />}
           tone="primary"

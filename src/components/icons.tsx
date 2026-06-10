@@ -33,6 +33,13 @@ export const Check = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}><path d="M5 12l5 5 9-11" /></svg>
 );
 
+export const Send = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M21 3L10.5 13.5" />
+    <path d="M21 3l-6.5 18-4-7.5L3 9.5 21 3z" />
+  </svg>
+);
+
 export const X = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}><path d="M6 6l12 12M6 18l12-12" /></svg>
 );

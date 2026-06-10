@@ -90,7 +90,12 @@ export default function SignedReportPanel({
               <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant px-4 py-3">
                 <FileText size={18} className="text-on-surface-variant shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-body-sm text-on-surface truncate">{it.fileName}</p>
+                  <a
+                    href={`/api/signed-reports/${it.id}/download`}
+                    className="text-body-sm text-primary-700 hover:underline truncate block"
+                  >
+                    {it.fileName}
+                  </a>
                   <p className="text-caption text-on-surface-variant">
                     {new Date(it.uploadedAt).toLocaleString('zh-TW')}
                   </p>
