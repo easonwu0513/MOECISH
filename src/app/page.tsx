@@ -13,9 +13,23 @@ import {
   History,
   Paperclip,
   FileText,
+  ClipboardCheck,
+  Eye,
+  AlertTriangle,
 } from '@/components/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
+
+/** Markdown → 純文字摘要(新聞卡用,僅去符號不渲染)。 */
+function excerpt(md: string, len = 64): string {
+  const text = md
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*`~|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > len ? `${text.slice(0, len)}…` : text;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -35,21 +49,23 @@ const CATEGORY_BAR: Record<PostCategory, string> = {
 export default async function LandingPage() {
   const session = await auth();
 
-  const [posts, orgCount, cycleCount, defStats] = await Promise.all([
+  const [posts, orgCount, latestVersion] = await Promise.all([
     prisma.post.findMany({
       where: { status: 'PUBLISHED' },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       take: 6,
-      select: { id: true, slug: true, category: true, title: true, important: true, pinned: true, publishedAt: true },
+      select: { id: true, slug: true, category: true, title: true, contentMd: true, important: true, pinned: true, publishedAt: true },
     }),
     prisma.organization.count(),
-    prisma.auditCycle.count(),
-    prisma.correctiveAction.groupBy({ by: ['status'], _count: true }),
+    // 檢核項目題數取自最新題庫版本(對外展示制度規模,非營運數據)
+    prisma.checklistVersion.findFirst({
+      where: { items: { some: {} } },
+      orderBy: { year: 'desc' },
+      include: { _count: { select: { items: true } } },
+    }),
   ]);
 
-  const totalActions = defStats.reduce((s, x) => s + x._count, 0);
-  const passedActions = defStats.find((x) => x.status === 'PASSED')?._count ?? 0;
-  const passRate = totalActions > 0 ? Math.round((passedActions / totalActions) * 100) : 0;
+  const itemCount = latestVersion?._count.items ?? 87;
 
   const important = posts.find((p) => p.important);
   const enterHref = session ? '/dashboard' : '/login';
@@ -155,12 +171,46 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ════ 統計帶 ════ */}
+      {/* ════ 統計帶(制度規模,非營運數據;對外恆穩) ════ */}
       <section className="border-y border-outline-variant/60 bg-surface-container-lowest">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-outline-variant/60 gap-y-8">
-          <Stat value={`${orgCount}`} label="服務醫療機構" sub="納管中之受稽核單位" />
-          <Stat value={`${cycleCount}`} label="稽核週期" sub="歷年累計開立場次" />
-          <Stat value={`${passRate}%`} label="矯正措施通過率" sub="委員審查通過比例" />
+          <Stat value={`${orgCount}`} label="服務醫療機構" sub="教育部所屬大學附設醫院體系" />
+          <Stat value="9" label="稽核構面" sub="策略、管理、技術全面涵蓋" />
+          <Stat value={`${itemCount}`} label="檢核項目" sub="對齊行政院年度檢核表並附法規對照" />
+        </div>
+      </section>
+
+      {/* ════ 平台服務 ════ */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-4 w-full">
+        <div className="mb-8">
+          <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">平台服務</p>
+          <h2 className="text-headline-lg text-on-surface">稽核全流程,一站完成</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <ServiceCard
+            icon={<FileText size={20} />}
+            step="01"
+            title="稽核前資料準備"
+            desc="受稽機關線上繳交應備文件,委員逐項確認齊備,實地稽核當天不再翻箱倒櫃。"
+          />
+          <ServiceCard
+            icon={<ClipboardCheck size={20} />}
+            step="02"
+            title="檢核表線上填報"
+            desc="行政院檢核項目逐題作答,每題附稽核依據與應備文件對照,填完一鍵送出。"
+          />
+          <ServiceCard
+            icon={<Eye size={20} />}
+            step="03"
+            title="實地稽核數位化"
+            desc="委員線上評分與輸入發現,系統當日自動彙整成正式報告,即看即印。"
+          />
+          <ServiceCard
+            icon={<AlertTriangle size={20} />}
+            step="04"
+            title="缺失矯正管考"
+            desc="缺失自動開立、矯正填報與佐證上傳、委員審查與逾期提醒,一路追蹤到結案。"
+          />
         </div>
       </section>
 
@@ -200,6 +250,11 @@ export default async function LandingPage() {
                     <h3 className="text-title text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
                       {p.title}
                     </h3>
+                    {excerpt(p.contentMd) && (
+                      <p className="mt-2 text-body-sm text-on-surface-variant line-clamp-2 leading-relaxed">
+                        {excerpt(p.contentMd)}
+                      </p>
+                    )}
                     <div className="mt-4 flex items-center justify-between">
                       <p className="text-caption text-on-surface-variant tabular-nums">
                         {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
@@ -241,7 +296,7 @@ export default async function LandingPage() {
             aria-hidden
           />
           <h2 className="relative text-headline-lg text-white text-balance">
-            讓每一次稽核都清楚、從容、留得下軌跡。
+            從資料準備到結案追蹤,一個平台完成。
           </h2>
           <p className="relative mt-3 text-body text-primary-100/90">
             {session ? '歡迎回來,繼續您的稽核管考作業。' : '使用機關核發之帳號登入,開始本年度稽核作業。'}
@@ -277,6 +332,30 @@ function Stat({ value, label, sub }: { value: string; label: string; sub: string
       </p>
       <p className="mt-3 text-body font-medium text-on-surface">{label}</p>
       <p className="mt-1 text-caption text-on-surface-variant">{sub}</p>
+    </div>
+  );
+}
+
+function ServiceCard({
+  icon, step, title, desc,
+}: {
+  icon: React.ReactNode;
+  step: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="relative h-full rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-6 transition-all duration-200 ease-standard hover:border-outline hover:shadow-elev-2 hover:-translate-y-0.5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-11 h-11 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center">
+          {icon}
+        </div>
+        <span className="text-display-sm font-semibold text-outline-variant/80 leading-none select-none" aria-hidden>
+          {step}
+        </span>
+      </div>
+      <p className="text-title text-on-surface">{title}</p>
+      <p className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
     </div>
   );
 }
