@@ -36,7 +36,6 @@ export const EMPTY = {
 };
 
 export const TOAST = {
-  savedChecklist: (no: string) => ({ title: '已儲存', description: `第 ${no} 題更新完成，軌跡留存中。` }),
   savedAction: () => ({ title: '已儲存', description: '矯正措施草稿已更新。' }),
   submittedAction: () => ({ title: '已送出審核', description: '稽核委員會收到通知。' }),
   passedAction: () => ({ title: '已通過', description: '矯正措施審核通過。' }),

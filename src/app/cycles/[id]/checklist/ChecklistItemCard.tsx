@@ -12,7 +12,6 @@ import { useToast } from '@/components/ui/Toast';
 import { Paperclip, ChevronDown } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
-import { TOAST } from '@/lib/copy';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
@@ -53,7 +52,9 @@ export default function ChecklistItemCard({
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
-  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs, silent = false) {
+  // 成功一律安靜(卡片內 ✓ 已儲存 就地閃示),失敗才跳 toast —
+  // 87 題逐題點選若每次都跳通知會轟炸使用者。
+  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
     if (!canEdit) return;
     startSaving(async () => {
       const res = await fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
@@ -72,10 +73,6 @@ export default function ChecklistItemCard({
         return;
       }
       setTextDirty(false);
-      if (!silent) {
-        const t = TOAST.savedChecklist(item.itemNo);
-        toast.success(t.title, t.description);
-      }
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
@@ -85,7 +82,7 @@ export default function ChecklistItemCard({
 
   // 文字欄失焦時靜默自動存(避免切題忘按儲存)
   function autoSaveOnBlur() {
-    if (textDirty && canEdit) save(compliance, description, recordDocs, true);
+    if (textDirty && canEdit) save(compliance, description, recordDocs);
   }
 
   async function resolveComment(commentId: string) {
