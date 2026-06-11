@@ -57,10 +57,10 @@ export default async function LandingPage() {
       select: { id: true, slug: true, category: true, title: true, contentMd: true, important: true, pinned: true, publishedAt: true },
     }),
     prisma.organization.count(),
-    // 檢核項目題數取自最新題庫版本(對外展示制度規模,非營運數據)
+    // 檢核項目題數取題數最完整的題庫版本(對外展示制度規模,非營運數據)
     prisma.checklistVersion.findFirst({
       where: { items: { some: {} } },
-      orderBy: { year: 'desc' },
+      orderBy: { items: { _count: 'desc' } },
       include: { _count: { select: { items: true } } },
     }),
   ]);
