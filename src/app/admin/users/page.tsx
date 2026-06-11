@@ -9,6 +9,8 @@ import { Users } from '@/components/icons';
 import { inviteStatus } from '@/lib/invite';
 import type { Role } from '@/lib/types';
 import GlobalInvitePanel from './GlobalInvitePanel';
+import UserRowActions from './UserRowActions';
+import InviteRowActions from './InviteRowActions';
 
 const roleLabel: Record<Role, string> = {
   SUPER_ADMIN: '最高管理員',
@@ -65,6 +67,7 @@ export default async function UsersPage() {
                 <th className="text-left px-5 py-3 font-medium">角色</th>
                 <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
                 <th className="text-right px-5 py-3 font-medium">到期</th>
+                <th className="text-right px-5 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -80,6 +83,9 @@ export default async function UsersPage() {
                   <td className="px-5 py-3 text-on-surface-variant">{inv.organization?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
                     {new Date(inv.expiresAt).toLocaleDateString('zh-TW')}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <InviteRowActions inviteId={inv.id} email={inv.email} />
                   </td>
                 </tr>
               ))}
@@ -106,6 +112,7 @@ export default async function UsersPage() {
                 <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
                 <th className="text-left px-5 py-3 font-medium">狀態</th>
                 <th className="text-right px-5 py-3 font-medium">最後登入</th>
+                <th className="text-right px-5 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -126,6 +133,16 @@ export default async function UsersPage() {
                   </td>
                   <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
                     {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('zh-TW') : '尚未登入'}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <UserRowActions
+                      userId={u.id}
+                      name={u.name}
+                      role={u.role as Role}
+                      isActive={u.isActive}
+                      hasOrganization={!!u.organizationId}
+                      isSelf={u.id === user.id}
+                    />
                   </td>
                 </tr>
               ))}

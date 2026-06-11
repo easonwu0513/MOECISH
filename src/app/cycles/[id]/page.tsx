@@ -7,7 +7,7 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses } from '@/lib/state-machine';
+import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import type { CycleStatus, Role } from '@/lib/types';
@@ -46,6 +46,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const pendingCount = total - passed - submitted - returned ? total - passed - submitted - returned : 0;
 
   const transitions = nextStatuses(cycle.status as CycleStatus, user.role as Role);
+  const rollbacks = rollbackTargets(cycle.status as CycleStatus, user.role as Role);
   const yearROC = cycle.year - 1911;
 
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
@@ -221,13 +222,17 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         <Card className="mb-6">
           <CardTitle>管理動作</CardTitle>
           <CardDescription>通知機關管理員、推進週期狀態</CardDescription>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {/* 通知機關填報只在缺失發布後才有意義 */}
             {(cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') && (
               <NotifyButton cycleId={cycle.id} />
             )}
             {transitions.map((t) => (
               <TransitionButton key={t} cycleId={cycle.id} target={t} />
+            ))}
+            {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
+            {rollbacks.map((t) => (
+              <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
             ))}
           </div>
         </Card>

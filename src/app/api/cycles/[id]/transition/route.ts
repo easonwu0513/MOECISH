@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess, AuthError } from '@/lib/rbac';
-import { canTransition } from '@/lib/state-machine';
+import { canTransition, canRollback } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -15,12 +15,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const from = cycle.status as CycleStatus;
     const to = body.target as CycleStatus;
 
-    if (!canTransition(from, to, user.role as Role)) {
+    const forward = canTransition(from, to, user.role as Role);
+    const rollback = !forward && canRollback(from, to, user.role as Role);
+    if (!forward && !rollback) {
       return NextResponse.json({ error: '不允許的狀態轉換' }, { status: 400 });
     }
+    // 回退必須附理由(記入狀態轉換紀錄與稽核軌跡)
+    if (rollback && (body.reason?.trim().length ?? 0) < 5) {
+      return NextResponse.json({ error: '回退狀態必須填寫理由(至少 5 個字)' }, { status: 400 });
+    }
 
-    // 缺失發布 → 矯正執行:至少要有一筆缺失
-    if (to === 'REMEDIATION') {
+    // 缺失發布 → 矯正執行:至少要有一筆缺失(回退到 REMEDIATION 不受此限,缺失必然已存在)
+    if (to === 'REMEDIATION' && forward) {
       const count = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
       if (count === 0) {
         return NextResponse.json({ error: '尚未發布任何缺失，無法開放填報' }, { status: 400 });
@@ -53,7 +59,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       where: { id: cycle.id },
       data: {
         status: to,
-        closedAt: to === 'CLOSED' ? new Date() : undefined,
+        // 結案記時;自 CLOSED 回退(重啟)則清除結案時間
+        closedAt: to === 'CLOSED' ? new Date() : from === 'CLOSED' ? null : undefined,
         stateTransitions: {
           create: { fromStatus: from, toStatus: to, actorId: user.id, reason: body.reason },
         },
@@ -63,11 +70,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
-      action: 'CYCLE_TRANSITION',
+      action: rollback ? 'CYCLE_ROLLBACK' : 'CYCLE_TRANSITION',
       entityType: 'AuditCycle',
       entityId: cycle.id,
       before: { status: from },
-      after: { status: to },
+      after: { status: to, ...(rollback ? { reason: body.reason } : {}) },
       ...meta,
     });
 

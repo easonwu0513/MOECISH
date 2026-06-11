@@ -35,6 +35,32 @@ export function nextStatuses(from: CycleStatus, role: Role): CycleStatus[] {
   ).map((t) => t.to);
 }
 
+// ════════════════════════════════════════════
+// 受控回退邊(誤按救回;SUPER_ADMIN 限定,API 層強制填理由)
+// 每個狀態僅一個回退目標,理由記入 CycleStateTransition 與稽核軌跡
+// ════════════════════════════════════════════
+
+export const CYCLE_ROLLBACKS: CycleTransition[] = [
+  { from: 'PREPARATION',   to: 'DRAFT',         allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'READY',         to: 'PREPARATION',   allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'ONSITE',        to: 'READY',         allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'REPORT_ISSUED', to: 'DRAFT',         allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'REMEDIATION',   to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
+  { from: 'CLOSED',        to: 'REMEDIATION',   allowedRoles: ['SUPER_ADMIN'] },
+];
+
+export function canRollback(from: CycleStatus, to: CycleStatus, role: Role) {
+  return CYCLE_ROLLBACKS.some(
+    (t) => t.from === from && t.to === to && t.allowedRoles.includes(role),
+  );
+}
+
+export function rollbackTargets(from: CycleStatus, role: Role): CycleStatus[] {
+  return CYCLE_ROLLBACKS.filter(
+    (t) => t.from === from && t.allowedRoles.includes(role),
+  ).map((t) => t.to);
+}
+
 export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
   DRAFT: '開立中',
   PREPARATION: '資料準備中',
