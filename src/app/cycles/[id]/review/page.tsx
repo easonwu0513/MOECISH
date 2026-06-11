@@ -7,17 +7,12 @@ import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import CommentForm from './CommentForm';
 
-const complianceTone: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
-  COMPLIANT: 'success',
-  PARTIALLY_COMPLIANT: 'warning',
-  NON_COMPLIANT: 'danger',
-  NOT_APPLICABLE: 'neutral',
-};
+const complianceTone = COMPLIANCE_TONE;
 
 export default async function ReviewPage({ params }: { params: { id: string } }) {
   const session = await auth();

@@ -162,3 +162,19 @@ export const COMPLIANCE_LABELS: Record<ComplianceLevel, string> = {
   NON_COMPLIANT: '不符合',
   NOT_APPLICABLE: '不適用',
 };
+
+/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色) */
+export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  COMPLIANT: 'success',
+  PARTIALLY_COMPLIANT: 'warning',
+  NON_COMPLIANT: 'danger',
+  NOT_APPLICABLE: 'neutral',
+};
+
+/** 符合度 → 條狀標示底色(卡片頂條) */
+export const COMPLIANCE_BAR: Record<ComplianceLevel, string> = {
+  COMPLIANT: 'bg-success-500',
+  PARTIALLY_COMPLIANT: 'bg-warning-500',
+  NON_COMPLIANT: 'bg-danger-500',
+  NOT_APPLICABLE: 'bg-outline-variant',
+};

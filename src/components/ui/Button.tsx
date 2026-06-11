@@ -36,6 +36,11 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
   fullWidth?: boolean;
+  /** 提供時渲染為 <a>(取代 <a><Button> 巢狀互動元素);可搭配 download/target/rel */
+  href?: string;
+  target?: string;
+  rel?: string;
+  download?: boolean | string;
 };
 
 const variantStyles: Record<Variant, string> = {
@@ -94,33 +99,56 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     disabled,
     children,
     className,
+    href,
+    target,
+    rel,
+    download,
     ...rest
   },
   ref,
 ) {
+  const classes = cn(
+    'relative inline-flex items-center justify-center font-medium whitespace-nowrap select-none',
+    'transition-all duration-200 ease-standard focus-ring',
+    'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
+    '[&:active:not(:disabled)]:scale-[0.985]',
+    variantStyles[variant],
+    sizeStyles[size],
+    fullWidth && 'w-full',
+    className,
+  );
+
+  const inner = (
+    <>
+      {loading ? <Spinner size={size === 'xs' || size === 'sm' ? 14 : 18} /> : leadingIcon}
+      {children && <span className="leading-none">{children}</span>}
+      {!loading && trailingIcon}
+    </>
+  );
+
+  // href → 以 <a> 渲染(單一可聚焦元素,避免 <a><button> 巢狀)
+  if (href && !disabled) {
+    return (
+      <a
+        href={href}
+        target={target}
+        rel={rel ?? (target === '_blank' ? 'noopener noreferrer' : undefined)}
+        download={download}
+        className={classes}
+      >
+        {inner}
+      </a>
+    );
+  }
+
   return (
     <button
       ref={ref}
       disabled={disabled || loading}
-      className={cn(
-        'relative inline-flex items-center justify-center font-medium whitespace-nowrap select-none',
-        'transition-all duration-200 ease-standard focus-ring',
-        'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
-        '[&:active:not(:disabled)]:scale-[0.985]',
-        variantStyles[variant],
-        sizeStyles[size],
-        fullWidth && 'w-full',
-        className,
-      )}
+      className={classes}
       {...rest}
     >
-      {loading ? (
-        <Spinner size={size === 'xs' || size === 'sm' ? 14 : 18} />
-      ) : (
-        leadingIcon
-      )}
-      {children && <span className="leading-none">{children}</span>}
-      {!loading && trailingIcon}
+      {inner}
     </button>
   );
 });

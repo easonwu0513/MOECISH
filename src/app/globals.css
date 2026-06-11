@@ -109,6 +109,12 @@ h1, h2, h3, h4 {
 }
 
 a { color: inherit; text-decoration: none; }
+/* 純鍵盤可及性:任何連結 Tab 到都看得到焦點環(各頁內文連結原本無焦點環) */
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 4px;
+}
 
 ::selection {
   background: rgba(40, 82, 160, 0.22);
@@ -174,6 +180,9 @@ a { color: inherit; text-decoration: none; }
     height: 1px;
     color: #c7c6ca;
   }
+
+  /* 內文連結:藍字 + hover 底線(取代各頁手刻 text-primary-700 hover:underline) */
+  .link { @apply text-primary-700 hover:underline rounded-sm; }
 
   /* Design-system semantic type helpers */
   .ds-display-sm { @apply text-display-sm; }

@@ -10,17 +10,12 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
 import { Paperclip, Upload, ChevronDown } from '@/components/icons';
-import { COMPLIANCE_LABELS, type ComplianceLevel } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
 import { TOAST } from '@/lib/copy';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
-const complianceColor: Record<ComplianceLevel, string> = {
-  COMPLIANT: 'bg-success-500',
-  PARTIALLY_COMPLIANT: 'bg-warning-500',
-  NON_COMPLIANT: 'bg-danger-500',
-  NOT_APPLICABLE: 'bg-outline-variant',
-};
+const complianceColor = COMPLIANCE_BAR;
 
 export default function ChecklistItemCard({
   cycleId,
@@ -306,13 +301,8 @@ export default function ChecklistItemCard({
   );
 }
 
-function complianceTone(c: ComplianceLevel): 'success' | 'warning' | 'danger' | 'neutral' {
-  switch (c) {
-    case 'COMPLIANT': return 'success';
-    case 'PARTIALLY_COMPLIANT': return 'warning';
-    case 'NON_COMPLIANT': return 'danger';
-    case 'NOT_APPLICABLE': return 'neutral';
-  }
+function complianceTone(c: ComplianceLevel) {
+  return COMPLIANCE_TONE[c];
 }
 
 function EvidenceBlock({

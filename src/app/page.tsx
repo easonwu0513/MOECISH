@@ -10,7 +10,9 @@ import {
   Check,
   History,
   Paperclip,
+  FileText,
 } from '@/components/icons';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -185,8 +187,12 @@ export default async function LandingPage() {
           </Link>
         </div>
         {posts.length === 0 ? (
-          <div className="rounded-lg border border-outline-variant p-10 text-center text-body-sm text-on-surface-variant">
-            尚無公告。
+          <div className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest">
+            <EmptyState
+              icon={<FileText size={26} />}
+              title="尚無資安資訊"
+              description="最新公告與情資將在這裡呈現,敬請期待"
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

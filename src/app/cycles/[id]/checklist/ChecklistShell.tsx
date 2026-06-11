@@ -134,7 +134,11 @@ export default function ChecklistShell({
       .filter((g) => g.items.length > 0);
   }, [visible]);
 
-  const flatIds = useMemo(() => grouped.flatMap((g) => g.items.map((i) => i.id)), [grouped]);
+  // j/k 導覽只走「展開構面」內的題目,不跳進收合(已從 DOM 卸載)的卡片
+  const flatIds = useMemo(
+    () => grouped.filter((g) => !collapsedDims.has(g.dim)).flatMap((g) => g.items.map((i) => i.id)),
+    [grouped, collapsedDims],
+  );
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -215,7 +219,7 @@ export default function ChecklistShell({
         loading={bulkBusy}
       />
       {/* Sticky toolbar */}
-      <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-white/95 backdrop-blur-sm border-b border-hairline mb-6">
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/60 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 max-w-md">
             <TextField

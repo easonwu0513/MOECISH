@@ -17,12 +17,15 @@ const demoAccounts = [
   { email: 'org2@demo.tw',    label: '機關管理員 B', tone: 'neutral' as const },
 ];
 
+// UAT 顯示測試帳號;正式環境(未設旗標)一律不顯示,預設欄位留空
+const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === '1';
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get('callbackUrl') ?? '/dashboard';
-  const [email, setEmail] = useState('org@demo.tw');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState(SHOW_DEMO ? 'org@demo.tw' : '');
+  const [password, setPassword] = useState(SHOW_DEMO ? 'demo1234' : '');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,8 +34,11 @@ function LoginForm() {
     setErr(null);
     setLoading(true);
     const res = await signIn('credentials', { email, password, redirect: false, callbackUrl });
-    setLoading(false);
-    if (res?.error) return setErr('帳號或密碼錯誤，請再試一次');
+    if (res?.error) {
+      setLoading(false);
+      return setErr('帳號或密碼錯誤，請再試一次');
+    }
+    // 成功:維持 loading 直到頁面轉走,避免按鈕提前復原被重複點
     router.push(callbackUrl);
     router.refresh();
   }
@@ -69,8 +75,8 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* Card — elevated */}
-        <div className="relative bg-surface-container-low rounded-lg shadow-elev-1 p-7 sm:p-8">
+        {/* Card — elevated(白底浮起,與頁面背景拉開層級) */}
+        <div className="relative bg-surface-container-lowest border border-outline-variant/60 rounded-lg shadow-elev-2 p-7 sm:p-8">
           <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <TextField
               label="Email"
@@ -103,6 +109,7 @@ function LoginForm() {
             </Button>
           </form>
 
+          {SHOW_DEMO && (
           <div className="mt-7 pt-6 border-t border-outline-variant">
             <div className="flex items-center justify-between mb-3">
               <p className="text-label-lg text-on-surface-variant">快速測試帳號</p>
@@ -136,6 +143,7 @@ function LoginForm() {
               })}
             </div>
           </div>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-caption text-on-surface-variant">
