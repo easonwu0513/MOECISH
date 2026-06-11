@@ -11,6 +11,12 @@ import {
   AlertTriangle,
   CheckCircle,
   ChevronRight,
+  Check,
+  Eye,
+  Briefcase,
+  LayoutDashboard,
+  History,
+  Paperclip,
 } from '@/components/icons';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 
@@ -21,6 +27,12 @@ const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warni
   INTEL: 'sage',
   VULN_ALERT: 'danger',
   EVENT: 'warning',
+};
+const CATEGORY_BAR: Record<PostCategory, string> = {
+  ANNOUNCEMENT: 'bg-primary-500',
+  INTEL: 'bg-sage-500',
+  VULN_ALERT: 'bg-danger-500',
+  EVENT: 'bg-warning-500',
 };
 
 export default async function LandingPage() {
@@ -43,103 +55,178 @@ export default async function LandingPage() {
   const passRate = totalActions > 0 ? Math.round((passedActions / totalActions) * 100) : 0;
 
   const important = posts.find((p) => p.important);
+  const enterHref = session ? '/dashboard' : '/login';
+  const enterLabel = session ? '進入系統' : '登入系統';
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      {/* ── 頂欄 ── */}
-      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/60">
+      {/* ════ 頂欄 ════ */}
+      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-outline-variant/50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="focus-ring rounded-md">
+          <Link href="/" className="focus-ring rounded-md shrink-0">
             <Wordmark />
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1">
+            <a href="#process" className="hidden md:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
+              稽核流程
+            </a>
             <Link href="/news" className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
               資安資訊
             </Link>
-            {session ? (
-              <Link href="/dashboard">
-                <Button size="sm">進入系統</Button>
-              </Link>
-            ) : (
-              <Link href="/login">
-                <Button size="sm">登入</Button>
-              </Link>
-            )}
+            <Link href={enterHref} className="ml-2">
+              <Button size="sm">{enterLabel}</Button>
+            </Link>
           </nav>
         </div>
       </header>
 
-      {/* ── 重要公告橫幅 ── */}
+      {/* ════ 重要公告橫幅 ════ */}
       {important && (
         <Link href={`/news/${important.slug}`} className="block bg-danger-50 border-b border-danger-100 hover:bg-danger-100/70 transition-colors">
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-2.5 text-body-sm text-danger-700">
-            <AlertTriangle size={16} className="shrink-0" />
-            <span className="font-medium shrink-0">重要</span>
+            <span className="relative flex w-2 h-2 shrink-0" aria-hidden>
+              <span className="animate-soft-pulse absolute inline-flex h-full w-full rounded-full bg-danger-500" />
+            </span>
+            <span className="font-semibold shrink-0">重要</span>
             <span className="truncate">{important.title}</span>
             <ChevronRight size={14} className="shrink-0 ml-auto" />
           </div>
         </Link>
       )}
 
-      {/* ── Hero ── */}
+      {/* ════ Hero ════ */}
       <section className="relative overflow-hidden">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 70% 60% at 20% 10%, rgba(40,82,160,0.10), transparent 70%),' +
-              'radial-gradient(ellipse 55% 45% at 90% 90%, rgba(103,134,105,0.08), transparent 70%)',
+              'radial-gradient(ellipse 75% 65% at 12% 0%, rgba(40,82,160,0.10), transparent 65%),' +
+              'radial-gradient(ellipse 50% 45% at 95% 20%, rgba(27,108,151,0.08), transparent 70%),' +
+              'radial-gradient(ellipse 55% 50% at 80% 100%, rgba(103,134,105,0.07), transparent 70%)',
           }}
           aria-hidden
         />
-        <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-14 sm:pt-24 sm:pb-20">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <Logo size={48} />
-              <Chip tone="primary" size="sm">教育部 · 醫療領域</Chip>
+        <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16 sm:pt-20 sm:pb-24">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] items-center gap-12 lg:gap-20">
+            {/* 文案 */}
+            <div className="max-w-2xl animate-slide-up">
+              <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-4">
+                教育部轄下醫療領域資訊安全推動中心
+              </p>
+              <h1 className="text-display-sm sm:text-display text-on-surface text-balance font-semibold leading-[1.12]">
+                資通安全稽核
+                <br />
+                管考平台
+              </h1>
+              <p className="mt-6 text-body-lg text-on-surface-variant max-w-xl text-pretty leading-relaxed">
+                讓每一次稽核都清楚、從容、留得下軌跡。
+                從稽核前資料準備、缺失矯正填報到委員審查結案，
+                一站式完成醫療機構資通安全稽核管考作業。
+              </p>
+              <div className="mt-9 flex gap-3 flex-wrap">
+                <Link href={enterHref}>
+                  <Button size="lg">{enterLabel}</Button>
+                </Link>
+                <Link href="/news">
+                  <Button size="lg" variant="tonal">瀏覽資安資訊</Button>
+                </Link>
+              </div>
+              {/* 信任徽記 */}
+              <ul className="mt-10 flex items-center gap-x-7 gap-y-3 flex-wrap text-body-sm text-on-surface-variant">
+                {['對齊教育部稽核範本', '全程稽核軌跡留存', '角色權限分級控管'].map((t) => (
+                  <li key={t} className="inline-flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-success-50 text-success-600 inline-flex items-center justify-center shrink-0">
+                      <Check size={12} />
+                    </span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <h1 className="text-display-sm sm:text-display text-on-surface text-balance font-semibold">
-              資通安全稽核
-              <br />
-              管考平台
-            </h1>
-            <p className="mt-5 text-body-lg text-on-surface-variant max-w-xl text-pretty leading-relaxed">
-              讓每一次稽核都清楚、從容、留得下軌跡。
-              從稽核前資料準備、缺失矯正填報到委員審查結案，
-              一站式完成醫療機構資通安全稽核管考作業。
-            </p>
-            <div className="mt-8 flex gap-3 flex-wrap">
-              {session ? (
-                <Link href="/dashboard">
-                  <Button size="lg">進入系統</Button>
-                </Link>
-              ) : (
-                <Link href="/login">
-                  <Button size="lg">登入系統</Button>
-                </Link>
-              )}
-              <Link href="/news">
-                <Button size="lg" variant="tonal">瀏覽資安資訊</Button>
-              </Link>
+
+            {/* 徽章 + 光暈 */}
+            <div className="relative hidden lg:flex items-center justify-center animate-fade-in" aria-hidden>
+              <div className="absolute w-[420px] h-[420px] rounded-full border border-primary-100/80" />
+              <div className="absolute w-[340px] h-[340px] rounded-full border border-primary-100" />
+              <div
+                className="absolute w-[420px] h-[420px] rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(27,108,151,0.10) 0%, transparent 62%)' }}
+              />
+              <Logo size={264} className="relative drop-shadow-[0_18px_40px_rgba(20,88,126,0.18)]" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 數字 ── */}
+      {/* ════ 統計帶 ════ */}
       <section className="border-y border-outline-variant/60 bg-surface-container-lowest">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-3 gap-8">
-          <Stat icon={<ShieldCheck size={22} />} value={`${orgCount}`} label="服務醫療機構" />
-          <Stat icon={<ClipboardCheck size={22} />} value={`${cycleCount}`} label="稽核週期" />
-          <Stat icon={<CheckCircle size={22} />} value={`${passRate}%`} label="矯正措施通過率" />
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-outline-variant/60 gap-y-8">
+          <Stat value={`${orgCount}`} label="服務醫療機構" sub="納管中之受稽核單位" />
+          <Stat value={`${cycleCount}`} label="稽核週期" sub="歷年累計開立場次" />
+          <Stat value={`${passRate}%`} label="矯正措施通過率" sub="委員審查通過比例" />
         </div>
       </section>
 
-      {/* ── 最新資訊 ── */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-14 w-full">
-        <div className="flex items-baseline justify-between mb-6">
-          <h2 className="text-headline text-on-surface">最新資安資訊</h2>
-          <Link href="/news" className="text-body-sm text-primary-700 hover:underline focus-ring rounded-sm inline-flex items-center gap-0.5">
+      {/* ════ 三種角色 ════ */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full">
+        <div className="max-w-2xl mb-10">
+          <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">為每個角色而設計</p>
+          <h2 className="text-headline-lg text-on-surface">三種角色，一條流程</h2>
+          <p className="mt-3 text-body text-on-surface-variant">
+            從中心、機關到委員，每個角色登入後只看到自己需要的工作，乾淨不干擾。
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <RoleCard
+            tone="primary"
+            icon={<LayoutDashboard size={22} />}
+            title="最高管理員"
+            org="資訊安全推動中心"
+            items={['開立稽核週期、指派委員', '發布稽核缺失(表單或 Excel 匯入)', '追蹤信寄送與結案確認']}
+          />
+          <RoleCard
+            tone="warning"
+            icon={<Briefcase size={22} />}
+            title="機關管理員"
+            org="受稽核醫療機構"
+            items={['稽核前資料上傳', '矯正措施填報與佐證上傳', '改善報告列印、用印與回傳']}
+          />
+          <RoleCard
+            tone="sage"
+            icon={<Eye size={22} />}
+            title="稽核委員"
+            org="外聘專業委員"
+            items={['線上確認資料齊備', '逐項審查矯正措施', '通過或退回補正(多輪)']}
+          />
+        </div>
+      </section>
+
+      {/* ════ 流程 ════ */}
+      <section id="process" className="bg-surface-container-low border-y border-outline-variant/60 scroll-mt-16">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="max-w-2xl mb-12">
+            <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">端到端數位化</p>
+            <h2 className="text-headline-lg text-on-surface">稽核管考流程</h2>
+          </div>
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* 連接線(桌機) */}
+            <div className="hidden lg:block absolute top-[34px] left-[12%] right-[12%] h-px bg-outline-variant" aria-hidden />
+            <Step no="1" icon={<FileText size={20} />} title="資料準備" desc="受稽機關於實地稽核前上傳檢核表與文件,委員線上確認齊備或標記缺件。" />
+            <Step no="2" icon={<ClipboardCheck size={20} />} title="實地稽核" desc="稽核委員到場查核;平台留存當日資料與委員指派紀錄。" />
+            <Step no="3" icon={<AlertTriangle size={20} />} title="缺失矯正" desc="缺失發布後,機關填報根因分析、改善措施與佐證,逐項送審。" />
+            <Step no="4" icon={<CheckCircle size={20} />} title="審查結案" desc="委員逐項審查;全數通過後機關用印上傳,中心確認正式結案。" />
+          </div>
+        </div>
+      </section>
+
+      {/* ════ 最新資訊 ════ */}
+      <section id="news" className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full scroll-mt-16">
+        <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
+          <div>
+            <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">情資與公告</p>
+            <h2 className="text-headline-lg text-on-surface">最新資安資訊</h2>
+          </div>
+          <Link href="/news" className="text-body-sm text-primary-700 hover:underline focus-ring rounded-sm inline-flex items-center gap-0.5 mb-1">
             查看全部
             <ChevronRight size={14} />
           </Link>
@@ -149,22 +236,31 @@ export default async function LandingPage() {
             尚無公告。
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {posts.map((p) => (
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
-                <article className="h-full rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-5 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
-                      {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
-                    </Chip>
-                    {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
+                <article className="relative h-full rounded-lg border border-outline-variant/70 bg-surface-container-lowest overflow-hidden transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-2 group-hover:-translate-y-0.5">
+                  <div className={`h-1 ${CATEGORY_BAR[p.category as PostCategory] ?? 'bg-primary-500'}`} aria-hidden />
+                  <div className="p-6">
+                    <div className="flex items-center gap-2 mb-3.5">
+                      <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
+                        {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
+                      </Chip>
+                      {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
+                    </div>
+                    <h3 className="text-title text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
+                      {p.title}
+                    </h3>
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-caption text-on-surface-variant tabular-nums">
+                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                      </p>
+                      <span className="inline-flex items-center gap-0.5 text-caption text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+                        閱讀
+                        <ChevronRight size={12} />
+                      </span>
+                    </div>
                   </div>
-                  <h3 className="text-title text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
-                    {p.title}
-                  </h3>
-                  <p className="mt-3 text-caption text-on-surface-variant tabular-nums">
-                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
-                  </p>
                 </article>
               </Link>
             ))}
@@ -172,31 +268,92 @@ export default async function LandingPage() {
         )}
       </section>
 
-      {/* ── 流程 ── */}
-      <section className="bg-surface-container-low border-y border-outline-variant/60">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-          <h2 className="text-headline text-on-surface mb-8">稽核管考流程</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Step no="01" icon={<FileText size={20} />} title="資料準備" desc="受稽機關於實地稽核前上傳檢核表與佐證文件,委員線上確認齊備。" />
-            <Step no="02" icon={<ClipboardCheck size={20} />} title="實地稽核" desc="稽核委員到場查核,平台留存當日資料與紀錄。" />
-            <Step no="03" icon={<AlertTriangle size={20} />} title="缺失矯正" desc="缺失發布後,機關填報根因分析、改善措施與佐證,逐項送審。" />
-            <Step no="04" icon={<CheckCircle size={20} />} title="審查結案" desc="委員逐項審查通過,機關用印上傳,全數完成後正式結案。" />
+      {/* ════ 安全特性帶 ════ */}
+      <section className="border-y border-outline-variant/60 bg-surface-container-lowest">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <Feature icon={<History size={18} />} title="全程稽核軌跡" desc="每一筆操作皆留存不可否認紀錄" />
+          <Feature icon={<ShieldCheck size={18} />} title="角色權限分級" desc="機關資料嚴格隔離,委員迴避原則" />
+          <Feature icon={<Paperclip size={18} />} title="佐證完整性驗證" desc="附件以 SHA-256 雜湊確保未遭竄改" />
+        </div>
+      </section>
+
+      {/* ════ CTA 收尾 ════ */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full">
+        <div
+          className="relative overflow-hidden rounded-2xl px-8 py-14 sm:px-14 text-center"
+          style={{
+            background: 'linear-gradient(135deg, #1a334a 0%, #254868 55%, #2f5b88 100%)',
+          }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse 60% 80% at 85% 10%, rgba(183,215,232,0.12), transparent 60%)' }}
+            aria-hidden
+          />
+          <h2 className="relative text-headline-lg text-white text-balance">
+            讓每一次稽核都清楚、從容、留得下軌跡。
+          </h2>
+          <p className="relative mt-3 text-body text-primary-100/90">
+            {session ? '歡迎回來,繼續您的稽核管考作業。' : '使用機關核發之帳號登入,開始本年度稽核作業。'}
+          </p>
+          <div className="relative mt-8 flex justify-center gap-3 flex-wrap">
+            <Link
+              href={enterHref}
+              className="inline-flex items-center justify-center h-12 px-7 rounded-full bg-white text-primary-800 text-label-lg font-medium shadow-elev-2 hover:bg-primary-50 active:scale-[0.98] transition-all duration-200 ease-standard focus-ring"
+            >
+              {enterLabel}
+            </Link>
+            <Link
+              href="/news"
+              className="inline-flex items-center justify-center h-12 px-7 rounded-full border border-white/35 text-white text-label-lg font-medium hover:bg-white/10 active:scale-[0.98] transition-all duration-200 ease-standard focus-ring"
+            >
+              瀏覽資安資訊
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="mt-auto">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* ════ Footer ════ */}
+      <footer className="mt-auto border-t border-outline-variant/60 bg-surface-container-lowest">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-10">
           <div>
-            <Wordmark />
-            <p className="mt-2 text-caption text-on-surface-variant">
-              MOECISH · 資通安全稽核管考平台
+            <div className="flex items-center gap-3">
+              <Logo size={44} />
+              <div className="leading-tight">
+                <p className="text-title text-on-surface font-semibold">MOECISH</p>
+                <p className="text-caption text-on-surface-variant">資通安全稽核管考平台</p>
+              </div>
+            </div>
+            <p className="mt-4 text-body-sm text-on-surface-variant max-w-sm leading-relaxed">
+              服務教育部轄下醫療機構之資通安全稽核管考作業,
+              由教育部轄下醫療領域資訊安全推動中心(C.I.S.H)維運。
             </p>
           </div>
-          <div className="text-caption text-on-surface-variant space-y-1 sm:text-right">
-            <p>主辦單位:教育部 · 維運:教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</p>
-            <p>聯絡信箱:<a className="font-mono hover:text-primary-700" href="mailto:moecish@m365.ntu.edu.tw">moecish@m365.ntu.edu.tw</a></p>
+          <div>
+            <p className="text-label text-on-surface mb-4">快速連結</p>
+            <ul className="space-y-2.5 text-body-sm">
+              <li><Link href="/news" className="text-on-surface-variant hover:text-primary-700 transition-colors">資安資訊</Link></li>
+              <li><a href="#process" className="text-on-surface-variant hover:text-primary-700 transition-colors">稽核流程</a></li>
+              <li><Link href="/login" className="text-on-surface-variant hover:text-primary-700 transition-colors">系統登入</Link></li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-label text-on-surface mb-4">聯絡資訊</p>
+            <ul className="space-y-2.5 text-body-sm text-on-surface-variant">
+              <li>主辦單位:教育部</li>
+              <li>維運:醫療領域資訊安全推動中心</li>
+              <li>
+                <a className="font-mono hover:text-primary-700 transition-colors" href="mailto:moecish@m365.ntu.edu.tw">
+                  moecish@m365.ntu.edu.tw
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-outline-variant/50">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3 flex-wrap text-caption text-on-surface-variant">
+            <span>© {new Date().getFullYear() - 1911} 教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
+            <span className="tabular-nums">MOECISH v2.0</span>
           </div>
         </div>
       </footer>
@@ -204,31 +361,91 @@ export default async function LandingPage() {
   );
 }
 
-function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function Stat({ value, label, sub }: { value: string; label: string; sub: string }) {
   return (
-    <div className="flex items-center gap-4">
-      <div className="w-12 h-12 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+    <div className="text-center px-6">
+      <p className="text-display-sm sm:text-[2.75rem] font-semibold text-on-surface tabular-nums leading-none tracking-tight">
+        {value}
+      </p>
+      <p className="mt-3 text-body font-medium text-on-surface">{label}</p>
+      <p className="mt-1 text-caption text-on-surface-variant">{sub}</p>
+    </div>
+  );
+}
+
+function RoleCard({
+  tone,
+  icon,
+  title,
+  org,
+  items,
+}: {
+  tone: 'primary' | 'warning' | 'sage';
+  icon: React.ReactNode;
+  title: string;
+  org: string;
+  items: string[];
+}) {
+  const iconBg = {
+    primary: 'bg-primary-50 text-primary-700',
+    warning: 'bg-warning-50 text-warning-700',
+    sage: 'bg-sage-50 text-sage-700',
+  }[tone];
+  const rail = {
+    primary: 'bg-primary-400',
+    warning: 'bg-warning-400',
+    sage: 'bg-sage-400',
+  }[tone];
+
+  return (
+    <div className="relative rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-7 overflow-hidden transition-all duration-200 ease-standard hover:shadow-elev-1 hover:border-outline">
+      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${rail}`} aria-hidden />
+      <div className={`w-12 h-12 rounded-lg ${iconBg} flex items-center justify-center mb-5`}>
         {icon}
       </div>
-      <div>
-        <p className="text-display-sm font-semibold text-on-surface tabular-nums leading-none">{value}</p>
-        <p className="mt-1.5 text-body-sm text-on-surface-variant">{label}</p>
-      </div>
+      <h3 className="text-title-lg text-on-surface">{title}</h3>
+      <p className="mt-1 text-caption text-on-surface-variant">{org}</p>
+      <ul className="mt-5 space-y-2.5">
+        {items.map((it) => (
+          <li key={it} className="flex items-start gap-2.5 text-body-sm text-on-surface-variant leading-relaxed">
+            <Check size={15} className="mt-[3px] shrink-0 text-success-600" />
+            {it}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 function Step({ no, icon, title, desc }: { no: string; icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="rounded-lg bg-surface-container-lowest border border-outline-variant/70 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-700 flex items-center justify-center">
-          {icon}
-        </div>
-        <span className="text-display-sm font-semibold text-outline-variant tabular-nums select-none">{no}</span>
+    <div className="relative rounded-lg bg-surface-container-lowest border border-outline-variant/70 p-6 transition-all duration-200 ease-standard hover:shadow-elev-1">
+      <div className="relative z-10 flex items-center gap-3 mb-4">
+        <span className="w-[68px] h-[68px] rounded-full bg-surface-container-lowest border border-outline-variant flex items-center justify-center">
+          <span className="w-12 h-12 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center">
+            {icon}
+          </span>
+        </span>
+        <span className="text-display-sm font-semibold text-outline-variant tabular-nums select-none ml-auto" aria-hidden>
+          {no}
+        </span>
       </div>
       <h3 className="text-title text-on-surface">{title}</h3>
-      <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
+      <p className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
+    </div>
+  );
+}
+
+function Feature({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-body-sm font-medium text-on-surface">{title}</p>
+        <p className="text-caption text-on-surface-variant">{desc}</p>
+      </div>
     </div>
   );
 }
