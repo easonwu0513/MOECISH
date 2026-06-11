@@ -130,7 +130,7 @@ function LoginForm() {
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-caption text-on-surface-variant">
           <Shield size={13} />
-          <span>MOECISH · 教育部資通安全稽核改善管考系統</span>
+          <span>MOECISH · 資通安全稽核管考平台</span>
         </div>
       </div>
     </div>

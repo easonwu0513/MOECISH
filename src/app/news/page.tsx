@@ -99,7 +99,7 @@ export default async function NewsPage({
 
       <footer className="border-t border-outline-variant/60">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-caption text-on-surface-variant">
-          MOECISH · 教育部資通安全稽核改善管考系統
+          MOECISH · 資通安全稽核管考平台
         </div>
       </footer>
     </div>

@@ -20,7 +20,7 @@ const DEFAULT_BODY = `{{orgName}} 資安窗口您好，
 
 {{loginUrl}}
 
-— MOECISH 教育部資通安全稽核改善管考系統`;
+— MOECISH 資通安全稽核管考平台`;
 
 export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
   const router = useRouter();

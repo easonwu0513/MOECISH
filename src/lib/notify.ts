@@ -39,7 +39,7 @@ export async function notifyCycleOrgAdmins(opts: {
           `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核缺失已發布，` +
           `請於 ${due} 前完成矯正措施填報與佐證上傳：\n\n` +
           `${link}\n\n` +
-          `— MOECISH 教育部資通安全稽核改善管考系統`,
+          `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
         context: { role: u.role },

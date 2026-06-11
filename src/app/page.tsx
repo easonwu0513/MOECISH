@@ -101,7 +101,7 @@ export default async function LandingPage() {
             <h1 className="text-display-sm sm:text-display text-on-surface text-balance font-semibold">
               資通安全稽核
               <br />
-              改善管考平台
+              管考平台
             </h1>
             <p className="mt-5 text-body-lg text-on-surface-variant max-w-xl text-pretty leading-relaxed">
               讓每一次稽核都清楚、從容、留得下軌跡。
@@ -191,7 +191,7 @@ export default async function LandingPage() {
           <div>
             <Wordmark />
             <p className="mt-2 text-caption text-on-surface-variant">
-              MOECISH · 教育部資通安全稽核改善管考系統
+              MOECISH · 資通安全稽核管考平台
             </p>
           </div>
           <div className="text-caption text-on-surface-variant space-y-1 sm:text-right">

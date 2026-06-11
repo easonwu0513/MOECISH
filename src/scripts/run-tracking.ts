@@ -93,7 +93,7 @@ async function main() {
       `目前尚有 ${unfinished} 項未完成` +
       (returned > 0 ? `(其中 ${returned} 項遭退回待補正)` : '') +
       `。請儘速登入系統完成填報與佐證上傳:\n\n${link}\n\n` +
-      `— MOECISH 教育部資通安全稽核改善管考系統(系統自動發送)`;
+      `— MOECISH 資通安全稽核管考平台(系統自動發送)`;
 
     for (const r of recipients) {
       await sendEmail({

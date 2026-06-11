@@ -57,7 +57,7 @@ export async function createInvitation(input: {
     (inv.organization ? `（${inv.organization.name}）` : '') + `。\n\n` +
     `請於 14 日內點擊以下連結設定您的密碼完成啟用：\n${link}\n\n` +
     `若您未預期收到此信，請忽略本信件。\n\n` +
-    `— MOECISH 教育部資通安全稽核改善管考系統`;
+    `— MOECISH 資通安全稽核管考平台`;
 
   await sendEmail({
     to: input.email,
