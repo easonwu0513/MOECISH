@@ -147,7 +147,7 @@ export default async function LandingPage() {
             </div>
 
             {/* 醫療場景輪播 */}
-            <div className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden shadow-elev-3 animate-fade-in">
+            <div className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden shadow-elev-3 ring-1 ring-black/10 animate-fade-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/photos/med-1.jpg" alt="醫護人員使用行動裝置" className="absolute inset-0 w-full h-full object-cover" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
