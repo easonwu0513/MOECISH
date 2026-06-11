@@ -5,7 +5,15 @@ import { isGraphConfigured, sendGraphMail } from './graph-mail';
 
 const STORAGE_DIR = process.env.STORAGE_DIR ?? './uploads';
 
-export type EmailKind = 'invitation' | 'cycle-notify' | 'tracking' | 'password-reset' | 'other';
+export type EmailKind =
+  | 'invitation'
+  | 'cycle-notify'
+  | 'tracking'
+  | 'password-reset'
+  | 'review-request'   // 機關送審 → 通知委員
+  | 'action-returned'  // 委員退回 → 通知機關
+  | 'all-passed'       // 全數通過 → 通知機關用印
+  | 'other';
 
 export type SendEmailInput = {
   to: string;
