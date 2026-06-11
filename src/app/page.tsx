@@ -195,7 +195,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="text-caption text-on-surface-variant space-y-1 sm:text-right">
-            <p>主辦單位:教育部 · 維運:資安推動中心</p>
+            <p>主辦單位:教育部 · 維運:教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</p>
             <p>聯絡信箱:<a className="font-mono hover:text-primary-700" href="mailto:moecish@m365.ntu.edu.tw">moecish@m365.ntu.edu.tw</a></p>
           </div>
         </div>
