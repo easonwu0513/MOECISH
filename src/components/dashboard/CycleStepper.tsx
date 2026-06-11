@@ -26,10 +26,11 @@ export function CycleStepper({ current, className }: { current: number; classNam
               >
                 {state === 'done' ? <Check size={11} /> : s.no}
               </span>
+              {/* 窄螢幕只留目前步驟的文字,避免四組標籤擠壓換行 */}
               <span
                 className={cn(
                   'text-caption whitespace-nowrap',
-                  state === 'now' && 'text-primary-700 font-medium',
+                  state === 'now' ? 'inline text-primary-700 font-medium' : 'hidden sm:inline',
                   state === 'done' && 'text-on-surface',
                   state === 'todo' && 'text-on-surface-variant',
                 )}
