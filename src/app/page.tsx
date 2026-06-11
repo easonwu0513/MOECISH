@@ -96,21 +96,25 @@ export default async function LandingPage() {
 
       {/* ════ Hero ════ */}
       <section className="relative overflow-hidden">
+        <style>{`
+          @keyframes medfadeB { 0%, 30% { opacity: 0 } 36%, 63% { opacity: 1 } 69%, 100% { opacity: 0 } }
+          @keyframes medfadeC { 0%, 63% { opacity: 0 } 69%, 96% { opacity: 1 } 100% { opacity: 0 } }
+          .medfade-b { animation: medfadeB 18s ease-in-out infinite }
+          .medfade-c { animation: medfadeC 18s ease-in-out infinite }
+        `}</style>
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 75% 65% at 12% 0%, rgba(40,82,160,0.10), transparent 65%),' +
-              'radial-gradient(ellipse 50% 45% at 95% 20%, rgba(27,108,151,0.08), transparent 70%),' +
-              'radial-gradient(ellipse 55% 50% at 80% 100%, rgba(103,134,105,0.07), transparent 70%)',
+              'radial-gradient(ellipse 75% 65% at 10% 0%, rgba(40,82,160,0.07), transparent 65%)',
           }}
           aria-hidden
         />
         <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16 sm:pt-20 sm:pb-24">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] items-center gap-12 lg:gap-20">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] items-center gap-12 lg:gap-16">
             {/* 文案 */}
             <div className="max-w-2xl animate-slide-up">
-              <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-4">
+              <p className="text-label text-primary-700 tracking-[0.12em] mb-4">
                 教育部轄下醫療領域資訊安全推動中心
               </p>
               <h1 className="text-display-sm sm:text-display text-on-surface text-balance font-semibold leading-[1.12]">
@@ -132,27 +136,38 @@ export default async function LandingPage() {
                 </Link>
               </div>
               {/* 信任徽記 */}
-              <ul className="mt-10 flex items-center gap-x-7 gap-y-3 flex-wrap text-body-sm text-on-surface-variant">
+              <ul className="mt-10 flex items-center gap-x-6 gap-y-3 flex-wrap text-body-sm text-on-surface-variant">
                 {['對齊教育部稽核範本', '全程稽核軌跡留存', '角色權限分級控管'].map((t) => (
-                  <li key={t} className="inline-flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-success-50 text-success-600 inline-flex items-center justify-center shrink-0">
-                      <Check size={12} />
-                    </span>
+                  <li key={t} className="inline-flex items-center gap-1.5">
+                    <Check size={15} className="text-success-600 shrink-0" />
                     {t}
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* 徽章 + 光暈 */}
-            <div className="relative hidden lg:flex items-center justify-center animate-fade-in" aria-hidden>
-              <div className="absolute w-[420px] h-[420px] rounded-full border border-primary-100/80" />
-              <div className="absolute w-[340px] h-[340px] rounded-full border border-primary-100" />
+            {/* 醫療場景輪播 */}
+            <div className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden shadow-elev-3 animate-fade-in">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-1.jpg" alt="醫護人員使用行動裝置" className="absolute inset-0 w-full h-full object-cover" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-2.jpg" alt="醫院服務櫃台" className="medfade-b absolute inset-0 w-full h-full object-cover opacity-0" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-3.jpg" alt="明亮整潔的病房" className="medfade-c absolute inset-0 w-full h-full object-cover opacity-0" />
+              {/* 底部柔和漸層,確保浮卡可讀 */}
               <div
-                className="absolute w-[420px] h-[420px] rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(27,108,151,0.10) 0%, transparent 62%)' }}
+                className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+                style={{ background: 'linear-gradient(to top, rgba(15,34,51,0.35), transparent)' }}
+                aria-hidden
               />
-              <Logo size={264} className="relative drop-shadow-[0_18px_40px_rgba(20,88,126,0.18)]" />
+              {/* 品牌浮卡 */}
+              <div className="absolute left-4 bottom-4 flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-xl pl-3 pr-5 py-2.5 shadow-elev-2">
+                <Logo size={36} />
+                <div className="leading-tight">
+                  <p className="text-label-lg font-semibold text-on-surface">C.I.S.H</p>
+                  <p className="text-caption text-on-surface-variant">醫療領域資訊安全推動中心</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -208,9 +223,7 @@ export default async function LandingPage() {
             <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">端到端數位化</p>
             <h2 className="text-headline-lg text-on-surface">稽核管考流程</h2>
           </div>
-          <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* 連接線(桌機) */}
-            <div className="hidden lg:block absolute top-[34px] left-[12%] right-[12%] h-px bg-outline-variant" aria-hidden />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
             <Step no="1" icon={<FileText size={20} />} title="資料準備" desc="受稽機關於實地稽核前上傳檢核表與文件,委員線上確認齊備或標記缺件。" />
             <Step no="2" icon={<ClipboardCheck size={20} />} title="實地稽核" desc="稽核委員到場查核;平台留存當日資料與委員指派紀錄。" />
             <Step no="3" icon={<AlertTriangle size={20} />} title="缺失矯正" desc="缺失發布後,機關填報根因分析、改善措施與佐證,逐項送審。" />
@@ -364,7 +377,7 @@ export default async function LandingPage() {
 function Stat({ value, label, sub }: { value: string; label: string; sub: string }) {
   return (
     <div className="text-center px-6">
-      <p className="text-display-sm sm:text-[2.75rem] font-semibold text-on-surface tabular-nums leading-none tracking-tight">
+      <p className="text-display-sm font-semibold text-on-surface tabular-nums leading-none tracking-tight">
         {value}
       </p>
       <p className="mt-3 text-body font-medium text-on-surface">{label}</p>
@@ -398,9 +411,9 @@ function RoleCard({
   }[tone];
 
   return (
-    <div className="relative rounded-lg border border-outline-variant/70 bg-surface-container-lowest p-7 overflow-hidden transition-all duration-200 ease-standard hover:shadow-elev-1 hover:border-outline">
+    <div className="relative rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-6 overflow-hidden transition-all duration-200 ease-standard hover:shadow-elev-1 hover:border-outline">
       <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${rail}`} aria-hidden />
-      <div className={`w-12 h-12 rounded-lg ${iconBg} flex items-center justify-center mb-5`}>
+      <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center mb-5`}>
         {icon}
       </div>
       <h3 className="text-title-lg text-on-surface">{title}</h3>
@@ -419,15 +432,13 @@ function RoleCard({
 
 function Step({ no, icon, title, desc }: { no: string; icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="relative rounded-lg bg-surface-container-lowest border border-outline-variant/70 p-6 transition-all duration-200 ease-standard hover:shadow-elev-1">
-      <div className="relative z-10 flex items-center gap-3 mb-4">
-        <span className="w-[68px] h-[68px] rounded-full bg-surface-container-lowest border border-outline-variant flex items-center justify-center">
-          <span className="w-12 h-12 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center">
-            {icon}
-          </span>
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="w-11 h-11 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
+          {icon}
         </span>
-        <span className="text-display-sm font-semibold text-outline-variant tabular-nums select-none ml-auto" aria-hidden>
-          {no}
+        <span className="text-label-sm tracking-[0.1em] text-on-surface-variant font-medium tabular-nums">
+          STEP {no}
         </span>
       </div>
       <h3 className="text-title text-on-surface">{title}</h3>
