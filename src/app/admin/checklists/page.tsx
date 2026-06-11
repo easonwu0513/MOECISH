@@ -73,7 +73,13 @@ export default async function ChecklistVersionsPage() {
                       : <Chip size="sm" tone="neutral">停用</Chip>}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <VersionActions versionId={v.id} name={v.name} year={v.year} isActive={v.isActive} />
+                    <VersionActions
+                      versionId={v.id}
+                      name={v.name}
+                      year={v.year}
+                      isActive={v.isActive}
+                      cycleCount={v._count.cycles}
+                    />
                   </td>
                 </tr>
               ))}

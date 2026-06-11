@@ -13,19 +13,36 @@ export default function VersionActions({
   name,
   year,
   isActive,
+  cycleCount,
 }: {
   versionId: string;
   name: string;
   year: number;
   isActive: boolean;
+  cycleCount: number;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [toggleOpen, setToggleOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
   const [newName, setNewName] = useState(`${name}(複本)`);
   const [newYear, setNewYear] = useState(String(year + 1));
   const [busy, setBusy] = useState(false);
+
+  async function doDelete() {
+    setBusy(true);
+    const res = await fetch(`/api/admin/checklist-versions/${versionId}`, { method: 'DELETE' });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '刪除失敗' }));
+      toast.error('刪除失敗', j.error);
+      return;
+    }
+    toast.success('已刪除版本', name);
+    setDelOpen(false);
+    router.refresh();
+  }
 
   async function toggleActive() {
     setBusy(true);
@@ -83,7 +100,23 @@ export default function VersionActions({
         >
           {isActive ? '停用' : '啟用'}
         </Button>
+        {cycleCount === 0 && (
+          <Button size="sm" variant="text" className="text-danger-600" onClick={() => setDelOpen(true)}>
+            刪除
+          </Button>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={delOpen}
+        onOpenChange={(o) => !busy && !o && setDelOpen(false)}
+        title="刪除題庫版本"
+        description={`將刪除「${name}」及其全部題目(含法規對照),無法復原。確定刪除?`}
+        confirmLabel="刪除"
+        tone="danger"
+        onConfirm={doDelete}
+        loading={busy}
+      />
 
       <ConfirmDialog
         open={toggleOpen}
