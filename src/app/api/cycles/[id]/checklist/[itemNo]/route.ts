@@ -24,6 +24,12 @@ export async function PUT(
     if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
       return NextResponse.json({ error: `目前狀態不可編輯（${cycle.status}）` }, { status: 400 });
     }
+    if (cycle.checklistSubmittedAt) {
+      return NextResponse.json(
+        { error: '填報已送出鎖定,如需修改請洽稽核委員退回重填' },
+        { status: 409 },
+      );
+    }
 
     const body = Body.parse(await req.json());
 

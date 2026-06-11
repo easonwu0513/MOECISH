@@ -12,6 +12,7 @@ import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
+import SubmissionBanner from '../checklist/SubmissionBanner';
 
 const complianceTone = COMPLIANCE_TONE;
 
@@ -90,6 +91,14 @@ export default async function ReviewPage({
           {cycle.organization.name} · 已作答 {answered} / {total} 題 · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
         </p>
       </header>
+
+      <SubmissionBanner
+        cycleId={cycle.id}
+        submittedAtISO={cycle.checklistSubmittedAt?.toISOString() ?? null}
+        submittedBy={cycle.checklistSubmittedBy}
+        reopenNote={null}
+        canReopen
+      />
 
       {/* 篩選 */}
       {answered > 0 && (

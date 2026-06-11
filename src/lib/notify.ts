@@ -142,6 +142,96 @@ export async function notifyOrgOnReturn(opts: {
   return { recipientCount: recipients.length };
 }
 
+/** 機關完成檢核表填報送出 → 通知受指派委員(無委員時通知最高管理員)。 */
+export async function notifyChecklistSubmitted(opts: {
+  cycleId: string;
+  submittedByName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, assignments: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  let recipients = await prisma.user.findMany({
+    where: { id: { in: cycle.assignments.map((a) => a.auditorId) }, isActive: true },
+  });
+  // 尚未指派委員時改通知最高管理員,避免送出後沒人知道
+  if (recipients.length === 0) {
+    recipients = await prisma.user.findMany({
+      where: { role: 'SUPER_ADMIN', isActive: true },
+    });
+  }
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/review`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} 已完成 ${yearROC} 年度檢核表填報,請開始審閱`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 完成 ${yearROC} 年度資通安全檢核表填報並送出,內容已鎖定。\n` +
+          `請登入系統審閱填報內容(可逐題留意見;如需機關補正可退回重填):\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'checklist-submitted',
+        relatedCycleId: cycle.id,
+        context: { submittedBy: opts.submittedByName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 檢核表被退回重填 → 通知機關管理員(帶退回原因)。 */
+export async function notifyChecklistReopened(opts: {
+  cycleId: string;
+  reason: string;
+  reopenedByName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/checklist`;
+  const yearROC = cycle.year - 1911;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${yearROC} 年度檢核表填報被退回,請補正後重新送出`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} ${yearROC} 年度資通安全檢核表填報經 ${opts.reopenedByName} 退回重填。\n\n` +
+          `退回原因:\n${opts.reason}\n\n` +
+          `請依意見補正後重新送出:\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'checklist-reopened',
+        relatedCycleId: cycle.id,
+        context: { reason: opts.reason, reopenedBy: opts.reopenedByName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 全數矯正通過後通知機關:列印改善報告、用印上傳。 */
 export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: string }) {
   const cycle = await prisma.auditCycle.findUnique({

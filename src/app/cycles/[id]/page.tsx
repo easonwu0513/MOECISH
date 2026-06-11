@@ -203,8 +203,13 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               列印版(瀏覽器另存 PDF)
             </Button>
           </Link>
+          <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              Word 檢核表(遞交版)
+            </Button>
+          </a>
           <a href={`/api/cycles/${cycle.id}/export/checklist`}>
-            <Button variant="text" size="sm">Excel 檢核表(選用)</Button>
+            <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
           </a>
         </div>
       </Card>

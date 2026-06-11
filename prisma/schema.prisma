@@ -115,6 +115,11 @@ model AuditCycle {
   closedAt           DateTime?
   version            Int @default(0)
 
+  // 檢核表填報閉環:機關送出後鎖定,委員/管理員可退回重填
+  checklistSubmittedAt DateTime?
+  checklistSubmittedBy String?   // 送出者姓名快照
+  checklistReopenNote  String?   // 最近一次退回原因(重新送出時清空)
+
   responses        ChecklistResponse[]
   deficiencies     Deficiency[]
   signedReports    SignedReport[]

@@ -1,0 +1,72 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyChecklistSubmitted } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
+
+/**
+ * 機關完成檢核表填報送出:
+ * - 僅 ORG_ADMIN(自家週期,assertCycleAccess 保證)
+ * - 須全數作答才能送出(未答 → 400 帶數量)
+ * - 送出後內容鎖定(填報 API 以 checklistSubmittedAt 擋寫),需委員退回才能再修改
+ */
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const { user, cycle } = await assertCycleAccess(params.id);
+    if (user.role !== 'ORG_ADMIN') {
+      return NextResponse.json({ error: '僅機關管理員可送出填報' }, { status: 403 });
+    }
+    if (cycle.checklistSubmittedAt) {
+      return NextResponse.json({ error: '已送出,無需重複操作' }, { status: 409 });
+    }
+    if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
+      return NextResponse.json({ error: '目前週期狀態不開放填報送出' }, { status: 409 });
+    }
+
+    const [totalItems, answered] = await Promise.all([
+      prisma.checklistItem.count({ where: { versionId: cycle.checklistVersionId } }),
+      prisma.checklistResponse.count({
+        where: { cycleId: cycle.id, compliance: { not: null } },
+      }),
+    ]);
+    const unanswered = totalItems - answered;
+    if (unanswered > 0) {
+      return NextResponse.json(
+        { error: `尚有 ${unanswered} 題未作答,請完成後再送出(沒有的項目請選「不適用」)` },
+        { status: 400 },
+      );
+    }
+
+    const submittedAt = new Date();
+    await prisma.auditCycle.update({
+      where: { id: cycle.id },
+      data: {
+        checklistSubmittedAt: submittedAt,
+        checklistSubmittedBy: user.name,
+        checklistReopenNote: null,
+      },
+    });
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'checklist.submit',
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
+      after: { submittedAt: submittedAt.toISOString(), totalItems },
+      ...extractRequestMeta(req),
+    });
+
+    // 通知委員(失敗不擋流程)
+    notifyChecklistSubmitted({
+      cycleId: cycle.id,
+      submittedByName: user.name,
+      appBaseUrl: appBaseUrl(req),
+    }).catch((e) => console.error('[checklist.submit] 通知失敗:', e));
+
+    return NextResponse.json({ ok: true, submittedAt: submittedAt.toISOString() });
+  } catch (e) {
+    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+  }
+}

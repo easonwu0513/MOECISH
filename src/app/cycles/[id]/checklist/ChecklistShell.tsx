@@ -16,6 +16,7 @@ import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import type { ComplianceLevel, Dimension } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
 import ChecklistItemCard from './ChecklistItemCard';
+import SubmissionBanner from './SubmissionBanner';
 
 export type ClientItem = {
   id: string;
@@ -62,12 +63,24 @@ export default function ChecklistShell({
   responses,
   canEdit,
   userRole,
+  canSubmit = false,
+  canReopen = false,
+  submittedAtISO = null,
+  submittedBy = null,
+  reopenNote = null,
 }: {
   cycleId: string;
   items: ClientItem[];
   responses: ClientResponse[];
   canEdit: boolean;
   userRole: string;
+  /** 機關管理員且週期狀態開放時可送出 */
+  canSubmit?: boolean;
+  /** 委員(受指派)/最高管理員可退回 */
+  canReopen?: boolean;
+  submittedAtISO?: string | null;
+  submittedBy?: string | null;
+  reopenNote?: string | null;
 }) {
   const responsesByItem = useMemo(() => {
     const m = new Map<string, ClientResponse>();
@@ -84,6 +97,23 @@ export default function ChecklistShell({
   const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitBusy, setSubmitBusy] = useState(false);
+
+  // 完成填報送出(全數作答才可送;送出後鎖定,需委員退回才能再修改)
+  async function submitChecklist() {
+    setSubmitBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/submit`, { method: 'POST' });
+    setSubmitBusy(false);
+    setSubmitOpen(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '送出失敗' }));
+      toast.error('送出失敗', j.error);
+      return;
+    }
+    toast.success('填報已送出', '稽核委員將收到通知信,內容已鎖定。');
+    router.refresh();
+  }
 
   // 一鍵將未作答全部標為符合(之後逐題調整例外)
   async function bulkCompliant() {
@@ -208,6 +238,23 @@ export default function ChecklistShell({
 
   return (
     <div ref={containerRef}>
+      <SubmissionBanner
+        cycleId={cycleId}
+        submittedAtISO={submittedAtISO}
+        submittedBy={submittedBy}
+        reopenNote={reopenNote}
+        canReopen={canReopen}
+      />
+      <ConfirmDialog
+        open={submitOpen}
+        onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
+        title="完成填報並送出"
+        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定、稽核委員會收到通知開始審閱;如需再修改,須由委員退回重填。確定送出?`}
+        confirmLabel="確認送出"
+        tone="primary"
+        onConfirm={submitChecklist}
+        loading={submitBusy}
+      />
       <ConfirmDialog
         open={bulkOpen}
         onOpenChange={(o) => !bulkBusy && setBulkOpen(o)}
@@ -288,6 +335,21 @@ export default function ChecklistShell({
               <span className="ml-2 text-caption text-neutral-500">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
+          {canSubmit && !submittedAtISO && (
+            filled < total ? (
+              <Tooltip content={`尚餘 ${total - filled} 題未作答(沒有的項目請選「不適用」)`}>
+                <span>
+                  <Button size="sm" variant="primary" disabled>
+                    完成送出
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Button size="sm" variant="primary" onClick={() => setSubmitOpen(true)}>
+                完成送出
+              </Button>
+            )
+          )}
           <Tooltip content="快捷鍵：j/k 移動聚焦 · Enter 展開 · 1-4 對聚焦題選符合度">
             <span className="kbd">?</span>
           </Tooltip>
