@@ -1,17 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
-  <circle cx="100" cy="100" r="97" fill="#ffffff" stroke="#1B6C97" stroke-width="3"/>
-  <circle cx="100" cy="100" r="89" fill="#ffffff" stroke="#1B6C97" stroke-width="6"/>
-  <path d="M38 58 L38 96 L100 152 L100 132 L52 89 L52 58 Z" fill="#1B6C97"/>
-  <path d="M162 58 L162 96 L100 152 L100 132 L148 89 L148 58 Z" fill="#14587E"/>
-  <path d="M54 56 L96 70 L96 120 L54 92 Z" fill="#B7D7E8"/>
-  <path d="M146 56 L104 70 L104 120 L146 92 Z" fill="#B7D7E8"/>
-  <path d="M72 106 C71 98 72 92 76 86" stroke="#1B6C97" stroke-width="4" stroke-linecap="round" fill="none"/>
-  <path d="M73 96 C64 95 59 89 59 82 C67 83 72 88 73 96 Z" fill="#1B6C97"/>
-  <path d="M75 90 C83 87 86 81 85 74 C78 77 74 82 75 90 Z" fill="#1B6C97"/>
-  <line x1="120" y1="48" x2="120" y2="126" stroke="#14587E" stroke-width="6" stroke-linecap="round"/>
-  <line x1="99" y1="56" x2="139" y2="56" stroke="#1B6C97" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="96" cy="56" r="6" fill="#1B6C97"/>
-  <circle cx="94.5" cy="54.5" r="1.6" fill="#ffffff"/>
-  <path d="M120 68 C137 70 137 84 120 86 C103 88 103 101 120 103 C135 105 135 117 121 119 C114 120 111 123 113 127" stroke="#1B6C97" stroke-width="5" stroke-linecap="round" fill="none"/>
-  <text x="100" y="179" text-anchor="middle" font-family="'Inter','Noto Sans TC',sans-serif" font-size="19" font-weight="700" letter-spacing="3.5" fill="#14587E">C.I.S.H</text>
+  <circle cx="100" cy="100" r="96" fill="#ffffff" stroke="#1B6C97" stroke-width="2.5"/>
+  <circle cx="100" cy="100" r="88" fill="#ffffff" stroke="#1B6C97" stroke-width="5.5"/>
+  <path d="M40 60 L40 90 Q40 95 43.5 98.5 L100 150 L100 130 L57 91 Q54 88 54 84 L54 60 Z" fill="#1B6C97"/>
+  <path d="M160 60 L160 90 Q160 95 156.5 98.5 L100 150 L100 130 L143 91 Q146 88 146 84 L146 60 Z" fill="#14587E"/>
+  <path d="M56 57 Q79 63 97 74 L97 124 Q77 111 56 96 Z" fill="#B7D7E8"/>
+  <path d="M144 57 Q121 63 103 74 L103 124 Q123 111 144 96 Z" fill="#B7D7E8"/>
+  <path d="M59 66 Q79 71 94 81" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M141 66 Q121 71 106 81" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M71 108 C70 100 71 93 76 87" stroke="#1B6C97" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M71 98 C61 97 56 90 57 82 C66 84 71 90 71 98 Z" fill="#1B6C97"/>
+  <path d="M73 92 C81 89 85 82 84 75 C76 78 72 84 73 92 Z" fill="#1B6C97"/>
+  <line x1="120" y1="50" x2="120" y2="128" stroke="#14587E" stroke-width="5.5" stroke-linecap="round"/>
+  <circle cx="120" cy="47" r="4" fill="#14587E"/>
+  <circle cx="97" cy="58" r="6.2" fill="#1B6C97"/>
+  <circle cx="95.2" cy="56.2" r="1.7" fill="#ffffff"/>
+  <path d="M102 58 C110 58 115 58.5 120 61 C134 65 134 76 120 79.5 C106 83 106 94 120 97.5 C133 100.5 133 111 121 114 C112 116.5 108.5 120.5 111 126" stroke="#1B6C97" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <line x1="120" y1="92" x2="120" y2="103" stroke="#14587E" stroke-width="5.5" stroke-linecap="butt"/>
+  <text x="100" y="177" text-anchor="middle" font-family="'Inter','Noto Sans TC',sans-serif" font-size="19" font-weight="700" letter-spacing="4" fill="#14587E">C.I.S.H</text>
 </svg>
