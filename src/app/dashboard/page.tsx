@@ -18,7 +18,7 @@ import {
   Eye,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
-import { PROCESS_STEPS, ROLE_STEP_DUTIES, cycleStepIndex } from '@/lib/process-guide';
+import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { ROLE_LABELS, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
@@ -30,15 +30,7 @@ type Todo = {
   cta: string;
 };
 
-type NextAction = { text: string; href?: string; cta?: string } | null;
-
 const TONE_ORDER: Record<Todo['tone'], number> = { danger: 0, warning: 1, primary: 2, sage: 3, neutral: 4 };
-
-function fmtMD(d: Date | null | undefined): string | null {
-  if (!d) return null;
-  const x = new Date(d);
-  return `${x.getMonth() + 1}/${x.getDate()}`;
-}
 
 export default async function HomePage() {
   const session = await auth();
@@ -65,35 +57,8 @@ export default async function HomePage() {
 
   const now = new Date();
 
-  // ── 每週期衍生數據 ──
-  const enriched = cycles.map((c) => {
-    const defs = c.deficiencies;
-    const count = (s: string) => defs.filter((d) => (d.action?.status ?? 'PENDING') === s).length;
-    const returned = count('RETURNED');
-    const submitted = count('SUBMITTED');
-    const toFill = count('PENDING') + count('DRAFT');
-    const passed = count('PASSED');
-    const allPassed = defs.length > 0 && passed === defs.length;
-
-    const prepTotal = c.prepRequirements.length;
-    const prepStatus = (s: string) => c.prepRequirements.filter((r) => r.submission?.status === s).length;
-    const prepConfirmed = prepStatus('CONFIRMED');
-    const prepToConfirm = prepStatus('UPLOADED');
-    const prepInsufficient = prepStatus('INSUFFICIENT');
-    const prepRemaining = prepTotal - prepConfirmed - prepToConfirm; // EMPTY / INSUFFICIENT / 未建
-    const prepAllConfirmed = prepTotal > 0 && prepConfirmed === prepTotal;
-
-    const signedUploaded = c.signedReports.length > 0;
-    const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
-    const overdue = c.status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
-    const step = cycleStepIndex(c.status as CycleStatus, allPassed);
-
-    return {
-      c, returned, submitted, toFill, passed, total: defs.length, allPassed,
-      prepTotal, prepConfirmed, prepToConfirm, prepInsufficient, prepRemaining, prepAllConfirmed,
-      signedUploaded, signedConfirmed, overdue, step,
-    };
-  });
+  // ── 每週期衍生數據(與週期內頁共用 process-guide) ──
+  const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now) }));
 
   type Enriched = (typeof enriched)[number];
 
@@ -104,67 +69,6 @@ export default async function HomePage() {
   const submitted = sum((e) => e.submitted);
   const returned = sum((e) => e.returned);
   const toFill = sum((e) => e.toFill);
-
-  // ── 你的下一步(逐週期,依角色) ──
-  function nextActionFor(e: Enriched): NextAction {
-    const { c } = e;
-    const base = `/cycles/${c.id}`;
-    const due = fmtMD(c.dueDate);
-    const prepDue = fmtMD(c.prepDueDate);
-    const onsite = fmtMD(c.onsiteDate);
-    const st = c.status as CycleStatus;
-
-    if (st === 'CLOSED') return null;
-
-    if (user.role === 'SUPER_ADMIN') {
-      if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: base, cta: '去設定' };
-      if (st === 'PREPARATION') {
-        if (e.prepAllConfirmed) return { text: '資料全數確認齊備,可安排實地稽核', href: base, cta: '去安排' };
-        return { text: `資料準備進度:已確認 ${e.prepConfirmed}/${e.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
-      }
-      if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '查看' };
-      if (st === 'ONSITE') return { text: '稽核結束後發布缺失(表單或 Excel 匯入)', href: `${base}/deficiencies`, cta: '去發布' };
-      if (st === 'REPORT_ISSUED') return { text: '確認缺失內容,通知機關開始矯正', href: base, cta: '去通知' };
-      // REMEDIATION
-      if (!e.allPassed) return { text: `追蹤填報:待填 ${e.toFill}・審查中 ${e.submitted}・退回 ${e.returned}${e.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '查看' };
-      if (!e.signedUploaded) return { text: '全數通過,等機關上傳用印報告(可寄提醒)', href: '/admin/emails', cta: '寄提醒' };
-      if (!e.signedConfirmed) return { text: '用印報告已上傳,確認後正式結案', href: base, cta: '去結案' };
-      return { text: '結案處理中', href: base, cta: '查看' };
-    }
-
-    if (user.role === 'ORG_ADMIN') {
-      if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
-      if (st === 'PREPARATION') {
-        if (e.prepInsufficient > 0) return { text: `${e.prepInsufficient} 份資料被標記不足,請補正重傳`, href: `${base}/prep`, cta: '去補正' };
-        if (e.prepRemaining > 0) return { text: `上傳稽核前資料(還有 ${e.prepRemaining}/${e.prepTotal} 份)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去上傳' };
-        return { text: '資料已上傳,等待委員確認', href: `${base}/prep`, cta: '查看' };
-      }
-      if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
-      if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
-      if (st === 'REPORT_ISSUED') return { text: '缺失發布中,可先檢視內容', href: `${base}/deficiencies`, cta: '去檢視' };
-      // REMEDIATION
-      if (e.returned > 0) return { text: `優先補正 ${e.returned} 項被退回的矯正措施`, href: `${base}/deficiencies`, cta: '去補正' };
-      if (e.toFill > 0) return { text: `填報 ${e.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies`, cta: '去填報' };
-      if (!e.allPassed) return { text: `${e.submitted} 項審查中,等待委員結果`, href: `${base}/deficiencies`, cta: '查看' };
-      if (!e.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: base, cta: '去上傳' };
-      if (!e.signedConfirmed) return { text: '用印報告已上傳,等待中心確認結案' };
-      return { text: '結案處理中' };
-    }
-
-    // AUDITOR
-    if (st === 'DRAFT') return { text: '週期開立中' };
-    if (st === 'PREPARATION') {
-      if (e.prepToConfirm > 0) return { text: `確認 ${e.prepToConfirm} 份已上傳資料是否齊備`, href: `${base}/prep`, cta: '去確認' };
-      return { text: '等機關上傳資料', href: `${base}/prep`, cta: '查看' };
-    }
-    if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
-    if (st === 'ONSITE') return { text: '依排定日期到場查核' };
-    if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
-    // REMEDIATION
-    if (e.submitted > 0) return { text: `審查 ${e.submitted} 項已送審的矯正措施`, href: `${base}/deficiencies`, cta: '去審查' };
-    if (!e.allPassed) return { text: '等機關送審矯正措施' };
-    return { text: '已全數通過,結案處理中' };
-  }
 
   // ── 角色待辦(緊急優先) ──
   const todos: Todo[] = [];
@@ -310,7 +214,7 @@ export default async function HomePage() {
               <div className="flex flex-col gap-3">
                 {enriched.slice(0, 5).map((e) => {
                   const { c } = e;
-                  const next = nextActionFor(e);
+                  const next = nextActionForRole(user.role, e);
                   return (
                     <div key={c.id} className="group rounded-md border border-outline-variant hover:border-outline transition-colors">
                       <Link href={`/cycles/${c.id}`} className="block p-4 pb-3 hover:bg-surface-container transition-colors rounded-t-md">

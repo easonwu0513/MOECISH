@@ -8,6 +8,8 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses } from '@/lib/state-machine';
+import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
+import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import type { CycleStatus, Role } from '@/lib/types';
 import { AlertTriangle, ClipboardCheck, Eye, FileText } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -26,6 +28,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       organization: true,
       assignments: { include: { auditor: { select: { name: true } } } },
       deficiencies: { include: { action: { select: { status: true } } } },
+      prepRequirements: { include: { submission: { select: { status: true } } } },
+      signedReports: { select: { id: true, confirmedAt: true } },
     },
   });
   if (!cycle) notFound();
@@ -42,6 +46,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
 
   const transitions = nextStatuses(cycle.status as CycleStatus, user.role as Role);
   const yearROC = cycle.year - 1911;
+
+  // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
+  const facts = deriveCycleFacts(cycle);
+  const next = nextActionForRole(user.role, facts);
+  const showCta = !!(next?.href && next.cta && next.href !== `/cycles/${cycle.id}`);
 
   return (
     <AppShell
@@ -70,6 +79,28 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
         </Chip>
       </header>
+
+      {/* 流程位置 + 下一步 */}
+      <section className="mb-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+        <div className="px-5 pt-4 pb-3.5">
+          <CycleStepper current={facts.step} />
+        </div>
+        {next ? (
+          <div className="flex items-center gap-3 px-5 py-3 border-t border-outline-variant/60 bg-primary-50/40 flex-wrap">
+            <span className="text-label-sm font-semibold text-primary-800 tracking-[0.06em] shrink-0">下一步</span>
+            <span className="text-body-sm text-on-surface flex-1 min-w-44">{next.text}</span>
+            {showCta && (
+              <Link href={next.href!} className="shrink-0">
+                <Button size="sm" variant="tonal">{next.cta}</Button>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="px-5 py-3 border-t border-outline-variant/60 text-body-sm text-on-surface-variant">
+            本週期已結案,全部流程完成。
+          </div>
+        )}
+      </section>
 
       {/* 統計 */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
