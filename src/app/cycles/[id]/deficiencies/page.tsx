@@ -19,7 +19,22 @@ import { actionStatusTone } from '@/lib/state-machine';
 import { EMPTY } from '@/lib/copy';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
 
-export default async function DeficienciesPage({ params }: { params: { id: string } }) {
+// 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
+const FILTERS = [
+  { key: 'all', label: '全部', match: () => true },
+  { key: 'todo', label: '待填報', match: (s: ActionStatus) => s === 'PENDING' || s === 'DRAFT' },
+  { key: 'returned', label: '退回補正', match: (s: ActionStatus) => s === 'RETURNED' },
+  { key: 'submitted', label: '審查中', match: (s: ActionStatus) => s === 'SUBMITTED' },
+  { key: 'passed', label: '已通過', match: (s: ActionStatus) => s === 'PASSED' },
+] as const;
+
+export default async function DeficienciesPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { status?: string };
+}) {
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/deficiencies`);
   const user = session.user;
@@ -52,6 +67,12 @@ export default async function DeficienciesPage({ params }: { params: { id: strin
   const submitted = cycle.deficiencies.filter((d) => d.action?.status === 'SUBMITTED').length;
   const returned = cycle.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
 
+  // 套用狀態篩選
+  const statusOf = (d: (typeof cycle.deficiencies)[number]) => (d.action?.status ?? 'PENDING') as ActionStatus;
+  const activeFilter = FILTERS.find((f) => f.key === (searchParams.status ?? 'all')) ?? FILTERS[0];
+  const filtered = cycle.deficiencies.filter((d) => activeFilter.match(statusOf(d)));
+  const countOf = (f: (typeof FILTERS)[number]) => cycle.deficiencies.filter((d) => f.match(statusOf(d))).length;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -82,6 +103,32 @@ export default async function DeficienciesPage({ params }: { params: { id: strin
         )}
       </header>
 
+      {/* 狀態篩選 tabs */}
+      {total > 0 && (
+        <div className="mb-6 flex items-center gap-2 flex-wrap">
+          {FILTERS.map((f) => {
+            const n = countOf(f);
+            const active = f.key === activeFilter.key;
+            if (f.key !== 'all' && n === 0) return null;
+            return (
+              <Link
+                key={f.key}
+                href={f.key === 'all' ? `/cycles/${cycle.id}/deficiencies` : `/cycles/${cycle.id}/deficiencies?status=${f.key}`}
+                className={
+                  'inline-flex items-center gap-1.5 h-9 px-4 rounded-full border text-body-sm transition-colors focus-ring ' +
+                  (active
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline hover:text-on-surface')
+                }
+              >
+                {f.label}
+                <span className={'tabular-nums ' + (active ? 'text-primary-100' : 'text-on-surface-variant')}>{n}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {total === 0 ? (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
@@ -96,10 +143,20 @@ export default async function DeficienciesPage({ params }: { params: { id: strin
             />
           </div>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card variant="outlined" padded={false}>
+          <div className="p-6">
+            <EmptyState
+              icon={<AlertTriangle size={28} />}
+              title={`沒有「${activeFilter.label}」的項目`}
+              description="切換上方篩選即可查看其他狀態的缺失。"
+            />
+          </div>
+        </Card>
       ) : (
         <div className="flex flex-col gap-8">
           {aspects.map((aspect) => {
-            const inAspect = cycle.deficiencies.filter((d) => d.aspect === aspect);
+            const inAspect = filtered.filter((d) => d.aspect === aspect);
             if (inAspect.length === 0) return null;
             const types: DeficiencyType[] = ['IMPROVE', 'SUGGEST'];
             return (

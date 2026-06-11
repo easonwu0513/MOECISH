@@ -38,6 +38,11 @@ export default function SignedReportPanel({
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > 20 * 1024 * 1024) {
+      toast.error('檔案超過 20MB 上限', '掃描時建議解析度 200dpi、黑白或灰階,可大幅縮小檔案');
+      e.target.value = '';
+      return;
+    }
     setBusy(true);
     const fd = new FormData();
     fd.append('file', f);
@@ -120,6 +125,9 @@ export default function SignedReportPanel({
             <Upload size={14} />
             <span className="text-body-sm">{busy ? '處理中…' : '+ 上傳掃描檔'}</span>
           </label>
+        )}
+        {canUpload && (
+          <p className="text-caption text-on-surface-variant -mt-1">單檔 ≤ 20MB;限 PDF 或圖片(PNG/JPG)</p>
         )}
       </div>
     </Card>

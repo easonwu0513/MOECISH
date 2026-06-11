@@ -48,6 +48,8 @@ export default function PrepBoard({
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // 上傳/審核以單項為單位顯示忙碌,避免一項上傳全板按鈕跟著轉圈
+  const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
   // SUPER_ADMIN 新增需求
   const [addOpen, setAddOpen] = useState(false);
@@ -111,44 +113,54 @@ export default function PrepBoard({
   }
 
   async function upload(sub: Sub, e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (f.size > 20 * 1024 * 1024) {
-      toast.error('上傳失敗', '檔案超過 20MB 上限');
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const tooBig = files.filter((f) => f.size > 20 * 1024 * 1024);
+    if (tooBig.length > 0) {
+      toast.error('檔案超過 20MB 上限', tooBig.map((f) => f.name).join('、'));
       e.target.value = '';
       return;
     }
-    setBusy(true);
-    const fd = new FormData();
-    fd.append('file', f);
-    fd.append('targetType', 'PREP_SUBMISSION');
-    fd.append('targetId', sub.id);
-    const res = await fetch('/api/evidences', { method: 'POST', body: fd });
-    if (res.ok) {
-      // 重算狀態(EMPTY→UPLOADED;清缺件註記)
-      await fetch(`/api/prep-submissions/${sub.id}`, {
+    setBusyItemId(sub.id);
+    let ok = 0;
+    for (const f of files) {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('targetType', 'PREP_SUBMISSION');
+      fd.append('targetId', sub.id);
+      const res = await fetch('/api/evidences', { method: 'POST', body: fd });
+      if (res.ok) ok += 1;
+      else {
+        const j = await res.json().catch(() => ({ error: '上傳失敗' }));
+        toast.error(`「${f.name}」上傳失敗`, j.error);
+      }
+    }
+    if (ok > 0) {
+      // 重算狀態(EMPTY→UPLOADED;清缺件註記),失敗要讓使用者知道,否則委員端看不到待確認
+      const r2 = await fetch(`/api/prep-submissions/${sub.id}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}),
       });
-      toast.success('已上傳', f.name);
+      if (r2.ok) {
+        toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
+      } else {
+        toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+      }
       router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '上傳失敗' }));
-      toast.error('上傳失敗', j.error);
     }
-    setBusy(false);
+    setBusyItemId(null);
     e.target.value = '';
   }
 
   async function review(subId: string, status: 'CONFIRMED' | 'INSUFFICIENT', note?: string) {
-    setBusy(true);
+    setBusyItemId(subId);
     const res = await fetch(`/api/prep-submissions/${subId}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ status, reviewNote: note }),
     });
-    setBusy(false);
+    setBusyItemId(null);
     if (res.ok) {
       toast.success(status === 'CONFIRMED' ? '已確認' : '已標記缺件');
       setInsufOpen(null); setInsufNote('');
@@ -222,7 +234,9 @@ export default function PrepBoard({
                             <li key={f.id}>
                               <a
                                 className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                                href={`/api/evidences/${f.id}/download`}
+                                href={`/api/evidences/${f.id}/download?inline=1`}
+                                target="_blank"
+                                rel="noopener"
                               >
                                 <Paperclip size={14} />
                                 {f.originalName}
@@ -238,15 +252,25 @@ export default function PrepBoard({
                       {/* 動作列 */}
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         {orgCanEdit && sub && status !== 'CONFIRMED' && (
-                          <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-                            <input type="file" className="hidden" onChange={(e) => upload(sub, e)} disabled={busy} />
-                            <Upload size={14} />
-                            <span className="text-body-sm">{busy ? '處理中…' : '上傳檔案'}</span>
-                          </label>
+                          <>
+                            <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => upload(sub, e)}
+                                disabled={busyItemId === sub.id}
+                                multiple
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                              />
+                              <Upload size={14} />
+                              <span className="text-body-sm">{busyItemId === sub.id ? '上傳中…' : '上傳檔案(可多選)'}</span>
+                            </label>
+                            <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB</span>
+                          </>
                         )}
                         {isAuditor && sub && status === 'UPLOADED' && (
                           <>
-                            <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busy}>
+                            <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
                               確認齊備
                             </Button>
                             <Button size="sm" variant="text" onClick={() => { setInsufOpen(sub.id); setInsufNote(''); }}>
@@ -255,7 +279,7 @@ export default function PrepBoard({
                           </>
                         )}
                         {isAuditor && sub && status === 'INSUFFICIENT' && (
-                          <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busy}>
+                          <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
                             補件後確認
                           </Button>
                         )}
@@ -315,7 +339,7 @@ export default function PrepBoard({
           if (!insufNote.trim()) { toast.error('請填寫缺件說明'); return; }
           if (insufOpen) review(insufOpen, 'INSUFFICIENT', insufNote.trim());
         }}
-        loading={busy}
+        loading={busyItemId !== null}
       />
     </div>
   );

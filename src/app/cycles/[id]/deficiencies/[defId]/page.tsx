@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { AlertTriangle, Info } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
@@ -11,8 +12,9 @@ import {
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
+  type CycleStatus,
 } from '@/lib/types';
-import { actionStatusTone, actionEditable } from '@/lib/state-machine';
+import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
 
@@ -62,6 +64,44 @@ export default async function DeficiencyDetailPage({
     actionEditable(status);
   const canReview = user.role === 'AUDITOR' && status === 'SUBMITTED';
 
+  // ── 下一筆導覽:委員找下一筆已送審;機關找下一筆待填/退回 ──
+  const wantNext = (s: ActionStatus) =>
+    user.role === 'AUDITOR'
+      ? s === 'SUBMITTED'
+      : user.role === 'ORG_ADMIN'
+      ? s === 'PENDING' || s === 'DRAFT' || s === 'RETURNED'
+      : false;
+  const siblings =
+    user.role === 'SUPER_ADMIN'
+      ? []
+      : await prisma.deficiency.findMany({
+          where: { cycleId: cycle.id },
+          include: { action: { select: { status: true } } },
+          orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
+        });
+  const matching = siblings.filter(
+    (d) => d.id !== deficiency.id && wantNext((d.action?.status ?? 'PENDING') as ActionStatus),
+  );
+  // 取排序在本筆之後的第一筆;沒有就回頭取第一筆(環狀)
+  const myIdx = siblings.findIndex((d) => d.id === deficiency.id);
+  const after = matching.find((d) => siblings.findIndex((x) => x.id === d.id) > myIdx);
+  const nextDef = after ?? matching[0] ?? null;
+  const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
+  const remaining = matching.length;
+
+  // 最新一輪退回意見(機關視角置頂提示)
+  const latestReturn = [...(action?.reviews ?? [])].reverse().find((r) => r.decision === 'RETURN');
+
+  // 機關唯讀時的原因說明
+  const orgReadonlyReason =
+    user.role === 'ORG_ADMIN' && !canFill && status !== 'PASSED'
+      ? cycle.status !== 'REMEDIATION'
+        ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」,尚未開放矯正填報;待中心開放後即可編輯。`
+        : status === 'SUBMITTED'
+        ? '本項已送出審核,委員審查期間暫不可編輯;若被退回將重新開放。'
+        : null
+      : null;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -107,15 +147,50 @@ export default async function DeficiencyDetailPage({
         </p>
       </Card>
 
+      {/* 退回補正:最新退回意見置頂(機關第一眼資訊) */}
+      {status === 'RETURNED' && latestReturn?.comment && (
+        <div className="mb-6 rounded-md border border-danger-200 bg-danger-50 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="w-9 h-9 rounded-full bg-danger-100 text-danger-700 flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-title text-danger-700">委員退回意見(第 {latestReturn.round} 輪)</p>
+              <p className="mt-1.5 text-body-sm text-danger-700/90 leading-relaxed whitespace-pre-wrap">
+                {latestReturn.comment}
+              </p>
+              <p className="mt-2 text-caption text-danger-600/80">
+                請依意見補正下方矯正措施與佐證後重新送審。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 機關唯讀原因說明 */}
+      {orgReadonlyReason && (
+        <div className="mb-6 flex items-start gap-2.5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <span>{orgReadonlyReason}</span>
+        </div>
+      )}
+
       {/* 委員審查面板（送審狀態 + 委員身分） */}
       {canReview && action && (
-        <ReviewPanel deficiencyId={deficiency.id} round={action.round} />
+        <ReviewPanel
+          deficiencyId={deficiency.id}
+          round={action.round}
+          nextHref={nextHref}
+          remaining={remaining}
+        />
       )}
 
       {/* 矯正措施表單 / 唯讀檢視 */}
       <ActionForm
         deficiencyId={deficiency.id}
         editable={canFill}
+        nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
+        remaining={user.role === 'ORG_ADMIN' ? remaining : 0}
         action={
           action
             ? {

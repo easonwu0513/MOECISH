@@ -211,7 +211,10 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <CardTitle>管理動作</CardTitle>
           <CardDescription>通知機關管理員、推進週期狀態</CardDescription>
           <div className="mt-4 flex flex-wrap gap-2">
-            <NotifyButton cycleId={cycle.id} />
+            {/* 通知機關填報只在缺失發布後才有意義 */}
+            {(cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') && (
+              <NotifyButton cycleId={cycle.id} />
+            )}
             {transitions.map((t) => (
               <TransitionButton key={t} cycleId={cycle.id} target={t} />
             ))}

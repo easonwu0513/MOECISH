@@ -144,9 +144,9 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
     if (st === 'REPORT_ISSUED') return { text: '缺失發布中,可先檢視內容', href: `${base}/deficiencies`, cta: '去檢視' };
     // REMEDIATION
-    if (f.returned > 0) return { text: `優先補正 ${f.returned} 項被退回的矯正措施`, href: `${base}/deficiencies`, cta: '去補正' };
-    if (f.toFill > 0) return { text: `填報 ${f.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies`, cta: '去填報' };
-    if (!f.allPassed) return { text: `${f.submitted} 項審查中,等待委員結果`, href: `${base}/deficiencies`, cta: '查看' };
+    if (f.returned > 0) return { text: `優先補正 ${f.returned} 項被退回的矯正措施`, href: `${base}/deficiencies?status=returned`, cta: '去補正' };
+    if (f.toFill > 0) return { text: `填報 ${f.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '去填報' };
+    if (!f.allPassed) return { text: `${f.submitted} 項審查中,等待委員結果`, href: `${base}/deficiencies?status=submitted`, cta: '查看' };
     if (!f.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: base, cta: '去上傳' };
     if (!f.signedConfirmed) return { text: '用印報告已上傳,等待中心確認結案' };
     return { text: '結案處理中' };
@@ -162,7 +162,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (st === 'ONSITE') return { text: '依排定日期到場查核' };
   if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
   // REMEDIATION
-  if (f.submitted > 0) return { text: `審查 ${f.submitted} 項已送審的矯正措施`, href: `${base}/deficiencies`, cta: '去審查' };
+  if (f.submitted > 0) return { text: `審查 ${f.submitted} 項已送審的矯正措施`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' };
   if (!f.allPassed) return { text: '等機關送審矯正措施' };
   return { text: '已全數通過,結案處理中' };
 }

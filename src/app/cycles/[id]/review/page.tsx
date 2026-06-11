@@ -7,7 +7,8 @@ import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, type ComplianceLevel, type Dimension } from '@/lib/types';
+import { COMPLIANCE_LABELS, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import CommentForm from './CommentForm';
 
 const complianceTone: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -28,11 +29,20 @@ export default async function ReviewPage({ params }: { params: { id: string } })
     where: { id: params.id },
     include: {
       organization: true,
+      assignments: true,
       checklistVersion: { include: { items: { orderBy: { orderIndex: 'asc' } } } },
       responses: { include: { comments: { orderBy: { createdAt: 'asc' } } } },
     },
   });
   if (!cycle) notFound();
+
+  // 委員僅能進入被指派的週期(與缺失頁一致)
+  if (
+    session.user.role === 'AUDITOR' &&
+    !cycle.assignments.some((a) => a.auditorId === session.user.id)
+  ) {
+    redirect('/dashboard');
+  }
 
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
   const grouped = DIMENSION_ORDER.map((dim) => ({
@@ -61,7 +71,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
       <header className="mb-5">
         <h1 className="text-headline text-neutral-900">委員審閱</h1>
         <p className="text-body-sm text-neutral-500 mt-1">
-          {cycle.organization.name} · 已作答 {answered} / {total} 題 · 狀態 {cycle.status}
+          {cycle.organization.name} · 已作答 {answered} / {total} 題 · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
         </p>
       </header>
 

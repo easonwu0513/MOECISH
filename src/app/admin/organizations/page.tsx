@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Briefcase, Plus, ChevronRight } from '@/components/icons';
+import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
+import type { CycleStatus } from '@/lib/types';
 import CreateOrganizationButton from './CreateOrganizationButton';
 
 export default async function OrganizationsPage() {
@@ -72,7 +74,9 @@ export default async function OrganizationsPage() {
                     {o.cycles[0] ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="tabular-nums">{o.cycles[0].year - 1911} 年</span>
-                        <Chip size="sm" tone="neutral">{o.cycles[0].status}</Chip>
+                        <Chip size="sm" tone={cycleStatusTone(o.cycles[0].status as CycleStatus)} dot>
+                          {CYCLE_STATUS_LABELS[o.cycles[0].status as CycleStatus]}
+                        </Chip>
                       </span>
                     ) : (
                       <span className="text-caption text-on-surface-variant">—</span>

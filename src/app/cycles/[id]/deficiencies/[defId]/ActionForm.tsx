@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
@@ -55,10 +55,14 @@ export default function ActionForm({
   deficiencyId,
   action,
   editable,
+  nextHref,
+  remaining,
 }: {
   deficiencyId: string;
   action: ActionData | null;
   editable: boolean;
+  nextHref?: string | null;
+  remaining?: number;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -78,6 +82,18 @@ export default function ActionForm({
   const [saving, setSaving] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
 
+  // ── 防弄丟:dirty 追蹤 + 30 秒自動儲存 + 關閉分頁警告 ──
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  const [autoSavedAt, setAutoSavedAt] = useState<string | null>(null);
+  const touch = () => { dirtyRef.current = true; setDirty(true); };
+  const clearDirty = () => {
+    dirtyRef.current = false;
+    setDirty(false);
+    const now = new Date();
+    setAutoSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+  };
+
   // 佐證
   const [evidences, setEvidences] = useState<{ id: string; originalName: string }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -93,6 +109,42 @@ export default function ActionForm({
   const needActual = exec === 'ON_TIME_DONE' || exec === 'LATE_DONE';
   const needExtended = exec === 'LATE_IN_PROGRESS';
   const needReason = exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS';
+
+  // 最新 payload 供自動儲存讀取(避免閉包過期)
+  const payloadRef = useRef<() => Record<string, unknown>>(() => ({}));
+  payloadRef.current = buildPayload;
+
+  // 30 秒自動儲存草稿(成功靜默,只更新時間戳;失敗保留 dirty 待下次)
+  useEffect(() => {
+    if (!editable || !dirty) return;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/deficiencies/${deficiencyId}/action`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payloadRef.current()),
+        });
+        if (res.ok) clearDirty();
+      } catch {
+        /* 離線等情況:保留 dirty,使用者手動儲存或下次自動再試 */
+      }
+    }, 30_000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, editable, deficiencyId]);
+
+  // 關閉/重整分頁時,有未儲存變更則攔截
+  useEffect(() => {
+    if (!editable) return;
+    const h = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [editable]);
 
   function buildPayload() {
     return {
@@ -127,6 +179,7 @@ export default function ActionForm({
 
   async function saveDraft() {
     if (await save()) {
+      clearDirty();
       const t = TOAST.savedAction();
       toast.success(t.title, t.description);
       router.refresh();
@@ -144,34 +197,46 @@ export default function ActionForm({
       toast.error('送出失敗', j.error);
       return;
     }
+    clearDirty();
     const t = TOAST.submittedAction();
-    toast.success(t.title, t.description);
-    router.refresh();
+    if (nextHref && remaining && remaining > 0) {
+      toast.success(t.title, `還有 ${remaining} 筆待處理,已為你開啟下一筆。`);
+      router.push(nextHref);
+      router.refresh();
+    } else {
+      toast.success(t.title, t.description);
+      router.refresh();
+    }
   }
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f || !action) return;
-    if (f.size > 20 * 1024 * 1024) {
-      toast.error('上傳失敗', '檔案超過 20MB 上限');
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0 || !action) return;
+    const tooBig = files.filter((f) => f.size > 20 * 1024 * 1024);
+    if (tooBig.length > 0) {
+      toast.error('檔案超過 20MB 上限', tooBig.map((f) => f.name).join('、'));
       e.target.value = '';
       return;
     }
     setUploading(true);
-    const fd = new FormData();
-    fd.append('file', f);
-    fd.append('targetType', 'CORRECTIVE_ACTION');
-    fd.append('targetId', action.id);
-    const res = await fetch('/api/evidences', { method: 'POST', body: fd });
-    setUploading(false);
-    if (res.ok) {
-      const j = await res.json();
-      setEvidences((prev) => [...prev, j.item]);
-      toast.success('已上傳佐證', f.name);
-    } else {
-      const j = await res.json().catch(() => ({ error: '上傳失敗' }));
-      toast.error('上傳失敗', j.error);
+    let ok = 0;
+    for (const f of files) {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('targetType', 'CORRECTIVE_ACTION');
+      fd.append('targetId', action.id);
+      const res = await fetch('/api/evidences', { method: 'POST', body: fd });
+      if (res.ok) {
+        const j = await res.json();
+        setEvidences((prev) => [...prev, j.item]);
+        ok += 1;
+      } else {
+        const j = await res.json().catch(() => ({ error: '上傳失敗' }));
+        toast.error(`「${f.name}」上傳失敗`, j.error);
+      }
     }
+    setUploading(false);
+    if (ok > 0) toast.success('已上傳佐證', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
     e.target.value = '';
   }
 
@@ -225,7 +290,7 @@ export default function ActionForm({
           <Textarea
             label="發生原因（根因分析）"
             value={rootCause}
-            onChange={(e) => setRootCause(e.target.value)}
+            onChange={(e) => { touch(); setRootCause(e.target.value); }}
             disabled={readonly}
             rows={3}
             placeholder="例：DNS 伺服器作業系統預設系統日誌存放版本為 7 份…"
@@ -250,12 +315,13 @@ export default function ActionForm({
                         type="checkbox"
                         checked={st.on}
                         disabled={readonly}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          touch();
                           setMeasures((prev) => ({
                             ...prev,
                             [m.key]: { ...prev[m.key], on: e.target.checked },
-                          }))
-                        }
+                          }));
+                        }}
                         className="mt-0.5 accent-primary-600"
                       />
                       <span className="min-w-0">
@@ -267,12 +333,13 @@ export default function ActionForm({
                       <div className="mt-3">
                         <Textarea
                           value={st.text}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            touch();
                             setMeasures((prev) => ({
                               ...prev,
                               [m.key]: { ...prev[m.key], text: e.target.value },
-                            }))
-                          }
+                            }));
+                          }}
                           disabled={readonly}
                           rows={2}
                           placeholder={`${m.label}之具體說明…`}
@@ -290,13 +357,13 @@ export default function ActionForm({
               label="預計完成時程"
               type="date"
               value={plannedDate}
-              onChange={(e) => setPlannedDate(e.target.value)}
+              onChange={(e) => { touch(); setPlannedDate(e.target.value); }}
               disabled={readonly}
             />
             <Textarea
               label="進度追蹤方式"
               value={trackingMethod}
-              onChange={(e) => setTrackingMethod(e.target.value)}
+              onChange={(e) => { touch(); setTrackingMethod(e.target.value); }}
               disabled={readonly}
               rows={2}
               placeholder="例：將於 115.07.31 確認日誌檔保存月份數量"
@@ -321,7 +388,7 @@ export default function ActionForm({
                     name="execStatus"
                     checked={execStatus === s}
                     disabled={readonly}
-                    onChange={() => setExecStatus(s)}
+                    onChange={() => { touch(); setExecStatus(s); }}
                     className="accent-primary-600"
                   />
                   <span className="text-body-sm text-on-surface">{EXEC_STATUS_LABELS[s]}</span>
@@ -336,7 +403,7 @@ export default function ActionForm({
                     label="實際完成日期"
                     type="date"
                     value={actualDate}
-                    onChange={(e) => setActualDate(e.target.value)}
+                    onChange={(e) => { touch(); setActualDate(e.target.value); }}
                     disabled={readonly}
                   />
                 )}
@@ -345,7 +412,7 @@ export default function ActionForm({
                     label="預計完成日期延長至"
                     type="date"
                     value={extendedDate}
-                    onChange={(e) => setExtendedDate(e.target.value)}
+                    onChange={(e) => { touch(); setExtendedDate(e.target.value); }}
                     disabled={readonly}
                   />
                 )}
@@ -354,7 +421,7 @@ export default function ActionForm({
                     <Textarea
                       label="逾期原因"
                       value={delayReason}
-                      onChange={(e) => setDelayReason(e.target.value)}
+                      onChange={(e) => { touch(); setDelayReason(e.target.value); }}
                       disabled={readonly}
                       rows={2}
                     />
@@ -376,7 +443,10 @@ export default function ActionForm({
                     <li key={f.id}>
                       <a
                         className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                        href={`/api/evidences/${f.id}/download`}
+                        href={`/api/evidences/${f.id}/download?inline=1`}
+                        target="_blank"
+                        rel="noopener"
+                        title="圖片與 PDF 會在新分頁開啟預覽,其他格式直接下載"
                       >
                         <Paperclip size={14} />
                         {f.originalName}
@@ -386,24 +456,43 @@ export default function ActionForm({
                 </ul>
               )}
               {editable && (
-                <label className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-                  <input type="file" className="hidden" onChange={upload} disabled={uploading} />
-                  <Upload size={14} />
-                  <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳佐證'}</span>
-                </label>
+                <>
+                  <label className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={upload}
+                      disabled={uploading}
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                    />
+                    <Upload size={14} />
+                    <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳佐證(可多選)'}</span>
+                  </label>
+                  <p className="mt-1.5 text-caption text-on-surface-variant">
+                    單檔 ≤ 20MB;支援 PDF、Word/Excel/PPT、圖片、ZIP
+                  </p>
+                </>
               )}
             </div>
           )}
 
           {/* 動作 */}
           {editable && (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
               <Button variant="tonal" loading={saving} onClick={saveDraft}>
                 儲存草稿
               </Button>
               <Button loading={saving} onClick={() => setSubmitOpen(true)}>
                 送出審核
               </Button>
+              <span className="text-caption text-on-surface-variant">
+                {dirty
+                  ? '有未儲存變更(30 秒內自動儲存)'
+                  : autoSavedAt
+                  ? `已自動儲存 ${autoSavedAt}`
+                  : ''}
+              </span>
             </div>
           )}
         </div>
