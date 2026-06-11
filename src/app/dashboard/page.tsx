@@ -3,11 +3,12 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/shell/AppShell';
-import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import {
   ClipboardCheck,
   ChevronRight,
@@ -17,7 +18,8 @@ import {
   Eye,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
-import type { CycleStatus } from '@/lib/types';
+import { PROCESS_STEPS, ROLE_STEP_DUTIES, cycleStepIndex } from '@/lib/process-guide';
+import { ROLE_LABELS, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
 type Todo = {
@@ -27,6 +29,16 @@ type Todo = {
   href: string;
   cta: string;
 };
+
+type NextAction = { text: string; href?: string; cta?: string } | null;
+
+const TONE_ORDER: Record<Todo['tone'], number> = { danger: 0, warning: 1, primary: 2, sage: 3, neutral: 4 };
+
+function fmtMD(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  const x = new Date(d);
+  return `${x.getMonth() + 1}/${x.getDate()}`;
+}
 
 export default async function HomePage() {
   const session = await auth();
@@ -45,50 +57,178 @@ export default async function HomePage() {
     include: {
       organization: true,
       deficiencies: { include: { action: { select: { status: true } } } },
+      prepRequirements: { include: { submission: { select: { status: true } } } },
+      signedReports: { select: { id: true, confirmedAt: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
 
-  // ── 全域統計(跨週期) ──
-  const allDefs = cycles.flatMap((c) => c.deficiencies.map((d) => ({ cycleId: c.id, status: d.action?.status ?? 'PENDING' })));
-  const stat = (s: string) => allDefs.filter((d) => d.status === s).length;
-  const totalDefs = allDefs.length;
-  const passed = stat('PASSED');
-  const submitted = stat('SUBMITTED');
-  const returned = stat('RETURNED');
-  const toFill = stat('PENDING') + stat('DRAFT');
+  const now = new Date();
 
-  // ── 角色待辦 ──
-  const todos: Todo[] = [];
-  for (const c of cycles) {
-    const cReturned = c.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
-    const cToFill = c.deficiencies.filter((d) => !d.action?.status || d.action.status === 'PENDING' || d.action.status === 'DRAFT').length;
-    const cSubmitted = c.deficiencies.filter((d) => d.action?.status === 'SUBMITTED').length;
+  // ── 每週期衍生數據 ──
+  const enriched = cycles.map((c) => {
+    const defs = c.deficiencies;
+    const count = (s: string) => defs.filter((d) => (d.action?.status ?? 'PENDING') === s).length;
+    const returned = count('RETURNED');
+    const submitted = count('SUBMITTED');
+    const toFill = count('PENDING') + count('DRAFT');
+    const passed = count('PASSED');
+    const allPassed = defs.length > 0 && passed === defs.length;
 
-    if (user.role === 'ORG_ADMIN' && c.status === 'REMEDIATION') {
-      if (cReturned > 0) {
-        todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${cReturned} 項被退回，需補正後重送`, href: `/cycles/${c.id}/deficiencies`, cta: '去補正' });
-      }
-      if (cToFill > 0) {
-        todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${cToFill} 項矯正措施待填報`, href: `/cycles/${c.id}/deficiencies`, cta: '繼續填' });
-      }
-    }
-    if (user.role === 'AUDITOR' && cSubmitted > 0) {
-      todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${c.organization.shortName ?? c.organization.name}：${cSubmitted} 項矯正待審查`, href: `/cycles/${c.id}/deficiencies`, cta: '去審查' });
-    }
+    const prepTotal = c.prepRequirements.length;
+    const prepStatus = (s: string) => c.prepRequirements.filter((r) => r.submission?.status === s).length;
+    const prepConfirmed = prepStatus('CONFIRMED');
+    const prepToConfirm = prepStatus('UPLOADED');
+    const prepInsufficient = prepStatus('INSUFFICIENT');
+    const prepRemaining = prepTotal - prepConfirmed - prepToConfirm; // EMPTY / INSUFFICIENT / 未建
+    const prepAllConfirmed = prepTotal > 0 && prepConfirmed === prepTotal;
+
+    const signedUploaded = c.signedReports.length > 0;
+    const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
+    const overdue = c.status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+    const step = cycleStepIndex(c.status as CycleStatus, allPassed);
+
+    return {
+      c, returned, submitted, toFill, passed, total: defs.length, allPassed,
+      prepTotal, prepConfirmed, prepToConfirm, prepInsufficient, prepRemaining, prepAllConfirmed,
+      signedUploaded, signedConfirmed, overdue, step,
+    };
+  });
+
+  type Enriched = (typeof enriched)[number];
+
+  // ── 全域統計 ──
+  const sum = (f: (e: Enriched) => number) => enriched.reduce((s, e) => s + f(e), 0);
+  const totalDefs = sum((e) => e.total);
+  const passed = sum((e) => e.passed);
+  const submitted = sum((e) => e.submitted);
+  const returned = sum((e) => e.returned);
+  const toFill = sum((e) => e.toFill);
+
+  // ── 你的下一步(逐週期,依角色) ──
+  function nextActionFor(e: Enriched): NextAction {
+    const { c } = e;
+    const base = `/cycles/${c.id}`;
+    const due = fmtMD(c.dueDate);
+    const prepDue = fmtMD(c.prepDueDate);
+    const onsite = fmtMD(c.onsiteDate);
+    const st = c.status as CycleStatus;
+
+    if (st === 'CLOSED') return null;
+
     if (user.role === 'SUPER_ADMIN') {
-      if (c.status === 'DRAFT') {
-        todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${c.organization.shortName ?? c.organization.name}：週期開立中，尚未發布缺失`, href: `/cycles/${c.id}/deficiencies`, cta: '去發布' });
+      if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: base, cta: '去設定' };
+      if (st === 'PREPARATION') {
+        if (e.prepAllConfirmed) return { text: '資料全數確認齊備,可安排實地稽核', href: base, cta: '去安排' };
+        return { text: `資料準備進度:已確認 ${e.prepConfirmed}/${e.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
       }
-      if (c.status === 'REMEDIATION' && c.deficiencies.length > 0 && c.deficiencies.every((d) => d.action?.status === 'PASSED')) {
-        todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${c.organization.shortName ?? c.organization.name}：全數通過，可確認用印並結案`, href: `/cycles/${c.id}`, cta: '去結案' });
+      if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '查看' };
+      if (st === 'ONSITE') return { text: '稽核結束後發布缺失(表單或 Excel 匯入)', href: `${base}/deficiencies`, cta: '去發布' };
+      if (st === 'REPORT_ISSUED') return { text: '確認缺失內容,通知機關開始矯正', href: base, cta: '去通知' };
+      // REMEDIATION
+      if (!e.allPassed) return { text: `追蹤填報:待填 ${e.toFill}・審查中 ${e.submitted}・退回 ${e.returned}${e.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '查看' };
+      if (!e.signedUploaded) return { text: '全數通過,等機關上傳用印報告(可寄提醒)', href: '/admin/emails', cta: '寄提醒' };
+      if (!e.signedConfirmed) return { text: '用印報告已上傳,確認後正式結案', href: base, cta: '去結案' };
+      return { text: '結案處理中', href: base, cta: '查看' };
+    }
+
+    if (user.role === 'ORG_ADMIN') {
+      if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
+      if (st === 'PREPARATION') {
+        if (e.prepInsufficient > 0) return { text: `${e.prepInsufficient} 份資料被標記不足,請補正重傳`, href: `${base}/prep`, cta: '去補正' };
+        if (e.prepRemaining > 0) return { text: `上傳稽核前資料(還有 ${e.prepRemaining}/${e.prepTotal} 份)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去上傳' };
+        return { text: '資料已上傳,等待委員確認', href: `${base}/prep`, cta: '查看' };
+      }
+      if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
+      if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
+      if (st === 'REPORT_ISSUED') return { text: '缺失發布中,可先檢視內容', href: `${base}/deficiencies`, cta: '去檢視' };
+      // REMEDIATION
+      if (e.returned > 0) return { text: `優先補正 ${e.returned} 項被退回的矯正措施`, href: `${base}/deficiencies`, cta: '去補正' };
+      if (e.toFill > 0) return { text: `填報 ${e.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies`, cta: '去填報' };
+      if (!e.allPassed) return { text: `${e.submitted} 項審查中,等待委員結果`, href: `${base}/deficiencies`, cta: '查看' };
+      if (!e.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: base, cta: '去上傳' };
+      if (!e.signedConfirmed) return { text: '用印報告已上傳,等待中心確認結案' };
+      return { text: '結案處理中' };
+    }
+
+    // AUDITOR
+    if (st === 'DRAFT') return { text: '週期開立中' };
+    if (st === 'PREPARATION') {
+      if (e.prepToConfirm > 0) return { text: `確認 ${e.prepToConfirm} 份已上傳資料是否齊備`, href: `${base}/prep`, cta: '去確認' };
+      return { text: '等機關上傳資料', href: `${base}/prep`, cta: '查看' };
+    }
+    if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
+    if (st === 'ONSITE') return { text: '依排定日期到場查核' };
+    if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
+    // REMEDIATION
+    if (e.submitted > 0) return { text: `審查 ${e.submitted} 項已送審的矯正措施`, href: `${base}/deficiencies`, cta: '去審查' };
+    if (!e.allPassed) return { text: '等機關送審矯正措施' };
+    return { text: '已全數通過,結案處理中' };
+  }
+
+  // ── 角色待辦(緊急優先) ──
+  const todos: Todo[] = [];
+  for (const e of enriched) {
+    const { c } = e;
+    const org = c.organization.shortName ?? c.organization.name;
+    const base = `/cycles/${c.id}`;
+    const due = fmtMD(c.dueDate);
+    const prepDue = fmtMD(c.prepDueDate);
+    const st = c.status as CycleStatus;
+
+    if (user.role === 'ORG_ADMIN') {
+      if (st === 'PREPARATION' && e.prepInsufficient > 0) {
+        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.prepInsufficient} 份稽核前資料被標記不足,請補正`, href: `${base}/prep`, cta: '去補正' });
+      } else if (st === 'PREPARATION' && e.prepRemaining > 0) {
+        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.prepRemaining}/${e.prepTotal} 份未上傳${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '去上傳' });
+      }
+      if (st === 'REMEDIATION') {
+        if (e.returned > 0) todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${e.returned} 項被退回,需補正後重送`, href: `${base}/deficiencies`, cta: '去補正' });
+        if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies`, cta: '繼續填' });
+        if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過!請列印改善報告、用印後上傳', href: base, cta: '去上傳' });
+      }
+    }
+
+    if (user.role === 'AUDITOR') {
+      if (st === 'PREPARATION' && e.prepToConfirm > 0) {
+        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 份資料待確認齊備`, href: `${base}/prep`, cta: '去確認' });
+      }
+      if (e.submitted > 0) {
+        todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${org}:${e.submitted} 項矯正待審查`, href: `${base}/deficiencies`, cta: '去審查' });
+      }
+    }
+
+    if (user.role === 'SUPER_ADMIN') {
+      if (st === 'DRAFT') {
+        todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${org}:週期開立中,完成設定後開始準備`, href: base, cta: '去設定' });
+      }
+      if (st === 'PREPARATION' && e.prepAllConfirmed) {
+        todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
+      }
+      if (st === 'ONSITE') {
+        todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
+      }
+      if (st === 'REPORT_ISSUED') {
+        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,通知機關開始矯正`, href: base, cta: '去通知' });
+      }
+      if (st === 'REMEDIATION') {
+        if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: '/admin/emails', cta: '寄追蹤信' });
+        if (e.allPassed && e.signedUploaded && !e.signedConfirmed) todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${org}:用印報告已上傳,確認後即可結案`, href: base, cta: '去結案' });
+        else if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-waitsign`, tone: 'sage', title: `${org}:全數通過,待機關上傳用印報告`, href: base, cta: '查看' });
       }
     }
   }
+  todos.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone]);
 
-  const now = new Date();
+  // ── 流程指引:各步驟有幾條進行中週期 ──
+  const stepCycleCounts = [0, 0, 0, 0];
+  for (const e of enriched) {
+    if (e.step >= 1 && e.step <= 4) stepCycleCounts[e.step - 1] += 1;
+  }
+
   const greeting = greetingByHour(now.getHours());
   const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const duties = ROLE_STEP_DUTIES[user.role];
 
   return (
     <AppShell
@@ -156,7 +296,7 @@ export default async function HomePage() {
             />
           </section>
 
-          <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-10">
+          <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-6">
             {/* 週期清單 */}
             <Card className="lg:col-span-3" variant="elevated">
               <div className="flex items-baseline justify-between mb-4">
@@ -168,13 +308,13 @@ export default async function HomePage() {
                 </Link>
               </div>
               <div className="flex flex-col gap-3">
-                {cycles.slice(0, 5).map((c) => {
-                  const t = c.deficiencies.length;
-                  const p = c.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
+                {enriched.slice(0, 5).map((e) => {
+                  const { c } = e;
+                  const next = nextActionFor(e);
                   return (
-                    <Link key={c.id} href={`/cycles/${c.id}`}>
-                      <div className="group rounded-md border border-outline-variant hover:border-outline hover:bg-surface-container transition-colors p-4">
-                        <div className="flex items-center justify-between gap-3 mb-2.5">
+                    <div key={c.id} className="group rounded-md border border-outline-variant hover:border-outline transition-colors">
+                      <Link href={`/cycles/${c.id}`} className="block p-4 pb-3 hover:bg-surface-container transition-colors rounded-t-md">
+                        <div className="flex items-center justify-between gap-3 mb-3">
                           <p className="text-body-sm font-medium text-on-surface truncate">
                             {c.year - 1911} 年度 · {c.organization.name}
                           </p>
@@ -182,19 +322,30 @@ export default async function HomePage() {
                             {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
                           </Chip>
                         </div>
-                        {t > 0 ? (
+                        <CycleStepper current={e.step} className="mb-3" />
+                        {e.total > 0 && (
                           <>
-                            <ProgressBar value={p} max={t} tone="primary" size="sm" />
+                            <ProgressBar value={e.passed} max={e.total} tone="primary" size="sm" />
                             <div className="mt-1.5 flex justify-between text-caption text-on-surface-variant">
-                              <span>矯正通過 <span className="tabular-nums font-medium text-on-surface">{p}</span> / {t}</span>
-                              <span className="tabular-nums">{Math.round((p / t) * 100)}%</span>
+                              <span>矯正通過 <span className="tabular-nums font-medium text-on-surface">{e.passed}</span> / {e.total}</span>
+                              <span className="tabular-nums">{Math.round((e.passed / e.total) * 100)}%</span>
                             </div>
                           </>
-                        ) : (
-                          <p className="text-caption text-on-surface-variant">尚未發布缺失</p>
                         )}
-                      </div>
-                    </Link>
+                      </Link>
+                      {next && (
+                        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-outline-variant/60 bg-surface-container-low/60 rounded-b-md">
+                          <span className="text-caption text-primary-700 font-medium shrink-0">下一步</span>
+                          <span className="text-caption text-on-surface-variant truncate flex-1">{next.text}</span>
+                          {next.href && next.cta && (
+                            <Link href={next.href} className="text-caption text-primary-700 hover:underline shrink-0 inline-flex items-center gap-0.5">
+                              {next.cta}
+                              <ChevronRight size={12} />
+                            </Link>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -256,6 +407,45 @@ export default async function HomePage() {
                 </div>
               )}
             </Card>
+          </section>
+
+          {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
+          <section className="mb-10 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+            <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
+              <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
+              <Chip tone="primary" size="sm">{ROLE_LABELS[user.role]}</Chip>
+              <span className="text-caption text-on-surface-variant">
+                你在每一階段的工作;標亮 = 有週期正在該階段
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant/40 mt-3">
+              {PROCESS_STEPS.map((s, i) => {
+                const active = stepCycleCounts[i] > 0;
+                return (
+                  <div key={s.no} className={`p-5 ${active ? 'bg-primary-50/50' : 'bg-surface-container-lowest'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-caption font-semibold tabular-nums shrink-0 ${
+                          active ? 'bg-primary-600 text-white' : 'bg-surface-container-high text-on-surface-variant'
+                        }`}
+                        aria-hidden
+                      >
+                        {s.no}
+                      </span>
+                      <p className={`text-label-lg ${active ? 'text-primary-800 font-semibold' : 'text-on-surface'}`}>
+                        {s.title}
+                      </p>
+                      {active && (
+                        <span className="ml-auto text-caption text-primary-700 tabular-nums shrink-0">
+                          {stepCycleCounts[i]} 週期
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-caption text-on-surface-variant leading-relaxed">{duties[i]}</p>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         </>
       )}
