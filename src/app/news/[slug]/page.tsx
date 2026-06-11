@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { Wordmark } from '@/components/brand/Logo';
-import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { ChevronLeft } from '@/components/icons';
 import { Markdown } from '@/lib/markdown';
+import { PortalHeader } from '@/components/portal/PortalHeader';
+import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -25,18 +25,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/60">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="focus-ring rounded-md"><Wordmark /></Link>
-          <nav className="flex items-center gap-2">
-            {session ? (
-              <Link href="/dashboard"><Button size="sm">進入系統</Button></Link>
-            ) : (
-              <Link href="/login"><Button size="sm">登入</Button></Link>
-            )}
-          </nav>
-        </div>
-      </header>
+      <PortalHeader authed={!!session} />
 
       <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <Link
@@ -65,14 +54,21 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           <div className="mt-8 border-t border-outline-variant/60 pt-8">
             <Markdown content={post.contentMd} />
           </div>
+
+          {/* 文末收尾動線 */}
+          <div className="mt-10 pt-6 border-t border-outline-variant/60">
+            <Link
+              href="/news"
+              className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm"
+            >
+              <ChevronLeft size={15} />
+              返回資安資訊列表
+            </Link>
+          </div>
         </article>
       </main>
 
-      <footer className="border-t border-outline-variant/60">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-caption text-on-surface-variant">
-          MOECISH · 資通安全稽核管考平台
-        </div>
-      </footer>
+      <PortalFooter />
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { Logo, Wordmark } from '@/components/brand/Logo';
+import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { PortalHeader } from '@/components/portal/PortalHeader';
+import { PortalFooter } from '@/components/portal/PortalFooter';
 import {
   ShieldCheck,
   ChevronRight,
@@ -55,22 +57,8 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      {/* ════ 頂欄 ════ */}
-      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-outline-variant/50">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="focus-ring rounded-md shrink-0">
-            <Wordmark />
-          </Link>
-          <nav className="flex items-center gap-1">
-            <Link href="/news" className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
-              資安資訊
-            </Link>
-            <Link href={enterHref} className="ml-2">
-              <Button size="sm">{enterLabel}</Button>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      {/* ════ 頂欄(前台三頁共用) ════ */}
+      <PortalHeader authed={!!session} />
 
       {/* ════ 重要公告橫幅 ════ */}
       {important && (
@@ -272,50 +260,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ════ Footer ════ */}
-      <footer className="mt-auto border-t border-outline-variant/60 bg-surface-container-lowest">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-10">
-          <div>
-            <div className="flex items-center gap-3">
-              <Logo size={44} />
-              <div className="leading-tight">
-                <p className="text-title text-on-surface font-semibold">MOECISH</p>
-                <p className="text-caption text-on-surface-variant">資通安全稽核管考平台</p>
-              </div>
-            </div>
-            <p className="mt-4 text-body-sm text-on-surface-variant max-w-sm leading-relaxed">
-              服務教育部轄下醫療機構之資通安全稽核管考作業,
-              由教育部轄下醫療領域資訊安全推動中心(C.I.S.H)維運。
-            </p>
-          </div>
-          <div>
-            <p className="text-label text-on-surface mb-4">快速連結</p>
-            <ul className="space-y-2.5 text-body-sm">
-              <li><Link href="/news" className="text-on-surface-variant hover:text-primary-700 transition-colors">資安資訊</Link></li>
-              <li><Link href="/news?category=VULN_ALERT" className="text-on-surface-variant hover:text-primary-700 transition-colors">漏洞警訊</Link></li>
-              <li><Link href="/login" className="text-on-surface-variant hover:text-primary-700 transition-colors">系統登入</Link></li>
-            </ul>
-          </div>
-          <div>
-            <p className="text-label text-on-surface mb-4">聯絡資訊</p>
-            <ul className="space-y-2.5 text-body-sm text-on-surface-variant">
-              <li>主辦單位:教育部</li>
-              <li>維運:醫療領域資訊安全推動中心</li>
-              <li>
-                <a className="font-mono hover:text-primary-700 transition-colors" href="mailto:moecish@m365.ntu.edu.tw">
-                  moecish@m365.ntu.edu.tw
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <div className="border-t border-outline-variant/50">
-          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3 flex-wrap text-caption text-on-surface-variant">
-            <span>© {new Date().getFullYear() - 1911} 教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
-            <span className="tabular-nums">MOECISH v2.0</span>
-          </div>
-        </div>
-      </footer>
+      {/* ════ Footer(前台三頁共用) ════ */}
+      <PortalFooter />
     </div>
   );
 }

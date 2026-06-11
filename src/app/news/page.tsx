@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { Wordmark } from '@/components/brand/Logo';
-import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { ChevronRight, FileText } from '@/components/icons';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { PortalHeader } from '@/components/portal/PortalHeader';
+import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORIES, POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -35,18 +36,7 @@ export default async function NewsPage({
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
-      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/60">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="focus-ring rounded-md"><Wordmark /></Link>
-          <nav className="flex items-center gap-2">
-            {session ? (
-              <Link href="/dashboard"><Button size="sm">進入系統</Button></Link>
-            ) : (
-              <Link href="/login"><Button size="sm">登入</Button></Link>
-            )}
-          </nav>
-        </div>
-      </header>
+      <PortalHeader authed={!!session} />
 
       <main className="flex-1 max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <header className="mb-6">
@@ -69,25 +59,24 @@ export default async function NewsPage({
         </div>
 
         {posts.length === 0 ? (
-          <div className="rounded-lg border border-outline-variant p-12 text-center">
-            <FileText size={28} className="mx-auto text-on-surface-variant mb-3" />
-            <p className="text-body text-on-surface">此分類暫無內容</p>
+          <div className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest">
+            <EmptyState icon={<FileText size={26} />} title="此分類暫無內容" description="切換上方分類查看其他資安資訊。" />
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
             {posts.map((p) => (
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
-                <article className="flex items-center gap-4 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
+                <article className="flex items-center gap-3 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
                   <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
                     {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
                   </Chip>
+                  {p.important && <Chip tone="danger" size="sm" className="shrink-0">重要</Chip>}
+                  {p.pinned && <Chip tone="neutral" size="sm" className="shrink-0">置頂</Chip>}
                   <h2 className="flex-1 min-w-0 text-body font-medium text-on-surface truncate group-hover:text-primary-700 transition-colors">
-                    {p.important && <span className="text-danger-600 mr-1.5">[重要]</span>}
-                    {p.pinned && <span className="text-on-surface-variant mr-1.5">[置頂]</span>}
                     {p.title}
                   </h2>
-                  <span className="hidden sm:block text-caption text-on-surface-variant tabular-nums shrink-0">
-                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW') : ''}
+                  <span className="text-caption text-on-surface-variant tabular-nums shrink-0">
+                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
                   </span>
                   <ChevronRight size={16} className="text-on-surface-variant shrink-0" />
                 </article>
@@ -97,11 +86,7 @@ export default async function NewsPage({
         )}
       </main>
 
-      <footer className="border-t border-outline-variant/60">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-caption text-on-surface-variant">
-          MOECISH · 資通安全稽核管考平台
-        </div>
-      </footer>
+      <PortalFooter />
     </div>
   );
 }
