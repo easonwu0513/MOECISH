@@ -6,15 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import {
   ShieldCheck,
-  FileText,
-  ClipboardCheck,
-  AlertTriangle,
-  CheckCircle,
   ChevronRight,
   Check,
-  Eye,
-  Briefcase,
-  LayoutDashboard,
   History,
   Paperclip,
 } from '@/components/icons';
@@ -67,9 +60,6 @@ export default async function LandingPage() {
             <Wordmark />
           </Link>
           <nav className="flex items-center gap-1">
-            <a href="#process" className="hidden md:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
-              稽核流程
-            </a>
             <Link href="/news" className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full">
               資安資訊
             </Link>
@@ -179,56 +169,6 @@ export default async function LandingPage() {
           <Stat value={`${orgCount}`} label="服務醫療機構" sub="納管中之受稽核單位" />
           <Stat value={`${cycleCount}`} label="稽核週期" sub="歷年累計開立場次" />
           <Stat value={`${passRate}%`} label="矯正措施通過率" sub="委員審查通過比例" />
-        </div>
-      </section>
-
-      {/* ════ 三種角色 ════ */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20 w-full">
-        <div className="max-w-2xl mb-10">
-          <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">為每個角色而設計</p>
-          <h2 className="text-headline-lg text-on-surface">三種角色，一條流程</h2>
-          <p className="mt-3 text-body text-on-surface-variant">
-            從中心、機關到委員，每個角色登入後只看到自己需要的工作，乾淨不干擾。
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <RoleCard
-            tone="primary"
-            icon={<LayoutDashboard size={22} />}
-            title="最高管理員"
-            org="資訊安全推動中心"
-            items={['開立稽核週期、指派委員', '發布稽核缺失(表單或 Excel 匯入)', '追蹤信寄送與結案確認']}
-          />
-          <RoleCard
-            tone="warning"
-            icon={<Briefcase size={22} />}
-            title="機關管理員"
-            org="受稽核醫療機構"
-            items={['稽核前資料上傳', '矯正措施填報與佐證上傳', '改善報告列印、用印與回傳']}
-          />
-          <RoleCard
-            tone="sage"
-            icon={<Eye size={22} />}
-            title="稽核委員"
-            org="外聘專業委員"
-            items={['線上確認資料齊備', '逐項審查矯正措施', '通過或退回補正(多輪)']}
-          />
-        </div>
-      </section>
-
-      {/* ════ 流程 ════ */}
-      <section id="process" className="bg-surface-container-low border-y border-outline-variant/60 scroll-mt-16">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-2xl mb-12">
-            <p className="text-label text-primary-700 tracking-[0.12em] uppercase mb-3">端到端數位化</p>
-            <h2 className="text-headline-lg text-on-surface">稽核管考流程</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
-            <Step no="1" icon={<FileText size={20} />} title="資料準備" desc="受稽機關於實地稽核前上傳檢核表與文件,委員線上確認齊備或標記缺件。" />
-            <Step no="2" icon={<ClipboardCheck size={20} />} title="實地稽核" desc="稽核委員到場查核;平台留存當日資料與委員指派紀錄。" />
-            <Step no="3" icon={<AlertTriangle size={20} />} title="缺失矯正" desc="缺失發布後,機關填報根因分析、改善措施與佐證,逐項送審。" />
-            <Step no="4" icon={<CheckCircle size={20} />} title="審查結案" desc="委員逐項審查;全數通過後機關用印上傳,中心確認正式結案。" />
-          </div>
         </div>
       </section>
 
@@ -346,7 +286,7 @@ export default async function LandingPage() {
             <p className="text-label text-on-surface mb-4">快速連結</p>
             <ul className="space-y-2.5 text-body-sm">
               <li><Link href="/news" className="text-on-surface-variant hover:text-primary-700 transition-colors">資安資訊</Link></li>
-              <li><a href="#process" className="text-on-surface-variant hover:text-primary-700 transition-colors">稽核流程</a></li>
+              <li><Link href="/news?category=VULN_ALERT" className="text-on-surface-variant hover:text-primary-700 transition-colors">漏洞警訊</Link></li>
               <li><Link href="/login" className="text-on-surface-variant hover:text-primary-700 transition-colors">系統登入</Link></li>
             </ul>
           </div>
@@ -382,67 +322,6 @@ function Stat({ value, label, sub }: { value: string; label: string; sub: string
       </p>
       <p className="mt-3 text-body font-medium text-on-surface">{label}</p>
       <p className="mt-1 text-caption text-on-surface-variant">{sub}</p>
-    </div>
-  );
-}
-
-function RoleCard({
-  tone,
-  icon,
-  title,
-  org,
-  items,
-}: {
-  tone: 'primary' | 'warning' | 'sage';
-  icon: React.ReactNode;
-  title: string;
-  org: string;
-  items: string[];
-}) {
-  const iconBg = {
-    primary: 'bg-primary-50 text-primary-700',
-    warning: 'bg-warning-50 text-warning-700',
-    sage: 'bg-sage-50 text-sage-700',
-  }[tone];
-  const rail = {
-    primary: 'bg-primary-400',
-    warning: 'bg-warning-400',
-    sage: 'bg-sage-400',
-  }[tone];
-
-  return (
-    <div className="relative rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-6 overflow-hidden transition-all duration-200 ease-standard hover:shadow-elev-1 hover:border-outline">
-      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${rail}`} aria-hidden />
-      <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center mb-5`}>
-        {icon}
-      </div>
-      <h3 className="text-title-lg text-on-surface">{title}</h3>
-      <p className="mt-1 text-caption text-on-surface-variant">{org}</p>
-      <ul className="mt-5 space-y-2.5">
-        {items.map((it) => (
-          <li key={it} className="flex items-start gap-2.5 text-body-sm text-on-surface-variant leading-relaxed">
-            <Check size={15} className="mt-[3px] shrink-0 text-success-600" />
-            {it}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function Step({ no, icon, title, desc }: { no: string; icon: React.ReactNode; title: string; desc: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <span className="w-11 h-11 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center shrink-0">
-          {icon}
-        </span>
-        <span className="text-label-sm tracking-[0.1em] text-on-surface-variant font-medium tabular-nums">
-          STEP {no}
-        </span>
-      </div>
-      <h3 className="text-title text-on-surface">{title}</h3>
-      <p className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
     </div>
   );
 }
