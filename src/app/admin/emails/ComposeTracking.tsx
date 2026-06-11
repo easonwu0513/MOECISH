@@ -7,7 +7,7 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
-import { cn } from '@/lib/cn';
+import { FilterChipButton } from '@/components/ui/FilterChip';
 import { Send } from '@/components/icons';
 
 type Org = { id: string; name: string };
@@ -75,19 +75,9 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
           <p className="text-label text-on-surface mb-2">收件機關({selected.size} 已選)</p>
           <div className="flex flex-wrap gap-2">
             {orgs.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => toggle(o.id)}
-                className={cn(
-                  'h-9 px-4 rounded-full border text-body-sm transition-colors focus-ring',
-                  selected.has(o.id)
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline',
-                )}
-              >
+              <FilterChipButton key={o.id} selected={selected.has(o.id)} onClick={() => toggle(o.id)}>
                 {o.name}
-              </button>
+              </FilterChipButton>
             ))}
           </div>
         </div>

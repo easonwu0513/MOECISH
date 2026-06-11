@@ -56,7 +56,7 @@ export const FindingItem = memo(function FindingItem({
 
   return (
     <div
-      className={`relative flex flex-wrap sm:flex-nowrap gap-3 items-start mb-5 p-4 finding-row ${item.pageBreakBefore ? 'mt-8 border-blue-300' : ''}`}
+      className={`relative flex flex-wrap sm:flex-nowrap gap-3 items-start mb-5 p-4 finding-row ${item.pageBreakBefore ? 'mt-8 border-primary-300' : ''}`}
       draggable
       onDragStart={(e) => onDragStart(e, cat, sec, index)}
       onDragOver={(e) => onDragOver(e, cat, sec, index)}
@@ -138,7 +138,7 @@ export const FindingItem = memo(function FindingItem({
               }
             }, 0);
           }}
-          className="text-[10px] bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-700 py-0.5 rounded font-bold transition-colors shadow-sm border border-slate-200 mt-0.5"
+          className="text-[10px] bg-slate-100 text-slate-500 hover:bg-primary-100 hover:text-primary-700 py-0.5 rounded font-bold transition-colors shadow-sm border border-slate-200 mt-0.5"
           title="快速插入 OT- (快捷鍵：在編號框內按鍵盤 'o')"
         >
           + OT-
@@ -175,7 +175,7 @@ export const FindingItem = memo(function FindingItem({
       />
 
       <div className="flex sm:flex-col flex-row gap-1 sm:border-l sm:pl-2 sm:border-t-0 border-t pt-2 sm:pt-0 border-slate-100 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-        <button onClick={togglePageBreak} className={`p-1.5 rounded transition-colors flex items-center gap-1 text-xs ${item.pageBreakBefore ? 'bg-blue-100 text-blue-600 hover:bg-blue-200' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100'}`} title={item.pageBreakBefore ? '取消換頁' : '在此項目之前插入換頁線'}>
+        <button onClick={togglePageBreak} className={`p-1.5 rounded transition-colors flex items-center gap-1 text-xs ${item.pageBreakBefore ? 'bg-primary-100 text-primary-600 hover:bg-primary-200' : 'text-slate-400 hover:text-primary-500 hover:bg-slate-100'}`} title={item.pageBreakBefore ? '取消換頁' : '在此項目之前插入換頁線'}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           <span className="sm:hidden font-bold">換頁線</span>
         </button>

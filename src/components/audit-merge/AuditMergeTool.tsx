@@ -21,6 +21,8 @@ import {
 } from './lib';
 import { FindingItem, type FindingUpdateValue } from './FindingItem';
 import { ReportContent } from './ReportContent';
+import { ConfirmDialog } from '@/components/ui/Dialog';
+import { useToast } from '@/components/ui/Toast';
 
 type TabId = 'dashboard' | 'basic' | 'team' | Category;
 type ActiveField = 'text' | 'code';
@@ -58,6 +60,12 @@ export function AuditMergeTool() {
   const [draggedItem, setDraggedItem] = useState<DraggedItem>(null);
   const isDraggingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 系統化彈窗(取代原生 alert/confirm)
+  const toast = useToast();
+  const [resetOpen, setResetOpen] = useState(false);
+  const [clearFindingsOpen, setClearFindingsOpen] = useState(false);
+  const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
   // 掛載時:載入暫存 + 啟用列印樣式 scope
   useEffect(() => {
@@ -197,47 +205,47 @@ export function AuditMergeTool() {
           setCanUndo(false);
           setCanRedo(false);
           setReportData(sanitized);
-          alert('草稿匯入成功！');
+          toast.success('草稿匯入成功', `受稽機關:${sanitized.hospitalName}`);
         } else {
-          alert('檔案格式不符合稽核草稿格式！');
+          toast.error('匯入失敗', '檔案格式不符合稽核草稿格式');
         }
       } catch {
-        alert('解析 JSON 檔案失敗！');
+        toast.error('匯入失敗', '無法解析 JSON 檔案');
       }
     };
     reader.readAsText(file);
     e.target.value = '';
   };
 
-  const handleClearCache = () => {
-    if (window.confirm('確定要清除所有暫存資料並恢復為預設值嗎？\n(這將會清空您目前輸入的所有內容)')) {
-      localStorage.removeItem(STORAGE_KEY);
-      pastRef.current = [];
-      futureRef.current = [];
-      setCanUndo(false);
-      setCanRedo(false);
-      setReportData(makeDefaultReportData());
-    }
+  const doReset = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    pastRef.current = [];
+    futureRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+    setReportData(makeDefaultReportData());
+    setResetOpen(false);
+    toast.success('已重置', '所有暫存資料已恢復為預設值');
   };
 
-  const handleClearAllFindings = () => {
-    if (window.confirm('確定要清空所有的「稽核發現」內容嗎？\n(基本資訊與團隊名單將會保留)')) {
-      updateReportData((prev) => ({
-        ...prev,
-        findings: {
-          strategy: { compliance: [], improvements: [], suggestions: [] },
-          management: { compliance: [], improvements: [], suggestions: [] },
-          technical: { compliance: [], improvements: [], suggestions: [] },
-        },
-      }));
-      alert('稽核發現已全數清空！');
-    }
+  const doClearFindings = () => {
+    updateReportData((prev) => ({
+      ...prev,
+      findings: {
+        strategy: { compliance: [], improvements: [], suggestions: [] },
+        management: { compliance: [], improvements: [], suggestions: [] },
+        technical: { compliance: [], improvements: [], suggestions: [] },
+      },
+    }));
+    setClearFindingsOpen(false);
+    toast.success('稽核發現已全數清空', '基本資訊與團隊名單已保留');
   };
 
-  const validateReport = () => {
+  /** 匯出/列印前防呆:回傳警告清單(空 = 可直接執行)。 */
+  const collectWarnings = (): string[] => {
     const warnings: string[] = [];
-    if (!reportData.auditDateRaw) warnings.push('• 基本資訊：尚未填寫【稽核日期】');
-    if (!reportData.hospitalName) warnings.push('• 基本資訊：尚未填寫【受稽醫院名稱】');
+    if (!reportData.auditDateRaw) warnings.push('基本資訊:尚未填寫【稽核日期】');
+    if (!reportData.hospitalName) warnings.push('基本資訊:尚未填寫【受稽醫院名稱】');
     let hasEmptyFinding = false;
     for (const cat of CATEGORIES) {
       for (const sec of SECTIONS) {
@@ -246,23 +254,27 @@ export function AuditMergeTool() {
         }
       }
     }
-    if (hasEmptyFinding) warnings.push('• 稽核發現：存在【內容留白】的稽核項目');
-    if (warnings.length > 0) {
-      return window.confirm('【系統防呆提醒】\n\n' + warnings.join('\n') + '\n\n確定要強制匯出/列印嗎？');
-    }
-    return true;
+    if (hasEmptyFinding) warnings.push('稽核發現:存在【內容留白】的稽核項目');
+    return warnings;
   };
 
-  const handlePrint = () => {
-    if (!validateReport()) return;
+  const doPrint = () => {
     const originalTitle = document.title;
     document.title = `實地稽核報告_${reportData.hospitalName}`;
     window.print();
     document.title = originalTitle;
   };
 
-  const exportToWord = () => {
-    if (!validateReport()) return;
+  const handlePrint = () => {
+    const warnings = collectWarnings();
+    if (warnings.length > 0) {
+      setForceState({ warnings, action: 'print' });
+      return;
+    }
+    doPrint();
+  };
+
+  const doExportWord = () => {
     let content = document.getElementById('print-content')?.innerHTML ?? '';
     content = content.replace(/<div class="page-break"[^>]*><\/div>/g, '<br clear="all" style="page-break-before:always" />');
     content = content.replace(/<div id="word-spacer"><\/div>/g, '<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>');
@@ -297,6 +309,15 @@ export function AuditMergeTool() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const exportToWord = () => {
+    const warnings = collectWarnings();
+    if (warnings.length > 0) {
+      setForceState({ warnings, action: 'word' });
+      return;
+    }
+    doExportWord();
   };
 
   const handleSortSection = useCallback((cat: Category, sec: SectionKey) => {
@@ -390,7 +411,7 @@ export function AuditMergeTool() {
 
   const handleInsertSnippet = (snippet: string) => {
     if (!activeFocusId) {
-      alert('提示：請先將鼠標點擊於欲插入的「稽核發現」或「編號」內容框中！');
+      toast.info('請先點選輸入框', '將游標放在欲插入的「稽核發現」或「編號」內容框中,再點詞彙');
       return;
     }
     // 在目前狀態中定位該筆發現
@@ -403,7 +424,7 @@ export function AuditMergeTool() {
       if (located) break;
     }
     if (!located) {
-      alert('剪貼簿功能目前主要支援插入至「稽核發現」或「編號」的內容框中喔！');
+      toast.info('此欄位不支援快速插入', '剪貼簿僅支援「稽核發現」與「編號」內容框');
       return;
     }
     const currentText = located.finding[activeField] || '';
@@ -463,9 +484,9 @@ export function AuditMergeTool() {
     textArea.select();
     try {
       document.execCommand('copy');
-      alert('✅ 表格已成功複製到剪貼簿！\n\n您可以直接貼上至 Excel 或 Word 進行後續編輯。');
+      toast.success('表格已複製到剪貼簿', '可直接貼上至 Excel 或 Word 編輯');
     } catch {
-      alert('複製失敗，請手動選取表格複製。');
+      toast.error('複製失敗', '請手動選取表格內容複製');
     }
     document.body.removeChild(textArea);
   };
@@ -490,17 +511,17 @@ export function AuditMergeTool() {
                 <span className="text-[10px] text-slate-500 font-medium">已暫存於 {lastSavedTime || '—'}</span>
               </div>
             </div>
-            <Link href="/dashboard" className="ml-2 text-xs font-bold text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors">
+            <Link href="/dashboard" className="ml-2 text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-primary-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors">
               ← 回管考平台
             </Link>
           </div>
           <div className="flex flex-wrap items-center gap-2 pr-2">
             <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 mr-1">
-              <button onClick={handleUndo} disabled={!canUndo} className="text-slate-600 hover:text-blue-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 (Ctrl+Z)">
+              <button onClick={handleUndo} disabled={!canUndo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 (Ctrl+Z)">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                 復原
               </button>
-              <button onClick={handleRedo} disabled={!canRedo} className="text-slate-600 hover:text-blue-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 (Ctrl+Y)">
+              <button onClick={handleRedo} disabled={!canRedo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 (Ctrl+Y)">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
                 重做
               </button>
@@ -508,11 +529,11 @@ export function AuditMergeTool() {
 
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportJson} className="hidden" />
             <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
-              <button onClick={() => fileInputRef.current?.click()} className="text-slate-600 hover:text-blue-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+              <button onClick={() => fileInputRef.current?.click()} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 匯入
               </button>
-              <button onClick={handleExportJson} className="text-slate-600 hover:text-blue-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+              <button onClick={handleExportJson} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 備份
               </button>
@@ -522,11 +543,11 @@ export function AuditMergeTool() {
 
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
               <span className="text-[10px] text-slate-400 font-bold">預覽比</span>
-              <input type="range" min={40} max={200} step={5} value={previewZoom} onChange={(e) => setPreviewZoom(parseInt(e.target.value, 10))} className="w-16 cursor-pointer accent-blue-600" />
+              <input type="range" min={40} max={200} step={5} value={previewZoom} onChange={(e) => setPreviewZoom(parseInt(e.target.value, 10))} className="w-16 cursor-pointer accent-primary-600" />
               <span className="text-[10px] text-slate-600 w-7 text-right font-mono font-bold">{previewZoom}%</span>
             </div>
 
-            <button onClick={handleClearCache} className="text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1">
+            <button onClick={() => setResetOpen(true)} className="text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1">
               重置
             </button>
             <button onClick={exportToWord} className="btn-secondary px-4 py-1.5 text-xs ml-1 flex items-center gap-1">
@@ -548,7 +569,7 @@ export function AuditMergeTool() {
               <nav className="w-48 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto p-3">
                 <div className="space-y-1">
                   <button
-                    onClick={handleClearAllFindings}
+                    onClick={() => setClearFindingsOpen(true)}
                     className="w-full text-center px-3 py-2 mb-3 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 rounded font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1"
                     title="清空所有的稽核發現內容 (基本資料將保留)"
                   >
@@ -577,7 +598,7 @@ export function AuditMergeTool() {
                   {activeTab === 'dashboard' && (
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
-                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                        <div className="bg-primary-100 p-2 rounded-lg text-primary-600">
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                         </div>
                         <h2 className="text-2xl font-bold text-slate-800">報告統計與摘要</h2>
@@ -701,13 +722,13 @@ export function AuditMergeTool() {
                           <div className="space-y-6">
                             {stats.nonRedundantSubsets.length > 0 && (
                               <div>
-                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-indigo-400 pl-2">📦 完整複合組合 (自動濾除重疊子集)</h4>
+                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">📦 完整複合組合 (自動濾除重疊子集)</h4>
                                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                                   <table className="w-full text-sm text-left border-collapse">
                                     <thead>
                                       <tr className="bg-slate-50 border-b border-slate-200">
                                         <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200">項次組合 (出現 2 次以上)</th>
-                                        <th className="px-4 py-3 font-black text-indigo-600 text-center bg-indigo-50/30 w-48">共同出現次數</th>
+                                        <th className="px-4 py-3 font-black text-primary-600 text-center bg-primary-50/30 w-48">共同出現次數</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -721,7 +742,7 @@ export function AuditMergeTool() {
                                               </span>
                                             ))}
                                           </td>
-                                          <td className="px-4 py-2 text-center font-black text-indigo-600 bg-indigo-50/10 text-base">{subset.count} 次</td>
+                                          <td className="px-4 py-2 text-center font-black text-primary-600 bg-primary-50/10 text-base">{subset.count} 次</td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -732,15 +753,15 @@ export function AuditMergeTool() {
 
                             {stats.associationRules.length > 0 && (
                               <div>
-                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-blue-400 pl-2">🎯 雙項次關聯強度 (伴隨機率 ≥ 50%)</h4>
+                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">🎯 雙項次關聯強度 (伴隨機率 ≥ 50%)</h4>
                                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                                   <table className="w-full text-sm text-left border-collapse">
                                     <thead>
                                       <tr className="bg-slate-50 border-b border-slate-200">
                                         <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">前提項次 (若發生...)</th>
                                         <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">伴隨項次 (...則常伴隨發生)</th>
-                                        <th className="px-4 py-3 font-black text-blue-600 text-center border-r border-slate-200">共同次數</th>
-                                        <th className="px-4 py-3 font-black text-blue-600 text-center bg-blue-50/30">伴隨機率</th>
+                                        <th className="px-4 py-3 font-black text-primary-600 text-center border-r border-slate-200">共同次數</th>
+                                        <th className="px-4 py-3 font-black text-primary-600 text-center bg-primary-50/30">伴隨機率</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -750,13 +771,13 @@ export function AuditMergeTool() {
                                             <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded text-slate-700 font-mono font-bold">{rule.premise}</span>
                                           </td>
                                           <td className="px-4 py-2 border-r border-slate-200 bg-white">
-                                            <span className="bg-blue-50 border border-blue-200 px-2 py-1 rounded text-blue-700 font-mono font-bold">{rule.consequence}</span>
+                                            <span className="bg-primary-50 border border-primary-200 px-2 py-1 rounded text-primary-700 font-mono font-bold">{rule.consequence}</span>
                                           </td>
                                           <td className="px-4 py-2 text-center font-bold text-slate-700 border-r border-slate-200">{rule.coCount} 次</td>
-                                          <td className="px-4 py-2 text-center bg-blue-50/10 min-w-[120px]">
+                                          <td className="px-4 py-2 text-center bg-primary-50/10 min-w-[120px]">
                                             <div className="flex items-center justify-center gap-2">
                                               <div className="w-16 bg-slate-200 rounded-full h-2 hidden sm:block">
-                                                <div className={`h-2 rounded-full ${rule.confidence >= 80 ? 'bg-red-500' : rule.confidence >= 60 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${rule.confidence}%` }} />
+                                                <div className={`h-2 rounded-full ${rule.confidence >= 80 ? 'bg-red-500' : rule.confidence >= 60 ? 'bg-amber-500' : 'bg-primary-500'}`} style={{ width: `${rule.confidence}%` }} />
                                               </div>
                                               <span className="font-black text-slate-700">{rule.confidence.toFixed(0)}%</span>
                                             </div>
@@ -818,7 +839,7 @@ export function AuditMergeTool() {
                                 const newId = `ac_${Date.now()}`;
                                 updateReportData((p) => ({ ...p, auditCriteria: [...(p.auditCriteria || []), { id: newId, text: '' }] }));
                               }}
-                              className="text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded font-bold transition-colors"
+                              className="text-xs text-primary-600 hover:bg-primary-50 px-2 py-1 rounded font-bold transition-colors"
                             >
                               + 新增準則
                             </button>
@@ -880,11 +901,11 @@ export function AuditMergeTool() {
                             <h3 className="font-bold text-slate-700 flex items-center gap-2">
                               {cat === 'strategy' ? '🛡️ 策略面委員' : cat === 'management' ? '⚙️ 管理面委員' : '💻 技術面委員'}
                             </h3>
-                            <button onClick={() => updateReportData((p) => ({ ...p, team: { ...p.team, [cat]: [...p.team[cat], ''] } }))} className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-full font-bold transition-colors">+ 新增委員</button>
+                            <button onClick={() => updateReportData((p) => ({ ...p, team: { ...p.team, [cat]: [...p.team[cat], ''] } }))} className="text-xs bg-primary-50 text-primary-600 hover:bg-primary-100 px-3 py-1.5 rounded-full font-bold transition-colors">+ 新增委員</button>
                           </div>
                           <div className="flex flex-wrap gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                             {reportData.team[cat].map((name, idx) => (
-                              <div key={idx} className="flex-1 min-w-[180px] flex gap-2 items-center bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-300 transition-colors">
+                              <div key={idx} className="flex-1 min-w-[180px] flex gap-2 items-center bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm hover:border-primary-300 transition-colors">
                                 <input
                                   className="flex-1 p-1.5 border-none outline-none text-sm font-medium min-w-0"
                                   placeholder="請輸入姓名"
@@ -930,7 +951,7 @@ export function AuditMergeTool() {
                           </h2>
                           <button
                             onClick={() => toggleCategoryPageBreak(catTab)}
-                            className={`px-4 py-2 rounded-full transition-all flex items-center gap-2 text-xs font-bold shrink-0 ${reportData.sectionSettings?.[catTab]?.pageBreakBefore ? 'bg-indigo-500 text-white shadow-inner' : 'text-slate-200 bg-white/10 hover:bg-white/20 border border-white/10'}`}
+                            className={`px-4 py-2 rounded-full transition-all flex items-center gap-2 text-xs font-bold shrink-0 ${reportData.sectionSettings?.[catTab]?.pageBreakBefore ? 'bg-primary-500 text-white shadow-inner' : 'text-slate-200 bg-white/10 hover:bg-white/20 border border-white/10'}`}
                             title={reportData.sectionSettings?.[catTab]?.pageBreakBefore ? '取消構面換頁' : '在此構面前插入換頁線'}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
@@ -964,7 +985,7 @@ export function AuditMergeTool() {
                                 <h3 className="font-bold text-slate-800 text-lg tracking-wide whitespace-nowrap">{s.title}</h3>
                                 <button
                                   onClick={() => toggleSectionPageBreak(catTab, s.sec)}
-                                  className={`p-1.5 rounded-full transition-colors shrink-0 ${sectionHasPageBreak ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-white hover:text-blue-500 hover:shadow-sm'}`}
+                                  className={`p-1.5 rounded-full transition-colors shrink-0 ${sectionHasPageBreak ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:bg-white hover:text-primary-500 hover:shadow-sm'}`}
                                   title={sectionHasPageBreak ? '取消標題換頁' : '在此標題前插入換頁線'}
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
@@ -978,7 +999,7 @@ export function AuditMergeTool() {
                                       key={p}
                                       onMouseDown={(e) => { e.preventDefault(); handleInsertSnippet(p); }}
                                       title={p === '，' ? '逗號' : ''}
-                                      className="px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100 hover:text-blue-600 border-r border-slate-200 last:border-0 transition-colors flex-1 text-center"
+                                      className="px-2.5 py-1 text-sm font-bold text-slate-700 hover:bg-slate-100 hover:text-primary-600 border-r border-slate-200 last:border-0 transition-colors flex-1 text-center"
                                     >
                                       {p === '，' ? <span className="font-serif text-[16px] leading-none" style={{ position: 'relative', top: '2px' }}>{p}</span> : p}
                                     </button>
@@ -990,7 +1011,7 @@ export function AuditMergeTool() {
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
                                     整理排序
                                   </button>
-                                  <button onClick={() => addFinding(catTab, s.sec)} className="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1 border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 flex-1 sm:flex-none shrink-0">
+                                  <button onClick={() => addFinding(catTab, s.sec)} className="btn-secondary px-3 py-1.5 text-xs flex items-center justify-center gap-1 border-primary-200 text-primary-700 bg-primary-50 hover:bg-primary-100 flex-1 sm:flex-none shrink-0">
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                                     新增項目
                                   </button>
@@ -1049,10 +1070,10 @@ export function AuditMergeTool() {
             <div className="bg-white border-t border-slate-200 shrink-0 flex flex-col no-print z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]" style={{ height: `${snippetHeight}px` }}>
               <div className="px-4 py-2 bg-slate-50 font-bold text-xs text-slate-600 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <span className="flex items-center gap-2 tracking-wide uppercase">
-                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                   常用詞彙剪貼簿
                 </span>
-                <span className="text-[10px] text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full font-medium hidden sm:block">
+                <span className="text-[10px] text-primary-600 bg-primary-50 px-2.5 py-1 rounded-full font-medium hidden sm:block">
                   💡 點擊上方輸入框後，再點選下方詞彙即可快速插入
                 </span>
               </div>
@@ -1061,7 +1082,7 @@ export function AuditMergeTool() {
                   <button
                     key={idx}
                     onMouseDown={(e) => { e.preventDefault(); handleInsertSnippet(snippet); }}
-                    className="text-left text-[14px] font-bold bg-white border border-slate-300 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 hover:shadow p-2.5 rounded-lg transition-all active:scale-95 text-slate-800 tracking-wide"
+                    className="text-left text-[14px] font-bold bg-white border border-slate-300 hover:border-primary-400 hover:text-primary-700 hover:bg-primary-50 hover:shadow p-2.5 rounded-lg transition-all active:scale-95 text-slate-800 tracking-wide"
                   >
                     {snippet}
                   </button>
@@ -1081,6 +1102,47 @@ export function AuditMergeTool() {
           </aside>
         </div>
       </div>
+
+      {/* 系統化確認對話框 */}
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="重置所有資料"
+        description="將清除暫存並恢復為預設值,目前輸入的所有內容都會消失,無法復原。確定重置?"
+        confirmLabel="重置"
+        tone="danger"
+        onConfirm={doReset}
+      />
+      <ConfirmDialog
+        open={clearFindingsOpen}
+        onOpenChange={setClearFindingsOpen}
+        title="清空所有稽核發現"
+        description="三構面的稽核發現將全數清空(基本資訊與委員名單保留)。確定清空?"
+        confirmLabel="全部清空"
+        tone="danger"
+        onConfirm={doClearFindings}
+      />
+      <ConfirmDialog
+        open={forceState !== null}
+        onOpenChange={(o) => !o && setForceState(null)}
+        title="資料尚未填妥"
+        description={
+          <span className="block text-left">
+            {forceState?.warnings.map((w) => (
+              <span key={w} className="block">• {w}</span>
+            ))}
+            <span className="block mt-2">確定要強制{forceState?.action === 'print' ? '列印' : '匯出 Word'}嗎?</span>
+          </span>
+        }
+        confirmLabel={forceState?.action === 'print' ? '強制列印' : '強制匯出'}
+        tone="warning"
+        onConfirm={() => {
+          const act = forceState?.action;
+          setForceState(null);
+          if (act === 'print') setTimeout(doPrint, 150);
+          else if (act === 'word') doExportWord();
+        }}
+      />
 
       {/* 列印專用區域 */}
       <div id="print-content" className="print-only hidden">

@@ -8,7 +8,7 @@ import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Chip } from '@/components/ui/Chip';
-import { AlertCircle, ChevronLeft, Shield } from '@/components/icons';
+import { AlertCircle, ChevronLeft, Shield, Eye, EyeOff } from '@/components/icons';
 
 const demoAccounts = [
   { email: 'admin@demo.tw',   label: '最高管理員', tone: 'primary' as const },
@@ -28,6 +28,7 @@ function LoginForm() {
   const [password, setPassword] = useState(SHOW_DEMO ? 'demo1234' : '');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,11 +90,22 @@ function LoginForm() {
             />
             <TextField
               label="密碼"
-              type="password"
+              type={showPw ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              trailingIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring"
+                  aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
+                  tabIndex={-1}
+                >
+                  {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              }
             />
             {err && (
               <div

@@ -64,8 +64,10 @@ export default async function LandingPage() {
       {important && (
         <Link href={`/news/${important.slug}`} className="block bg-danger-50 border-b border-danger-100 hover:bg-danger-100/70 transition-colors">
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-2.5 text-body-sm text-danger-700">
+            {/* 兩層紅點:常駐實心 + 外圈脈衝(reduced-motion 下仍有清楚紅點) */}
             <span className="relative flex w-2 h-2 shrink-0" aria-hidden>
-              <span className="animate-soft-pulse absolute inline-flex h-full w-full rounded-full bg-danger-500" />
+              <span className="animate-soft-pulse absolute inline-flex h-full w-full rounded-full bg-danger-400" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-danger-500" />
             </span>
             <span className="font-semibold shrink-0">重要</span>
             <span className="truncate">{important.title}</span>
@@ -202,7 +204,8 @@ export default async function LandingPage() {
                       <p className="text-caption text-on-surface-variant tabular-nums">
                         {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
                       </p>
-                      <span className="inline-flex items-center gap-0.5 text-caption text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* 常駐低調顯示(觸控裝置無 hover,純 hover 顯示等於永遠看不到) */}
+                      <span className="inline-flex items-center gap-0.5 text-caption text-on-surface-variant/70 group-hover:text-primary-700 transition-colors">
                         閱讀
                         <ChevronRight size={12} />
                       </span>
