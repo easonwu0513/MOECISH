@@ -16,7 +16,7 @@ export function FileUploadButton({
   size = 'md',
   className,
   ...inputProps
-}: InputHTMLAttributes<HTMLInputElement> & {
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
   label: ReactNode;
   busyLabel?: string;
   busy?: boolean;
