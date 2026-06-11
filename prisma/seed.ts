@@ -67,16 +67,16 @@ async function main() {
     }
   }
 
-  const version = await prisma.checklistVersion.upsert({
-    where: { year: YEAR },
-    create: {
-      year: YEAR,
-      name: `${YEAR - 1911} 年度資通安全實地稽核檢核表`,
-      isActive: true,
-      publishedAt: new Date(),
-    },
-    update: { isActive: true },
-  });
+  // year 不再唯一(同年可多版本),改 findFirst-or-create
+  const versionName = `${YEAR - 1911} 年度資通安全實地稽核檢核表`;
+  let version = await prisma.checklistVersion.findFirst({ where: { name: versionName } });
+  if (version) {
+    version = await prisma.checklistVersion.update({ where: { id: version.id }, data: { isActive: true } });
+  } else {
+    version = await prisma.checklistVersion.create({
+      data: { year: YEAR, name: versionName, isActive: true, publishedAt: new Date() },
+    });
+  }
 
   const existingItems = await prisma.checklistItem.count({ where: { versionId: version.id } });
   if (existingItems === 0) {
