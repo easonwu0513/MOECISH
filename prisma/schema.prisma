@@ -122,6 +122,9 @@ model AuditCycle {
   checklistSubmittedBy String?   // 送出者姓名快照
   checklistReopenNote  String?   // 最近一次退回原因(重新送出時清空)
 
+  // 實地稽核報告頁首設定(JSON:稽核日期/範圍/準則/領隊/副領隊/三面團隊)
+  auditReportMeta      String?
+
   responses        ChecklistResponse[]
   deficiencies     Deficiency[]
   signedReports    SignedReport[]

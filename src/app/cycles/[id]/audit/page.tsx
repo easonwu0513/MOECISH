@@ -81,11 +81,18 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
               : '管理員檢視(評分與發現由各委員填寫)'}
           </p>
         </div>
-        <Link href={`/cycles/${cycle.id}/audit/report`}>
-          <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-            彙整報告
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/cycles/${cycle.id}/audit/print`} target="_blank" rel="noopener">
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              {user.role === 'AUDITOR' ? '列印我的評分表(附件17)' : '列印各委員評分表'}
+            </Button>
+          </Link>
+          <Link href={`/cycles/${cycle.id}/audit/report`}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              彙整報告
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {user.role === 'AUDITOR' ? (
