@@ -37,9 +37,21 @@ const NAV_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'technical', label: '5. 技術面', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
 ];
 
-/** 稽核報告彙整工具 — 原生模組版(自單檔工具 1:1 移植)。 */
-export function AuditMergeTool() {
+/**
+ * 稽核報告彙整工具 — 原生模組版(自單檔工具 1:1 移植)。
+ * 週期模式(cycleId+initial):由「實地稽核彙整報告→報告設定」啟動,
+ * 委員發現自動帶入(每次開啟取系統即時資料);頁首編輯可存回系統。
+ */
+export function AuditMergeTool({
+  cycleId,
+  initial,
+}: {
+  cycleId?: string;
+  initial?: ReportData;
+} = {}) {
+  const storageKey = cycleId ? `${STORAGE_KEY}:${cycleId}` : STORAGE_KEY;
   const [reportData, setReportData] = useState<ReportData>(makeDefaultReportData);
+  const [syncBusy, setSyncBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('basic');
   const [previewZoom, setPreviewZoom] = useState(85);
@@ -64,22 +76,55 @@ export function AuditMergeTool() {
   // 系統化彈窗(取代原生 alert/confirm)
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
+
+  // 週期模式:把封面/基本資訊存回系統(彙整報告頁與列印版同步)
+  async function saveMetaToSystem() {
+    if (!cycleId) return;
+    setSyncBusy(true);
+    const d = reportData;
+    const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        auditDateRaw: d.auditDateRaw,
+        scope: d.scope,
+        auditCriteria: d.auditCriteria.map((c) => c.text).filter((t) => t.trim()),
+        lead: d.lead,
+        subLead: d.subLead,
+        team: d.team,
+      }),
+    });
+    setSyncBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+      toast.error('存回系統失敗', j.error);
+      return;
+    }
+    toast.success('已存回系統', '彙整報告頁的封面與基本資訊已同步。');
+  }
   const [clearFindingsOpen, setClearFindingsOpen] = useState(false);
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
   // 掛載時:載入暫存 + 啟用列印樣式 scope
+  // 週期模式:發現(findings)永遠取系統即時資料;頁首沿用上次在工具的編輯(本機暫存)
   useEffect(() => {
-    const stored = loadStoredReportData();
-    if (stored) setReportData(stored);
+    if (cycleId && initial) {
+      const stored = loadStoredReportData(storageKey);
+      setReportData(stored ? { ...stored, findings: initial.findings } : initial);
+    } else {
+      const stored = loadStoredReportData(storageKey);
+      if (stored) setReportData(stored);
+    }
     setHydrated(true);
     document.body.classList.add('amt-active');
     return () => document.body.classList.remove('amt-active');
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId]);
 
   // 自動暫存
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reportData));
+    localStorage.setItem(storageKey, JSON.stringify(reportData));
     const now = new Date();
     setLastSavedTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
   }, [reportData, hydrated]);
@@ -511,9 +556,17 @@ export function AuditMergeTool() {
                 <span className="text-[10px] text-slate-500 font-medium">已暫存於 {lastSavedTime || '—'}</span>
               </div>
             </div>
-            <Link href="/dashboard" className="ml-2 text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-primary-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors">
-              ← 回管考平台
+            <Link
+              href={cycleId ? `/cycles/${cycleId}/audit/report` : '/dashboard'}
+              className="ml-2 text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-primary-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors"
+            >
+              {cycleId ? '← 回彙整報告' : '← 回管考平台'}
             </Link>
+            {cycleId && (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                週期模式:委員發現已自動帶入
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 pr-2">
             <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 mr-1">
@@ -547,6 +600,16 @@ export function AuditMergeTool() {
               <span className="text-[10px] text-slate-600 w-7 text-right font-mono font-bold">{previewZoom}%</span>
             </div>
 
+            {cycleId && (
+              <button
+                onClick={saveMetaToSystem}
+                disabled={syncBusy}
+                className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1 disabled:opacity-50"
+                title="把封面/基本資訊(日期、範圍、準則、稽核小組)存回系統,彙整報告頁同步"
+              >
+                {syncBusy ? '儲存中…' : '存回系統'}
+              </button>
+            )}
             <button onClick={() => setResetOpen(true)} className="text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1">
               重置
             </button>

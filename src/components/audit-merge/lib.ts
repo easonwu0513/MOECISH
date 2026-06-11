@@ -109,9 +109,9 @@ export function makeDefaultReportData(): ReportData {
 export const STORAGE_KEY = 'auditToolData';
 
 /** 從 localStorage 載入並補齊舊版資料缺欄位(沿用原工具的遷移邏輯)。 */
-export function loadStoredReportData(): ReportData | null {
+export function loadStoredReportData(storageKey: string = STORAGE_KEY): ReportData | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
     return sanitizeImported(JSON.parse(raw));
   } catch {

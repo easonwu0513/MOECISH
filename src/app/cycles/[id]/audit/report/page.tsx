@@ -4,15 +4,16 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
-import { FileText } from '@/components/icons';
-import { loadAuditReport, buildReportData, parseReportMeta, ScoreOverview } from './ReportBody';
+import { FileText, Settings } from '@/components/icons';
+import { loadAuditReport, buildReportData, ScoreOverview } from './ReportBody';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
-import ReportMetaEditor from './ReportMetaEditor';
+import FinishButton from './FinishButton';
 
 /**
  * 實地稽核彙整報告:全體委員發現自動整合,版式 = 稽核報告彙整工具的 Word 格式
  * (當天列印給受稽單位簽名的正式文件)。評分總覽僅螢幕顯示(附件17 由各委員自印)。
+ * 「報告設定」直接啟動彙整工具(週期模式);「已完成年度稽核」一鍵轉缺失+推狀態+通知機關。
  */
 export default async function AuditReportPage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -35,7 +36,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
   ).length;
 
   const report = buildReportData(data);
-  const meta = parseReportMeta(data.auditReportMeta);
+  const isAdmin = user.role === 'SUPER_ADMIN';
+  const status = data.status;
 
   return (
     <AppShell
@@ -54,28 +56,24 @@ export default async function AuditReportPage({ params }: { params: { id: string
             {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {user.role === 'SUPER_ADMIN' && (
-            <>
-              <ReportMetaEditor
-                cycleId={data.id}
-                initial={{
-                  auditDateRaw: report.auditDateRaw,
-                  scope: report.scope,
-                  auditCriteria: report.auditCriteria.map((c) => c.text),
-                  lead: report.lead,
-                  subLead: report.subLead,
-                  team: meta.team ?? { strategy: [], management: [], technical: [] },
-                }}
-              />
-              <ConvertButton cycleId={data.id} pendingCount={pendingCount} />
-            </>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <Link href={`/admin/tools/audit-merge?cycleId=${data.id}`}>
+              <Button variant="tonal" size="sm" leadingIcon={<Settings size={15} />}>
+                報告設定(啟動彙整工具)
+              </Button>
+            </Link>
           )}
           <Link href={`/cycles/${data.id}/audit/report/print`} target="_blank" rel="noopener">
-            <Button variant="primary" size="sm" leadingIcon={<FileText size={15} />}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
               列印正式報告
             </Button>
           </Link>
+          {isAdmin && status !== 'CLOSED' && (
+            status === 'REMEDIATION'
+              ? <ConvertButton cycleId={data.id} pendingCount={pendingCount} />
+              : <FinishButton cycleId={data.id} pendingCount={pendingCount} />
+          )}
         </div>
       </header>
 
@@ -92,13 +90,11 @@ export default async function AuditReportPage({ params }: { params: { id: string
 
       {/* 正式報告預覽(Word 版式) */}
       <Card padded={false} className="overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/60 flex items-center justify-between">
-          <div>
-            <CardTitle>報告預覽</CardTitle>
-            <CardDescription>
-              全體委員發現即時彙整;封面與基本資訊可由「報告設定」調整
-            </CardDescription>
-          </div>
+        <div className="px-6 py-4 border-b border-outline-variant/60">
+          <CardTitle>報告預覽</CardTitle>
+          <CardDescription>
+            全體委員發現即時彙整;封面與基本資訊請按「報告設定」於彙整工具中編輯後存回系統
+          </CardDescription>
         </div>
         <div className="px-8 py-6 bg-white">
           <AssembledReport data={report} />
