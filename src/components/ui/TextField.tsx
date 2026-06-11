@@ -43,7 +43,10 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
   const hasError = Boolean(errorText);
   const [focused, setFocused] = useState(false);
   const filled = Boolean(value ?? defaultValue);
-  const raised = focused || filled;
+  // date/time 類輸入框永遠渲染原生佔位文字(年/月/日),placeholder:text-transparent 蓋不掉,
+  // 故標籤需一律上浮,避免與「年/月/日」重疊
+  const isDateLike = ['date', 'time', 'datetime-local', 'month', 'week'].includes(String(rest.type ?? ''));
+  const raised = focused || filled || isDateLike;
 
   if (variant === 'outlined') {
     return (
