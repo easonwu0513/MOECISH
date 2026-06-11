@@ -10,7 +10,8 @@ import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Upload, Paperclip, Check, AlertCircle, FileText } from '@/components/icons';
+import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { PREP_STATUS_LABELS, type PrepStatus } from '@/lib/types';
 
 type Sub = { id: string; status: string; note: string | null; reviewNote: string | null };
@@ -260,10 +261,11 @@ export default function PrepBoard({
                                 <button
                                   type="button"
                                   onClick={() => removeFile(f.id, f.originalName)}
-                                  className="text-caption text-on-surface-variant hover:text-danger-600 transition-colors px-1 focus-ring rounded-sm"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                                  aria-label={`刪除檔案 ${f.originalName}`}
                                   title="刪除這個檔案"
                                 >
-                                  ✕
+                                  <X size={14} />
                                 </button>
                               )}
                             </li>
@@ -275,18 +277,14 @@ export default function PrepBoard({
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         {orgCanEdit && sub && status !== 'CONFIRMED' && (
                           <>
-                            <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-                              <input
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => upload(sub, e)}
-                                disabled={busyItemId === sub.id}
-                                multiple
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
-                              />
-                              <Upload size={14} />
-                              <span className="text-body-sm">{busyItemId === sub.id ? '上傳中…' : '上傳檔案(可多選)'}</span>
-                            </label>
+                            <FileUploadButton
+                              size="sm"
+                              label="上傳檔案(可多選)"
+                              busy={busyItemId === sub.id}
+                              onChange={(e) => upload(sub, e)}
+                              multiple
+                              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                            />
                             <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB</span>
                           </>
                         )}

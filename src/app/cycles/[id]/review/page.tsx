@@ -10,11 +10,18 @@ import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
+import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 
 const complianceTone = COMPLIANCE_TONE;
 
-export default async function ReviewPage({ params }: { params: { id: string } }) {
+export default async function ReviewPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { filter?: string };
+}) {
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/review`);
   if (session.user.role !== 'AUDITOR' && session.user.role !== 'SUPER_ADMIN') {
@@ -41,13 +48,26 @@ export default async function ReviewPage({ params }: { params: { id: string } })
   }
 
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
-  const grouped = DIMENSION_ORDER.map((dim) => ({
-    dim,
-    items: cycle.checklistVersion.items.filter((i) => i.dimension === dim),
-  }));
 
   const total = cycle.checklistVersion.items.length;
   const answered = cycle.responses.filter((r) => r.compliance).length;
+  const withOpenComments = cycle.checklistVersion.items.filter((i) => {
+    const r = responsesByItem.get(i.id);
+    return (r?.comments ?? []).some((c) => !c.resolvedAt);
+  }).length;
+
+  // 篩選:answered=只看已作答、comments=只看意見待補(87 題全平鋪對委員掃讀太沉重)
+  const filter = searchParams.filter === 'answered' || searchParams.filter === 'comments' ? searchParams.filter : null;
+  const matchFilter = (itemId: string) => {
+    const r = responsesByItem.get(itemId);
+    if (filter === 'answered') return Boolean(r?.compliance);
+    if (filter === 'comments') return (r?.comments ?? []).some((c) => !c.resolvedAt);
+    return true;
+  };
+  const grouped = DIMENSION_ORDER.map((dim) => ({
+    dim,
+    items: cycle.checklistVersion.items.filter((i) => i.dimension === dim && matchFilter(i.id)),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <AppShell
@@ -71,6 +91,23 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         </p>
       </header>
 
+      {/* 篩選 */}
+      {answered > 0 && (
+        <div className="mb-5 flex items-center gap-2 flex-wrap">
+          <FilterChipLink href={`/cycles/${cycle.id}/review`} selected={!filter}>
+            全部 <FilterChipCount selected={!filter}>{total}</FilterChipCount>
+          </FilterChipLink>
+          <FilterChipLink href={`/cycles/${cycle.id}/review?filter=answered`} selected={filter === 'answered'}>
+            只看已作答 <FilterChipCount selected={filter === 'answered'}>{answered}</FilterChipCount>
+          </FilterChipLink>
+          {withOpenComments > 0 && (
+            <FilterChipLink href={`/cycles/${cycle.id}/review?filter=comments`} selected={filter === 'comments'}>
+              意見待補 <FilterChipCount selected={filter === 'comments'}>{withOpenComments}</FilterChipCount>
+            </FilterChipLink>
+          )}
+        </div>
+      )}
+
       {answered === 0 ? (
         <Card>
           <EmptyState
@@ -83,7 +120,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         grouped.map(({ dim, items }) => (
           <section key={dim} className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-title text-neutral-900">{DIMENSION_LABELS[dim as Dimension]}</h2>
+              <h2 className="text-title-md text-on-surface">{DIMENSION_LABELS[dim as Dimension]}</h2>
               <Chip tone="neutral" size="sm">{items.length}</Chip>
             </div>
             <div className="flex flex-col gap-2.5">

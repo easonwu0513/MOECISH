@@ -5,6 +5,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
 import { Users } from '@/components/icons';
 import { inviteStatus } from '@/lib/invite';
 import type { Role } from '@/lib/types';
@@ -60,6 +61,7 @@ export default async function UsersPage() {
           <div className="px-5 py-3 bg-warning-50 text-warning-700 text-label-sm uppercase tracking-wide border-b border-outline-variant/60">
             待接受邀請（{pendingInvites.length}）
           </div>
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -91,6 +93,7 @@ export default async function UsersPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
 
@@ -104,6 +107,7 @@ export default async function UsersPage() {
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -148,6 +152,7 @@ export default async function UsersPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

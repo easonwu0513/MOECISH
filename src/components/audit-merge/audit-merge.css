@@ -8,9 +8,10 @@
 }
 
 .amt-app {
-  --amt-primary-500: #3b82f6;
-  --amt-primary-600: #2563eb;
-  --amt-primary-700: #1d4ed8;
+  /* 對齊系統深藍 primary token(原為亮藍 #3b82f6 系,與全站斷裂像另一個產品) */
+  --amt-primary-500: var(--primary-500, #3a6ab4);
+  --amt-primary-600: var(--primary-600, #2852a0);
+  --amt-primary-700: var(--primary-700, #1e4084);
   --amt-surface-50: #f8fafc;
   --amt-surface-100: #f1f5f9;
   --amt-surface-200: #e2e8f0;

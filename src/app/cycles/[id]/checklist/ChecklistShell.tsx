@@ -288,7 +288,7 @@ export default function ChecklistShell({
               <span className="ml-2 text-caption text-neutral-500">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
-          <Tooltip content="快捷鍵：j/k 移動 · Enter 展開 · 1/2/3/4 選符合度">
+          <Tooltip content="快捷鍵：j/k 移動聚焦 · Enter 展開 · 1-4 對聚焦題選符合度">
             <span className="kbd">?</span>
           </Tooltip>
         </div>

@@ -178,7 +178,7 @@ export default async function DeficienciesPage({
                             const status = (d.action?.status ?? 'PENDING') as ActionStatus;
                             const round = d.action?.round ?? 1;
                             return (
-                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`}>
+                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="block focus-ring rounded-md">
                                 <Card interactive padded={false}>
                                   <div className="flex items-center gap-4 p-4 sm:p-5">
                                     <span className="w-9 h-9 rounded-md bg-surface-container flex items-center justify-center text-title text-on-surface-variant tabular-nums shrink-0">

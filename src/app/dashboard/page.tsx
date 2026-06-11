@@ -217,7 +217,7 @@ export default async function HomePage() {
                   const next = nextActionForRole(user.role, e);
                   return (
                     <div key={c.id} className="group rounded-md border border-outline-variant hover:border-outline transition-colors">
-                      <Link href={`/cycles/${c.id}`} className="block p-4 pb-3 hover:bg-surface-container transition-colors rounded-t-md">
+                      <Link href={`/cycles/${c.id}`} className="block p-4 pb-3 hover:bg-surface-container transition-colors rounded-t-md focus-ring">
                         <div className="flex items-center justify-between gap-3 mb-3">
                           <p className="text-body-sm font-medium text-on-surface truncate">
                             {c.year - 1911} 年度 · {c.organization.name}

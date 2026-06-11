@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
-import { Upload, FileText, Check } from '@/components/icons';
+import { FileText, Check } from '@/components/icons';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
 
 type Item = {
   id: string;
@@ -120,11 +121,14 @@ export default function SignedReportPanel({
         )}
 
         {canUpload && (
-          <label className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors w-fit">
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={upload} disabled={busy} />
-            <Upload size={14} />
-            <span className="text-body-sm">{busy ? '處理中…' : '+ 上傳掃描檔'}</span>
-          </label>
+          <FileUploadButton
+            className="w-fit"
+            label="+ 上傳掃描檔"
+            busyLabel="處理中…"
+            busy={busy}
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={upload}
+          />
         )}
         {canUpload && (
           <p className="text-caption text-on-surface-variant -mt-1">單檔 ≤ 20MB;限 PDF 或圖片(PNG/JPG)</p>

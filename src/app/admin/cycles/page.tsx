@@ -7,6 +7,8 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
+import { FilterChipLink } from '@/components/ui/FilterChip';
 import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { ActionStatus, CycleStatus } from '@/lib/types';
@@ -65,39 +67,24 @@ export default async function AdminCyclesPage({
             versions={versions}
             defaultYear={defaultYear}
           />
-          <a href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}>
-            <Button size="sm" variant="tonal">下載彙整表(Excel)</Button>
-          </a>
+          <Button
+            size="sm"
+            variant="tonal"
+            href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
+          >
+            下載彙整表(Excel)
+          </Button>
         </div>
       </header>
 
       {/* 年度篩選 */}
       {years.length > 1 && (
         <div className="mb-5 flex items-center gap-2 flex-wrap">
-          <Link
-            href="/admin/cycles"
-            className={
-              'inline-flex items-center h-9 px-4 rounded-full border text-body-sm transition-colors focus-ring ' +
-              (!yearFilter
-                ? 'bg-primary-600 text-white border-primary-600'
-                : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline')
-            }
-          >
-            全部年度
-          </Link>
+          <FilterChipLink href="/admin/cycles" selected={!yearFilter}>全部年度</FilterChipLink>
           {years.map((y) => (
-            <Link
-              key={y}
-              href={`/admin/cycles?year=${y}`}
-              className={
-                'inline-flex items-center h-9 px-4 rounded-full border text-body-sm tabular-nums transition-colors focus-ring ' +
-                (yearFilter === y
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline')
-              }
-            >
-              {y - 1911} 年度
-            </Link>
+            <FilterChipLink key={y} href={`/admin/cycles?year=${y}`} selected={yearFilter === y}>
+              <span className="tabular-nums">{y - 1911} 年度</span>
+            </FilterChipLink>
           ))}
         </div>
       )}
@@ -112,6 +99,7 @@ export default async function AdminCyclesPage({
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -169,6 +157,7 @@ export default async function AdminCyclesPage({
               })}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

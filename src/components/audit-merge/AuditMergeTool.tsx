@@ -479,7 +479,7 @@ export function AuditMergeTool() {
         {/* 頂部導航列 */}
         <header className="glass-header text-slate-800 p-3 flex flex-wrap justify-between items-center gap-3 shrink-0 z-20 relative">
           <div className="flex items-center gap-3 ml-2">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-1.5 rounded-lg text-white font-bold text-xs shadow-md">Audit</div>
+            <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-1.5 rounded-lg text-white font-bold text-xs shadow-md">Audit</div>
             <div>
               <h1 className="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">稽核報告彙整工具</h1>
               <div className="flex items-center gap-2 mt-0.5">

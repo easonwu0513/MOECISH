@@ -261,7 +261,7 @@ function ModuleTile({
   }[tone];
 
   return (
-    <Link href={href}>
+    <Link href={href} className="block focus-ring rounded-md">
       <Card interactive>
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>

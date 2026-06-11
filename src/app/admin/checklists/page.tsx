@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
 import { ClipboardCheck } from '@/components/icons';
 import VersionActions from './VersionActions';
 
@@ -45,6 +46,7 @@ export default async function ChecklistVersionsPage() {
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -85,6 +87,7 @@ export default async function ChecklistVersionsPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

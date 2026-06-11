@@ -5,6 +5,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
 import { Briefcase, Plus, ChevronRight } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
@@ -49,6 +50,7 @@ export default async function OrganizationsPage() {
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -95,6 +97,7 @@ export default async function OrganizationsPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

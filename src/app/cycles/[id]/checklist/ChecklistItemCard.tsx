@@ -9,7 +9,8 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Textarea } from '@/components/ui/Textarea';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
-import { Paperclip, Upload, ChevronDown } from '@/components/icons';
+import { Paperclip, ChevronDown } from '@/components/icons';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
 import { TOAST } from '@/lib/copy';
 import { LawPanel } from '@/components/checklist/LawBasis';
@@ -99,9 +100,10 @@ export default function ChecklistItemCard({
     }
   }
 
-  // keyboard 1/2/3/4 to select compliance when expanded
+  // keyboard 1/2/3/4:只作用在「聚焦中」的展開卡片
+  // (原本只看 expanded — 多卡同時展開時按一次會全部一起改)
   useEffect(() => {
-    if (!expanded || !canEdit) return;
+    if (!expanded || !canEdit || !focused) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
@@ -114,7 +116,8 @@ export default function ChecklistItemCard({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [expanded, canEdit, description]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, canEdit, focused, description, recordDocs]);
 
   const tabs: Tab[] = [
     {
@@ -421,11 +424,7 @@ function EvidenceBlock({
         </ul>
       )}
       {canEdit && (
-        <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-white border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-          <input type="file" className="hidden" onChange={onUpload} disabled={uploading} />
-          <Upload size={14} />
-          <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳紀錄佐證'}</span>
-        </label>
+        <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} />
       )}
     </div>
   );

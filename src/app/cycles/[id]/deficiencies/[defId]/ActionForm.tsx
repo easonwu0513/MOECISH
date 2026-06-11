@@ -11,7 +11,8 @@ import { TextField } from '@/components/ui/TextField';
 import { Timeline, type TimelineNode } from '@/components/ui/Timeline';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
-import { Check, AlertTriangle, Paperclip, Upload } from '@/components/icons';
+import { Check, AlertTriangle, Paperclip, X } from '@/components/icons';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, type ActionStatus, type ExecStatus } from '@/lib/types';
 import { TOAST } from '@/lib/copy';
 
@@ -131,15 +132,18 @@ export default function ActionForm({
     setAutoSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
   };
 
-  // 佐證
+  // 佐證(載入中顯示骨架,避免先閃「尚未上傳」誤導委員)
   const [evidences, setEvidences] = useState<{ id: string; originalName: string }[]>([]);
+  const [evLoading, setEvLoading] = useState(!!action);
   const [uploading, setUploading] = useState(false);
   useEffect(() => {
     if (!action) return;
+    setEvLoading(true);
     fetch(`/api/evidences?targetType=CORRECTIVE_ACTION&targetId=${action.id}`)
       .then((r) => r.json())
       .then((j) => setEvidences(j.items ?? []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setEvLoading(false));
   }, [action?.id]);
 
   const exec = execStatus as ExecStatus | '';
@@ -489,7 +493,12 @@ export default function ActionForm({
           {action && (
             <div>
               <p className="text-label text-on-surface mb-2">佐證文件</p>
-              {evidences.length === 0 ? (
+              {evLoading ? (
+                <div className="mb-2 space-y-1.5" aria-label="佐證載入中">
+                  <div className="h-4 w-48 rounded bg-surface-container-high animate-pulse" />
+                  <div className="h-4 w-36 rounded bg-surface-container-high animate-pulse" />
+                </div>
+              ) : evidences.length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant mb-2">尚未上傳</p>
               ) : (
                 <ul className="mb-2 space-y-1">
@@ -509,10 +518,11 @@ export default function ActionForm({
                         <button
                           type="button"
                           onClick={() => removeEvidence(f.id, f.originalName)}
-                          className="text-caption text-on-surface-variant hover:text-danger-600 transition-colors px-1 focus-ring rounded-sm"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                          aria-label={`刪除佐證 ${f.originalName}`}
                           title="刪除這個佐證檔"
                         >
-                          ✕
+                          <X size={14} />
                         </button>
                       )}
                     </li>
@@ -521,18 +531,13 @@ export default function ActionForm({
               )}
               {editable && (
                 <>
-                  <label className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={upload}
-                      disabled={uploading}
-                      multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
-                    />
-                    <Upload size={14} />
-                    <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳佐證(可多選)'}</span>
-                  </label>
+                  <FileUploadButton
+                    label="+ 上傳佐證(可多選)"
+                    busy={uploading}
+                    onChange={upload}
+                    multiple
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                  />
                   <p className="mt-1.5 text-caption text-on-surface-variant">
                     單檔 ≤ 20MB;支援 PDF、Word/Excel/PPT、圖片、ZIP
                   </p>
@@ -550,13 +555,18 @@ export default function ActionForm({
               <Button loading={saving} onClick={() => setSubmitOpen(true)}>
                 送出審核
               </Button>
-              <span className="text-caption text-on-surface-variant">
-                {dirty
-                  ? '有未儲存變更(30 秒內自動儲存)'
-                  : autoSavedAt
-                  ? `已自動儲存 ${autoSavedAt}`
-                  : ''}
-              </span>
+              {/* 儲存狀態:dirty=琥珀點、saved=綠勾 — 核心安全感訊號要看得見 */}
+              {dirty ? (
+                <span className="inline-flex items-center gap-1.5 text-caption text-warning-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning-500 shrink-0" aria-hidden />
+                  未儲存(30 秒內自動儲存)
+                </span>
+              ) : autoSavedAt ? (
+                <span className="inline-flex items-center gap-1.5 text-caption text-success-700">
+                  <Check size={13} className="shrink-0" />
+                  已自動儲存 {autoSavedAt}
+                </span>
+              ) : null}
             </div>
           )}
         </div>
