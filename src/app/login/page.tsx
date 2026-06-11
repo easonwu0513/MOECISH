@@ -2,12 +2,13 @@
 
 import { signIn } from 'next-auth/react';
 import { useState, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Chip } from '@/components/ui/Chip';
-import { AlertCircle, Shield } from '@/components/icons';
+import { AlertCircle, ChevronLeft, Shield } from '@/components/icons';
 
 const demoAccounts = [
   { email: 'admin@demo.tw',   label: '最高管理員', tone: 'primary' as const },
@@ -48,6 +49,15 @@ function LoginForm() {
         }}
         aria-hidden
       />
+
+      {/* 回前台 */}
+      <Link
+        href="/"
+        className="absolute top-5 left-5 sm:top-7 sm:left-7 inline-flex items-center gap-1 h-10 pl-2.5 pr-4 rounded-full text-body-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
+      >
+        <ChevronLeft size={16} />
+        回前台網站
+      </Link>
 
       <div className="relative w-full max-w-[440px]">
         {/* Brand */}
