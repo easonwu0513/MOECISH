@@ -173,18 +173,18 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/prep`}
         />
         <ModuleTile
-          icon={<AlertTriangle size={22} />}
-          tone="primary"
-          title="缺失與矯正管考"
-          desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
-          href={`/cycles/${cycle.id}/deficiencies`}
-        />
-        <ModuleTile
           icon={<ClipboardCheck size={22} />}
           tone="primary"
           title="資通安全檢核表"
           desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
+        />
+        <ModuleTile
+          icon={<AlertTriangle size={22} />}
+          tone="primary"
+          title="缺失與矯正管考"
+          desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
+          href={`/cycles/${cycle.id}/deficiencies`}
         />
       </section>
 
@@ -261,8 +261,8 @@ function ModuleTile({
   }[tone];
 
   return (
-    <Link href={href} className="block focus-ring rounded-md">
-      <Card interactive>
+    <Link href={href} className="block h-full focus-ring rounded-md">
+      <Card interactive className="h-full">
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
             {icon}

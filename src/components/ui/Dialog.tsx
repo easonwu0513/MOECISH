@@ -27,6 +27,11 @@ export function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
+  // 用 ref 穩住 onOpenChange,避免父元件每次 render 產生新 callback 導致
+  // 本 effect 重跑、初始焦點被搶回第一個欄位(會中斷中文輸入法組字)。
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
   useEffect(() => {
     if (!open) return;
 
@@ -41,13 +46,13 @@ export function Dialog({
         ) ?? [],
       );
 
-    // 初始焦點:第一個可聚焦元素,否則面板本身
+    // 初始焦點:第一個可聚焦元素,否則面板本身(只在開啟當下執行一次)
     const first = focusables()[0];
     (first ?? panel)?.focus();
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onOpenChange(false);
+        onOpenChangeRef.current(false);
         return;
       }
       // 焦點陷阱:Tab 在面板內循環,不跑到背景頁面
@@ -72,7 +77,7 @@ export function Dialog({
       document.body.style.overflow = '';
       restoreFocusRef.current?.focus?.();
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open) return null;
 
