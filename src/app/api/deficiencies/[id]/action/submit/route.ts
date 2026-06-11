@@ -4,6 +4,8 @@ import { assertDeficiencyAccess, AuthError } from '@/lib/rbac';
 import { actionEditable } from '@/lib/state-machine';
 import type { ActionStatus, ExecStatus } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyAuditorsOnSubmit } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 /** 機關管理員提交矯正措施送審（驗證必填欄位） */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -59,6 +61,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       after: { status: 'SUBMITTED', round: action.round },
       ...meta,
     });
+
+    // 通知受指派委員有件待審(寄信失敗不影響送審結果)
+    try {
+      await notifyAuditorsOnSubmit({ deficiencyId: deficiency.id, appBaseUrl: appBaseUrl(req) });
+    } catch (e) {
+      console.error('notifyAuditorsOnSubmit failed:', e);
+    }
 
     return NextResponse.json({ item: updated });
   } catch (e) {

@@ -247,6 +247,7 @@ model ReviewRecord {
   round     Int
   decision  String   // ReviewDecisionValue: PASS | RETURN
   comment   String?
+  snapshot  String?  // 審查當下機關填報內容快照(JSON 字串,多輪比對用)
   auditorId String
   decidedAt DateTime @default(now())
 

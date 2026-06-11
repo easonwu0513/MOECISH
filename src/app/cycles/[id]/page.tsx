@@ -16,6 +16,7 @@ import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
+import EditCycleDialog from './EditCycleDialog';
 
 export default async function CyclePage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -75,9 +76,19 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             {' '}· 矯正截止 {new Date(cycle.dueDate).toLocaleDateString('zh-TW')}
           </p>
         </div>
-        <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="md" dot>
-          {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-        </Chip>
+        <div className="flex items-center gap-2 flex-wrap">
+          {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+            <EditCycleDialog
+              cycleId={cycle.id}
+              dueDate={cycle.dueDate.toISOString()}
+              prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+              onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+            />
+          )}
+          <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="md" dot>
+            {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+          </Chip>
+        </div>
       </header>
 
       {/* 流程位置 + 下一步 */}

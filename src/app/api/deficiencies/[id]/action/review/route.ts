@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess, AuthError } from '@/lib/rbac';
 import { REVIEW_DECISIONS } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyOrgOnReturn, notifyOrgAllPassed } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({
   decision: z.enum(REVIEW_DECISIONS),
@@ -28,6 +30,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '退回補正必須填寫理由' }, { status: 400 });
     }
 
+    // 快照本輪審查當下的填報內容(多輪比對用)
+    const snapshot = JSON.stringify({
+      rootCause: action.rootCause,
+      measureStrategy: action.measureStrategy,
+      measureManagement: action.measureManagement,
+      measureTechnical: action.measureTechnical,
+      plannedDate: action.plannedDate,
+      trackingMethod: action.trackingMethod,
+      execStatus: action.execStatus,
+      actualDate: action.actualDate,
+      extendedDate: action.extendedDate,
+      delayReason: action.delayReason,
+    });
+
     const [, updated] = await prisma.$transaction([
       prisma.reviewRecord.create({
         data: {
@@ -35,6 +51,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           round: action.round,
           decision: body.decision,
           comment: body.comment?.trim() || null,
+          snapshot,
           auditorId: user.id,
         },
       }),
@@ -57,6 +74,32 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       after: { status: updated.status, round: updated.round },
       ...meta,
     });
+
+    // 通知機關(寄信失敗不影響審查結果)
+    try {
+      const base = appBaseUrl(req);
+      if (body.decision === 'RETURN') {
+        await notifyOrgOnReturn({
+          deficiencyId: deficiency.id,
+          comment: body.comment!.trim(),
+          round: action.round,
+          appBaseUrl: base,
+        });
+      } else {
+        // 通過後若全數通過 → 通知機關列印用印
+        const notPassed = await prisma.deficiency.count({
+          where: {
+            cycleId: deficiency.cycleId,
+            OR: [{ action: null }, { action: { status: { not: 'PASSED' } } }],
+          },
+        });
+        if (notPassed === 0) {
+          await notifyOrgAllPassed({ cycleId: deficiency.cycleId, appBaseUrl: base });
+        }
+      }
+    } catch (e) {
+      console.error('review notify failed:', e);
+    }
 
     return NextResponse.json({ item: updated });
   } catch (e) {

@@ -153,6 +153,18 @@ export default function PrepBoard({
     e.target.value = '';
   }
 
+  async function removeFile(id: string, name: string) {
+    if (!window.confirm(`確定刪除「${name}」?刪除後無法復原。`)) return;
+    const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      toast.success('已刪除檔案', name);
+      router.refresh();
+    } else {
+      const j = await res.json().catch(() => ({ error: '刪除失敗' }));
+      toast.error('刪除失敗', j.error);
+    }
+  }
+
   async function review(subId: string, status: 'CONFIRMED' | 'INSUFFICIENT', note?: string) {
     setBusyItemId(subId);
     const res = await fetch(`/api/prep-submissions/${subId}`, {
@@ -231,7 +243,7 @@ export default function PrepBoard({
                       {files.length > 0 && (
                         <ul className="mt-3 space-y-1">
                           {files.map((f) => (
-                            <li key={f.id}>
+                            <li key={f.id} className="flex items-center gap-2">
                               <a
                                 className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
                                 href={`/api/evidences/${f.id}/download?inline=1`}
@@ -244,6 +256,16 @@ export default function PrepBoard({
                                   ({Math.round(f.sizeBytes / 1024)} KB)
                                 </span>
                               </a>
+                              {orgCanEdit && status !== 'CONFIRMED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeFile(f.id, f.originalName)}
+                                  className="text-caption text-on-surface-variant hover:text-danger-600 transition-colors px-1 focus-ring rounded-sm"
+                                  title="刪除這個檔案"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>

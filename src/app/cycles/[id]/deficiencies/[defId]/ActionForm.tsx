@@ -20,9 +20,46 @@ type Review = {
   round: number;
   decision: string;
   comment: string | null;
+  snapshot: string | null;
   decidedAt: string;
   auditorName: string;
 };
+
+/** 渲染某輪審查當下的填報快照(多輪比對用) */
+function SnapshotDetails({ snapshot }: { snapshot: string }) {
+  let s: Record<string, string | null>;
+  try {
+    s = JSON.parse(snapshot);
+  } catch {
+    return null;
+  }
+  const rows: { label: string; value: string | null }[] = [
+    { label: '發生原因', value: s.rootCause },
+    { label: '策略面', value: s.measureStrategy },
+    { label: '管理面', value: s.measureManagement },
+    { label: '技術面', value: s.measureTechnical },
+    { label: '預計完成', value: s.plannedDate ? String(s.plannedDate).slice(0, 10) : null },
+    { label: '追蹤方式', value: s.trackingMethod },
+    { label: '執行情形', value: s.execStatus ? EXEC_STATUS_LABELS[s.execStatus as ExecStatus] ?? s.execStatus : null },
+    { label: '逾期原因', value: s.delayReason },
+  ].filter((r) => r.value);
+  if (rows.length === 0) return null;
+  return (
+    <details className="mt-1.5">
+      <summary className="text-caption text-primary-700 cursor-pointer hover:underline select-none">
+        檢視該輪填報內容
+      </summary>
+      <dl className="mt-1.5 rounded-sm bg-surface-container p-2.5 space-y-1">
+        {rows.map((r) => (
+          <div key={r.label} className="text-caption leading-relaxed">
+            <dt className="inline font-medium text-on-surface">{r.label}:</dt>{' '}
+            <dd className="inline text-on-surface-variant whitespace-pre-wrap">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
 
 type ActionData = {
   id: string;
@@ -240,6 +277,18 @@ export default function ActionForm({
     e.target.value = '';
   }
 
+  async function removeEvidence(id: string, name: string) {
+    if (!window.confirm(`確定刪除佐證「${name}」?刪除後無法復原。`)) return;
+    const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setEvidences((prev) => prev.filter((f) => f.id !== id));
+      toast.success('已刪除佐證', name);
+    } else {
+      const j = await res.json().catch(() => ({ error: '刪除失敗' }));
+      toast.error('刪除失敗', j.error);
+    }
+  }
+
   // ── 審查歷程 timeline ──
   const status = action?.status ?? 'PENDING';
   const timelineNodes: TimelineNode[] = (action?.reviews ?? []).map((r) => ({
@@ -255,7 +304,12 @@ export default function ActionForm({
       </>
     ),
     meta: new Date(r.decidedAt).toLocaleString('zh-TW'),
-    body: r.comment ? <p className="whitespace-pre-wrap">{r.comment}</p> : null,
+    body: (
+      <>
+        {r.comment && <p className="whitespace-pre-wrap">{r.comment}</p>}
+        {r.snapshot && <SnapshotDetails snapshot={r.snapshot} />}
+      </>
+    ),
   }));
   if (status !== 'PASSED') {
     timelineNodes.push({
@@ -440,7 +494,7 @@ export default function ActionForm({
               ) : (
                 <ul className="mb-2 space-y-1">
                   {evidences.map((f) => (
-                    <li key={f.id}>
+                    <li key={f.id} className="flex items-center gap-2">
                       <a
                         className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
                         href={`/api/evidences/${f.id}/download?inline=1`}
@@ -451,6 +505,16 @@ export default function ActionForm({
                         <Paperclip size={14} />
                         {f.originalName}
                       </a>
+                      {editable && (
+                        <button
+                          type="button"
+                          onClick={() => removeEvidence(f.id, f.originalName)}
+                          className="text-caption text-on-surface-variant hover:text-danger-600 transition-colors px-1 focus-ring rounded-sm"
+                          title="刪除這個佐證檔"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -17,6 +17,7 @@ import {
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
+import AdminDefActions from './AdminDefActions';
 
 export default async function DeficiencyDetailPage({
   params,
@@ -135,6 +136,19 @@ export default async function DeficiencyDetailPage({
             )}
           </p>
         </div>
+        {/* 機關尚未開始填報時,管理員可修正/刪除缺失 */}
+        {user.role === 'SUPER_ADMIN' && status === 'PENDING' && cycle.status !== 'CLOSED' && (
+          <AdminDefActions
+            deficiencyId={deficiency.id}
+            cycleId={cycle.id}
+            initial={{
+              aspect: deficiency.aspect as DeficiencyAspect,
+              type: deficiency.type as DeficiencyType,
+              description: deficiency.description,
+              checklistRef: deficiency.checklistRef,
+            }}
+          />
+        )}
       </header>
 
       {/* 缺失原文 */}
@@ -212,6 +226,7 @@ export default async function DeficiencyDetailPage({
                   round: r.round,
                   decision: r.decision,
                   comment: r.comment,
+                  snapshot: r.snapshot,
                   decidedAt: r.decidedAt.toISOString(),
                   auditorName: reviewerName.get(r.auditorId) ?? '稽核委員',
                 })),
