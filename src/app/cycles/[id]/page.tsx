@@ -163,8 +163,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </Card>
       </section>
 
-      {/* 模組入口 */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      {/* 模組入口(委員/管理員多一張「實地稽核」) */}
+      <section
+        className={`grid grid-cols-1 gap-5 mb-8 ${
+          user.role === 'ORG_ADMIN' ? 'md:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'
+        }`}
+      >
         <ModuleTile
           icon={<FileText size={22} />}
           tone="sage"
@@ -179,6 +183,15 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
         />
+        {user.role !== 'ORG_ADMIN' && (
+          <ModuleTile
+            icon={<Eye size={22} />}
+            tone="sage"
+            title="實地稽核評分與發現"
+            desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
+            href={`/cycles/${cycle.id}/audit`}
+          />
+        )}
         <ModuleTile
           icon={<AlertTriangle size={22} />}
           tone="primary"

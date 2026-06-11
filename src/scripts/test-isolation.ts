@@ -129,6 +129,8 @@ async function cleanup() {
   const cycleIds = cycles.map((c) => c.id);
 
   await prisma.checklistResponse.deleteMany({ where: { cycleId: { in: cycleIds } } });
+  await prisma.auditScore.deleteMany({ where: { cycleId: { in: cycleIds } } });
+  await prisma.auditFinding.deleteMany({ where: { cycleId: { in: cycleIds } } });
   const defs = await prisma.deficiency.findMany({ where: { cycleId: { in: cycleIds } }, select: { id: true } });
   await prisma.correctiveAction.deleteMany({ where: { deficiencyId: { in: defs.map((d) => d.id) } } });
   await prisma.deficiency.deleteMany({ where: { cycleId: { in: cycleIds } } });
@@ -225,6 +227,17 @@ async function main() {
   console.log('\n── 流程閉環行為(P2)──');
   await expectStatus('A管理員 未全答即送出', jarA, 'POST', `/api/cycles/${cycleA.id}/checklist/submit`, [400]);
   await expectStatus('委員Y 未送出即退回', jarY, 'POST', `/api/cycles/${cycleA.id}/checklist/reopen`, [409], { reason: 'x' });
+
+  console.log('\n── 實地稽核模組(評分/發現/轉換)──');
+  const scoreBody = { scores: [{ dimension: 'CORE_BUSINESS', score: 9 }] };
+  const findingBody = { aspect: 'STRATEGY', kind: 'IMPROVE', content: '隔離測試發現內容' };
+  await expectAllowed('指派委員Y 評分A週期', jarY, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, scoreBody);
+  await expectAllowed('指派委員Y 新增A發現', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/findings`, findingBody);
+  await expectStatus('未指派委員X 評分A週期', jarX, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
+  await expectStatus('未指派委員X 開A稽核頁(redirect)', jarX, 'GET', `/cycles/${cycleA.id}/audit`, REDIRECTED);
+  await expectStatus('B管理員 評分A週期(非委員)', jarB, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
+  await expectStatus('B管理員 轉入缺失(非最高管理員)', jarB, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
+  await expectStatus('委員Y 轉入缺失(非最高管理員)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
 
   console.log('\n[isolation] 清理夾具…');
   await cleanup();

@@ -40,6 +40,8 @@ model User {
   createdAt      DateTime @default(now())
 
   auditorAssignments AuditorAssignment[]
+  auditScores        AuditScore[]
+  auditFindings      AuditFinding[]
   cycleTransitions   CycleStateTransition[]
   auditLogs          AuditLog[]
 }
@@ -126,10 +128,50 @@ model AuditCycle {
   prepRequirements PrepRequirement[]
   stateTransitions CycleStateTransition[]
   assignments      AuditorAssignment[]
+  auditScores      AuditScore[]
+  auditFindings    AuditFinding[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@unique([organizationId, year])
+}
+
+// ════════════════════════════════════════════
+// 實地稽核(附件17):委員評分 + 稽核發現
+// ════════════════════════════════════════════
+
+// 委員實地稽核評分:每委員 × 每週期 × 九稽核項目(= 檢核表九構面)一筆
+model AuditScore {
+  id        String @id @default(cuid())
+  cycleId   String
+  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
+  auditorId String
+  auditor   User @relation(fields: [auditorId], references: [id])
+  dimension String   // Dimension(一~九,七配分 20 其餘 10)
+  score     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cycleId, auditorId, dimension])
+  @@index([cycleId])
+}
+
+// 委員稽核發現(稽核當天逐條輸入;自動彙整;待改善/建議可一鍵轉入缺失管考)
+model AuditFinding {
+  id           String @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id])
+  auditorId    String
+  auditor      User @relation(fields: [auditorId], references: [id])
+  aspect       String   // STRATEGY | MANAGEMENT | TECHNICAL
+  kind         String   // COMPLIANCE(法遵符合)| IMPROVE(待改善)| SUGGEST(建議)
+  content      String
+  checklistRef String?  // 對應檢核項次(選填,如 "7.4")
+  deficiencyId String?  // 轉入缺失管考後回填(鎖定編輯)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([cycleId, aspect, kind])
 }
 
 model AuditorAssignment {
