@@ -64,11 +64,11 @@ export default async function AuditLogPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '審計軌跡' }]}
+      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '稽核軌跡' }]}
     >
       <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-headline text-on-surface">審計軌跡</h1>
+          <h1 className="text-headline text-on-surface">稽核軌跡</h1>
           <p className="mt-1 text-body-sm text-on-surface-variant">
             所有寫入操作之不可否認紀錄;顯示最近 200 筆。
           </p>

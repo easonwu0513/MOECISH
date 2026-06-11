@@ -43,7 +43,7 @@ export function AppShell({
     ...(user.role === 'SUPER_ADMIN'
       ? [
           { id: 'users', group: '管理', label: '使用者管理', icon: <Users size={16} />, action: () => router.push('/admin/users') } as Command,
-          { id: 'audit-log', group: '管理', label: '審計軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
+          { id: 'audit-log', group: '管理', label: '稽核軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
         ]
       : []),
     { id: 'logout', group: '帳號', label: '登出', icon: <LogOut size={16} />, action: () => signOut({ callbackUrl: '/login' }) },

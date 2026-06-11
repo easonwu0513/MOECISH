@@ -44,7 +44,7 @@ const groups: Group[] = [
       { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/posts', label: '公告管理', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/emails', label: 'Email', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/audit-log', label: '審計軌跡', icon: <History size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR'] },
+      { href: '/admin/audit-log', label: '稽核軌跡', icon: <History size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR'] },
     ],
   },
 ];
