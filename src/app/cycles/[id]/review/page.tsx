@@ -9,6 +9,7 @@ import { ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { COMPLIANCE_LABELS, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
+import { LawPanel } from '@/components/checklist/LawBasis';
 import CommentForm from './CommentForm';
 
 const complianceTone: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -116,8 +117,31 @@ export default async function ReviewPage({ params }: { params: { id: string } })
                         </div>
                         {r?.description && (
                           <div className="mt-3 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-neutral-700 whitespace-pre-wrap">
+                            <p className="text-caption font-medium text-neutral-500 mb-1">機關說明(規範內容、執行方式、執行結果)</p>
                             {r.description}
                           </div>
+                        )}
+                        {r?.recordDocs && (
+                          <div className="mt-2 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-neutral-700 whitespace-pre-wrap">
+                            <p className="text-caption font-medium text-neutral-500 mb-1">紀錄文件</p>
+                            {r.recordDocs}
+                          </div>
+                        )}
+
+                        {/* 法規對照:委員審查時即時對照稽核依據 */}
+                        {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
+                          <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
+                            <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
+                              法規對照(稽核依據・稽核重點・佐證資料)
+                            </summary>
+                            <div className="px-3 pb-3 pt-1 bg-white">
+                              <LawPanel
+                                auditBasis={item.auditBasis}
+                                auditFocus={item.auditFocus}
+                                expectedEvidence={item.expectedEvidence}
+                              />
+                            </div>
+                          </details>
                         )}
 
                         {r && r.comments.length > 0 && (

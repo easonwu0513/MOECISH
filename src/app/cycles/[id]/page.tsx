@@ -181,9 +181,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
-          tone="neutral"
-          title="檢核表（選用）"
-          desc="83 題線上檢核表填報。本年度以檔案上傳為主，此模組備而不用。"
+          tone="primary"
+          title="資通安全檢核表"
+          desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
         />
       </section>

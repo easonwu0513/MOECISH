@@ -38,6 +38,9 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     content: i.content,
     dimension: i.dimension as Dimension,
     orderIndex: i.orderIndex,
+    auditBasis: i.auditBasis,
+    auditFocus: i.auditFocus,
+    expectedEvidence: i.expectedEvidence,
   }));
 
   const responses = cycle.responses.map((r) => ({
@@ -45,6 +48,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     checklistItemId: r.checklistItemId,
     compliance: r.compliance as ('COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NON_COMPLIANT' | 'NOT_APPLICABLE' | null),
     description: r.description,
+    recordDocs: r.recordDocs,
     version: r.version,
     comments: r.comments.map((c) => ({
       id: c.id,
@@ -67,14 +71,14 @@ export default async function ChecklistPage({ params }: { params: { id: string }
       crumbs={[
         { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
-        { label: '模組一 · 檢核表' },
+        { label: '檢核表填報' },
       ]}
     >
       <header className="mb-5">
-        <h1 className="text-headline text-neutral-900">模組一　檢核表填報</h1>
+        <h1 className="text-headline text-neutral-900">資通安全檢核表填報</h1>
         <p className="text-body-sm text-neutral-500 mt-1">
-          {cycle.organization.name} · 共 {cycle.checklistVersion.items.length} 題 ·{' '}
-          {canEdit ? '填寫中' : `目前狀態不可編輯（${cycle.status}）`}
+          {cycle.organization.name} · {cycle.checklistVersion.name} · 共 {cycle.checklistVersion.items.length} 題 ·{' '}
+          {canEdit ? '填寫中(每題可展開「法規對照」查看稽核依據與應備文件)' : '目前狀態為唯讀'}
         </p>
       </header>
 

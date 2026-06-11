@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +9,9 @@ import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Search, X, ChevronDown, ChevronUp } from '@/components/icons';
+import { ConfirmDialog } from '@/components/ui/Dialog';
+import { useToast } from '@/components/ui/Toast';
+import { Search, X, ChevronDown, ChevronUp, Check } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import type { ComplianceLevel, Dimension } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
@@ -20,6 +23,9 @@ export type ClientItem = {
   content: string;
   dimension: Dimension;
   orderIndex: number;
+  auditBasis: string | null;
+  auditFocus: string | null;
+  expectedEvidence: string | null;
 };
 
 export type ClientResponse = {
@@ -27,6 +33,7 @@ export type ClientResponse = {
   checklistItemId: string;
   compliance: ComplianceLevel | null;
   description: string | null;
+  recordDocs: string | null;
   version: number;
   comments: {
     id: string;
@@ -68,11 +75,31 @@ export default function ChecklistShell({
     return m;
   }, [responses]);
 
+  const router = useRouter();
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // 一鍵將未作答全部標為符合(之後逐題調整例外)
+  async function bulkCompliant() {
+    setBulkBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, { method: 'POST' });
+    setBulkBusy(false);
+    setBulkOpen(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '操作失敗' }));
+      toast.error('操作失敗', j.error);
+      return;
+    }
+    const j = await res.json();
+    toast.success('已批次標記', `${j.updated} 題標為「符合」;請逐題確認並調整例外。`);
+    router.refresh();
+  }
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -177,6 +204,16 @@ export default function ChecklistShell({
 
   return (
     <div ref={containerRef}>
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={(o) => !bulkBusy && setBulkOpen(o)}
+        title="未作答全部標為符合"
+        description={`將把 ${total - filled} 題未作答項目標為「符合」(已作答的不會被覆寫)。之後請逐題確認,把例外調整為部分符合/不符合/不適用。確定執行?`}
+        confirmLabel="全部標為符合"
+        tone="primary"
+        onConfirm={bulkCompliant}
+        loading={bulkBusy}
+      />
       {/* Sticky toolbar */}
       <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-white/95 backdrop-blur-sm border-b border-hairline mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -192,6 +229,11 @@ export default function ChecklistShell({
             />
           </div>
           <div className="flex items-center gap-1 flex-wrap">
+            {canEdit && filled < total && (
+              <Button size="sm" variant="tonal" onClick={() => setBulkOpen(true)} leadingIcon={<Check size={14} />}>
+                未答全標符合
+              </Button>
+            )}
             <span className="text-caption text-on-surface-variant ml-1 mr-1 hidden lg:inline">題目</span>
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
               未作答

@@ -273,12 +273,14 @@ model SignedReport {
 
 model ChecklistVersion {
   id          String   @id @default(cuid())
-  year        Int      @unique
+  year        Int      // 同年度可有多版本(如行政院公務機關版/醫療深度版)
   name        String
   publishedAt DateTime?
   isActive    Boolean  @default(false)
   items       ChecklistItem[]
   cycles      AuditCycle[]
+
+  @@index([year])
 }
 
 model ChecklistItem {
@@ -288,6 +290,10 @@ model ChecklistItem {
   dimension  String
   itemNo     String
   content    String
+  // 法規對照(教育部醫療資安推動中心彙整;逐字法條引錄)
+  auditBasis       String?  // 稽核依據:法規條文逐字
+  auditFocus       String?  // 稽核重點
+  expectedEvidence String?  // 佐證資料(機關應備文件)
   orderIndex Int
   responses  ChecklistResponse[]
 
@@ -302,7 +308,8 @@ model ChecklistResponse {
   checklistItemId String
   checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
   compliance      String?
-  description     String?
+  description     String?  // 簡述規範內容、執行方式、執行結果
+  recordDocs      String?  // 紀錄文件(如規範、紀錄、公文等)
   version         Int      @default(0)
   lastEditorId    String?
   lastEditedAt    DateTime?

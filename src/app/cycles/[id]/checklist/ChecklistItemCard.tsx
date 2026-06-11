@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Paperclip, Upload, ChevronDown } from '@/components/icons';
 import { COMPLIANCE_LABELS, type ComplianceLevel } from '@/lib/types';
 import { TOAST } from '@/lib/copy';
+import { LawPanel } from '@/components/checklist/LawBasis';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
 const complianceColor: Record<ComplianceLevel, string> = {
@@ -46,6 +47,8 @@ export default function ChecklistItemCard({
     (response?.compliance ?? null) as ComplianceLevel | null,
   );
   const [description, setDescription] = useState(response?.description ?? '');
+  const [recordDocs, setRecordDocs] = useState(response?.recordDocs ?? '');
+  const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
   const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;
 
@@ -54,7 +57,7 @@ export default function ChecklistItemCard({
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
-  async function save(nextCompliance = compliance, nextDescription = description) {
+  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs, silent = false) {
     if (!canEdit) return;
     startSaving(async () => {
       const res = await fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
@@ -63,6 +66,7 @@ export default function ChecklistItemCard({
         body: JSON.stringify({
           compliance: nextCompliance,
           description: nextDescription || null,
+          recordDocs: nextRecordDocs || null,
           version: response?.version ?? 0,
         }),
       });
@@ -71,13 +75,21 @@ export default function ChecklistItemCard({
         toast.error('儲存失敗', j.error);
         return;
       }
-      const t = TOAST.savedChecklist(item.itemNo);
-      toast.success(t.title, t.description);
+      setTextDirty(false);
+      if (!silent) {
+        const t = TOAST.savedChecklist(item.itemNo);
+        toast.success(t.title, t.description);
+      }
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
       router.refresh();
     });
+  }
+
+  // 文字欄失焦時靜默自動存(避免切題忘按儲存)
+  function autoSaveOnBlur() {
+    if (textDirty && canEdit) save(compliance, description, recordDocs, true);
   }
 
   async function resolveComment(commentId: string) {
@@ -131,12 +143,22 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="簡述規範內容、執行方式、執行結果紀錄文件"
+            label="簡述規範內容、執行方式、執行結果"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setTextDirty(true); setDescription(e.target.value); }}
+            onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={4}
             placeholder="例：依據本院『資訊安全政策 v3』第 5.2 條，每季進行一次審查…"
+          />
+          <Textarea
+            label="紀錄文件(如規範、紀錄、公文等)"
+            value={recordDocs}
+            onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); }}
+            onBlur={autoSaveOnBlur}
+            disabled={!canEdit}
+            rows={2}
+            placeholder={item.expectedEvidence ? `參考應備文件:${item.expectedEvidence.split('\n')[0]}…` : '例:資訊安全管理程序書、內部稽核報告…'}
           />
           {canEdit && (
             <div className="flex items-center gap-2">
@@ -146,8 +168,24 @@ export default function ChecklistItemCard({
               {justSaved && (
                 <span className="text-success-700 text-body-sm animate-fade-in">✓ 已儲存</span>
               )}
+              {textDirty && !justSaved && (
+                <span className="text-caption text-on-surface-variant">未儲存(離開欄位會自動儲存)</span>
+              )}
             </div>
           )}
+        </div>
+      ),
+    },
+    {
+      id: 'law',
+      label: '法規對照',
+      content: (
+        <div className="py-1">
+          <LawPanel
+            auditBasis={item.auditBasis}
+            auditFocus={item.auditFocus}
+            expectedEvidence={item.expectedEvidence}
+          />
         </div>
       ),
     },
@@ -195,8 +233,10 @@ export default function ChecklistItemCard({
           initialResponseId={response?.id ?? null}
           currentCompliance={compliance}
           currentDescription={description}
+          currentRecordDocs={recordDocs}
           currentVersion={response?.version ?? 0}
           canEdit={canEdit}
+          expectedEvidence={item.expectedEvidence}
         />
       ),
     },
@@ -281,16 +321,20 @@ function EvidenceBlock({
   initialResponseId,
   currentCompliance,
   currentDescription,
+  currentRecordDocs,
   currentVersion,
   canEdit,
+  expectedEvidence,
 }: {
   cycleId: string;
   itemNo: string;
   initialResponseId: string | null;
   currentCompliance: ComplianceLevel | null;
   currentDescription: string;
+  currentRecordDocs: string;
   currentVersion: number;
   canEdit: boolean;
+  expectedEvidence: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -314,6 +358,7 @@ function EvidenceBlock({
       body: JSON.stringify({
         compliance: currentCompliance,
         description: currentDescription || null,
+        recordDocs: currentRecordDocs || null,
         version: currentVersion,
       }),
     });
@@ -362,6 +407,12 @@ function EvidenceBlock({
         <p className="text-label text-neutral-700">紀錄佐證上傳</p>
         <span className="text-caption text-neutral-400">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
       </div>
+      {expectedEvidence && (
+        <div className="mb-3 rounded-sm bg-primary-50/60 border border-primary-100 px-3 py-2">
+          <p className="text-caption font-medium text-primary-800 mb-0.5">本題應備文件參考</p>
+          <p className="text-caption text-primary-800/80 whitespace-pre-wrap leading-relaxed">{expectedEvidence}</p>
+        </div>
+      )}
       {files.length === 0 ? (
         <p className="text-body-sm text-neutral-400 mb-3">尚未上傳任何佐證文件</p>
       ) : (

@@ -8,6 +8,7 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 const Body = z.object({
   compliance: z.enum(COMPLIANCE_LEVELS).nullable(),
   description: z.string().optional().nullable(),
+  recordDocs: z.string().optional().nullable(),
   version: z.number().int().nonnegative(),
 });
 
@@ -49,6 +50,7 @@ export async function PUT(
           data: {
             compliance: body.compliance,
             description: body.description ?? null,
+            recordDocs: body.recordDocs ?? null,
             version: existing.version + 1,
             lastEditorId: user.id,
             lastEditedAt: new Date(),
@@ -60,6 +62,7 @@ export async function PUT(
             checklistItemId: item.id,
             compliance: body.compliance,
             description: body.description ?? null,
+            recordDocs: body.recordDocs ?? null,
             version: 1,
             lastEditorId: user.id,
             lastEditedAt: new Date(),
