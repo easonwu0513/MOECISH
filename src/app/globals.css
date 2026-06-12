@@ -199,8 +199,8 @@ a:focus-visible {
     transition-duration: 0.01ms !important;
   }
   /* 首頁醫療照片輪播:減動態時乾淨停在第一張
-     (0.01ms 會讓 keyframes 跑完停在 opacity:0,med-2/3 永遠隱形 — 明確關閉動畫) */
-  .medfade-b, .medfade-c {
+     (0.01ms 會讓 keyframes 跑完停在 opacity:0,其餘張永遠隱形 — 明確關閉動畫) */
+  .medfade-2, .medfade-3, .medfade-4, .medfade-5, .medfade-6 {
     animation: none !important;
     opacity: 0 !important;
   }

@@ -49,14 +49,13 @@ const CATEGORY_BAR: Record<PostCategory, string> = {
 export default async function LandingPage() {
   const session = await auth();
 
-  const [posts, orgCount, latestVersion] = await Promise.all([
+  const [posts, latestVersion] = await Promise.all([
     prisma.post.findMany({
       where: { status: 'PUBLISHED' },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       take: 6,
       select: { id: true, slug: true, category: true, title: true, contentMd: true, important: true, pinned: true, publishedAt: true },
     }),
-    prisma.organization.count(),
     // 檢核項目題數取題數最完整的題庫版本(對外展示制度規模,非營運數據)
     prisma.checklistVersion.findFirst({
       where: { items: { some: {} } },
@@ -94,11 +93,18 @@ export default async function LandingPage() {
 
       {/* ════ Hero ════ */}
       <section className="relative overflow-hidden">
+        {/* 六張輪播:36s 一輪,每張 ~6s,交疊 1s 淡入淡出;第 1 張常駐底層 */}
         <style>{`
-          @keyframes medfadeB { 0%, 30% { opacity: 0 } 36%, 63% { opacity: 1 } 69%, 100% { opacity: 0 } }
-          @keyframes medfadeC { 0%, 63% { opacity: 0 } 69%, 96% { opacity: 1 } 100% { opacity: 0 } }
-          .medfade-b { animation: medfadeB 18s ease-in-out infinite }
-          .medfade-c { animation: medfadeC 18s ease-in-out infinite }
+          @keyframes medfade2 { 0%, 13.9% { opacity: 0 } 16.7%, 30.5% { opacity: 1 } 33.4%, 100% { opacity: 0 } }
+          @keyframes medfade3 { 0%, 30.5% { opacity: 0 } 33.4%, 47.2% { opacity: 1 } 50.1%, 100% { opacity: 0 } }
+          @keyframes medfade4 { 0%, 47.2% { opacity: 0 } 50.1%, 63.9% { opacity: 1 } 66.8%, 100% { opacity: 0 } }
+          @keyframes medfade5 { 0%, 63.9% { opacity: 0 } 66.8%, 80.5% { opacity: 1 } 83.4%, 100% { opacity: 0 } }
+          @keyframes medfade6 { 0%, 80.5% { opacity: 0 } 83.4%, 97.2% { opacity: 1 } 100% { opacity: 0 } }
+          .medfade-2 { animation: medfade2 36s ease-in-out infinite }
+          .medfade-3 { animation: medfade3 36s ease-in-out infinite }
+          .medfade-4 { animation: medfade4 36s ease-in-out infinite }
+          .medfade-5 { animation: medfade5 36s ease-in-out infinite }
+          .medfade-6 { animation: medfade6 36s ease-in-out infinite }
         `}</style>
         <div
           className="absolute inset-0 pointer-events-none"
@@ -144,14 +150,20 @@ export default async function LandingPage() {
               </ul>
             </div>
 
-            {/* 醫療場景輪播 */}
+            {/* 醫療 × 稽核場景輪播(六張交錯) */}
             <div className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden shadow-elev-3 ring-1 ring-black/10 animate-fade-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/photos/med-1.jpg" alt="醫護人員使用行動裝置" className="absolute inset-0 w-full h-full object-cover" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-2.jpg" alt="醫院服務櫃台" className="medfade-b absolute inset-0 w-full h-full object-cover opacity-0" />
+              <img src="/photos/med-4.jpg" alt="稽核文件審閱與工作底稿" className="medfade-2 absolute inset-0 w-full h-full object-cover opacity-0" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-3.jpg" alt="明亮整潔的病房" className="medfade-c absolute inset-0 w-full h-full object-cover opacity-0" />
+              <img src="/photos/med-2.jpg" alt="醫院服務櫃台" className="medfade-3 absolute inset-0 w-full h-full object-cover opacity-0" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-5.jpg" alt="資料中心機房與伺服器" className="medfade-4 absolute inset-0 w-full h-full object-cover opacity-0" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-3.jpg" alt="明亮整潔的病房" className="medfade-5 absolute inset-0 w-full h-full object-cover opacity-0" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/photos/med-6.jpg" alt="手術團隊協作" className="medfade-6 absolute inset-0 w-full h-full object-cover opacity-0" />
               {/* 底部柔和漸層,確保浮卡可讀 */}
               <div
                 className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
@@ -174,7 +186,8 @@ export default async function LandingPage() {
       {/* ════ 統計帶(制度規模,非營運數據;對外恆穩) ════ */}
       <section className="border-y border-outline-variant/60 bg-surface-container-lowest">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 sm:grid-cols-3 sm:divide-x divide-outline-variant/60 gap-y-8">
-          <Stat value={`${orgCount}`} label="服務醫療機構" sub="教育部所屬大學附設醫院體系" />
+          {/* 制度服務對象固定 9 間(臺大附醫體系 6+成大 2+陽明交大 1),非 DB 筆數 */}
+          <Stat value="9" label="服務醫療機構" sub="教育部所屬大學附設醫院體系" />
           <Stat value="9" label="稽核構面" sub="策略、管理、技術全面涵蓋" />
           <Stat value={`${itemCount}`} label="檢核項目" sub="對齊行政院年度檢核表並附法規對照" />
         </div>
