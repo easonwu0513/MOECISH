@@ -1,0 +1,8 @@
+[Unit]
+Description=MOECISH backup restore verification
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/moecish-restore-test.sh
+SyslogIdentifier=moecish-restore-test

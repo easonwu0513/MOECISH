@@ -1,0 +1,8 @@
+[Unit]
+Description=MOECISH daily backup (DB + uploads)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/moecish-backup.sh
+SyslogIdentifier=moecish-backup

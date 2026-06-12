@@ -6,11 +6,12 @@ import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
+import IdleLogout from './IdleLogout';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
 import {
-  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History,
+  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield,
 } from '../icons';
 
 export function AppShell({
@@ -47,6 +48,7 @@ export function AppShell({
           { id: 'audit-log', group: '管理', label: '稽核軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
         ]
       : []),
+    { id: 'password', group: '帳號', label: '變更密碼', icon: <Shield size={16} />, action: () => router.push('/account/password') },
     { id: 'logout', group: '帳號', label: '登出', icon: <LogOut size={16} />, action: () => signOut({ callbackUrl: '/login' }) },
   ];
 
@@ -82,6 +84,7 @@ export function AppShell({
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
+      <IdleLogout />
     </div>
   );
 }

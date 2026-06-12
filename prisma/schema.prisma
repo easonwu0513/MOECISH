@@ -39,6 +39,13 @@ model User {
   lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
 
+  // 資通系統防護基準(中級)— SECURITY_BASELINE 旗標啟用後生效
+  failedLoginCount   Int       @default(0)   // 連續登入失敗次數(成功即歸零)
+  lockedUntil        DateTime?                // 鎖定截止(失敗 5 次鎖 15 分鐘)
+  passwordChangedAt  DateTime?                // 密碼最後變更時間(效期計算)
+  mustChangePassword Boolean   @default(false) // 強制變更(初始密碼/逾效期)
+  passwordHistory    String?                  // JSON:最近 3 個 bcrypt 雜湊(禁止重用)
+
   auditorAssignments AuditorAssignment[]
   auditScores        AuditScore[]
   auditFindings      AuditFinding[]
@@ -446,8 +453,10 @@ model AuditLog {
   afterJson  String?
   ipAddress  String?
   userAgent  String?
+  chainHash  String?  // 雜湊鏈(防護基準中級:日誌完整性)= sha256(前筆 chainHash + 本筆內容)
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }

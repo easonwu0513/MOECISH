@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CycleStepper } from '@/components/dashboard/CycleStepper';
+import PasswordExpiryNotice from '@/components/shell/PasswordExpiryNotice';
 import {
   ClipboardCheck,
   ChevronRight,
@@ -139,6 +140,7 @@ export default async function HomePage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽' }]}
     >
+      <PasswordExpiryNotice />
       {/* Hero */}
       <section className="mb-6">
         <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>

@@ -37,6 +37,13 @@ function LoginForm() {
     const res = await signIn('credentials', { email, password, redirect: false, callbackUrl });
     if (res?.error) {
       setLoading(false);
+      // 防護基準啟用時 authorize 以 throw 回報特定狀態
+      if (res.error.includes('AccountLocked')) {
+        return setErr('帳號已暫時鎖定(連續驗證失敗達上限),請 15 分鐘後再試');
+      }
+      if (res.error.includes('TooManyAttempts')) {
+        return setErr('嘗試次數過多,請稍後再試');
+      }
       return setErr('帳號或密碼錯誤，請再試一次');
     }
     // 成功:維持 loading 直到頁面轉走,避免按鈕提前復原被重複點
