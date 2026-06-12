@@ -163,7 +163,7 @@ export default async function LandingPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/photos/med-3.jpg" alt="明亮整潔的病房" className="medfade-5 absolute inset-0 w-full h-full object-cover opacity-0" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-6.jpg" alt="手術團隊協作" className="medfade-6 absolute inset-0 w-full h-full object-cover opacity-0" />
+              <img src="/photos/med-6.jpg" alt="手術室醫療儀器與監控設備" className="medfade-6 absolute inset-0 w-full h-full object-cover opacity-0" />
               {/* 底部柔和漸層,確保浮卡可讀 */}
               <div
                 className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
