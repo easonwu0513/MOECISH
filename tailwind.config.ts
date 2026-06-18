@@ -65,6 +65,8 @@ const config: Config = {
           500: '#2f9045',
           600: '#247236',
           700: '#1b572a',
+          800: '#13401f',
+          900: '#0b2814',
         },
         warning: {
           50:  '#fcf4e2',
@@ -75,6 +77,8 @@ const config: Config = {
           500: '#a8761a',
           600: '#855d16',
           700: '#634512',
+          800: '#46300c',
+          900: '#2b1d07',
         },
         danger: {
           50:  '#fcecec',
@@ -85,6 +89,8 @@ const config: Config = {
           500: '#b83835',
           600: '#952a29',
           700: '#711f1f',
+          800: '#4f1615',
+          900: '#300d0d',
         },
         'error-container':    '#f6d1d0',
         'on-error-container': '#3c0908',
@@ -119,14 +125,6 @@ const config: Config = {
         },
         outline:          '#6d7484',
         'outline-variant':'#c4cad4',
-
-        /* Back-compat */
-        brand: {
-          50:  '#eef3fb',
-          500: '#3a6ab4',
-          600: '#2852a0',
-          700: '#1e4084',
-        },
       },
       fontFamily: {
         sans: ['var(--font-sans)'],

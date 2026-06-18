@@ -97,7 +97,7 @@ export default function TransitionButton({
   return (
     <>
       <Button
-        variant="primary"
+        variant="filled"
         size="sm"
         onClick={() => setOpen(true)}
         trailingIcon={<ChevronRight size={14} />}

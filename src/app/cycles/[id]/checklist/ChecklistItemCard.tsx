@@ -157,7 +157,7 @@ export default function ChecklistItemCard({
           />
           {canEdit && (
             <div className="flex items-center gap-2">
-              <Button variant="primary" size="sm" loading={saving} onClick={() => save()}>
+              <Button variant="filled" size="sm" loading={saving} onClick={() => save()}>
                 儲存
               </Button>
               {justSaved && (

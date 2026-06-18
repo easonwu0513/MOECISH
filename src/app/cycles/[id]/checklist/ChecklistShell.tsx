@@ -339,13 +339,13 @@ export default function ChecklistShell({
             filled < total ? (
               <Tooltip content={`尚餘 ${total - filled} 題未作答(沒有的項目請選「不適用」)`}>
                 <span>
-                  <Button size="sm" variant="primary" disabled>
+                  <Button size="sm" variant="filled" disabled>
                     完成送出
                   </Button>
                 </span>
               </Tooltip>
             ) : (
-              <Button size="sm" variant="primary" onClick={() => setSubmitOpen(true)}>
+              <Button size="sm" variant="filled" onClick={() => setSubmitOpen(true)}>
                 完成送出
               </Button>
             )
@@ -362,7 +362,7 @@ export default function ChecklistShell({
           icon={<Search size={24} />}
           title={EMPTY.noResults.title}
           description={EMPTY.noResults.description}
-          action={<Button variant="secondary" onClick={() => { setSearch(''); setFilter('all'); }}>清除條件</Button>}
+          action={<Button variant="outlined" onClick={() => { setSearch(''); setFilter('all'); }}>清除條件</Button>}
         />
       ) : (
         grouped.map(({ dim, items }) => {

@@ -5,27 +5,25 @@ import { cn } from '@/lib/cn';
 import { Spinner } from './Spinner';
 
 /**
- * Material 3 Button variants.
- *  - filled  : primary, bg-primary + shadow, pill-ish
- *  - tonal   : filled-tonal, bg primary-container
- *  - outlined: outlined border, transparent
- *  - text    : text-only (ghost)
- *  - elevated: surface-container-low + shadow (rare)
- *  - danger/success/warning follow filled visual
+ * Material 3 Button variants(統一詞彙,2026-06 移除 primary/secondary 純重複別名)。
+ *  - filled  : 主要動作,bg-primary + shadow,膠囊狀
+ *  - tonal   : filled-tonal,bg primary-container
+ *  - outlined: 外框、透明背景(次要動作)
+ *  - text    : 純文字、primary 色(低強調)
+ *  - ghost   : 純文字、中性色(最低強調,如「取消」)— 與 text 的差別在色調
+ *  - elevated: surface-container-low + shadow(少用)
+ *  - danger/success/warning : 同 filled 視覺,語意色
  */
 type Variant =
   | 'filled'
   | 'tonal'
   | 'outlined'
   | 'text'
+  | 'ghost'
   | 'elevated'
   | 'danger'
   | 'success'
-  | 'warning'
-  /* back-compat aliases */
-  | 'primary'
-  | 'secondary'
-  | 'ghost';
+  | 'warning';
 
 type Size = 'xs' | 'sm' | 'md' | 'lg';
 
@@ -48,23 +46,16 @@ const variantStyles: Record<Variant, string> = {
     'bg-primary-600 text-white shadow-elev-1 ' +
     'hover:bg-primary-700 hover:shadow-elev-2 ' +
     'active:bg-primary-800 active:shadow-elev-1',
-  primary: /* alias */
-    'bg-primary-600 text-white shadow-elev-1 ' +
-    'hover:bg-primary-700 hover:shadow-elev-2 ' +
-    'active:bg-primary-800 active:shadow-elev-1',
   tonal:
     'bg-primary-container text-on-primary-container ' +
     'hover:bg-primary-200 active:bg-primary-300',
   outlined:
     'bg-transparent text-primary-700 border border-outline-variant ' +
     'hover:bg-primary-50/60 hover:border-outline active:bg-primary-100',
-  secondary: /* alias → outlined */
-    'bg-transparent text-primary-700 border border-outline-variant ' +
-    'hover:bg-primary-50/60 hover:border-outline active:bg-primary-100',
   text:
     'bg-transparent text-primary-700 ' +
     'hover:bg-primary-50/80 active:bg-primary-100',
-  ghost: /* alias → text but neutral */
+  ghost:
     'bg-transparent text-on-surface-variant ' +
     'hover:bg-surface-container active:bg-surface-container-high',
   elevated:
