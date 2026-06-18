@@ -69,7 +69,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <h1 className="text-headline text-on-surface">
             {yearROC} 年度資通安全稽核
           </h1>
-          <p className="mt-1 text-body text-on-surface-variant truncate">
+          <p className="mt-1 text-body-sm text-on-surface-variant truncate">
             {cycle.organization.name}
             {cycle.onsiteDate && (
               <> · 實地稽核 {new Date(cycle.onsiteDate).toLocaleDateString('zh-TW')}</>

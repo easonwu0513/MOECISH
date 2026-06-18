@@ -87,7 +87,7 @@ export default async function DeficienciesPage({
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-headline text-on-surface">缺失與矯正管考</h1>
-          <p className="mt-1 text-body text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant">
             {yearROC} 年度 · {cycle.organization.name} · 共 {total} 項
             {total > 0 && (
               <>

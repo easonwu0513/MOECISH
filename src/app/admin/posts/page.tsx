@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
 import { FileText, Plus } from '@/components/icons';
 import { POST_CATEGORY_LABELS, type PostCategory, type PostStatus } from '@/lib/types';
 
@@ -51,6 +52,7 @@ export default async function AdminPostsPage() {
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -90,6 +92,7 @@ export default async function AdminPostsPage() {
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

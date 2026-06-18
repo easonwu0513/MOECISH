@@ -129,7 +129,7 @@ export default async function DeficiencyDetailPage({
               <Chip tone="neutral" size="md">第 {action!.round} 輪</Chip>
             )}
           </div>
-          <p className="mt-1 text-body text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant">
             {yearROC} 年度 · {cycle.organization.name}
             {deficiency.checklistRef && (
               <> · 檢核項 <span className="font-mono">{deficiency.checklistRef}</span></>

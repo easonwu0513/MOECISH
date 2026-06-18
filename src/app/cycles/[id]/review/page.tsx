@@ -137,11 +137,11 @@ export default async function ReviewPage({
                 const r = responsesByItem.get(item.id);
                 const c = r?.compliance as ComplianceLevel | null;
                 return (
-                  <Card key={item.id} elevation={0} className="border-neutral-200">
+                  <Card key={item.id} elevation={0} className="border-outline-variant/70">
                     <div className="flex items-start gap-3">
                       <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">{item.itemNo}</Chip>
                       <div className="flex-1 min-w-0">
-                        <p className="text-body text-neutral-900 leading-relaxed">{item.content}</p>
+                        <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                           {c ? (
                             <Chip tone={complianceTone[c]} size="sm" dot>

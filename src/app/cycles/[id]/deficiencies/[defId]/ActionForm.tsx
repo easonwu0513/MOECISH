@@ -499,7 +499,10 @@ export default function ActionForm({
                   <div className="h-4 w-36 rounded bg-surface-container-high animate-pulse" />
                 </div>
               ) : evidences.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant mb-2">尚未上傳</p>
+                <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-surface-container-low/50 px-3.5 py-2.5 text-body-sm text-on-surface-variant">
+                  <Paperclip size={15} className="shrink-0 opacity-70" />
+                  尚未上傳佐證{editable ? ',可由下方按鈕新增' : ''}
+                </div>
               ) : (
                 <ul className="mb-2 space-y-1">
                   {evidences.map((f) => (

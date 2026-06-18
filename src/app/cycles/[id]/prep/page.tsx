@@ -49,7 +49,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     >
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
-        <p className="mt-1 text-body text-on-surface-variant">
+        <p className="mt-1 text-body-sm text-on-surface-variant">
           {yearROC} 年度 · {cycle.organization.name}
           {cycle.prepDueDate && <> · 截止 {new Date(cycle.prepDueDate).toLocaleDateString('zh-TW')}</>}
         </p>
