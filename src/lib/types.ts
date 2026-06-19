@@ -1,5 +1,139 @@
-export const ROLES = ['ADMIN', 'AUDITOR', 'RESPONDENT', 'SUPERVISOR'] as const;
+// ════════════════════════════════════════════
+// 角色（2.0：四角色簡化為三角色）
+// ════════════════════════════════════════════
+
+export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR'] as const;
 export type Role = (typeof ROLES)[number];
+
+export const ROLE_LABELS: Record<Role, string> = {
+  SUPER_ADMIN: '最高管理員',
+  ORG_ADMIN: '機關管理員',
+  AUDITOR: '稽核委員',
+};
+
+// ════════════════════════════════════════════
+// 稽核週期狀態（2.0 生命週期）
+// ════════════════════════════════════════════
+
+export const CYCLE_STATUSES = [
+  'DRAFT',          // 草稿（開立中）
+  'PREPARATION',    // 稽核前資料準備（P2）
+  'READY',          // 資料齊備（P2）
+  'ONSITE',         // 實地稽核
+  'REPORT_ISSUED',  // 缺失發布中
+  'REMEDIATION',    // 矯正執行（填報/審查/多輪）
+  'CLOSED',         // 結案
+] as const;
+export type CycleStatus = (typeof CYCLE_STATUSES)[number];
+
+// ════════════════════════════════════════════
+// 模組 C：缺失與矯正（對齊教育部範本）
+// ════════════════════════════════════════════
+
+export const DEFICIENCY_ASPECTS = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as const;
+export type DeficiencyAspect = (typeof DEFICIENCY_ASPECTS)[number];
+
+export const DEFICIENCY_ASPECT_LABELS: Record<DeficiencyAspect, string> = {
+  STRATEGY: '策略面',
+  MANAGEMENT: '管理面',
+  TECHNICAL: '技術面',
+};
+
+export const DEFICIENCY_TYPES = ['IMPROVE', 'SUGGEST'] as const;
+export type DeficiencyType = (typeof DEFICIENCY_TYPES)[number];
+
+export const DEFICIENCY_TYPE_LABELS: Record<DeficiencyType, string> = {
+  IMPROVE: '待改善事項',
+  SUGGEST: '建議事項',
+};
+
+export const ACTION_STATUSES = [
+  'PENDING',    // 待填報
+  'DRAFT',      // 填寫中
+  'SUBMITTED',  // 已送審
+  'RETURNED',   // 退回補正
+  'PASSED',     // 審核通過
+] as const;
+export type ActionStatus = (typeof ACTION_STATUSES)[number];
+
+export const ACTION_STATUS_LABELS: Record<ActionStatus, string> = {
+  PENDING: '待填報',
+  DRAFT: '填寫中',
+  SUBMITTED: '已送審',
+  RETURNED: '退回補正',
+  PASSED: '審核通過',
+};
+
+/** 執行情形（範本四選一） */
+export const EXEC_STATUSES = [
+  'ON_TIME_DONE',     // 如期完成
+  'IN_PROGRESS',      // 未逾期辦理中
+  'LATE_DONE',        // 逾期完成
+  'LATE_IN_PROGRESS', // 逾期辦理中
+] as const;
+export type ExecStatus = (typeof EXEC_STATUSES)[number];
+
+export const EXEC_STATUS_LABELS: Record<ExecStatus, string> = {
+  ON_TIME_DONE: '如期完成',
+  IN_PROGRESS: '未逾期辦理中',
+  LATE_DONE: '逾期完成',
+  LATE_IN_PROGRESS: '逾期辦理中',
+};
+
+export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
+export type ReviewDecisionValue = (typeof REVIEW_DECISIONS)[number];
+
+export const REVIEW_DECISION_LABELS: Record<ReviewDecisionValue, string> = {
+  PASS: '審核通過',
+  RETURN: '退回補正',
+};
+
+// ════════════════════════════════════════════
+// 模組 B：資料準備（P2）
+// ════════════════════════════════════════════
+
+export const PREP_STATUSES = ['EMPTY', 'UPLOADED', 'CONFIRMED', 'INSUFFICIENT'] as const;
+export type PrepStatus = (typeof PREP_STATUSES)[number];
+
+export const PREP_STATUS_LABELS: Record<PrepStatus, string> = {
+  EMPTY: '尚未上傳',
+  UPLOADED: '已上傳',
+  CONFIRMED: '委員已確認',
+  INSUFFICIENT: '缺件',
+};
+
+// ════════════════════════════════════════════
+// 前台公告（P3）
+// ════════════════════════════════════════════
+
+export const POST_CATEGORIES = ['ANNOUNCEMENT', 'INTEL', 'VULN_ALERT', 'EVENT'] as const;
+export type PostCategory = (typeof POST_CATEGORIES)[number];
+
+export const POST_CATEGORY_LABELS: Record<PostCategory, string> = {
+  ANNOUNCEMENT: '平台公告',
+  INTEL: '資安情資',
+  VULN_ALERT: '漏洞警訊',
+  EVENT: '活動訊息',
+};
+
+export const POST_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
+export type PostStatus = (typeof POST_STATUSES)[number];
+
+// ════════════════════════════════════════════
+// 共用
+// ════════════════════════════════════════════
+
+export const EVIDENCE_TARGET_TYPES = [
+  'CHECKLIST_RESPONSE',
+  'CORRECTIVE_ACTION',
+  'PREP_SUBMISSION',
+  'AUDIT_CYCLE',
+] as const;
+export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
+
+// ════════════════════════════════════════════
+// 檢核表模組（保留為選用功能）
+// ════════════════════════════════════════════
 
 export const DIMENSIONS = [
   'CORE_BUSINESS',
@@ -29,52 +163,18 @@ export const COMPLIANCE_LABELS: Record<ComplianceLevel, string> = {
   NOT_APPLICABLE: '不適用',
 };
 
-export const CYCLE_STATUSES = [
-  'DRAFT',
-  'RESPONDENT_SUBMITTED',
-  'SUPERVISOR_APPROVED',
-  'IN_REVIEW',
-  'COMMENTS_RETURNED',
-  'ONSITE_SCHEDULED',
-  'FINDINGS_ISSUED',
-  'REMEDIATION_IN_PROGRESS',
-  'CLOSED',
-] as const;
-export type CycleStatus = (typeof CYCLE_STATUSES)[number];
-
-export const FINDING_ASPECTS = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as const;
-export type FindingAspect = (typeof FINDING_ASPECTS)[number];
-
-export const FINDING_ASPECT_LABELS: Record<FindingAspect, string> = {
-  STRATEGY: '策略面',
-  MANAGEMENT: '管理面',
-  TECHNICAL: '技術面',
+/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色) */
+export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  COMPLIANT: 'success',
+  PARTIALLY_COMPLIANT: 'warning',
+  NON_COMPLIANT: 'danger',
+  NOT_APPLICABLE: 'neutral',
 };
 
-export const FINDING_TYPES = ['LEGAL_COMPLIANT', 'NEEDS_IMPROVEMENT', 'SUGGESTION'] as const;
-export type FindingType = (typeof FINDING_TYPES)[number];
-
-export const FINDING_TYPE_LABELS: Record<FindingType, string> = {
-  LEGAL_COMPLIANT: '法遵符合情形',
-  NEEDS_IMPROVEMENT: '待改善事項',
-  SUGGESTION: '建議事項',
+/** 符合度 → 條狀標示底色(卡片頂條) */
+export const COMPLIANCE_BAR: Record<ComplianceLevel, string> = {
+  COMPLIANT: 'bg-success-500',
+  PARTIALLY_COMPLIANT: 'bg-warning-500',
+  NON_COMPLIANT: 'bg-danger-500',
+  NOT_APPLICABLE: 'bg-outline-variant',
 };
-
-export const REMEDIATION_STATUSES = [
-  'PENDING',
-  'DRAFT',
-  'SUBMITTED',
-  'APPROVED',
-  'NEEDS_REWORK',
-] as const;
-export type RemediationStatus = (typeof REMEDIATION_STATUSES)[number];
-
-export const EVIDENCE_TARGET_TYPES = [
-  'CHECKLIST_RESPONSE',
-  'REMEDIATION',
-  'AUDIT_CYCLE',
-] as const;
-export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
-
-export const SIGNATURE_ROLES = ['RESPONDENT', 'SUPERVISOR'] as const;
-export type SignatureRole = (typeof SIGNATURE_ROLES)[number];

@@ -46,10 +46,9 @@ export async function createInvitation(input: {
 
   const link = `${input.appBaseUrl}/invite/${token}`;
   const roleLabel: Record<Role, string> = {
-    ADMIN: '平台管理員',
+    SUPER_ADMIN: '最高管理員',
     AUDITOR: '稽核委員',
-    RESPONDENT: '填報人',
-    SUPERVISOR: '單位主管',
+    ORG_ADMIN: '機關管理員',
   };
 
   const body =
@@ -58,7 +57,7 @@ export async function createInvitation(input: {
     (inv.organization ? `（${inv.organization.name}）` : '') + `。\n\n` +
     `請於 14 日內點擊以下連結設定您的密碼完成啟用：\n${link}\n\n` +
     `若您未預期收到此信，請忽略本信件。\n\n` +
-    `— MOECISH 教育部資通安全稽核改善管考系統`;
+    `— MOECISH 資通安全稽核管考平台`;
 
   await sendEmail({
     to: input.email,

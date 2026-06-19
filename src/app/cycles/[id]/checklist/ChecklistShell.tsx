@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
@@ -8,11 +9,15 @@ import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Search, X, ChevronDown, ChevronUp } from '@/components/icons';
+import { ConfirmDialog } from '@/components/ui/Dialog';
+import { useToast } from '@/components/ui/Toast';
+import { Search, X, ChevronDown, ChevronUp, Check } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import type { ComplianceLevel, Dimension } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
+import { FilterChipButton } from '@/components/ui/FilterChip';
 import ChecklistItemCard from './ChecklistItemCard';
+import SubmissionBanner from './SubmissionBanner';
 
 export type ClientItem = {
   id: string;
@@ -20,6 +25,9 @@ export type ClientItem = {
   content: string;
   dimension: Dimension;
   orderIndex: number;
+  auditBasis: string | null;
+  auditFocus: string | null;
+  expectedEvidence: string | null;
 };
 
 export type ClientResponse = {
@@ -27,6 +35,7 @@ export type ClientResponse = {
   checklistItemId: string;
   compliance: ComplianceLevel | null;
   description: string | null;
+  recordDocs: string | null;
   version: number;
   comments: {
     id: string;
@@ -55,12 +64,24 @@ export default function ChecklistShell({
   responses,
   canEdit,
   userRole,
+  canSubmit = false,
+  canReopen = false,
+  submittedAtISO = null,
+  submittedBy = null,
+  reopenNote = null,
 }: {
   cycleId: string;
   items: ClientItem[];
   responses: ClientResponse[];
   canEdit: boolean;
   userRole: string;
+  /** 機關管理員且週期狀態開放時可送出 */
+  canSubmit?: boolean;
+  /** 委員(受指派)/最高管理員可退回 */
+  canReopen?: boolean;
+  submittedAtISO?: string | null;
+  submittedBy?: string | null;
+  reopenNote?: string | null;
 }) {
   const responsesByItem = useMemo(() => {
     const m = new Map<string, ClientResponse>();
@@ -68,11 +89,48 @@ export default function ChecklistShell({
     return m;
   }, [responses]);
 
+  const router = useRouter();
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitBusy, setSubmitBusy] = useState(false);
+
+  // 完成填報送出(全數作答才可送;送出後鎖定,需委員退回才能再修改)
+  async function submitChecklist() {
+    setSubmitBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/submit`, { method: 'POST' });
+    setSubmitBusy(false);
+    setSubmitOpen(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '送出失敗' }));
+      toast.error('送出失敗', j.error);
+      return;
+    }
+    toast.success('填報已送出', '稽核委員將收到通知信,內容已鎖定。');
+    router.refresh();
+  }
+
+  // 一鍵將未作答全部標為符合(之後逐題調整例外)
+  async function bulkCompliant() {
+    setBulkBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, { method: 'POST' });
+    setBulkBusy(false);
+    setBulkOpen(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '操作失敗' }));
+      toast.error('操作失敗', j.error);
+      return;
+    }
+    const j = await res.json();
+    toast.success('已批次標記', `${j.updated} 題標為「符合」;請逐題確認並調整例外。`);
+    router.refresh();
+  }
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -107,7 +165,11 @@ export default function ChecklistShell({
       .filter((g) => g.items.length > 0);
   }, [visible]);
 
-  const flatIds = useMemo(() => grouped.flatMap((g) => g.items.map((i) => i.id)), [grouped]);
+  // j/k 導覽只走「展開構面」內的題目,不跳進收合(已從 DOM 卸載)的卡片
+  const flatIds = useMemo(
+    () => grouped.filter((g) => !collapsedDims.has(g.dim)).flatMap((g) => g.items.map((i) => i.id)),
+    [grouped, collapsedDims],
+  );
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -117,12 +179,6 @@ export default function ChecklistShell({
     });
   }
 
-  function expandAll() {
-    setExpanded(new Set(visible.map((i) => i.id)));
-  }
-  function collapseAll() {
-    setExpanded(new Set());
-  }
   function expandUnanswered() {
     const unans = visible
       .filter((i) => !responsesByItem.get(i.id)?.compliance)
@@ -177,8 +233,35 @@ export default function ChecklistShell({
 
   return (
     <div ref={containerRef}>
+      <SubmissionBanner
+        cycleId={cycleId}
+        submittedAtISO={submittedAtISO}
+        submittedBy={submittedBy}
+        reopenNote={reopenNote}
+        canReopen={canReopen}
+      />
+      <ConfirmDialog
+        open={submitOpen}
+        onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
+        title="完成填報並送出"
+        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定、稽核委員會收到通知開始審閱;如需再修改,須由委員退回重填。確定送出?`}
+        confirmLabel="確認送出"
+        tone="primary"
+        onConfirm={submitChecklist}
+        loading={submitBusy}
+      />
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={(o) => !bulkBusy && setBulkOpen(o)}
+        title="未作答全部標為符合"
+        description={`將把 ${total - filled} 題未作答項目標為「符合」(已作答的不會被覆寫)。之後請逐題確認,把例外調整為部分符合/不符合/不適用。確定執行?`}
+        confirmLabel="全部標為符合"
+        tone="primary"
+        onConfirm={bulkCompliant}
+        loading={bulkBusy}
+      />
       {/* Sticky toolbar */}
-      <div className="sticky top-14 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-white/95 backdrop-blur-sm border-b border-hairline mb-6">
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/60 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 max-w-md">
             <TextField
@@ -192,15 +275,13 @@ export default function ChecklistShell({
             />
           </div>
           <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-caption text-on-surface-variant ml-1 mr-1 hidden lg:inline">題目</span>
+            {canEdit && filled < total && (
+              <Button size="sm" variant="tonal" onClick={() => setBulkOpen(true)} leadingIcon={<Check size={14} />}>
+                未答全標符合
+              </Button>
+            )}
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
-              未作答
-            </Button>
-            <Button size="sm" variant="text" onClick={expandAll} leadingIcon={<ChevronDown size={14} />}>
-              全展開
-            </Button>
-            <Button size="sm" variant="text" onClick={collapseAll} leadingIcon={<ChevronUp size={14} />}>
-              全收合
+              展開未作答
             </Button>
             <span className="mx-2 h-4 w-px bg-outline-variant hidden lg:inline-block" aria-hidden />
             <span className="text-caption text-on-surface-variant mr-1 hidden lg:inline">構面</span>
@@ -214,20 +295,11 @@ export default function ChecklistShell({
         </div>
 
         {/* Filters */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="篩選題目">
           {filterOptions.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                'h-7 px-3 rounded-full text-label transition-colors focus-ring border',
-                filter === f.key
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400',
-              )}
-            >
+            <FilterChipButton key={f.key} selected={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-            </button>
+            </FilterChipButton>
           ))}
         </div>
 
@@ -236,16 +308,41 @@ export default function ChecklistShell({
           <div className="flex-1">
             <ProgressBar value={filled} max={total} tone="primary" size="sm" />
           </div>
-          <div className="text-body-sm text-neutral-600 tabular-nums">
-            <span className="font-semibold text-neutral-900">{filled}</span> / {total} <span className="text-neutral-400">({pct}%)</span>
+          <div className="text-body-sm text-on-surface-variant tabular-nums">
+            <span className="font-semibold text-on-surface">{filled}</span> / {total} <span className="text-on-surface-variant">({pct}%)</span>
             {search || filter !== 'all' ? (
-              <span className="ml-2 text-caption text-neutral-500">· 顯示 {visible.length} 題</span>
+              <span className="ml-2 text-caption text-on-surface-variant">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
-          <Tooltip content="快捷鍵：j/k 移動 · Enter 展開 · 1/2/3/4 選符合度">
+          {canSubmit && !submittedAtISO && (
+            filled < total ? (
+              <Button
+                size="sm"
+                variant="filled"
+                aria-disabled="true"
+                aria-describedby="submit-block-reason"
+                onClick={(e) => e.preventDefault()}
+                className="opacity-40 cursor-not-allowed"
+              >
+                完成送出
+              </Button>
+            ) : (
+              <Button size="sm" variant="filled" onClick={() => setSubmitOpen(true)}>
+                完成送出
+              </Button>
+            )
+          )}
+          <Tooltip content="快捷鍵：j/k 移動聚焦 · Enter 展開 · 1-4 對聚焦題選符合度">
             <span className="kbd">?</span>
           </Tooltip>
         </div>
+
+        {/* 送出阻擋原因:常駐(觸控/鍵盤皆可見,不只藏在 hover Tooltip) */}
+        {canSubmit && !submittedAtISO && filled < total && (
+          <p id="submit-block-reason" className="mt-2 text-caption text-warning-700">
+            尚餘 {total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。
+          </p>
+        )}
       </div>
 
       {/* Content */}
@@ -254,7 +351,7 @@ export default function ChecklistShell({
           icon={<Search size={24} />}
           title={EMPTY.noResults.title}
           description={EMPTY.noResults.description}
-          action={<Button variant="secondary" onClick={() => { setSearch(''); setFilter('all'); }}>清除條件</Button>}
+          action={<Button variant="outlined" onClick={() => { setSearch(''); setFilter('all'); }}>清除條件</Button>}
         />
       ) : (
         grouped.map(({ dim, items }) => {

@@ -22,10 +22,15 @@ export function TopStrip({
   onCommandOpen?: () => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low">
+    <div className="sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60">
       <div className="md:hidden">
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
       </div>
+
+      {/* 手機:麵包屑隱藏,改顯示當前頁標題提供脈絡 */}
+      <span className="flex-1 min-w-0 sm:hidden text-title text-on-surface truncate">
+        {crumbs[crumbs.length - 1]?.label}
+      </span>
 
       <div className="flex-1 min-w-0 hidden sm:block">
         <Breadcrumbs items={crumbs} />

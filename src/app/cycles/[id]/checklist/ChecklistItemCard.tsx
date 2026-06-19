@@ -9,17 +9,14 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Textarea } from '@/components/ui/Textarea';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
-import { Paperclip, Upload, ChevronDown } from '@/components/icons';
-import { COMPLIANCE_LABELS, type ComplianceLevel } from '@/lib/types';
-import { TOAST } from '@/lib/copy';
+import { Paperclip, ChevronDown } from '@/components/icons';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
+import { fmtROCDateTime } from '@/lib/date';
+import { LawPanel } from '@/components/checklist/LawBasis';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
-const complianceColor: Record<ComplianceLevel, string> = {
-  COMPLIANT: 'bg-success-500',
-  PARTIALLY_COMPLIANT: 'bg-warning-500',
-  NON_COMPLIANT: 'bg-danger-500',
-  NOT_APPLICABLE: 'bg-outline-variant',
-};
+const complianceColor = COMPLIANCE_BAR;
 
 export default function ChecklistItemCard({
   cycleId,
@@ -46,6 +43,8 @@ export default function ChecklistItemCard({
     (response?.compliance ?? null) as ComplianceLevel | null,
   );
   const [description, setDescription] = useState(response?.description ?? '');
+  const [recordDocs, setRecordDocs] = useState(response?.recordDocs ?? '');
+  const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
   const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;
 
@@ -54,7 +53,22 @@ export default function ChecklistItemCard({
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
-  async function save(nextCompliance = compliance, nextDescription = description) {
+  // 離開保護:文字欄失焦才自動存,聚焦中關閉/重整分頁(未觸發 blur)會吞掉未存內容。
+  // 用 ref 避免 stale closure;dirty 時攔截關閉。
+  const textDirtyRef = useRef(false);
+  useEffect(() => { textDirtyRef.current = textDirty; }, [textDirty]);
+  useEffect(() => {
+    if (!canEdit) return;
+    const h = (e: BeforeUnloadEvent) => {
+      if (textDirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [canEdit]);
+
+  // 成功一律安靜(卡片內 ✓ 已儲存 就地閃示),失敗才跳 toast —
+  // 87 題逐題點選若每次都跳通知會轟炸使用者。
+  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
     if (!canEdit) return;
     startSaving(async () => {
       const res = await fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
@@ -63,6 +77,7 @@ export default function ChecklistItemCard({
         body: JSON.stringify({
           compliance: nextCompliance,
           description: nextDescription || null,
+          recordDocs: nextRecordDocs || null,
           version: response?.version ?? 0,
         }),
       });
@@ -71,13 +86,17 @@ export default function ChecklistItemCard({
         toast.error('儲存失敗', j.error);
         return;
       }
-      const t = TOAST.savedChecklist(item.itemNo);
-      toast.success(t.title, t.description);
+      setTextDirty(false);
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
       router.refresh();
     });
+  }
+
+  // 文字欄失焦時靜默自動存(避免切題忘按儲存)
+  function autoSaveOnBlur() {
+    if (textDirty && canEdit) save(compliance, description, recordDocs);
   }
 
   async function resolveComment(commentId: string) {
@@ -92,9 +111,10 @@ export default function ChecklistItemCard({
     }
   }
 
-  // keyboard 1/2/3/4 to select compliance when expanded
+  // keyboard 1/2/3/4:只作用在「聚焦中」的展開卡片
+  // (原本只看 expanded — 多卡同時展開時按一次會全部一起改)
   useEffect(() => {
-    if (!expanded || !canEdit) return;
+    if (!expanded || !canEdit || !focused) return;
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
@@ -107,7 +127,8 @@ export default function ChecklistItemCard({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [expanded, canEdit, description]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, canEdit, focused, description, recordDocs]);
 
   const tabs: Tab[] = [
     {
@@ -116,7 +137,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-label text-neutral-700 mb-2">符合情形</label>
+            <label className="block text-label text-on-surface-variant mb-2">符合情形</label>
             <Segmented<ComplianceLevel>
               value={compliance}
               onChange={(v) => { setCompliance(v); save(v, description); }}
@@ -131,23 +152,49 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="簡述規範內容、執行方式、執行結果紀錄文件"
+            label="簡述規範內容、執行方式、執行結果"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setTextDirty(true); setDescription(e.target.value); }}
+            onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={4}
             placeholder="例：依據本院『資訊安全政策 v3』第 5.2 條，每季進行一次審查…"
           />
+          <Textarea
+            label="紀錄文件(如規範、紀錄、公文等)"
+            value={recordDocs}
+            onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); }}
+            onBlur={autoSaveOnBlur}
+            disabled={!canEdit}
+            rows={2}
+            placeholder={item.expectedEvidence ? `參考應備文件:${item.expectedEvidence.split('\n')[0]}…` : '例:資訊安全管理程序書、內部稽核報告…'}
+          />
           {canEdit && (
             <div className="flex items-center gap-2">
-              <Button variant="primary" size="sm" loading={saving} onClick={() => save()}>
+              <Button variant="filled" size="sm" loading={saving} onClick={() => save()}>
                 儲存
               </Button>
               {justSaved && (
                 <span className="text-success-700 text-body-sm animate-fade-in">✓ 已儲存</span>
               )}
+              {textDirty && !justSaved && (
+                <span className="text-caption text-on-surface-variant">未儲存(離開欄位會自動儲存)</span>
+              )}
             </div>
           )}
+        </div>
+      ),
+    },
+    {
+      id: 'law',
+      label: '法規對照',
+      content: (
+        <div className="py-1">
+          <LawPanel
+            auditBasis={item.auditBasis}
+            auditFocus={item.auditFocus}
+            expectedEvidence={item.expectedEvidence}
+          />
         </div>
       ),
     },
@@ -156,7 +203,7 @@ export default function ChecklistItemCard({
       label: '委員意見',
       badge: unresolved > 0 ? <Chip tone="warning" size="sm">{unresolved}</Chip> : undefined,
       content: (response?.comments ?? []).length === 0 ? (
-        <p className="text-body-sm text-neutral-500 py-4">本題尚無委員意見。</p>
+        <p className="text-body-sm text-on-surface-variant py-4">本題尚無委員意見。</p>
       ) : (
         <div className="space-y-2">
           {response!.comments.map((c) => (
@@ -168,18 +215,18 @@ export default function ChecklistItemCard({
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-caption text-neutral-500">
-                  第 {c.round} 輪 · {new Date(c.createdAt).toLocaleString('zh-TW')}
+                <span className="text-caption text-on-surface-variant">
+                  第 {c.round} 輪 · {fmtROCDateTime(c.createdAt)}
                 </span>
                 {c.resolvedAt ? (
                   <Chip tone="success" size="sm">已補正</Chip>
-                ) : (userRole === 'RESPONDENT' || userRole === 'SUPERVISOR') ? (
+                ) : userRole === 'ORG_ADMIN' ? (
                   <Button size="sm" variant="ghost" onClick={() => resolveComment(c.id)}>
                     標記為已補正
                   </Button>
                 ) : null}
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-neutral-800">{c.content}</p>
+              <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
             </div>
           ))}
         </div>
@@ -195,8 +242,10 @@ export default function ChecklistItemCard({
           initialResponseId={response?.id ?? null}
           currentCompliance={compliance}
           currentDescription={description}
+          currentRecordDocs={recordDocs}
           currentVersion={response?.version ?? 0}
           canEdit={canEdit}
+          expectedEvidence={item.expectedEvidence}
         />
       ),
     },
@@ -231,7 +280,7 @@ export default function ChecklistItemCard({
           {item.itemNo}
         </Chip>
         <div className="flex-1 min-w-0">
-          <p className="text-body text-neutral-900 leading-relaxed">{item.content}</p>
+          <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             {compliance ? (
               <Chip tone={complianceTone(compliance)} size="sm" dot>
@@ -244,14 +293,14 @@ export default function ChecklistItemCard({
               <Chip tone="warning" size="sm">意見待補 {unresolved}</Chip>
             )}
             {response && (description || compliance) && !canEdit && (
-              <span className="text-caption text-neutral-400">唯讀</span>
+              <span className="text-caption text-on-surface-variant">唯讀</span>
             )}
           </div>
         </div>
         <ChevronDown
           size={18}
           className={cn(
-            'text-neutral-400 mt-1 transition-transform shrink-0',
+            'text-on-surface-variant mt-1 transition-transform shrink-0',
             expanded && 'rotate-180',
           )}
         />
@@ -266,13 +315,8 @@ export default function ChecklistItemCard({
   );
 }
 
-function complianceTone(c: ComplianceLevel): 'success' | 'warning' | 'danger' | 'neutral' {
-  switch (c) {
-    case 'COMPLIANT': return 'success';
-    case 'PARTIALLY_COMPLIANT': return 'warning';
-    case 'NON_COMPLIANT': return 'danger';
-    case 'NOT_APPLICABLE': return 'neutral';
-  }
+function complianceTone(c: ComplianceLevel) {
+  return COMPLIANCE_TONE[c];
 }
 
 function EvidenceBlock({
@@ -281,16 +325,20 @@ function EvidenceBlock({
   initialResponseId,
   currentCompliance,
   currentDescription,
+  currentRecordDocs,
   currentVersion,
   canEdit,
+  expectedEvidence,
 }: {
   cycleId: string;
   itemNo: string;
   initialResponseId: string | null;
   currentCompliance: ComplianceLevel | null;
   currentDescription: string;
+  currentRecordDocs: string;
   currentVersion: number;
   canEdit: boolean;
+  expectedEvidence: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -314,6 +362,7 @@ function EvidenceBlock({
       body: JSON.stringify({
         compliance: currentCompliance,
         description: currentDescription || null,
+        recordDocs: currentRecordDocs || null,
         version: currentVersion,
       }),
     });
@@ -359,11 +408,17 @@ function EvidenceBlock({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-label text-neutral-700">紀錄佐證上傳</p>
-        <span className="text-caption text-neutral-400">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
+        <p className="text-label text-on-surface-variant">紀錄佐證上傳</p>
+        <span className="text-caption text-on-surface-variant">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
       </div>
+      {expectedEvidence && (
+        <div className="mb-3 rounded-sm bg-primary-50/60 border border-primary-100 px-3 py-2">
+          <p className="text-caption font-medium text-primary-800 mb-0.5">本題應備文件參考</p>
+          <p className="text-caption text-primary-800/80 whitespace-pre-wrap leading-relaxed">{expectedEvidence}</p>
+        </div>
+      )}
       {files.length === 0 ? (
-        <p className="text-body-sm text-neutral-400 mb-3">尚未上傳任何佐證文件</p>
+        <p className="text-body-sm text-on-surface-variant mb-3">尚未上傳任何佐證文件</p>
       ) : (
         <ul className="mb-3 space-y-1">
           {files.map((f) => (
@@ -380,11 +435,7 @@ function EvidenceBlock({
         </ul>
       )}
       {canEdit && (
-        <label className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-white border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors">
-          <input type="file" className="hidden" onChange={onUpload} disabled={uploading} />
-          <Upload size={14} />
-          <span className="text-body-sm">{uploading ? '上傳中…' : '+ 上傳紀錄佐證'}</span>
-        </label>
+        <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} />
       )}
     </div>
   );

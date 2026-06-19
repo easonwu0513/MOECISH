@@ -1,0 +1,110 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { prisma } from '@/lib/db';
+import { assertDeficiencyAccess, AuthError } from '@/lib/rbac';
+import { REVIEW_DECISIONS } from '@/lib/types';
+import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyOrgOnReturn, notifyOrgAllPassed } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
+
+const Body = z.object({
+  decision: z.enum(REVIEW_DECISIONS),
+  comment: z.string().optional(),
+});
+
+/** 稽核委員審查：通過（PASS）或退回補正（RETURN，必填理由，輪次 +1） */
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const { user, deficiency } = await assertDeficiencyAccess(params.id);
+    if (user.role !== 'AUDITOR') {
+      return NextResponse.json({ error: '僅稽核委員可審查' }, { status: 403 });
+    }
+    const action = deficiency.action;
+    if (!action) return NextResponse.json({ error: '矯正措施紀錄不存在' }, { status: 404 });
+    if (action.status !== 'SUBMITTED') {
+      return NextResponse.json({ error: '此項目目前不在送審狀態' }, { status: 400 });
+    }
+
+    const body = Body.parse(await req.json());
+    if (body.decision === 'RETURN' && !body.comment?.trim()) {
+      return NextResponse.json({ error: '退回補正必須填寫理由' }, { status: 400 });
+    }
+
+    // 快照本輪審查當下的填報內容(多輪比對用)
+    const snapshot = JSON.stringify({
+      rootCause: action.rootCause,
+      measureStrategy: action.measureStrategy,
+      measureManagement: action.measureManagement,
+      measureTechnical: action.measureTechnical,
+      plannedDate: action.plannedDate,
+      trackingMethod: action.trackingMethod,
+      execStatus: action.execStatus,
+      actualDate: action.actualDate,
+      extendedDate: action.extendedDate,
+      delayReason: action.delayReason,
+    });
+
+    const [, updated] = await prisma.$transaction([
+      prisma.reviewRecord.create({
+        data: {
+          actionId: action.id,
+          round: action.round,
+          decision: body.decision,
+          comment: body.comment?.trim() || null,
+          snapshot,
+          auditorId: user.id,
+        },
+      }),
+      prisma.correctiveAction.update({
+        where: { id: action.id },
+        data:
+          body.decision === 'PASS'
+            ? { status: 'PASSED' }
+            : { status: 'RETURNED', round: { increment: 1 } },
+      }),
+    ]);
+
+    const meta = extractRequestMeta(req);
+    await writeAuditLog({
+      actorId: user.id,
+      action: body.decision === 'PASS' ? 'ACTION_PASS' : 'ACTION_RETURN',
+      entityType: 'CorrectiveAction',
+      entityId: action.id,
+      before: { status: 'SUBMITTED', round: action.round },
+      after: { status: updated.status, round: updated.round },
+      ...meta,
+    });
+
+    // 通知機關(寄信失敗不影響審查結果)
+    try {
+      const base = appBaseUrl(req);
+      if (body.decision === 'RETURN') {
+        await notifyOrgOnReturn({
+          deficiencyId: deficiency.id,
+          comment: body.comment!.trim(),
+          round: action.round,
+          appBaseUrl: base,
+        });
+      } else {
+        // 通過後若全數通過 → 通知機關列印用印
+        const notPassed = await prisma.deficiency.count({
+          where: {
+            cycleId: deficiency.cycleId,
+            OR: [{ action: null }, { action: { status: { not: 'PASSED' } } }],
+          },
+        });
+        if (notPassed === 0) {
+          await notifyOrgAllPassed({ cycleId: deficiency.cycleId, appBaseUrl: base });
+        }
+      }
+    } catch (e) {
+      console.error('review notify failed:', e);
+    }
+
+    return NextResponse.json({ item: updated });
+  } catch (e) {
+    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors[0]?.message ?? '輸入有誤' }, { status: 400 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+  }
+}

@@ -6,11 +6,12 @@ import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
+import IdleLogout from './IdleLogout';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
 import {
-  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History,
+  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield,
 } from '../icons';
 
 export function AppShell({
@@ -30,23 +31,24 @@ export function AppShell({
   useCommandHotkey(setCmdOpen);
 
   const commands: Command[] = [
-    { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/') },
+    { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/dashboard') },
     ...(cycleId
       ? [
-          { id: 'checklist', group: '導覽', label: '模組一 · 檢核表', icon: <ClipboardCheck size={16} />, action: () => router.push(`/cycles/${cycleId}/checklist`) } as Command,
-          { id: 'findings', group: '導覽', label: '模組二 · 稽核發現', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/findings`) } as Command,
-          ...(user.role === 'AUDITOR' || user.role === 'ADMIN'
-            ? [{ id: 'review', group: '導覽', label: '委員審閱', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
+          { id: 'deficiencies', group: '導覽', label: '缺失與矯正', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/deficiencies`) } as Command,
+          ...(user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN'
+            ? [{ id: 'review', group: '導覽', label: '委員審閱（檢核表）', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
             : []),
           { id: 'cycle', group: '導覽', label: '稽核週期首頁', hint: '回到本週期', action: () => router.push(`/cycles/${cycleId}`) } as Command,
         ]
       : []),
-    ...(user.role === 'ADMIN'
+    ...(user.role === 'SUPER_ADMIN'
       ? [
           { id: 'users', group: '管理', label: '使用者管理', icon: <Users size={16} />, action: () => router.push('/admin/users') } as Command,
-          { id: 'audit-log', group: '管理', label: '審計軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
+          { id: 'merge-tool', group: '管理', label: '稽核報告彙整工具', icon: <ClipboardCheck size={16} />, action: () => router.push('/admin/tools/audit-merge') } as Command,
+          { id: 'audit-log', group: '管理', label: '稽核軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
         ]
       : []),
+    { id: 'password', group: '帳號', label: '變更密碼', icon: <Shield size={16} />, action: () => router.push('/account/password') },
     { id: 'logout', group: '帳號', label: '登出', icon: <LogOut size={16} />, action: () => signOut({ callbackUrl: '/login' }) },
   ];
 
@@ -82,6 +84,7 @@ export function AppShell({
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
+      <IdleLogout />
     </div>
   );
 }

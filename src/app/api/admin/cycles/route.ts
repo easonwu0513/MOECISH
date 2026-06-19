@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireRole, AuthError } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { notifyCycleRespondents } from '@/lib/notify';
+import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({
@@ -17,7 +17,7 @@ const Body = z.object({
 
 export async function POST(req: Request) {
   try {
-    const user = await requireRole('ADMIN');
+    const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
     // enforce @@unique([organizationId, year])
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     });
 
     if (body.notify) {
-      await notifyCycleRespondents({
+      await notifyCycleOrgAdmins({
         cycleId: cycle.id,
         triggeredById: user.id,
         appBaseUrl: appBaseUrl(req),

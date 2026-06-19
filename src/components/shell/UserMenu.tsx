@@ -8,24 +8,21 @@ import { ChevronDown, LogOut, User } from '../icons';
 import type { Role } from '@/lib/types';
 
 const roleLabel: Record<Role, string> = {
-  ADMIN: '平台管理員',
+  SUPER_ADMIN: '最高管理員',
   AUDITOR: '稽核委員',
-  RESPONDENT: '填報人',
-  SUPERVISOR: '單位主管',
+  ORG_ADMIN: '機關管理員',
 };
 
 const roleTone: Record<Role, 'primary' | 'sage' | 'neutral' | 'warning'> = {
-  ADMIN: 'primary',
+  SUPER_ADMIN: 'primary',
   AUDITOR: 'sage',
-  RESPONDENT: 'neutral',
-  SUPERVISOR: 'warning',
+  ORG_ADMIN: 'warning',
 };
 
 const avatarBg: Record<Role, string> = {
-  ADMIN: 'bg-primary-container text-on-primary-container',
+  SUPER_ADMIN: 'bg-primary-container text-on-primary-container',
   AUDITOR: 'bg-sage-100 text-sage-800',
-  RESPONDENT: 'bg-surface-container-highest text-on-surface',
-  SUPERVISOR: 'bg-warning-100 text-warning-700',
+  ORG_ADMIN: 'bg-warning-100 text-warning-700',
 };
 
 export function UserMenu({

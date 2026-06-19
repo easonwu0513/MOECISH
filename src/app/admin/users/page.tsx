@@ -5,22 +5,24 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableScroll } from '@/components/ui/TableScroll';
 import { Users } from '@/components/icons';
 import { inviteStatus } from '@/lib/invite';
 import type { Role } from '@/lib/types';
+import GlobalInvitePanel from './GlobalInvitePanel';
+import UserRowActions from './UserRowActions';
+import InviteRowActions from './InviteRowActions';
 
 const roleLabel: Record<Role, string> = {
-  ADMIN: '平台管理員',
+  SUPER_ADMIN: '最高管理員',
   AUDITOR: '稽核委員',
-  RESPONDENT: '填報人',
-  SUPERVISOR: '單位主管',
+  ORG_ADMIN: '機關管理員',
 };
 
 const roleTone: Record<Role, 'primary' | 'sage' | 'neutral' | 'warning'> = {
-  ADMIN: 'primary',
+  SUPER_ADMIN: 'primary',
   AUDITOR: 'sage',
-  RESPONDENT: 'neutral',
-  SUPERVISOR: 'warning',
+  ORG_ADMIN: 'warning',
 };
 
 export default async function UsersPage() {
@@ -42,13 +44,16 @@ export default async function UsersPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '使用者' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">使用者管理</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
-          全系統帳號總覽。要新增使用者請至
-          <Link href="/admin/organizations" className="text-primary-700 hover:underline mx-1">醫院管理</Link>
-          選擇對應醫院 → 邀請人員。
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-headline text-on-surface">使用者管理</h1>
+          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
+            全系統帳號總覽。稽核委員與管理員用右上角邀請;機關管理員請至
+            <Link href="/admin/organizations" className="text-primary-700 hover:underline mx-1">醫院管理</Link>
+            選擇對應醫院 → 邀請人員。
+          </p>
+        </div>
+        <GlobalInvitePanel />
       </header>
 
       {pendingInvites.length > 0 && (
@@ -56,6 +61,7 @@ export default async function UsersPage() {
           <div className="px-5 py-3 bg-warning-50 text-warning-700 text-label-sm uppercase tracking-wide border-b border-outline-variant/60">
             待接受邀請（{pendingInvites.length}）
           </div>
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -63,6 +69,7 @@ export default async function UsersPage() {
                 <th className="text-left px-5 py-3 font-medium">角色</th>
                 <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
                 <th className="text-right px-5 py-3 font-medium">到期</th>
+                <th className="text-right px-5 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -79,10 +86,14 @@ export default async function UsersPage() {
                   <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
                     {new Date(inv.expiresAt).toLocaleDateString('zh-TW')}
                   </td>
+                  <td className="px-5 py-3 text-right">
+                    <InviteRowActions inviteId={inv.id} email={inv.email} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
 
@@ -96,6 +107,7 @@ export default async function UsersPage() {
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
+          <TableScroll>
           <table className="w-full text-body-sm">
             <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
               <tr>
@@ -104,6 +116,7 @@ export default async function UsersPage() {
                 <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
                 <th className="text-left px-5 py-3 font-medium">狀態</th>
                 <th className="text-right px-5 py-3 font-medium">最後登入</th>
+                <th className="text-right px-5 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -125,10 +138,21 @@ export default async function UsersPage() {
                   <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
                     {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('zh-TW') : '尚未登入'}
                   </td>
+                  <td className="px-5 py-3 text-right">
+                    <UserRowActions
+                      userId={u.id}
+                      name={u.name}
+                      role={u.role as Role}
+                      isActive={u.isActive}
+                      hasOrganization={!!u.organizationId}
+                      isSelf={u.id === user.id}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </TableScroll>
         </Card>
       )}
     </AppShell>

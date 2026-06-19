@@ -1,0 +1,41 @@
+/* 系統原生彙整報告:重用 audit-merge ReportContent 版式所需樣式(獨立於工具頁) */
+
+.asr-scope .report-content {
+  background: #fff;
+  color: #000;
+}
+
+/* 報告清單排版(與彙整工具一致) */
+.asr-scope .finding-list {
+  margin: 0 0 0 92pt;
+  padding-left: 0;
+  list-style-position: outside;
+  list-style-type: decimal;
+}
+.asr-scope .finding-item {
+  margin-bottom: 6pt;
+  text-align: justify;
+  font-size: 12pt;
+  line-height: 24pt;
+  padding-left: 0;
+}
+
+/* 螢幕:換頁線提示 */
+.asr-scope .page-break {
+  margin: 1.5rem 0;
+  border-top: 2px dashed #cbd5e1;
+  position: relative;
+}
+
+/* 列印 */
+@media print {
+  .no-print { display: none !important; }
+  .asr-scope .page-break {
+    page-break-before: always;
+    border-top: none;
+    margin: 0;
+  }
+  .asr-scope .report-content {
+    font-family: 'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif;
+  }
+}

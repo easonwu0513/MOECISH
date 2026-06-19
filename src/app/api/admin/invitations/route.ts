@@ -15,7 +15,7 @@ const Body = z.object({
 
 export async function POST(req: Request) {
   try {
-    const user = await requireRole('ADMIN');
+    const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
     const { invitation, link } = await createInvitation({

@@ -6,20 +6,18 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
-import { ProgressRing } from '@/components/ui/ProgressRing';
-import { CYCLE_STATUS_LABELS, nextStatuses } from '@/lib/state-machine';
-import type { CycleStatus, Role, SignatureRole } from '@/lib/types';
-import {
-  ClipboardCheck,
-  AlertTriangle,
-  Eye,
-  Download,
-  FileText,
-  Upload,
-} from '@/components/icons';
-import SignedDocumentUpload from './SignedDocumentUpload';
+import { StatTopBar } from '@/components/ui/StatTopBar';
+import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
+import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
+import { fmtROC } from '@/lib/date';
+import { CycleStepper } from '@/components/dashboard/CycleStepper';
+import type { CycleStatus, Role } from '@/lib/types';
+import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
+import AssignAuditorsPanel from './AssignAuditorsPanel';
+import SignedReportPanel from './SignedReportPanel';
+import EditCycleDialog from './EditCycleDialog';
 
 export default async function CyclePage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -30,206 +28,246 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     where: { id: params.id },
     include: {
       organization: true,
-      checklistVersion: { include: { items: true } },
-      responses: true,
-      findings: { include: { remediation: true } },
-      signatures: true,
+      assignments: { include: { auditor: { select: { name: true } } } },
+      deficiencies: { include: { action: { select: { status: true } } } },
+      prepRequirements: { include: { submission: { select: { status: true } } } },
+      signedReports: { select: { id: true, confirmedAt: true } },
     },
   });
   if (!cycle) notFound();
-  if (
-    (user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') &&
-    cycle.organizationId !== user.organizationId
-  ) {
-    redirect('/');
-  }
 
-  const total = cycle.checklistVersion.items.length;
-  const filled = cycle.responses.filter((r) => r.compliance).length;
-  const findingsCount = cycle.findings.length;
-  const needsImprovement = cycle.findings.filter((f) => f.type === 'NEEDS_IMPROVEMENT').length;
-  const remApproved = cycle.findings.filter((f) => f.remediation?.status === 'APPROVED').length;
+  if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+
+  const total = cycle.deficiencies.length;
+  const byStatus = (s: string) => cycle.deficiencies.filter((d) => d.action?.status === s).length;
+  const passed = byStatus('PASSED');
+  const submitted = byStatus('SUBMITTED');
+  const returned = byStatus('RETURNED');
+  const pendingCount = total - passed - submitted - returned ? total - passed - submitted - returned : 0;
+
   const transitions = nextStatuses(cycle.status as CycleStatus, user.role as Role);
-
+  const rollbacks = rollbackTargets(cycle.status as CycleStatus, user.role as Role);
   const yearROC = cycle.year - 1911;
+
+  // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
+  const facts = deriveCycleFacts(cycle);
+  const next = nextActionForRole(user.role, facts);
+  const showCta = !!(next?.href && next.cta && next.href !== `/cycles/${cycle.id}`);
+
+  // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
+  const prepTotal = cycle.prepRequirements.length;
+  const prepConfirmed = cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  const prepBadge = prepTotal > 0
+    ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
+    : undefined;
+  const checklistBadge = cycle.checklistSubmittedAt
+    ? <Chip tone="success" size="sm" dot>已送出</Chip>
+    : undefined;
+  const defBadge = total > 0
+    ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
+    : undefined;
+
+  // 矯正截止壓力提示(僅矯正執行中且未全通過時;以本地日界計天數,與追蹤信一致)
+  const dueDay = new Date(cycle.dueDate); dueDay.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const daysToDue = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
+  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed;
+  const deadlineChip = showDeadlineChip
+    ? (facts.overdue
+        ? <Chip tone="danger" size="sm" dot>已逾期 {Math.abs(daysToDue)} 天</Chip>
+        : <Chip tone="warning" size="sm" dot>距截止剩 {daysToDue} 天</Chip>)
+    : null;
 
   return (
     <AppShell
-      user={{
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        organizationName: user.organizationName,
-      }}
+      user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       cycleId={cycle.id}
       crumbs={[
-        { label: '總覽', href: '/' },
-        { label: '稽核週期', href: '/' },
+        { label: '總覽', href: '/dashboard' },
+        { label: '稽核週期', href: '/cycles' },
         { label: `${yearROC} 年度 · ${cycle.organization.name}` },
       ]}
     >
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-headline text-neutral-900">
+          <h1 className="text-headline text-on-surface">
             {yearROC} 年度資通安全稽核
           </h1>
-          <p className="mt-1 text-body text-neutral-500 truncate">
-            {cycle.organization.name} ·{' '}
-            起 {new Date(cycle.startDate).toLocaleDateString('zh-TW')} 至{' '}
-            {new Date(cycle.dueDate).toLocaleDateString('zh-TW')}
+          <p className="mt-1 text-body-sm text-on-surface-variant truncate">
+            {cycle.organization.name}
+            {cycle.onsiteDate && (
+              <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>
+            )}
+            {' '}· 矯正截止 {fmtROC(cycle.dueDate)}
           </p>
+          {deadlineChip && <div className="mt-2">{deadlineChip}</div>}
         </div>
-        <Chip tone={cycleTone(cycle.status as CycleStatus)} size="md" dot>
-          {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-        </Chip>
+        <div className="flex items-center gap-2 flex-wrap">
+          {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+            <EditCycleDialog
+              cycleId={cycle.id}
+              dueDate={cycle.dueDate.toISOString()}
+              prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+              onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+            />
+          )}
+          <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="md" dot>
+            {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+          </Chip>
+        </div>
       </header>
 
-      {/* Overview stats */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <Card>
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              value={filled}
-              max={total}
-              size={80}
-              strokeWidth={8}
-              label={`${total ? Math.round((filled / total) * 100) : 0}%`}
-              sublabel={`${filled}/${total}`}
-            />
-            <div>
-              <CardTitle>填答進度</CardTitle>
-              <CardDescription>共 {total} 題</CardDescription>
-            </div>
+      {/* 流程位置 + 下一步 */}
+      <section className="mb-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+        <div className="px-5 pt-4 pb-3.5">
+          <CycleStepper current={facts.step} />
+        </div>
+        {next ? (
+          <div className="flex items-center gap-3 px-5 py-3 border-t border-outline-variant/60 bg-primary-50/40 flex-wrap">
+            <span className="text-label-sm font-semibold text-primary-800 tracking-[0.06em] shrink-0">下一步</span>
+            <span className="text-body-sm text-on-surface flex-1 min-w-44">{next.text}</span>
+            {showCta && (
+              <Link href={next.href!} className="shrink-0">
+                <Button size="sm" variant="tonal">{next.cta}</Button>
+              </Link>
+            )}
           </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-warning-50 flex items-center justify-center">
-              <AlertTriangle size={28} className="text-warning-600" />
-            </div>
-            <div>
-              <CardTitle>稽核發現</CardTitle>
-              <CardDescription>
-                共 {findingsCount} 項 · 待改善 {needsImprovement}
-              </CardDescription>
-            </div>
+        ) : (
+          <div className="px-5 py-3 border-t border-outline-variant/60 text-body-sm text-on-surface-variant">
+            本週期已結案,全部流程完成。
           </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              value={remApproved}
-              max={needsImprovement || 1}
-              size={80}
-              strokeWidth={8}
-              tone="success"
-              label={`${needsImprovement ? remApproved : 0}`}
-              sublabel={`/ ${needsImprovement}`}
-            />
-            <div>
-              <CardTitle>改善已通過</CardTitle>
-              <CardDescription>
-                {needsImprovement > 0
-                  ? `剩餘 ${needsImprovement - remApproved} 項待審`
-                  : '暫無待改善'}
-              </CardDescription>
-            </div>
-          </div>
-        </Card>
+        )}
       </section>
 
-      {/* Module navigation */}
+      {/* 統計(三卡統一三段式:大數字 + 標題 + 一行說明,與總覽同語彙) */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <StatTopBar
+          tone="success"
+          icon={<CheckCircle size={20} />}
+          primary={total > 0 ? `${passed}/${total}` : '—'}
+          label="矯正通過"
+          sub={total > 0 ? `共 ${total} 項缺失` : '尚未發布缺失'}
+          muted={total === 0}
+        />
+        <StatTopBar
+          tone="sage"
+          icon={<Eye size={20} />}
+          primary={`${submitted}`}
+          label="待委員審查"
+          sub={submitted > 0 ? '委員審查中' : '無待審項目'}
+          muted={submitted === 0}
+        />
+        <StatTopBar
+          tone="warning"
+          icon={<AlertTriangle size={20} />}
+          primary={`${pendingCount + returned}`}
+          label="待機關處理"
+          sub={`待填 ${pendingCount} · 退回 ${returned}`}
+          muted={pendingCount + returned === 0}
+        />
+      </section>
+
+      {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}
+      <section
+        className={`grid grid-cols-1 gap-5 mb-8 ${
+          user.role === 'ORG_ADMIN' ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3'
+        }`}
+      >
+        <ModuleTile
+          icon={<FileText size={22} />}
+          tone="sage"
+          title="稽核前資料準備"
+          desc="實地稽核前，機關上傳稽核表與相關文件；委員確認資料齊備或標記缺件。"
+          href={`/cycles/${cycle.id}/prep`}
+          badge={prepBadge}
+        />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
           tone="primary"
-          title="模組一　檢核表填報"
-          desc="逐項填寫 83 題符合情形、說明與佐證，由主管核可送出，委員給意見、受稽機關補正。"
+          title="資通安全檢核表"
+          desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
+          badge={checklistBadge}
         />
+        {user.role !== 'ORG_ADMIN' && (
+          <ModuleTile
+            icon={<Eye size={22} />}
+            tone="sage"
+            title="實地稽核評分與發現"
+            desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
+            href={`/cycles/${cycle.id}/audit`}
+          />
+        )}
+        {user.role !== 'ORG_ADMIN' && (
+          <ModuleTile
+            icon={<CheckCircle size={22} />}
+            tone="primary"
+            title="委員審閱(檢核表)"
+            desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
+            href={`/cycles/${cycle.id}/review`}
+          />
+        )}
         <ModuleTile
           icon={<AlertTriangle size={22} />}
-          tone="sage"
-          title="模組二　稽核發現與改善"
-          desc="實地稽核後，委員開立稽核發現；受稽機關填改善措施與執行情形；委員審核通過或持續改正。"
-          href={`/cycles/${cycle.id}/findings`}
-        />
-        <ModuleTile
-          icon={<Eye size={22} />}
-          tone="neutral"
-          title="委員審閱"
-          desc="檢視機關填報、對各題給意見（僅稽核委員可編輯）。"
-          href={`/cycles/${cycle.id}/review`}
-          disabled={user.role !== 'AUDITOR' && user.role !== 'ADMIN'}
+          tone="primary"
+          title="缺失與矯正管考"
+          desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
+          href={`/cycles/${cycle.id}/deficiencies`}
+          badge={defBadge}
         />
       </section>
 
-      {/* Signature (only for respondent / supervisor) */}
-      {(user.role === 'RESPONDENT' || user.role === 'SUPERVISOR') && (() => {
-        const myRole: SignatureRole = user.role === 'SUPERVISOR' ? 'SUPERVISOR' : 'RESPONDENT';
-        const existing = cycle.signatures
-          .filter((s) => s.signerRole === myRole)
-          .sort((a, b) => b.signedAt.getTime() - a.signedAt.getTime())[0];
-        return (
-          <section className="mb-8">
-            <SignedDocumentUpload
-              cycleId={cycle.id}
-              signerRole={myRole}
-              templateUrl={`/api/cycles/${cycle.id}/export/signature-template`}
-              existing={
-                existing
-                  ? { id: existing.id, signerName: existing.signerName, signedAt: existing.signedAt }
-                  : undefined
-              }
-            />
-          </section>
-        );
-      })()}
-
-      {/* Exports */}
-      <Card className="mb-8">
+      {/* 匯出 */}
+      <Card className="mb-6">
         <CardTitle>匯出</CardTitle>
         <CardDescription>產出制式公文格式檔案</CardDescription>
         <div className="mt-4 flex flex-wrap gap-2">
-          <a href={`/api/cycles/${cycle.id}/export/checklist`}>
-            <Button variant="secondary" leadingIcon={<Download size={16} />}>
-              Excel 檢核表
-            </Button>
-          </a>
-          <a href={`/api/cycles/${cycle.id}/export/remediation`}>
-            <Button variant="secondary" leadingIcon={<FileText size={16} />}>
+          <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
               Word 改善報告
             </Button>
           </a>
           <Link href={`/cycles/${cycle.id}/print`} target="_blank" rel="noopener">
-            <Button variant="secondary" leadingIcon={<Upload size={16} />}>
-              PDF 綜合報告（瀏覽器另存）
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              列印版(瀏覽器另存 PDF)
             </Button>
           </Link>
+          <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
+            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+              Word 檢核表(遞交版)
+            </Button>
+          </a>
+          <a href={`/api/cycles/${cycle.id}/export/checklist`}>
+            <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
+          </a>
         </div>
       </Card>
 
-      {/* Admin / Auditor actions */}
-      {(user.role === 'ADMIN' || user.role === 'AUDITOR') && (
-        <Card className="mb-6">
-          <CardTitle>管理動作</CardTitle>
-          <CardDescription>僅管理員與稽核委員可執行</CardDescription>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <NotifyButton cycleId={cycle.id} />
-          </div>
-        </Card>
+      {/* SUPER_ADMIN:委員指派 */}
+      {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}
+
+      {/* 用印掃描檔(矯正執行中之後顯示) */}
+      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
+        <SignedReportPanel cycleId={cycle.id} role={user.role} />
       )}
 
-      {/* Transitions */}
-      {transitions.length > 0 && (
-        <Card>
-          <CardTitle>可執行之狀態轉換</CardTitle>
-          <CardDescription>依您目前的角色與週期狀態</CardDescription>
-          <div className="mt-4 flex flex-wrap gap-2">
+      {/* SUPER_ADMIN:管理動作 */}
+      {user.role === 'SUPER_ADMIN' && (
+        <Card className="mb-6">
+          <CardTitle>管理動作</CardTitle>
+          <CardDescription>通知機關管理員、推進週期狀態</CardDescription>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {/* 通知機關填報只在缺失發布後才有意義 */}
+            {(cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') && (
+              <NotifyButton cycleId={cycle.id} />
+            )}
             {transitions.map((t) => (
               <TransitionButton key={t} cycleId={cycle.id} target={t} />
+            ))}
+            {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
+            {rollbacks.map((t) => (
+              <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
             ))}
           </div>
         </Card>
@@ -244,14 +282,15 @@ function ModuleTile({
   title,
   desc,
   href,
-  disabled,
+  badge,
 }: {
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
   title: string;
   desc: string;
   href: string;
-  disabled?: boolean;
+  /** 右上角狀態徽章(進度一目了然);無進度可省略 */
+  badge?: React.ReactNode;
 }) {
   const iconBg = {
     primary: 'bg-primary-50 text-primary-700',
@@ -259,42 +298,22 @@ function ModuleTile({
     neutral: 'bg-neutral-100 text-neutral-600',
   }[tone];
 
-  const content = (
-    <Card
-      interactive={!disabled}
-      className={disabled ? 'opacity-50 pointer-events-none' : ''}
-    >
-      <div className="flex items-start gap-4">
-        <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
-          {icon}
+  return (
+    <Link href={href} className="block h-full focus-ring rounded-md">
+      <Card interactive className="h-full">
+        <div className="flex items-start gap-4">
+          <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-title text-on-surface">{title}</div>
+              {badge && <div className="shrink-0">{badge}</div>}
+            </div>
+            <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <div className="text-title text-neutral-900">{title}</div>
-          <p className="mt-1.5 text-body-sm text-neutral-600 leading-relaxed">{desc}</p>
-        </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
-
-  if (disabled) return content;
-  return <Link href={href}>{content}</Link>;
-}
-
-function cycleTone(status: CycleStatus): 'neutral' | 'primary' | 'sage' | 'success' | 'warning' {
-  switch (status) {
-    case 'DRAFT':
-      return 'neutral';
-    case 'RESPONDENT_SUBMITTED':
-    case 'SUPERVISOR_APPROVED':
-      return 'primary';
-    case 'IN_REVIEW':
-    case 'ONSITE_SCHEDULED':
-      return 'sage';
-    case 'COMMENTS_RETURNED':
-    case 'FINDINGS_ISSUED':
-    case 'REMEDIATION_IN_PROGRESS':
-      return 'warning';
-    case 'CLOSED':
-      return 'success';
-  }
 }

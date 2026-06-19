@@ -13,10 +13,9 @@ import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 
 const roleLabel: Record<Role, string> = {
-  ADMIN: '平台管理員',
+  SUPER_ADMIN: '最高管理員',
   AUDITOR: '稽核委員',
-  RESPONDENT: '填報人',
-  SUPERVISOR: '單位主管',
+  ORG_ADMIN: '機關管理員',
 };
 
 export default async function OrganizationDetail({ params }: { params: { id: string } }) {
@@ -31,7 +30,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
       cycles: {
         include: {
           checklistVersion: { select: { year: true } },
-          _count: { select: { responses: true, findings: true } },
+          _count: { select: { responses: true, deficiencies: true } },
         },
         orderBy: { year: 'desc' },
       },
@@ -60,7 +59,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-headline text-on-surface">{org.name}</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
             <span className="font-mono">{org.code}</span>
             {org.shortName ? <> · {org.shortName}</> : null}
             {' · '}
@@ -93,7 +92,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <Chip size="sm" tone={u.role === 'SUPERVISOR' ? 'warning' : u.role === 'ADMIN' ? 'primary' : 'neutral'}>
+                      <Chip size="sm" tone={u.role === 'ORG_ADMIN' ? 'warning' : u.role === 'SUPER_ADMIN' ? 'primary' : 'neutral'}>
                         {roleLabel[u.role as Role]}
                       </Chip>
                     </td>
@@ -160,7 +159,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                   <th className="text-left px-5 py-3 font-medium">題庫版本</th>
                   <th className="text-left px-5 py-3 font-medium">狀態</th>
                   <th className="text-right px-5 py-3 font-medium">填答</th>
-                  <th className="text-right px-5 py-3 font-medium">發現</th>
+                  <th className="text-right px-5 py-3 font-medium">缺失</th>
                   <th className="text-right px-5 py-3 font-medium">截止日</th>
                   <th className="text-right px-5 py-3 font-medium">進入</th>
                 </tr>
@@ -174,7 +173,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       <Chip size="sm" tone="neutral">{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{c._count.responses}</td>
-                    <td className="px-5 py-3 text-right tabular-nums">{c._count.findings}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{c._count.deficiencies}</td>
                     <td className="px-5 py-3 text-right text-on-surface-variant">
                       {new Date(c.dueDate).toLocaleDateString('zh-TW')}
                     </td>

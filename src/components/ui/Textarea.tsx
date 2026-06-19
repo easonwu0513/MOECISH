@@ -18,7 +18,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
   const hasError = Boolean(errorText);
   const [focused, setFocused] = useState(false);
   const filled = Boolean(value ?? defaultValue);
-  const raised = focused || filled;
+  // textarea 的 placeholder 可見,若標籤停在中間會與其重疊;有 placeholder 時一律上浮
+  const hasPlaceholder = Boolean(rest.placeholder);
+  const raised = focused || filled || hasPlaceholder;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>

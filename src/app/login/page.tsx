@@ -1,37 +1,52 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Chip } from '@/components/ui/Chip';
-import { AlertCircle, Shield } from '@/components/icons';
+import { AlertCircle, ChevronLeft, Shield, Eye, EyeOff } from '@/components/icons';
 
 const demoAccounts = [
-  { email: 'admin@demo.tw',      label: '平台管理員', tone: 'primary' as const },
-  { email: 'auditor@demo.tw',    label: '稽核委員',   tone: 'sage' as const },
-  { email: 'respondent@demo.tw', label: '填報人',     tone: 'neutral' as const },
-  { email: 'supervisor@demo.tw', label: '單位主管',   tone: 'warning' as const },
+  { email: 'admin@demo.tw',   label: '最高管理員', tone: 'primary' as const },
+  { email: 'auditor@demo.tw', label: '稽核委員',   tone: 'sage' as const },
+  { email: 'org@demo.tw',     label: '機關管理員', tone: 'warning' as const },
+  { email: 'org2@demo.tw',    label: '機關管理員 B', tone: 'neutral' as const },
 ];
 
-export default function LoginPage() {
+// UAT 顯示測試帳號;正式環境(未設旗標)一律不顯示,預設欄位留空
+const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS === '1';
+
+function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get('callbackUrl') ?? '/';
-  const [email, setEmail] = useState('respondent@demo.tw');
-  const [password, setPassword] = useState('demo1234');
+  const callbackUrl = params.get('callbackUrl') ?? '/dashboard';
+  const [email, setEmail] = useState(SHOW_DEMO ? 'org@demo.tw' : '');
+  const [password, setPassword] = useState(SHOW_DEMO ? 'demo1234' : '');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
     setLoading(true);
     const res = await signIn('credentials', { email, password, redirect: false, callbackUrl });
-    setLoading(false);
-    if (res?.error) return setErr('帳號或密碼錯誤，請再試一次');
+    if (res?.error) {
+      setLoading(false);
+      // 防護基準啟用時 authorize 以 throw 回報特定狀態
+      if (res.error.includes('AccountLocked')) {
+        return setErr('帳號已暫時鎖定(連續驗證失敗達上限),請 15 分鐘後再試');
+      }
+      if (res.error.includes('TooManyAttempts')) {
+        return setErr('嘗試次數過多,請稍後再試');
+      }
+      return setErr('帳號或密碼錯誤，請再試一次');
+    }
+    // 成功:維持 loading 直到頁面轉走,避免按鈕提前復原被重複點
     router.push(callbackUrl);
     router.refresh();
   }
@@ -49,6 +64,15 @@ export default function LoginPage() {
         aria-hidden
       />
 
+      {/* 回前台 */}
+      <Link
+        href="/"
+        className="absolute top-5 left-5 sm:top-7 sm:left-7 inline-flex items-center gap-1 h-10 pl-2.5 pr-4 rounded-full text-body-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
+      >
+        <ChevronLeft size={16} />
+        回前台網站
+      </Link>
+
       <div className="relative w-full max-w-[440px]">
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
@@ -59,8 +83,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Card — elevated */}
-        <div className="relative bg-surface-container-low rounded-lg shadow-elev-1 p-7 sm:p-8">
+        {/* Card — elevated(白底浮起,與頁面背景拉開層級) */}
+        <div className="relative bg-surface-container-lowest border border-outline-variant/60 rounded-lg shadow-elev-2 p-7 sm:p-8">
           <form onSubmit={onSubmit} className="flex flex-col gap-5">
             <TextField
               label="Email"
@@ -73,11 +97,22 @@ export default function LoginPage() {
             />
             <TextField
               label="密碼"
-              type="password"
+              type={showPw ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              trailingIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring"
+                  aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
+                  tabIndex={-1}
+                >
+                  {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              }
             />
             {err && (
               <div
@@ -93,6 +128,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          {SHOW_DEMO && (
           <div className="mt-7 pt-6 border-t border-outline-variant">
             <div className="flex items-center justify-between mb-3">
               <p className="text-label-lg text-on-surface-variant">快速測試帳號</p>
@@ -126,13 +162,22 @@ export default function LoginPage() {
               })}
             </div>
           </div>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-caption text-on-surface-variant">
           <Shield size={13} />
-          <span>MOECISH · 教育部資通安全稽核改善管考系統</span>
+          <span>MOECISH · 資通安全稽核管考平台</span>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

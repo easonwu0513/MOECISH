@@ -8,7 +8,7 @@ export async function POST(
   { params }: { params: { id: string; commentId: string } },
 ) {
   try {
-    const user = await requireRole('RESPONDENT', 'SUPERVISOR');
+    const user = await requireRole('ORG_ADMIN');
 
     const comment = await prisma.auditorComment.findUnique({
       where: { id: params.commentId },
@@ -29,24 +29,7 @@ export async function POST(
       data: { resolvedAt: new Date(), resolvedById: user.id },
     });
 
-    // If all comments in this cycle resolved → auto push back to IN_REVIEW
-    const unresolved = await prisma.auditorComment.count({
-      where: {
-        response: { cycleId: comment.response.cycleId },
-        resolvedAt: null,
-      },
-    });
-    if (unresolved === 0 && comment.response.cycle.status === 'COMMENTS_RETURNED') {
-      await prisma.auditCycle.update({
-        where: { id: comment.response.cycleId },
-        data: {
-          status: 'IN_REVIEW',
-          stateTransitions: {
-            create: { fromStatus: 'COMMENTS_RETURNED', toStatus: 'IN_REVIEW', actorId: user.id },
-          },
-        },
-      });
-    }
+    // 2.0:檢核表為選用模組,補正完成不再驅動週期狀態轉換
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

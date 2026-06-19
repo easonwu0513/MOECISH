@@ -22,11 +22,19 @@ async function main() {
     console.warn('[import] 題數少於 80，請檢查 ODT 是否正確');
   }
 
-  const version = await prisma.checklistVersion.upsert({
-    where: { year },
-    create: { year, name: `${year - 1911} 年度資通安全實地稽核檢核表`, isActive: true, publishedAt: new Date() },
-    update: { isActive: true, publishedAt: new Date() },
-  });
+  // year 不再唯一(同年可多版本),改 findFirst-or-create
+  const versionName = `${year - 1911} 年度資通安全實地稽核檢核表`;
+  let version = await prisma.checklistVersion.findFirst({ where: { name: versionName } });
+  if (version) {
+    version = await prisma.checklistVersion.update({
+      where: { id: version.id },
+      data: { isActive: true, publishedAt: new Date() },
+    });
+  } else {
+    version = await prisma.checklistVersion.create({
+      data: { year, name: versionName, isActive: true, publishedAt: new Date() },
+    });
+  }
 
   let order = 0;
   for (const it of items) {
