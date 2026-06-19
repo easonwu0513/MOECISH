@@ -426,6 +426,29 @@ export default function ChecklistShell({
           );
         })
       )}
+
+      {/* 底部收尾行動卡:給長表單一個物理終點,免捲回頂端找送出鈕 */}
+      {canSubmit && !submittedAtISO && !noResult && (
+        <div className="mt-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-title-md text-on-surface tabular-nums">已完成 {filled} / {total} 題</p>
+            <p className="text-body-sm text-on-surface-variant mt-0.5">
+              {filled < total
+                ? `尚餘 ${total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。`
+                : '全部題目已作答,可送出給稽核委員審閱。送出後將鎖定,需委員退回才能修改。'}
+            </p>
+          </div>
+          {filled < total ? (
+            <Button variant="filled" aria-disabled="true" onClick={(e) => e.preventDefault()} className="opacity-40 cursor-not-allowed shrink-0">
+              完成送出
+            </Button>
+          ) : (
+            <Button variant="filled" onClick={() => setSubmitOpen(true)} className="shrink-0">
+              完成送出
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

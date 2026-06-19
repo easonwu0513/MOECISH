@@ -222,8 +222,14 @@ export default function PrepBoard({
               <Card key={item.id} padded={false} variant={status === 'CONFIRMED' ? 'filled' : 'elevated'}>
                 <div className="p-5">
                   <div className="flex items-start gap-4">
-                    <span className="w-8 h-8 rounded-md bg-surface-container flex items-center justify-center text-body-sm font-medium text-on-surface-variant tabular-nums shrink-0">
-                      {idx + 1}
+                    <span
+                      className={`w-8 h-8 rounded-md flex items-center justify-center text-body-sm font-medium tabular-nums shrink-0 ${
+                        status === 'CONFIRMED'
+                          ? 'bg-success-50 text-success-700'
+                          : 'bg-surface-container text-on-surface-variant'
+                      }`}
+                    >
+                      {status === 'CONFIRMED' ? <Check size={16} /> : idx + 1}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

@@ -200,7 +200,13 @@ function ScoreSection({
         ))}
         <div className="flex items-center justify-end gap-3 px-5 py-3 bg-surface-container-low">
           <span className="text-body-sm text-on-surface-variant">得分(滿分 100)</span>
-          <span className="text-title-lg text-on-surface tabular-nums">{filledCount > 0 ? myTotal : '—'}</span>
+          {filledCount === 9 ? (
+            <span className="text-title-lg text-on-surface tabular-nums">{myTotal}</span>
+          ) : (
+            <span className="text-body-sm text-warning-700 tabular-nums">
+              {filledCount === 0 ? '尚未評分' : `暫計 ${myTotal} · 尚有 ${9 - filledCount} 項未評`}
+            </span>
+          )}
         </div>
       </div>
     </section>

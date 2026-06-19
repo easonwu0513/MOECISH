@@ -153,6 +153,20 @@ export default function ActionForm({
   const needExtended = exec === 'LATE_IN_PROGRESS';
   const needReason = exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS';
 
+  // 切換執行情形前,若新狀態會隱藏並清掉已填的日期/原因,先確認(防誤觸丟資料)
+  function changeExecStatus(next: ExecStatus) {
+    const nNeedActual = next === 'ON_TIME_DONE' || next === 'LATE_DONE';
+    const nNeedExtended = next === 'LATE_IN_PROGRESS';
+    const nNeedReason = next === 'LATE_DONE' || next === 'LATE_IN_PROGRESS';
+    const losing: string[] = [];
+    if (actualDate && !nNeedActual) losing.push('實際完成日期');
+    if (extendedDate && !nNeedExtended) losing.push('延長日期');
+    if (delayReason && !nNeedReason) losing.push('逾期原因');
+    if (losing.length > 0 && !window.confirm(`切換執行情形將清除已填的「${losing.join('、')}」,確定切換?`)) return;
+    touch();
+    setExecStatus(next);
+  }
+
   // 最新 payload 供自動儲存讀取(避免閉包過期)
   const payloadRef = useRef<() => Record<string, unknown>>(() => ({}));
   payloadRef.current = buildPayload;
@@ -448,7 +462,7 @@ export default function ActionForm({
                     name="execStatus"
                     checked={execStatus === s}
                     disabled={readonly}
-                    onChange={() => { touch(); setExecStatus(s); }}
+                    onChange={() => changeExecStatus(s)}
                     className="accent-primary-600"
                   />
                   <span className="text-body-sm text-on-surface">{EXEC_STATUS_LABELS[s]}</span>

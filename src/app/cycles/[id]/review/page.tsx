@@ -6,7 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ClipboardCheck } from '@/components/icons';
+import { ClipboardCheck, Paperclip } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
@@ -50,6 +50,19 @@ export default async function ReviewPage({
   }
 
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
+
+  // 佐證檔案:委員需看附件才能判定符合度(沿用 evidences 下載授權)
+  const evidenceList = await prisma.evidence.findMany({
+    where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: cycle.responses.map((r) => r.id) } },
+    select: { id: true, targetId: true, originalName: true, sizeBytes: true },
+    orderBy: { uploadedAt: 'asc' },
+  });
+  const evidenceByResponse = new Map<string, typeof evidenceList>();
+  for (const e of evidenceList) {
+    const arr = evidenceByResponse.get(e.targetId) ?? [];
+    arr.push(e);
+    evidenceByResponse.set(e.targetId, arr);
+  }
 
   const total = cycle.checklistVersion.items.length;
   const answered = cycle.responses.filter((r) => r.compliance).length;
@@ -144,7 +157,7 @@ export default async function ReviewPage({
                 const r = responsesByItem.get(item.id);
                 const c = r?.compliance as ComplianceLevel | null;
                 return (
-                  <Card key={item.id} elevation={0} className="border-outline-variant/70">
+                  <Card key={item.id} variant="outlined">
                     <div className="flex items-start gap-3">
                       <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">{item.itemNo}</Chip>
                       <div className="flex-1 min-w-0">
@@ -173,6 +186,27 @@ export default async function ReviewPage({
                           <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-on-surface-variant mb-1">紀錄文件</p>
                             {r.recordDocs}
+                          </div>
+                        )}
+                        {r && (evidenceByResponse.get(r.id)?.length ?? 0) > 0 && (
+                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3">
+                            <p className="text-caption font-medium text-on-surface-variant mb-1.5">佐證檔案</p>
+                            <ul className="space-y-1">
+                              {evidenceByResponse.get(r.id)!.map((e) => (
+                                <li key={e.id}>
+                                  <a
+                                    href={`/api/evidences/${e.id}/download?inline=1`}
+                                    target="_blank"
+                                    rel="noopener"
+                                    className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm"
+                                  >
+                                    <Paperclip size={14} className="shrink-0" />
+                                    <span className="truncate">{e.originalName}</span>
+                                    <span className="text-caption text-on-surface-variant tabular-nums shrink-0">({Math.max(1, Math.round(e.sizeBytes / 1024))} KB)</span>
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         )}
 
