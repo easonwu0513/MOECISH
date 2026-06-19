@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { CheckCircle, AlertTriangle } from '@/components/icons';
+import { fmtROCDateTime } from '@/lib/date';
 
 /**
  * 檢核表送出狀態橫幅(填報頁與委員審閱頁共用):
@@ -56,9 +57,7 @@ export default function SubmissionBanner({
   }
 
   if (submittedAtISO) {
-    const when = new Date(submittedAtISO).toLocaleString('zh-TW', {
-      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-    });
+    const when = fmtROCDateTime(submittedAtISO);
     return (
       <>
         <div

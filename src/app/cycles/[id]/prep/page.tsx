@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { fmtROC } from '@/lib/date';
 import { AppShell } from '@/components/shell/AppShell';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import PrepBoard from './PrepBoard';
@@ -51,7 +52,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
         <p className="mt-1 text-body-sm text-on-surface-variant">
           {yearROC} 年度 · {cycle.organization.name}
-          {cycle.prepDueDate && <> · 截止 {new Date(cycle.prepDueDate).toLocaleDateString('zh-TW')}</>}
+          {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
         </p>
         {total > 0 && (
           <div className="mt-4 max-w-md">

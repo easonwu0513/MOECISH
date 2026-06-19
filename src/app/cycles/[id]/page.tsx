@@ -6,9 +6,10 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
-import { ProgressRing } from '@/components/ui/ProgressRing';
+import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
+import { fmtROC } from '@/lib/date';
 import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import type { CycleStatus, Role } from '@/lib/types';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
@@ -96,9 +97,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <p className="mt-1 text-body-sm text-on-surface-variant truncate">
             {cycle.organization.name}
             {cycle.onsiteDate && (
-              <> · 實地稽核 {new Date(cycle.onsiteDate).toLocaleDateString('zh-TW')}</>
+              <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>
             )}
-            {' '}· 矯正截止 {new Date(cycle.dueDate).toLocaleDateString('zh-TW')}
+            {' '}· 矯正截止 {fmtROC(cycle.dueDate)}
           </p>
           {deadlineChip && <div className="mt-2">{deadlineChip}</div>}
         </div>
@@ -139,53 +140,32 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         )}
       </section>
 
-      {/* 統計 */}
+      {/* 統計(三卡統一三段式:大數字 + 標題 + 一行說明,與總覽同語彙) */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <Card>
-          <div className="flex items-center gap-4">
-            <ProgressRing
-              value={passed}
-              max={total || 1}
-              size={80}
-              strokeWidth={8}
-              tone="success"
-              label={`${passed}`}
-              sublabel={`/ ${total}`}
-            />
-            <div>
-              <CardTitle>矯正通過</CardTitle>
-              <CardDescription className="leading-relaxed">
-                {total > 0 ? `共 ${total} 項缺失` : '尚未發布缺失'}
-              </CardDescription>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-sage-50 flex items-center justify-center">
-              <Eye size={28} className="text-sage-600" />
-            </div>
-            <div>
-              <CardTitle>待委員審查</CardTitle>
-              <CardDescription>{submitted} 項已送審</CardDescription>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-warning-50 flex items-center justify-center">
-              <AlertTriangle size={28} className="text-warning-600" />
-            </div>
-            <div>
-              <CardTitle>待機關處理</CardTitle>
-              <CardDescription className="leading-relaxed">
-                待填 {pendingCount} · 退回 {returned}
-              </CardDescription>
-            </div>
-          </div>
-        </Card>
+        <StatTopBar
+          tone="success"
+          icon={<CheckCircle size={20} />}
+          primary={total > 0 ? `${passed}/${total}` : '—'}
+          label="矯正通過"
+          sub={total > 0 ? `共 ${total} 項缺失` : '尚未發布缺失'}
+          muted={total === 0}
+        />
+        <StatTopBar
+          tone="sage"
+          icon={<Eye size={20} />}
+          primary={`${submitted}`}
+          label="待委員審查"
+          sub={submitted > 0 ? '委員審查中' : '無待審項目'}
+          muted={submitted === 0}
+        />
+        <StatTopBar
+          tone="warning"
+          icon={<AlertTriangle size={20} />}
+          primary={`${pendingCount + returned}`}
+          label="待機關處理"
+          sub={`待填 ${pendingCount} · 退回 ${returned}`}
+          muted={pendingCount + returned === 0}
+        />
       </section>
 
       {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}

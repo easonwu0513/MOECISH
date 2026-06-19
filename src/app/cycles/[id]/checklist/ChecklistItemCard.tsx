@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Paperclip, ChevronDown } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
+import { fmtROCDateTime } from '@/lib/date';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
@@ -215,7 +216,7 @@ export default function ChecklistItemCard({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-caption text-on-surface-variant">
-                  第 {c.round} 輪 · {new Date(c.createdAt).toLocaleString('zh-TW')}
+                  第 {c.round} 輪 · {fmtROCDateTime(c.createdAt)}
                 </span>
                 {c.resolvedAt ? (
                   <Chip tone="success" size="sm">已補正</Chip>

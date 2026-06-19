@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { fmtROCDateTime } from '@/lib/date';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -204,7 +205,7 @@ export default async function ReviewPage({
                                 }
                               >
                                 <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
-                                  <span>第 {cm.round} 輪 · {new Date(cm.createdAt).toLocaleString('zh-TW')}</span>
+                                  <span>第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
                                   {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                 </div>
                                 <p className="whitespace-pre-wrap text-on-surface-variant leading-relaxed">{cm.content}</p>

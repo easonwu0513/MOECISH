@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { fmtROC } from '@/lib/date';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -147,7 +148,7 @@ export default async function AdminCyclesPage({
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{c.assignments.length}</td>
                     <td className={'px-5 py-3 text-right ' + (overdue ? 'text-danger-600 font-medium' : 'text-on-surface-variant')}>
-                      {new Date(c.dueDate).toLocaleDateString('zh-TW')}
+                      {fmtROC(c.dueDate)}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:underline">開啟</Link>

@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
 import { FileText, Check } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { fmtROCDateTime } from '@/lib/date';
 
 type Item = {
   id: string;
@@ -103,7 +104,7 @@ export default function SignedReportPanel({
                     {it.fileName}
                   </a>
                   <p className="text-caption text-on-surface-variant">
-                    {new Date(it.uploadedAt).toLocaleString('zh-TW')}
+                    {fmtROCDateTime(it.uploadedAt)}
                   </p>
                 </div>
                 {it.confirmedAt ? (

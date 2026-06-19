@@ -44,6 +44,20 @@ export const X = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}><path d="M6 6l12 12M6 18l12-12" /></svg>
 );
 
+export const Mail = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M4 7l8 6 8-6" />
+  </svg>
+);
+
+export const Megaphone = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M3 10v4a1 1 0 0 0 1 1h3l9 4V5L7 9H4a1 1 0 0 0-1 1z" />
+    <path d="M16 9a3 3 0 0 1 0 6" />
+  </svg>
+);
+
 export const Search = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <circle cx="11" cy="11" r="7" />

@@ -51,7 +51,8 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
               : ''}
           </p>
 
-          <div className="mt-8 border-t border-outline-variant/60 pt-8">
+          {/* 收斂閱讀行寬,長文不致一行過長(首頁已大量採 ch 量度) */}
+          <div className="mt-8 border-t border-outline-variant/60 pt-8 max-w-[70ch]">
             <Markdown content={post.contentMd} />
           </div>
 
@@ -59,7 +60,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           <div className="mt-10 pt-6 border-t border-outline-variant/60">
             <Link
               href="/news"
-              className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm"
+              className="inline-flex items-center gap-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-sm"
             >
               <ChevronLeft size={15} />
               返回資安資訊列表

@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Check, AlertTriangle, Paperclip, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, type ActionStatus, type ExecStatus } from '@/lib/types';
+import { fmtROCDateTime } from '@/lib/date';
 import { TOAST } from '@/lib/copy';
 
 type Review = {
@@ -308,7 +309,7 @@ export default function ActionForm({
         </Chip>
       </>
     ),
-    meta: new Date(r.decidedAt).toLocaleString('zh-TW'),
+    meta: fmtROCDateTime(r.decidedAt),
     body: (
       <>
         {r.comment && <p className="whitespace-pre-wrap">{r.comment}</p>}
