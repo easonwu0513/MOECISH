@@ -44,7 +44,6 @@ const PHOTO_POOL = [
   { src: '/photos/med-4.jpg', alt: '稽核文件審閱與工作底稿' },
   { src: '/photos/med-5.jpg', alt: '資料中心機房與伺服器' },
   { src: '/photos/med-6.jpg', alt: '手術室醫療儀器與監控設備' },
-  { src: '/photos/med-9.jpg', alt: '資安技術人員檢測設備' },
   { src: '/photos/med-10.jpg', alt: '資安監控數據儀表板' },
 ];
 
@@ -284,7 +283,7 @@ export default async function LandingPage() {
                       </Chip>
                       {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
                     </div>
-                    <h3 className="text-title-lg text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
+                    <h3 className="text-title-md text-on-surface leading-snug line-clamp-2 group-hover:text-primary-700 transition-colors">
                       {p.title}
                     </h3>
                     {excerpt(p.contentMd) && (
@@ -421,7 +420,7 @@ function ServiceCard({
           {step}
         </span>
       </div>
-      <p className="text-title-lg text-on-surface">{title}</p>
+      <p className="text-title-md text-on-surface">{title}</p>
       <p className="mt-2 max-w-[30ch] text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
     </div>
   );
