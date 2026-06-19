@@ -16,7 +16,8 @@
     "track:run": "tsx src/scripts/run-tracking.ts",
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
-    "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts"
+    "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
+    "graph:refresh": "tsx src/scripts/refresh-graph-token.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

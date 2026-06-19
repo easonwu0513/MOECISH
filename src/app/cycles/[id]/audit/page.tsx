@@ -24,7 +24,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     include: {
       organization: true,
       assignments: true,
-      checklistVersion: { include: { items: { select: { id: true, dimension: true } } } },
+      checklistVersion: { include: { items: { select: { id: true, dimension: true, itemNo: true }, orderBy: { orderIndex: 'asc' } } } },
       responses: { select: { checklistItemId: true, compliance: true } },
     },
   });
@@ -100,6 +100,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           cycleId={cycle.id}
           canEdit={canEdit}
           stats={stats}
+          itemRefs={cycle.checklistVersion.items.map((i) => i.itemNo)}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
           initialFindings={findings}
         />

@@ -105,6 +105,17 @@ async function getAccessToken(): Promise<string> {
   return cache.access_token;
 }
 
+/**
+ * 強制以 refresh_token 續期並輪替保存,重置 90 天閒置視窗。
+ * 供排程定期呼叫(即使無業務信往來,token 也不會過期失效)。
+ */
+export async function keepAliveToken(): Promise<{ upn: string; expiresAt: number }> {
+  const cache = await loadCache();
+  if (!cache) throw new Error('Graph token 未初始化（請於伺服器執行 npm run graph:init）');
+  const next = await refreshAccessToken(cache);
+  return { upn: next.upn ?? 'moecish@m365.ntu.edu.tw', expiresAt: next.expires_at };
+}
+
 /** 以登入帳號（moecish@）身分寄信。失敗丟出例外,由呼叫端決定降級策略。 */
 export async function sendGraphMail(input: {
   to: string;

@@ -36,17 +36,23 @@ export default function AuditPad({
   cycleId,
   canEdit,
   stats,
+  itemRefs,
   initialScores,
   initialFindings,
 }: {
   cycleId: string;
   canEdit: boolean;
   stats: Record<string, DimStat>;
+  itemRefs: string[];
   initialScores: Record<string, number>;
   initialFindings: MyFinding[];
 }) {
   return (
     <div className="flex flex-col gap-8">
+      {/* 對應檢核項次建議清單(委員輸入時下拉選 7.4 等有效項次) */}
+      <datalist id="audit-item-refs">
+        {itemRefs.map((r) => <option key={r} value={r} />)}
+      </datalist>
       <ScoreSection cycleId={cycleId} canEdit={canEdit} stats={stats} initialScores={initialScores} />
       <FindingSection cycleId={cycleId} canEdit={canEdit} initialFindings={initialFindings} />
     </div>
@@ -159,7 +165,7 @@ function ScoreSection({
                     </div>
                     <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 text-caption tabular-nums" aria-label="檢核結果統計">
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0 text-caption tabular-nums" aria-label="檢核結果統計">
                     <Chip size="sm" tone="neutral">{st.total} 題</Chip>
                     <Chip size="sm" tone="success">符 {st.c1}</Chip>
                     <Chip size="sm" tone="warning">部 {st.c2}</Chip>
@@ -219,6 +225,23 @@ function FindingSection({
   const [busy, setBusy] = useState<string | null>(null); // finding id 或 `new:KIND`
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
 
+  // 離開保護:編輯中未存的發現(editedRef)或有內容的草稿(draftDirtyRef)→ 關分頁攔截
+  const editedRef = useRef<Set<string>>(new Set());
+  const draftDirtyRef = useRef(false);
+  useEffect(() => {
+    draftDirtyRef.current = Object.values(drafts).some(
+      (d) => (d?.content?.trim().length ?? 0) > 0 || (d?.checklistRef?.trim().length ?? 0) > 0,
+    );
+  }, [drafts]);
+  useEffect(() => {
+    if (!canEdit) return;
+    const h = (e: BeforeUnloadEvent) => {
+      if (editedRef.current.size > 0 || draftDirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [canEdit]);
+
   function openDraft(kind: FindingKind) {
     setDrafts((d) => ({ ...d, [kind]: d[kind] ?? { aspect: 'STRATEGY', content: '', checklistRef: '' } }));
   }
@@ -267,6 +290,7 @@ function FindingSection({
       toast.error('儲存失敗', j.error);
       return;
     }
+    editedRef.current.delete(f.id);
     toast.success('已儲存發現');
   }
 
@@ -280,11 +304,13 @@ function FindingSection({
       toast.error('刪除失敗', j.error);
       return;
     }
+    editedRef.current.delete(f.id);
     setFindings((all) => all.filter((x) => x.id !== f.id));
     router.refresh();
   }
 
   function mutate(id: string, patch: Partial<MyFinding>) {
+    editedRef.current.add(id);
     setFindings((all) => all.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
 
@@ -342,6 +368,7 @@ function FindingSection({
                       <div className="w-36">
                         <TextField
                           label="對應項次(選填)"
+                          list="audit-item-refs"
                           value={f.checklistRef ?? ''}
                           onChange={(e) => mutate(f.id, { checklistRef: e.target.value })}
                           disabled={!canEdit || f.locked}
@@ -378,6 +405,7 @@ function FindingSection({
                       <div className="w-36">
                         <TextField
                           label="對應項次(選填)"
+                          list="audit-item-refs"
                           value={draft.checklistRef}
                           onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: e.target.value } }))}
                         />

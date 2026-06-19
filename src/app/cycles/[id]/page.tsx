@@ -54,6 +54,19 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const next = nextActionForRole(user.role, facts);
   const showCta = !!(next?.href && next.cta && next.href !== `/cycles/${cycle.id}`);
 
+  // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
+  const prepTotal = cycle.prepRequirements.length;
+  const prepConfirmed = cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  const prepBadge = prepTotal > 0
+    ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
+    : undefined;
+  const checklistBadge = cycle.checklistSubmittedAt
+    ? <Chip tone="success" size="sm" dot>已送出</Chip>
+    : undefined;
+  const defBadge = total > 0
+    ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
+    : undefined;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -175,6 +188,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           title="稽核前資料準備"
           desc="實地稽核前，機關上傳稽核表與相關文件；委員確認資料齊備或標記缺件。"
           href={`/cycles/${cycle.id}/prep`}
+          badge={prepBadge}
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
@@ -182,6 +196,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           title="資通安全檢核表"
           desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
+          badge={checklistBadge}
         />
         {user.role !== 'ORG_ADMIN' && (
           <ModuleTile
@@ -207,6 +222,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           title="缺失與矯正管考"
           desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
           href={`/cycles/${cycle.id}/deficiencies`}
+          badge={defBadge}
         />
       </section>
 
@@ -274,12 +290,15 @@ function ModuleTile({
   title,
   desc,
   href,
+  badge,
 }: {
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
   title: string;
   desc: string;
   href: string;
+  /** 右上角狀態徽章(進度一目了然);無進度可省略 */
+  badge?: React.ReactNode;
 }) {
   const iconBg = {
     primary: 'bg-primary-50 text-primary-700',
@@ -294,8 +313,11 @@ function ModuleTile({
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
             {icon}
           </div>
-          <div className="min-w-0">
-            <div className="text-title text-on-surface">{title}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-title text-on-surface">{title}</div>
+              {badge && <div className="shrink-0">{badge}</div>}
+            </div>
             <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
           </div>
         </div>

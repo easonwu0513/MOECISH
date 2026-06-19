@@ -1,0 +1,11 @@
+[Unit]
+Description=MOECISH Graph token keep-alive (refresh to reset 90-day idle window)
+After=network.target
+
+[Service]
+Type=oneshot
+User=moecish
+Group=moecish
+WorkingDirectory=/srv/moecish
+ExecStart=/usr/bin/npx tsx src/scripts/refresh-graph-token.ts
+SyslogIdentifier=moecish-graph-refresh
