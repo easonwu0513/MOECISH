@@ -1,4 +1,4 @@
-import type { Role } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -8,7 +8,8 @@ export class AuthError extends Error {
 
 export async function requireUser() {
   const session = await auth();
-  if (!session?.user) throw new AuthError(401, '未登入');
+  // 檢查 user.id 而非僅 user 物件:token 被撤銷(改密/停權)時 callback 會清空 claims
+  if (!session?.user?.id) throw new AuthError(401, '未登入');
   return session.user;
 }
 
@@ -79,4 +80,52 @@ export async function assertDeficiencyAccess(deficiencyId: string) {
       break;
   }
   return { user, deficiency };
+}
+
+/**
+ * 佐證存取控制:依 targetType 反查所屬週期,再套週期存取規則
+ * (SUPER_ADMIN 全部 / AUDITOR 限被指派 / ORG_ADMIN 限自家機關)。
+ * 用於佐證的 list / upload / download — 杜絕跨機關 IDOR。
+ * targetId 格式不符或對象不存在一律擋下。
+ */
+export async function assertEvidenceAccess(targetType: string, targetId: string) {
+  if (!EVIDENCE_TARGET_TYPES.includes(targetType as EvidenceTargetType)) {
+    throw new AuthError(400, '不支援的佐證類型');
+  }
+  if (!/^[a-z0-9]{20,40}$/i.test(targetId)) {
+    // cuid 形式;阻擋路徑穿越與任意字串
+    throw new AuthError(400, '佐證對象識別碼格式不正確');
+  }
+
+  let cycleId: string | null = null;
+  switch (targetType as EvidenceTargetType) {
+    case 'AUDIT_CYCLE':
+      cycleId = targetId;
+      break;
+    case 'CHECKLIST_RESPONSE': {
+      const r = await prisma.checklistResponse.findUnique({
+        where: { id: targetId }, select: { cycleId: true },
+      });
+      cycleId = r?.cycleId ?? null;
+      break;
+    }
+    case 'CORRECTIVE_ACTION': {
+      const a = await prisma.correctiveAction.findUnique({
+        where: { id: targetId }, select: { deficiency: { select: { cycleId: true } } },
+      });
+      cycleId = a?.deficiency.cycleId ?? null;
+      break;
+    }
+    case 'PREP_SUBMISSION': {
+      const s = await prisma.prepSubmission.findUnique({
+        where: { id: targetId }, select: { requirement: { select: { cycleId: true } } },
+      });
+      cycleId = s?.requirement.cycleId ?? null;
+      break;
+    }
+  }
+  if (!cycleId) throw new AuthError(404, '佐證對象不存在');
+
+  const { user, cycle } = await assertCycleAccess(cycleId);
+  return { user, cycle, cycleId };
 }

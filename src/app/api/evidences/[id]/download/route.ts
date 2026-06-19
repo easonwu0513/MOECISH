@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { assertEvidenceAccess, AuthError } from '@/lib/rbac';
 import { readFileByKey } from '@/lib/storage';
 
 /** 圖片與 PDF 可用 ?inline=1 於瀏覽器內預覽(委員審查比對用);其餘一律下載。 */
@@ -8,9 +8,10 @@ const INLINE_MIME = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/i;
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    await requireUser();
     const e = await prisma.evidence.findUnique({ where: { id: params.id } });
     if (!e) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    // 驗證呼叫者對此佐證所屬週期有存取權(杜絕跨機關下載 IDOR)
+    await assertEvidenceAccess(e.targetType, e.targetId);
     const buf = await readFileByKey(e.storageKey);
     const wantInline = new URL(req.url).searchParams.get('inline') === '1';
     const disposition =

@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { assertEvidenceAccess, AuthError } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(req: Request) {
   try {
-    await requireUser();
     const url = new URL(req.url);
     const targetType = url.searchParams.get('targetType') ?? '';
     const targetId = url.searchParams.get('targetId') ?? '';
-    if (!EVIDENCE_TARGET_TYPES.includes(targetType as EvidenceTargetType) || !targetId) {
-      return NextResponse.json({ error: 'bad params' }, { status: 400 });
-    }
+    // 驗證呼叫者對該佐證對象有存取權(杜絕跨機關枚舉);格式/不存在/越權皆於此擋下
+    await assertEvidenceAccess(targetType, targetId);
     const items = await prisma.evidence.findMany({
       where: { targetType, targetId },
       orderBy: { uploadedAt: 'asc' },
-      select: { id: true, originalName: true, storageKey: true, mimeType: true, sizeBytes: true },
+      // 不回傳 storageKey(內部儲存路徑不外洩)
+      select: { id: true, originalName: true, mimeType: true, sizeBytes: true },
     });
     return NextResponse.json({ items });
   } catch (e) {
@@ -28,14 +26,15 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
     const fd = await req.formData();
     const file = fd.get('file') as File | null;
     const targetType = String(fd.get('targetType') ?? '');
     const targetId = String(fd.get('targetId') ?? '');
-    if (!file || !EVIDENCE_TARGET_TYPES.includes(targetType as EvidenceTargetType) || !targetId) {
-      return NextResponse.json({ error: 'bad params' }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: '缺少檔案' }, { status: 400 });
     }
+    // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
+    const { user } = await assertEvidenceAccess(targetType, targetId);
 
     if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json({ error: '檔案超過 20MB 上限' }, { status: 400 });
@@ -56,7 +55,7 @@ export async function POST(req: Request) {
         sha256: saved.sha256,
         uploadedById: user.id,
       },
-      select: { id: true, originalName: true, storageKey: true, mimeType: true, sizeBytes: true },
+      select: { id: true, originalName: true, mimeType: true, sizeBytes: true },
     });
 
     const meta = extractRequestMeta(req);

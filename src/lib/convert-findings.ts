@@ -38,6 +38,7 @@ export async function convertFindingsToDeficiencies(cycleId: string, createdById
         description: f.content,
         checklistRef: f.checklistRef,
         createdById,
+        action: { create: {} }, // 與手動建缺失一致;否則機關無法填報/送審矯正(閉環斷裂)
       },
     });
     await prisma.auditFinding.update({

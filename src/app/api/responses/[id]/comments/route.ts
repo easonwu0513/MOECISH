@@ -13,9 +13,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const response = await prisma.checklistResponse.findUnique({
       where: { id: params.id },
-      include: { comments: { orderBy: { round: 'desc' }, take: 1 } },
+      include: {
+        comments: { orderBy: { round: 'desc' }, take: 1 },
+        cycle: { include: { assignments: true } },
+      },
     });
     if (!response) return NextResponse.json({ error: 'response 不存在' }, { status: 404 });
+
+    // 租戶/指派檢查:委員僅能對被指派週期留言(杜絕跨機關寫入官方意見)
+    if (
+      user.role === 'AUDITOR' &&
+      !response.cycle.assignments.some((a) => a.auditorId === user.id)
+    ) {
+      return NextResponse.json({ error: '您未被指派此稽核週期' }, { status: 403 });
+    }
 
     const nextRound = (response.comments[0]?.round ?? 0) + 1;
     const created = await prisma.auditorComment.create({

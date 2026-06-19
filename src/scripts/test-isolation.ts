@@ -128,6 +128,9 @@ async function cleanup() {
   });
   const cycleIds = cycles.map((c) => c.id);
 
+  await prisma.evidence.deleteMany({ where: { targetId: { in: cycleIds } } });
+  const resps = await prisma.checklistResponse.findMany({ where: { cycleId: { in: cycleIds } }, select: { id: true } });
+  await prisma.auditorComment.deleteMany({ where: { responseId: { in: resps.map((r) => r.id) } } });
   await prisma.checklistResponse.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.auditScore.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.auditFinding.deleteMany({ where: { cycleId: { in: cycleIds } } });
@@ -154,6 +157,7 @@ async function main() {
   });
   if (!version) throw new Error('資料庫沒有任何含題目的檢核表版本,無法測試');
   const firstItemNo = version.items[0].itemNo;
+  const firstItemId = version.items[0].id;
 
   console.log('[isolation] 清理舊夾具…');
   await cleanup();
@@ -183,6 +187,18 @@ async function main() {
   await prisma.auditorAssignment.create({ data: { cycleId: cycleA.id, auditorId: auditorY.id } });
   const defA = await prisma.deficiency.create({
     data: { cycleId: cycleA.id, aspect: 'STRATEGY', type: 'IMPROVE', itemNo: 999, description: '隔離測試用缺失', createdById: adminA.id },
+  });
+  // A 機關的檢核回應 + 佐證(供「委員意見」「佐證 IDOR」隔離測試)
+  const respA = await prisma.checklistResponse.create({
+    data: { cycleId: cycleA.id, checklistItemId: firstItemId, compliance: 'COMPLIANT', description: '隔離測試回應' },
+  });
+  const eviA = await prisma.evidence.create({
+    data: {
+      targetType: 'AUDIT_CYCLE', targetId: cycleA.id,
+      fileName: 'iso.txt', originalName: 'iso.txt', mimeType: 'text/plain',
+      sizeBytes: 3, storageKey: `evidences/AUDIT_CYCLE/${cycleA.id}/iso.txt`, sha256: 'isohash',
+      uploadedById: adminA.id,
+    },
   });
 
   console.log('[isolation] 登入 4 個測試帳號…');
@@ -238,6 +254,22 @@ async function main() {
   await expectStatus('B管理員 評分A週期(非委員)', jarB, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
   await expectStatus('B管理員 轉入缺失(非最高管理員)', jarB, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
   await expectStatus('委員Y 轉入缺失(非最高管理員)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
+
+  console.log('\n── 佐證跨機關隔離(evidences IDOR 修補)──');
+  const eviListA = `/api/evidences?targetType=AUDIT_CYCLE&targetId=${cycleA.id}`;
+  await expectAllowed('A管理員 列自家佐證', jarA, 'GET', eviListA);
+  await expectAllowed('指派委員Y 列A佐證', jarY, 'GET', eviListA);
+  await expectStatus('B管理員 列A佐證', jarB, 'GET', eviListA, [403]);
+  await expectStatus('未指派委員X 列A佐證', jarX, 'GET', eviListA, [403]);
+  await expectStatus('B管理員 下載A佐證', jarB, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
+  await expectStatus('未指派委員X 下載A佐證', jarX, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
+  await expectStatus('匿名 列A佐證', null, 'GET', eviListA, [401]);
+
+  console.log('\n── 委員意見跨機關隔離 ──');
+  const cmtBody = { content: '隔離測試委員意見內容' };
+  await expectAllowed('指派委員Y 對A回應留言', jarY, 'POST', `/api/responses/${respA.id}/comments`, cmtBody);
+  await expectStatus('未指派委員X 對A回應留言', jarX, 'POST', `/api/responses/${respA.id}/comments`, [403], cmtBody);
+  await expectStatus('B管理員 對A回應留言(非委員)', jarB, 'POST', `/api/responses/${respA.id}/comments`, [403], cmtBody);
 
   console.log('\n[isolation] 清理夾具…');
   await cleanup();

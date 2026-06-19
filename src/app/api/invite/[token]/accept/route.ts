@@ -28,6 +28,10 @@ export async function POST(req: Request, { params }: { params: { token: string }
 
     // 若該 email 已有使用者（之前 admin 手動建過），更新；否則新建
     let user = await prisma.user.findUnique({ where: { email: inv.email } });
+    // 防接管:邀請建立後帳號若已被啟用,視為過時邀請,不得覆寫其角色/機關/密碼
+    if (user?.isActive) {
+      return NextResponse.json({ error: '此帳號已啟用,邀請連結已失效' }, { status: 400 });
+    }
     if (user) {
       user = await prisma.user.update({
         where: { id: user.id },
@@ -69,6 +73,10 @@ export async function POST(req: Request, { params }: { params: { token: string }
 
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ error: '密碼格式不正確(至少 8 碼)' }, { status: 400 });
+    }
+    console.error('[invite/accept]', e);
+    return NextResponse.json({ error: '啟用失敗,請稍後再試' }, { status: 500 });
   }
 }
