@@ -59,7 +59,7 @@ export default async function OrganizationDetail({ params }: { params: { id: str
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-headline text-on-surface">{org.name}</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
             <span className="font-mono">{org.code}</span>
             {org.shortName ? <> · {org.shortName}</> : null}
             {' · '}

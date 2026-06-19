@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
@@ -33,6 +34,20 @@ function excerpt(md: string, len = 64): string {
 
 export const dynamic = 'force-dynamic';
 
+/** Hero 醫療×資安場景照片池(明亮專業);每次載入隨機選 6 張交錯輪播。 */
+const PHOTO_POOL = [
+  { src: '/photos/med-1.jpg', alt: '醫護人員使用行動裝置' },
+  { src: '/photos/med-2.jpg', alt: '明亮醫院服務櫃台' },
+  { src: '/photos/med-3.jpg', alt: '明亮整潔的病房' },
+  { src: '/photos/med-7.jpg', alt: '明亮現代化診間' },
+  { src: '/photos/med-8.jpg', alt: '病患生理監測儀器' },
+  { src: '/photos/med-4.jpg', alt: '稽核文件審閱與工作底稿' },
+  { src: '/photos/med-5.jpg', alt: '資料中心機房與伺服器' },
+  { src: '/photos/med-6.jpg', alt: '手術室醫療儀器與監控設備' },
+  { src: '/photos/med-9.jpg', alt: '資安技術人員檢測設備' },
+  { src: '/photos/med-10.jpg', alt: '資安監控數據儀表板' },
+];
+
 const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {
   ANNOUNCEMENT: 'primary',
   INTEL: 'sage',
@@ -65,6 +80,9 @@ export default async function LandingPage() {
   ]);
 
   const itemCount = latestVersion?._count.items ?? 87;
+
+  // 每次載入隨機選 6 張(打散順序),讓 Hero 輪播更隨機、不固定
+  const heroPhotos = [...PHOTO_POOL].sort(() => Math.random() - 0.5).slice(0, 6);
 
   const important = posts.find((p) => p.important);
   const enterHref = session ? '/dashboard' : '/login';
@@ -153,18 +171,18 @@ export default async function LandingPage() {
               className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden ring-1 ring-on-surface/10 animate-fade-in"
               style={{ boxShadow: '0 1px 3px 0 rgba(24,36,56,0.10), 0 4px 10px 3px rgba(24,36,56,0.06), inset 0 1px 0 rgba(255,255,255,0.5)' }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-1.jpg" alt="醫護人員使用行動裝置" className="absolute inset-0 w-full h-full object-cover" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-4.jpg" alt="稽核文件審閱與工作底稿" className="medfade-2 absolute inset-0 w-full h-full object-cover opacity-0" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-2.jpg" alt="醫院服務櫃台" className="medfade-3 absolute inset-0 w-full h-full object-cover opacity-0" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-5.jpg" alt="資料中心機房與伺服器" className="medfade-4 absolute inset-0 w-full h-full object-cover opacity-0" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-3.jpg" alt="明亮整潔的病房" className="medfade-5 absolute inset-0 w-full h-full object-cover opacity-0" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/photos/med-6.jpg" alt="手術室醫療儀器與監控設備" className="medfade-6 absolute inset-0 w-full h-full object-cover opacity-0" />
+              {heroPhotos.map((p, i) => (
+                <img
+                  key={p.src}
+                  src={p.src}
+                  alt={p.alt}
+                  className={
+                    i === 0
+                      ? 'absolute inset-0 w-full h-full object-cover'
+                      : `medfade-${i + 1} absolute inset-0 w-full h-full object-cover opacity-0`
+                  }
+                />
+              ))}
               {/* 底部柔和漸層,確保浮卡可讀 */}
               <div
                 className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"

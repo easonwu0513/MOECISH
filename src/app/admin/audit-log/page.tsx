@@ -70,7 +70,7 @@ export default async function AuditLogPage({
       <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-headline text-on-surface">稽核軌跡</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
             所有寫入操作之不可否認紀錄;顯示最近 200 筆。
           </p>
         </div>

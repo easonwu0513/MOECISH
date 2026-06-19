@@ -132,7 +132,7 @@ export default async function ReviewPage({
               <h2 className="text-title-md text-on-surface">{DIMENSION_LABELS[dim as Dimension]}</h2>
               <Chip tone="neutral" size="sm">{items.length}</Chip>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-3">
               {items.map((item) => {
                 const r = responsesByItem.get(item.id);
                 const c = r?.compliance as ComplianceLevel | null;
@@ -157,13 +157,13 @@ export default async function ReviewPage({
                           )}
                         </div>
                         {r?.description && (
-                          <div className="mt-3 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-neutral-700 whitespace-pre-wrap">
+                          <div className="mt-3 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-neutral-500 mb-1">機關說明(規範內容、執行方式、執行結果)</p>
                             {r.description}
                           </div>
                         )}
                         {r?.recordDocs && (
-                          <div className="mt-2 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-neutral-700 whitespace-pre-wrap">
+                          <div className="mt-2 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-neutral-500 mb-1">紀錄文件</p>
                             {r.recordDocs}
                           </div>
@@ -201,7 +201,7 @@ export default async function ReviewPage({
                                   <span>第 {cm.round} 輪 · {new Date(cm.createdAt).toLocaleString('zh-TW')}</span>
                                   {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                 </div>
-                                <p className="whitespace-pre-wrap text-neutral-800">{cm.content}</p>
+                                <p className="whitespace-pre-wrap text-neutral-700 leading-relaxed">{cm.content}</p>
                               </div>
                             ))}
                           </div>

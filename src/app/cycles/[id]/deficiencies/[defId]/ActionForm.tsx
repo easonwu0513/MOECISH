@@ -384,7 +384,7 @@ export default function ActionForm({
                       />
                       <span className="min-w-0">
                         <span className="text-body-sm font-medium text-on-surface">{m.label}</span>
-                        <span className="block text-caption text-on-surface-variant">{m.hint}</span>
+                        <span className="mt-0.5 block text-caption text-on-surface-variant leading-relaxed">{m.hint}</span>
                       </span>
                     </label>
                     {st.on && (

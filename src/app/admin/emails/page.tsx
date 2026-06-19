@@ -97,7 +97,7 @@ export default async function EmailLogPage({
     >
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">Email</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
+        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
           寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
           失敗的信可在下方逐封重寄。
         </p>
@@ -195,7 +195,7 @@ export default async function EmailLogPage({
                       <div className="text-on-surface">{l.subject}</div>
                       <details className="mt-1 text-caption text-on-surface-variant">
                         <summary className="cursor-pointer hover:text-primary-700">內文</summary>
-                        <pre className="mt-2 p-3 bg-surface-container-low rounded-md whitespace-pre-wrap font-sans text-body-sm text-on-surface">{l.body}</pre>
+                        <pre className="mt-2 p-3 bg-surface-container-low rounded-md whitespace-pre-wrap font-sans text-body-sm text-on-surface-variant leading-relaxed">{l.body}</pre>
                       </details>
                     </td>
                     <td className="px-5 py-3 text-right">

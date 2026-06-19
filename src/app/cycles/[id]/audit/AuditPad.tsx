@@ -157,7 +157,7 @@ function ScoreSection({
                       {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}
                       <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]} 分)</span>
                     </div>
-                    <div className="text-caption text-on-surface-variant mt-0.5">{gradeHint(dim)}</div>
+                    <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 text-caption tabular-nums" aria-label="檢核結果統計">
                     <Chip size="sm" tone="neutral">{st.total} 題</Chip>
@@ -315,7 +315,7 @@ function FindingSection({
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-outline-variant/40">
                 <div>
                   <span className="text-title text-on-surface">{FINDING_KIND_LABELS[kind]}</span>
-                  <span className="ml-2 text-caption text-on-surface-variant">{FINDING_KIND_HINTS[kind]}</span>
+                  <span className="ml-2 text-caption text-on-surface-variant/90">{FINDING_KIND_HINTS[kind]}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Chip size="sm" tone="neutral">{mine.length} 條</Chip>

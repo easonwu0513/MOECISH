@@ -70,7 +70,7 @@ export default async function ChecklistVersionDetailPage({ params }: { params: {
           <Card padded={false} variant="outlined">
             <ul className="divide-y divide-outline-variant/60">
               {items.map((it) => (
-                <li key={it.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface-container-low transition-colors">
+                <li key={it.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-surface-container-low transition-colors">
                   <Chip tone="neutral" size="sm" className="font-mono shrink-0 mt-0.5">{it.itemNo}</Chip>
                   <div className="flex-1 min-w-0">
                     <p className="text-body-sm text-on-surface leading-relaxed line-clamp-2">{it.content}</p>

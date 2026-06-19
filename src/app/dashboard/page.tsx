@@ -263,7 +263,7 @@ export default async function HomePage() {
                 <CardTitle className="text-title-lg">待辦</CardTitle>
                 <span className="text-caption text-on-surface-variant">按緊急度排序</span>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 {todos.length === 0 ? (
                   <div className="flex flex-col items-center text-center py-8 px-2">
                     <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
@@ -292,7 +292,7 @@ export default async function HomePage() {
                         }
                         aria-hidden
                       />
-                      <span className="flex-1 text-body-sm text-on-surface truncate">{t.title}</span>
+                      <span className="flex-1 text-body-sm text-on-surface-variant truncate">{t.title}</span>
                       <span className="text-caption text-on-surface-variant group-hover:text-primary-700 shrink-0 inline-flex items-center gap-0.5 transition-colors">
                         {t.cta}
                         <ChevronRight size={14} />

@@ -173,7 +173,7 @@ export default async function DeficienciesPage({
                         <p className="text-label text-on-surface-variant mb-2">
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2.5">
                           {items.map((d) => {
                             const status = (d.action?.status ?? 'PENDING') as ActionStatus;
                             const round = d.action?.round ?? 1;
@@ -185,7 +185,7 @@ export default async function DeficienciesPage({
                                       {d.itemNo}
                                     </span>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-body-sm text-on-surface line-clamp-2">
+                                      <p className="text-body-sm text-on-surface-variant leading-relaxed line-clamp-2">
                                         {d.description}
                                       </p>
                                       <div className="mt-1.5 flex items-center gap-2">

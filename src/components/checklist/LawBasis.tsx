@@ -40,7 +40,7 @@ export function LawBasisText({ text, className }: { text: string; className?: st
 export function NumberedList({ text, className }: { text: string; className?: string }) {
   const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
   return (
-    <ul className={cn('space-y-1', className)}>
+    <ul className={cn('space-y-1.5', className)}>
       {lines.map((line, i) => (
         <li key={i} className="text-body-sm text-on-surface-variant leading-relaxed">
           {line}

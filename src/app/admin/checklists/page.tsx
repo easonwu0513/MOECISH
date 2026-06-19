@@ -31,7 +31,7 @@ export default async function ChecklistVersionsPage() {
     >
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">檢核表題庫管理</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
+        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
           管理各年度檢核表版本與題目內容(含法規對照);年度換版用「複製為新版」再編修,歷史週期不受影響。
         </p>
       </header>

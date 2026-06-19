@@ -229,7 +229,7 @@ export default function PrepBoard({
                         </Chip>
                       </div>
                       {item.description && (
-                        <p className="mt-1 text-body-sm text-on-surface-variant">{item.description}</p>
+                        <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{item.description}</p>
                       )}
 
                       {/* 缺件理由 */}

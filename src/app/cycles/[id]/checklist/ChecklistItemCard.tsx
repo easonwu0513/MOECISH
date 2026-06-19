@@ -212,7 +212,7 @@ export default function ChecklistItemCard({
                   </Button>
                 ) : null}
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-neutral-800">{c.content}</p>
+              <p className="mt-1 whitespace-pre-wrap text-neutral-700 leading-relaxed">{c.content}</p>
             </div>
           ))}
         </div>

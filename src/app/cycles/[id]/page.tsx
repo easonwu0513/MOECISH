@@ -129,7 +129,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             />
             <div>
               <CardTitle>矯正通過</CardTitle>
-              <CardDescription>
+              <CardDescription className="leading-relaxed">
                 {total > 0 ? `共 ${total} 項缺失` : '尚未發布缺失'}
               </CardDescription>
             </div>
@@ -155,7 +155,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             </div>
             <div>
               <CardTitle>待機關處理</CardTitle>
-              <CardDescription>
+              <CardDescription className="leading-relaxed">
                 待填 {pendingCount} · 退回 {returned}
               </CardDescription>
             </div>

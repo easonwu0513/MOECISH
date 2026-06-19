@@ -47,7 +47,7 @@ export default async function UsersPage() {
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-headline text-on-surface">使用者管理</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
             全系統帳號總覽。稽核委員與管理員用右上角邀請;機關管理員請至
             <Link href="/admin/organizations" className="text-primary-700 hover:underline mx-1">醫院管理</Link>
             選擇對應醫院 → 邀請人員。
