@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { requireUser } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import {
   BASELINE, validatePasswordComplexity, parsePasswordHistory, pushPasswordHistory,
 } from '@/lib/security-baseline';
@@ -66,8 +67,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors[0]?.message ?? '格式錯誤' }, { status: 400 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

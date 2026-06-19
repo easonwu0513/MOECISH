@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertDeficiencyAccess, AuthError } from '@/lib/rbac';
+import { assertDeficiencyAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
 import type { ActionStatus, ExecStatus } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
@@ -71,7 +72,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ item: updated });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import type { DeficiencyAspect, DeficiencyType } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -107,25 +108,29 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       maxNo.set(k, Math.max(maxNo.get(k) ?? 0, d.itemNo));
     }
 
-    let created = 0;
-    for (const r of parsed) {
-      const k = `${r.aspect}|${r.type}`;
-      const next = (maxNo.get(k) ?? 0) + 1;
-      maxNo.set(k, next);
-      await prisma.deficiency.create({
-        data: {
-          cycleId: cycle.id,
-          aspect: r.aspect,
-          type: r.type,
-          itemNo: next,
-          description: r.description,
-          checklistRef: r.checklistRef ?? null,
-          createdById: user.id,
-          action: { create: {} },
-        },
-      });
-      created++;
-    }
+    // 整批匯入包進單一交易:任一筆失敗則全數回滾,避免半套缺失
+    const created = await prisma.$transaction(async (tx) => {
+      let n = 0;
+      for (const r of parsed) {
+        const k = `${r.aspect}|${r.type}`;
+        const next = (maxNo.get(k) ?? 0) + 1;
+        maxNo.set(k, next);
+        await tx.deficiency.create({
+          data: {
+            cycleId: cycle.id,
+            aspect: r.aspect,
+            type: r.type,
+            itemNo: next,
+            description: r.description,
+            checklistRef: r.checklistRef ?? null,
+            createdById: user.id,
+            action: { create: {} },
+          },
+        });
+        n++;
+      }
+      return n;
+    });
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({
@@ -139,7 +144,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ created });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

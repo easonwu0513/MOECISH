@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { requireUser } from '@/lib/rbac';
 import { deleteFileByKey } from '@/lib/storage';
+import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
 import type { ActionStatus } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
@@ -83,7 +84,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    return errorResponse(err);
   }
 }

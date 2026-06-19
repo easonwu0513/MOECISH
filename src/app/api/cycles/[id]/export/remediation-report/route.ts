@@ -4,7 +4,8 @@ import {
   WidthType, AlignmentType, HeadingLevel, BorderStyle,
 } from 'docx';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
@@ -166,7 +167,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
     });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

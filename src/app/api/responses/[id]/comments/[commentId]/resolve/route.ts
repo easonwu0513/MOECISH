@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { errorResponse } from '@/lib/api';
 
 export async function POST(
   req: Request,
@@ -42,7 +43,6 @@ export async function POST(
 
     return NextResponse.json(updated);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

@@ -5,7 +5,8 @@ import {
   WidthType, AlignmentType, BorderStyle, PageOrientation,
 } from 'docx';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { type ComplianceLevel, type Dimension } from '@/lib/types';
 
@@ -32,8 +33,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const format = new URL(req.url).searchParams.get('format');
     return format === 'docx' ? exportDocx(data) : exportXlsx(data);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }
 

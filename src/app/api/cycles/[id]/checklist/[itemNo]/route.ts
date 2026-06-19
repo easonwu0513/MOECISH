@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError, requireRole } from '@/lib/rbac';
+import { assertCycleAccess, requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { COMPLIANCE_LEVELS } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -88,7 +89,6 @@ export async function PUT(
 
     return NextResponse.json(result);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

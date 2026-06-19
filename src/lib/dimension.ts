@@ -1,4 +1,4 @@
-import type { Dimension } from './types';
+import { DIMENSIONS, type Dimension } from './types';
 
 export const DIMENSION_LABELS: Record<Dimension, string> = {
   CORE_BUSINESS: '一、核心業務及其重要性',
@@ -12,17 +12,8 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
   INCIDENT_RESPONSE: '九、資通安全事件通報應變及情資評估因應',
 };
 
-export const DIMENSION_ORDER: Dimension[] = [
-  'CORE_BUSINESS',
-  'POLICY_ORG',
-  'STAFFING_BUDGET',
-  'ASSET_RISK',
-  'OUTSOURCING',
-  'MAINTENANCE_KPI',
-  'PROTECTION_CONTROL',
-  'SYSTEM_DEV',
-  'INCIDENT_RESPONSE',
-];
+// 單一真實來源:沿用 types.ts 的 DIMENSIONS 順序,避免兩份清單失同步
+export const DIMENSION_ORDER: Dimension[] = [...DIMENSIONS];
 
 export function dimensionFromItemNo(itemNo: string): Dimension {
   const major = itemNo.split('.')[0];

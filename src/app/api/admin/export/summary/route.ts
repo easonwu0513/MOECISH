@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
@@ -14,12 +15,7 @@ import {
 } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
-
-function rocDate(d: Date | null | undefined): string {
-  if (!d) return '';
-  const dt = new Date(d);
-  return `${dt.getFullYear() - 1911}.${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`;
-}
+import { rocDateDotted as rocDate } from '@/lib/date';
 
 /** 全機關改善情形彙整表(Excel)— SUPER_ADMIN 對外回報用 */
 export async function GET(req: Request) {
@@ -96,7 +92,6 @@ export async function GET(req: Request) {
       },
     });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

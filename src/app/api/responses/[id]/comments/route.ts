@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { errorResponse } from '@/lib/api';
 
 const Body = z.object({ content: z.string().min(1) });
 
@@ -52,7 +53,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json(created);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

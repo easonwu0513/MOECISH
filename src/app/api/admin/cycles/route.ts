@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -62,7 +63,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(cycle);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

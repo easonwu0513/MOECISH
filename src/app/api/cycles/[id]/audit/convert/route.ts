@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { prisma } from '@/lib/db';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { convertFindingsToDeficiencies } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -17,7 +19,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '已結案的週期不可新增缺失' }, { status: 409 });
     }
 
-    const converted = await convertFindingsToDeficiencies(cycle.id, user.id);
+    // 逐筆 create + 回填以單一交易包覆(中途失敗整批回滾)
+    const converted = await prisma.$transaction((tx) =>
+      convertFindingsToDeficiencies(cycle.id, user.id, tx),
+    );
 
     await writeAuditLog({
       actorId: user.id,
@@ -30,7 +35,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ ok: true, converted });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

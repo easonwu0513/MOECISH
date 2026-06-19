@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { sendEmail, type EmailKind } from '@/lib/email';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -46,7 +47,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ ok: true, delivery: reDelivery, newLogId: re.id });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

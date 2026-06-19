@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 
 /**
@@ -5,15 +6,20 @@ import { prisma } from './db';
  * - 法遵符合情形(COMPLIANCE)不轉
  * - 項次依構面×類型接續編號;原發現回填 deficiencyId 鎖定
  * 回傳轉換筆數。
+ * @param db 可傳入交易 client(`$transaction`)以與呼叫端共用同一交易;預設用全域 prisma。
  */
-export async function convertFindingsToDeficiencies(cycleId: string, createdById: string) {
-  const pending = await prisma.auditFinding.findMany({
+export async function convertFindingsToDeficiencies(
+  cycleId: string,
+  createdById: string,
+  db: Prisma.TransactionClient = prisma,
+) {
+  const pending = await db.auditFinding.findMany({
     where: { cycleId, deficiencyId: null, kind: { in: ['IMPROVE', 'SUGGEST'] } },
     orderBy: [{ aspect: 'asc' }, { kind: 'asc' }, { createdAt: 'asc' }],
   });
   if (pending.length === 0) return 0;
 
-  const existing = await prisma.deficiency.groupBy({
+  const existing = await db.deficiency.groupBy({
     by: ['aspect', 'type'],
     where: { cycleId },
     _max: { itemNo: true },
@@ -29,7 +35,7 @@ export async function convertFindingsToDeficiencies(cycleId: string, createdById
     const itemNo = nextNo.get(key) ?? 1;
     nextNo.set(key, itemNo + 1);
 
-    const def = await prisma.deficiency.create({
+    const def = await db.deficiency.create({
       data: {
         cycleId,
         aspect: f.aspect,
@@ -41,7 +47,7 @@ export async function convertFindingsToDeficiencies(cycleId: string, createdById
         action: { create: {} }, // 與手動建缺失一致;否則機關無法填報/送審矯正(閉環斷裂)
       },
     });
-    await prisma.auditFinding.update({
+    await db.auditFinding.update({
       where: { id: f.id },
       data: { deficiencyId: def.id },
     });

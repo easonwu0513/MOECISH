@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
-const STORAGE_DIR = process.env.STORAGE_DIR ?? './uploads';
+export const STORAGE_DIR = process.env.STORAGE_DIR ?? './uploads';
 const STORAGE_ROOT = path.resolve(STORAGE_DIR);
 
 /** 縱深防禦:確保解析後的絕對路徑仍落在 STORAGE_DIR 內,否則視為路徑穿越攻擊。 */
