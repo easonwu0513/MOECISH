@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess, AuthError } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
 import { EXEC_STATUSES, type ActionStatus } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
@@ -36,8 +37,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     const body = SaveBody.parse(await req.json());
-    const toDate = (v: string | null | undefined) =>
-      v === undefined ? undefined : v === null || v === '' ? null : new Date(v);
+    const toDate = (v: string | null | undefined) => {
+      if (v === undefined) return undefined;
+      if (v === null || v === '') return null;
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) throw new AuthError(400, '日期格式不正確');
+      return d;
+    };
 
     const updated = await prisma.correctiveAction.update({
       where: { id: action.id },
@@ -68,8 +74,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     return NextResponse.json({ item: updated });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors[0]?.message ?? '輸入有誤' }, { status: 400 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

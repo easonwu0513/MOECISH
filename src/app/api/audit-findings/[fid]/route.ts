@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireUser, AuthError } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { FINDING_KINDS } from '@/lib/audit-score';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
@@ -51,8 +52,7 @@ export async function PATCH(req: Request, { params }: { params: { fid: string } 
     });
     return NextResponse.json(updated);
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }
 
@@ -70,7 +70,6 @@ export async function DELETE(req: Request, { params }: { params: { fid: string }
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

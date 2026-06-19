@@ -81,12 +81,6 @@ export const EXEC_STATUS_LABELS: Record<ExecStatus, string> = {
 };
 
 export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
-export type ReviewDecisionValue = (typeof REVIEW_DECISIONS)[number];
-
-export const REVIEW_DECISION_LABELS: Record<ReviewDecisionValue, string> = {
-  PASS: '審核通過',
-  RETURN: '退回補正',
-};
 
 // ════════════════════════════════════════════
 // 模組 B：資料準備（P2）

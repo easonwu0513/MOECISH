@@ -2,8 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from './db';
 import { isGraphConfigured, sendGraphMail } from './graph-mail';
-
-const STORAGE_DIR = process.env.STORAGE_DIR ?? './uploads';
+import { STORAGE_DIR } from './storage';
 
 export type EmailKind =
   | 'invitation'

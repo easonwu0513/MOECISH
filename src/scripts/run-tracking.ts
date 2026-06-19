@@ -36,6 +36,15 @@ async function alreadySentToday(autoKey: string): Promise<boolean> {
   return hit !== null;
 }
 
+/** 整週期級去重:此 cycle+trigger 是否曾寄過(D-7/D-1 一次性提醒用) */
+async function alreadySentEver(autoKey: string): Promise<boolean> {
+  const hit = await prisma.emailLog.findFirst({
+    where: { kind: 'tracking', context: { contains: `"autoKey":"${autoKey}"` } },
+    select: { id: true },
+  });
+  return hit !== null;
+}
+
 async function main() {
   const now = new Date();
   console.log(`[track] run at ${now.toISOString()}`);
@@ -55,16 +64,21 @@ async function main() {
     const returned = c.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
     if (unfinished === 0) continue;
 
+    // 改用區間判斷:timer 若漏跑某一天,進入視窗後仍會補寄(配合週期級去重避免重發)
     const dleft = daysUntil(c.dueDate, now);
     let trigger: 'D7' | 'D1' | 'OVERDUE' | null = null;
-    if (dleft === 7) trigger = 'D7';
-    else if (dleft === 1) trigger = 'D1';
+    if (dleft <= 7 && dleft >= 2) trigger = 'D7';
+    else if (dleft <= 1 && dleft >= 0) trigger = 'D1';
     else if (dleft < 0) trigger = 'OVERDUE';
     if (!trigger) continue;
 
     const autoKey = `${c.id}:${trigger}`;
-    if (await alreadySentToday(autoKey)) {
-      console.log(`[track] skip (today already sent): ${autoKey}`);
+    // D-7/D-1 為一次性提醒(整週期去重);逾期為每日提醒(當日去重)
+    const already = trigger === 'OVERDUE'
+      ? await alreadySentToday(autoKey)
+      : await alreadySentEver(autoKey);
+    if (already) {
+      console.log(`[track] skip (already sent): ${autoKey}`);
       continue;
     }
 

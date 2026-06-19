@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { inviteStatus } from '@/lib/invite';
 import { sendEmail } from '@/lib/email';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -34,8 +35,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }
 
@@ -90,7 +90,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ ok: true, link });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

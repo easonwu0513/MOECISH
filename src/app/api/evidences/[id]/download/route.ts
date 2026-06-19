@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertEvidenceAccess, AuthError } from '@/lib/rbac';
+import { assertEvidenceAccess } from '@/lib/rbac';
 import { readFileByKey } from '@/lib/storage';
+import { errorResponse } from '@/lib/api';
 
 /** 圖片與 PDF 可用 ?inline=1 於瀏覽器內預覽(委員審查比對用);其餘一律下載。 */
 const INLINE_MIME = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/i;
@@ -25,7 +26,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       },
     });
   } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    return errorResponse(err);
   }
 }

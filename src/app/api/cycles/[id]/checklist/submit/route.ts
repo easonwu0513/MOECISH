@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyChecklistSubmitted } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -66,7 +67,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ ok: true, submittedAt: submittedAt.toISOString() });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

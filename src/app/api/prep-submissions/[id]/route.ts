@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireUser, AuthError } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { errorResponse } from '@/lib/api';
 
 async function loadWithAccess(submissionId: string) {
   const user = await requireUser();
@@ -66,9 +67,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     return NextResponse.json({ item: updated });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e instanceof z.ZodError) return NextResponse.json({ error: '輸入有誤' }, { status: 400 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }
 
@@ -111,8 +110,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ item: updated });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e instanceof z.ZodError) return NextResponse.json({ error: '輸入有誤' }, { status: 400 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

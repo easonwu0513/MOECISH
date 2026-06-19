@@ -154,7 +154,7 @@ model AuditCycle {
 model AuditScore {
   id        String @id @default(cuid())
   cycleId   String
-  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle     AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   dimension String   // Dimension(一~九,七配分 20 其餘 10)
@@ -170,7 +170,7 @@ model AuditScore {
 model AuditFinding {
   id           String @id @default(cuid())
   cycleId      String
-  cycle        AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   auditorId    String
   auditor      User @relation(fields: [auditorId], references: [id])
   aspect       String   // STRATEGY | MANAGEMENT | TECHNICAL
@@ -187,7 +187,7 @@ model AuditFinding {
 model AuditorAssignment {
   id        String   @id @default(cuid())
   cycleId   String
-  cycle     AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle     AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   role      String   @default("MEMBER") // LEAD / MEMBER
@@ -199,7 +199,7 @@ model AuditorAssignment {
 model CycleStateTransition {
   id         String   @id @default(cuid())
   cycleId    String
-  cycle      AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle      AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   fromStatus String?
   toStatus   String
   actorId    String
@@ -232,7 +232,7 @@ model PrepTemplateItem {
 model PrepRequirement {
   id          String  @id @default(cuid())
   cycleId     String
-  cycle       AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle       AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   title       String
   description String?
   required    Boolean @default(true)
@@ -243,7 +243,7 @@ model PrepRequirement {
 model PrepSubmission {
   id            String  @id @default(cuid())
   requirementId String  @unique
-  requirement   PrepRequirement @relation(fields: [requirementId], references: [id])
+  requirement   PrepRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   status        String  @default("EMPTY") // PrepStatus: EMPTY | UPLOADED | CONFIRMED | INSUFFICIENT
   note          String?
   reviewNote    String?
@@ -260,7 +260,7 @@ model PrepSubmission {
 model Deficiency {
   id           String  @id @default(cuid())
   cycleId      String
-  cycle        AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   aspect       String  // DeficiencyAspect: STRATEGY | MANAGEMENT | TECHNICAL（構面）
   type         String  // DeficiencyType: IMPROVE（待改善事項）| SUGGEST（建議事項）
   itemNo       Int     // 構面 × 類型內之項次
@@ -277,7 +277,7 @@ model Deficiency {
 model CorrectiveAction {
   id                String  @id @default(cuid())
   deficiencyId      String  @unique
-  deficiency        Deficiency @relation(fields: [deficiencyId], references: [id])
+  deficiency        Deficiency @relation(fields: [deficiencyId], references: [id], onDelete: Cascade)
   status            String  @default("PENDING")
   // ActionStatus: PENDING（待填報）| DRAFT（填寫中）| SUBMITTED（已送審）| RETURNED（退回補正）| PASSED（審核通過）
   round             Int     @default(1)
@@ -300,7 +300,7 @@ model CorrectiveAction {
 model ReviewRecord {
   id        String   @id @default(cuid())
   actionId  String
-  action    CorrectiveAction @relation(fields: [actionId], references: [id])
+  action    CorrectiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
   round     Int
   decision  String   // ReviewDecisionValue: PASS | RETURN
   comment   String?
@@ -314,7 +314,7 @@ model ReviewRecord {
 model SignedReport {
   id            String   @id @default(cuid())
   cycleId       String
-  cycle         AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle         AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   fileKey       String
   fileName      String
   sha256        String
@@ -322,6 +322,8 @@ model SignedReport {
   uploadedAt    DateTime @default(now())
   confirmedById String?
   confirmedAt   DateTime?
+
+  @@index([cycleId])
 }
 
 // ════════════════════════════════════════════
@@ -361,7 +363,7 @@ model ChecklistItem {
 model ChecklistResponse {
   id              String   @id @default(cuid())
   cycleId         String
-  cycle           AuditCycle @relation(fields: [cycleId], references: [id])
+  cycle           AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   checklistItemId String
   checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
   compliance      String?
@@ -380,7 +382,7 @@ model ChecklistResponse {
 model AuditorComment {
   id           String   @id @default(cuid())
   responseId   String
-  response     ChecklistResponse @relation(fields: [responseId], references: [id])
+  response     ChecklistResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   auditorId    String
   content      String
   round        Int

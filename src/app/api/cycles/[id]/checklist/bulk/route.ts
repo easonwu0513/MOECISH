@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 /**
@@ -34,27 +35,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const answeredSet = new Set(answered.map((r) => r.checklistItemId));
     const targets = items.filter((i) => !answeredSet.has(i.id));
 
-    let updated = 0;
-    for (const it of targets) {
-      await prisma.checklistResponse.upsert({
-        where: { cycleId_checklistItemId: { cycleId: cycle.id, checklistItemId: it.id } },
-        create: {
-          cycleId: cycle.id,
-          checklistItemId: it.id,
-          compliance: 'COMPLIANT',
-          version: 1,
-          lastEditorId: user.id,
-          lastEditedAt: new Date(),
-        },
-        update: {
-          compliance: 'COMPLIANT',
-          version: { increment: 1 },
-          lastEditorId: user.id,
-          lastEditedAt: new Date(),
-        },
-      });
-      updated++;
-    }
+    // 整批包進單一交易:中途失敗則全數回滾,不留半套作答
+    const updated = await prisma.$transaction(async (tx) => {
+      let n = 0;
+      for (const it of targets) {
+        await tx.checklistResponse.upsert({
+          where: { cycleId_checklistItemId: { cycleId: cycle.id, checklistItemId: it.id } },
+          create: {
+            cycleId: cycle.id,
+            checklistItemId: it.id,
+            compliance: 'COMPLIANT',
+            version: 1,
+            lastEditorId: user.id,
+            lastEditedAt: new Date(),
+          },
+          update: {
+            compliance: 'COMPLIANT',
+            version: { increment: 1 },
+            lastEditorId: user.id,
+            lastEditedAt: new Date(),
+          },
+        });
+        n++;
+      }
+      return n;
+    });
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({
@@ -68,7 +73,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ updated });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

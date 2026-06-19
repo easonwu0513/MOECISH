@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertEvidenceAccess, AuthError } from '@/lib/rbac';
+import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
+import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(req: Request) {
@@ -19,8 +20,7 @@ export async function GET(req: Request) {
     });
     return NextResponse.json({ items });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }
 
@@ -70,7 +70,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ item });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

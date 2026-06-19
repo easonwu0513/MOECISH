@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { requireUser } from '@/lib/rbac';
 import { readFileByKey } from '@/lib/storage';
+import { errorResponse } from '@/lib/api';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -35,7 +36,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
     });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

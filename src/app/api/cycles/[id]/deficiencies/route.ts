@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS, DEFICIENCY_TYPES } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -19,8 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     });
     return NextResponse.json({ items });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }
 
@@ -43,28 +43,30 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const body = CreateBody.parse(await req.json());
 
-    // 項次自動遞增(構面 × 類型內)
-    let itemNo = body.itemNo;
-    if (!itemNo) {
-      const max = await prisma.deficiency.aggregate({
-        where: { cycleId: cycle.id, aspect: body.aspect, type: body.type },
-        _max: { itemNo: true },
+    // 項次自動遞增(構面 × 類型內)+ 建立:同一交易內完成,縮短 check-then-create 競態視窗;
+    // 並發撞 @@unique 由 errorResponse 轉 409(使用者重試即可)
+    const created = await prisma.$transaction(async (tx) => {
+      let itemNo = body.itemNo;
+      if (!itemNo) {
+        const max = await tx.deficiency.aggregate({
+          where: { cycleId: cycle.id, aspect: body.aspect, type: body.type },
+          _max: { itemNo: true },
+        });
+        itemNo = (max._max.itemNo ?? 0) + 1;
+      }
+      return tx.deficiency.create({
+        data: {
+          cycleId: cycle.id,
+          aspect: body.aspect,
+          type: body.type,
+          itemNo,
+          description: body.description,
+          checklistRef: body.checklistRef || null,
+          createdById: user.id,
+          action: { create: {} },
+        },
+        include: { action: true },
       });
-      itemNo = (max._max.itemNo ?? 0) + 1;
-    }
-
-    const created = await prisma.deficiency.create({
-      data: {
-        cycleId: cycle.id,
-        aspect: body.aspect,
-        type: body.type,
-        itemNo,
-        description: body.description,
-        checklistRef: body.checklistRef || null,
-        createdById: user.id,
-        action: { create: {} },
-      },
-      include: { action: true },
     });
 
     const meta = extractRequestMeta(req);
@@ -79,8 +81,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ item: created });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors[0]?.message ?? '輸入有誤' }, { status: 400 });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }

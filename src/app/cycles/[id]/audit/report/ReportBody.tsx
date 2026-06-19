@@ -127,6 +127,11 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
     ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10
     : null;
 
+  // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
+  const TOTAL_DIMS = ASPECTS.reduce((n, a) => n + ASPECT_DIMENSIONS[a].length, 0);
+  const filledOf = (auditorId: string): number =>
+    data.auditScores.filter((s) => s.auditorId === auditorId).length;
+
   return (
     <div className="overflow-x-auto rounded-md border border-outline-variant/60">
       <table className="w-full text-body-sm border-collapse">
@@ -188,9 +193,18 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
           )}
           <tr className="bg-surface-container-low font-medium">
             <td colSpan={7} className="px-3 py-2.5 text-right">得分(滿分 100)</td>
-            {auditors.map((a) => (
-              <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">{totalOf(a.id) ?? '—'}</td>
-            ))}
+            {auditors.map((a) => {
+              const t = totalOf(a.id);
+              const filled = filledOf(a.id);
+              if (t === null) return <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">—</td>;
+              const incomplete = filled < TOTAL_DIMS;
+              return (
+                <td key={a.id} className={`px-3 py-2.5 text-center tabular-nums ${incomplete ? 'text-warning-700' : ''}`}>
+                  {t}
+                  {incomplete && <span className="ml-1 text-caption">({filled}/{TOTAL_DIMS})</span>}
+                </td>
+              );
+            })}
             <td className="px-3 py-2.5 text-center tabular-nums">{avgTotal ?? '—'}</td>
           </tr>
         </tbody>

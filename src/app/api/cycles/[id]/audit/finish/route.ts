@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { convertFindingsToDeficiencies } from '@/lib/convert-findings';
 import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -33,32 +34,38 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '週期已結案' }, { status: 409 });
     }
 
-    // 1) 發現 → 缺失
-    const converted = await convertFindingsToDeficiencies(cycle.id, user.id);
-
-    const totalDeficiencies = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
-    if (totalDeficiencies === 0) {
+    // 1) 前置:確認有可發布的缺失(待轉發現或既有缺失),否則不啟動(不進交易)
+    const pendingFindings = await prisma.auditFinding.count({
+      where: { cycleId: cycle.id, deficiencyId: null, kind: { in: ['IMPROVE', 'SUGGEST'] } },
+    });
+    const existingDeficiencies = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
+    if (pendingFindings === 0 && existingDeficiencies === 0) {
       return NextResponse.json(
         { error: '沒有任何缺失可發布:請先請委員於「實地稽核」輸入待改善/建議事項' },
         { status: 400 },
       );
     }
 
-    // 2) 狀態推進至 REMEDIATION(逐跳記錄)
-    const path = PATH_TO_REMEDIATION[cycle.status as CycleStatus] ?? [];
-    let from = cycle.status as CycleStatus;
-    for (const to of path) {
-      await prisma.auditCycle.update({
-        where: { id: cycle.id },
-        data: {
-          status: to,
-          stateTransitions: {
-            create: { fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核(一鍵連動)' },
+    // 2) 轉缺失 + 多跳狀態推進:單一交易確保原子性(中途失敗整批回滾,不卡中間狀態)
+    const { converted, totalDeficiencies } = await prisma.$transaction(async (tx) => {
+      const conv = await convertFindingsToDeficiencies(cycle.id, user.id, tx);
+      const total = await tx.deficiency.count({ where: { cycleId: cycle.id } });
+      const path = PATH_TO_REMEDIATION[cycle.status as CycleStatus] ?? [];
+      let from = cycle.status as CycleStatus;
+      for (const to of path) {
+        await tx.auditCycle.update({
+          where: { id: cycle.id },
+          data: {
+            status: to,
+            stateTransitions: {
+              create: { fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核(一鍵連動)' },
+            },
           },
-        },
-      });
-      from = to;
-    }
+        });
+        from = to;
+      }
+      return { converted: conv, totalDeficiencies: total };
+    });
 
     // 3) 通知機關開始矯正填報(失敗不擋流程)
     let notified = 0;
@@ -91,7 +98,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       notified,
     });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return errorResponse(e);
   }
 }

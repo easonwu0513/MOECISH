@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess, AuthError } from '@/lib/rbac';
+import { assertCycleAccess } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 const Body = z.object({
@@ -44,7 +45,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return errorResponse(e);
   }
 }
