@@ -45,14 +45,14 @@ export default async function AuditReportPage({ params }: { params: { id: string
       cycleId={data.id}
       crumbs={[
         { label: '總覽', href: '/dashboard' },
-        { label: `${data.year - 1911} 年度`, href: `/cycles/${data.id}` },
+        { label: `${data.year - 1911} 年度 · ${data.organization.name}`, href: `/cycles/${data.id}` },
         { label: '彙整報告' },
       ]}
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-headline text-neutral-900">實地稽核彙整報告</h1>
-          <p className="text-body-sm text-neutral-500 mt-1">
+          <h1 className="text-headline text-on-surface">實地稽核彙整報告</h1>
+          <p className="text-body-sm text-on-surface-variant mt-1">
             {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名
           </p>
         </div>

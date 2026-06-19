@@ -43,7 +43,7 @@ export function PortalFooter() {
       </div>
       <div className="border-t border-outline-variant/50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3 flex-wrap text-caption text-on-surface-variant">
-          <span>© {rocYear} 教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
+          <span>© 中華民國 {rocYear} 年　教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
           <span className="tabular-nums">MOECISH v2.0</span>
         </div>
       </div>

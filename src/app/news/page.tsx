@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { Chip } from '@/components/ui/Chip';
+import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { ChevronRight, FileText } from '@/components/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PortalHeader } from '@/components/portal/PortalHeader';
@@ -27,12 +28,17 @@ export default async function NewsPage({
     ? (searchParams.category as PostCategory)
     : undefined;
 
-  const posts = await prisma.post.findMany({
-    where: { status: 'PUBLISHED', ...(category ? { category } : {}) },
-    orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
-    take: 50,
-    select: { id: true, slug: true, category: true, title: true, important: true, pinned: true, publishedAt: true },
-  });
+  const [posts, catCounts] = await Promise.all([
+    prisma.post.findMany({
+      where: { status: 'PUBLISHED', ...(category ? { category } : {}) },
+      orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
+      take: 50,
+      select: { id: true, slug: true, category: true, title: true, important: true, pinned: true, publishedAt: true },
+    }),
+    prisma.post.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
+  ]);
+  const countByCat = Object.fromEntries(catCounts.map((c) => [c.category, c._count])) as Record<string, number>;
+  const totalCount = catCounts.reduce((s, c) => s + c._count, 0);
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -44,17 +50,15 @@ export default async function NewsPage({
           <p className="mt-1 text-body text-on-surface-variant">平台公告、資安情資、漏洞警訊與活動訊息。</p>
         </header>
 
-        {/* 分類 tabs */}
-        <div className="flex gap-1.5 flex-wrap mb-6">
-          <Link href="/news" className="focus-ring rounded-full">
-            <Chip tone={!category ? 'primary' : 'neutral'} size="md">全部</Chip>
-          </Link>
+        {/* 分類 tabs(統一 FilterChip + 計數,與系統內篩選同語彙) */}
+        <div className="flex gap-1.5 flex-wrap mb-6 border-b border-outline-variant/60 pb-3" role="group" aria-label="篩選分類">
+          <FilterChipLink href="/news" selected={!category}>
+            全部 <FilterChipCount selected={!category}>{totalCount}</FilterChipCount>
+          </FilterChipLink>
           {POST_CATEGORIES.map((c) => (
-            <Link key={c} href={`/news?category=${c}`} className="focus-ring rounded-full">
-              <Chip tone={category === c ? 'primary' : 'neutral'} size="md">
-                {POST_CATEGORY_LABELS[c]}
-              </Chip>
-            </Link>
+            <FilterChipLink key={c} href={`/news?category=${c}`} selected={category === c}>
+              {POST_CATEGORY_LABELS[c]} <FilterChipCount selected={category === c}>{countByCat[c] ?? 0}</FilterChipCount>
+            </FilterChipLink>
           ))}
         </div>
 
@@ -66,19 +70,28 @@ export default async function NewsPage({
           <div className="flex flex-col gap-2.5">
             {posts.map((p) => (
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
-                <article className="flex items-center gap-3 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
-                  <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
-                    {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
-                  </Chip>
-                  {p.important && <Chip tone="danger" size="sm" className="shrink-0">重要</Chip>}
-                  {p.pinned && <Chip tone="neutral" size="sm" className="shrink-0">置頂</Chip>}
-                  <h2 className="flex-1 min-w-0 text-body font-medium text-on-surface truncate group-hover:text-primary-700 transition-colors">
+                <article className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                    <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
+                      {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
+                    </Chip>
+                    {p.important && <Chip tone="danger" size="sm">重要</Chip>}
+                    {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
+                  </div>
+                  <h2 className="flex-1 min-w-0 text-body font-medium text-on-surface sm:truncate group-hover:text-primary-700 transition-colors">
                     {p.title}
                   </h2>
-                  <span className="text-caption text-on-surface-variant tabular-nums shrink-0">
-                    {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
-                  </span>
-                  <ChevronRight size={16} className="text-on-surface-variant shrink-0" />
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <span className="text-caption text-on-surface-variant tabular-nums">
+                      <span className="hidden sm:inline">
+                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                      </span>
+                      <span className="sm:hidden">
+                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : ''}
+                      </span>
+                    </span>
+                    <ChevronRight size={16} className="text-on-surface-variant" />
+                  </div>
                 </article>
               </Link>
             ))}

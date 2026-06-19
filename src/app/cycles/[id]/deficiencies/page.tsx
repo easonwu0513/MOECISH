@@ -21,6 +21,16 @@ import { EMPTY } from '@/lib/copy';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
+// 列卡左緣狀態色條:tone → 實心色(沿用 dashboard 待辦語彙)
+const RAIL_BG: Record<'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger', string> = {
+  neutral: 'bg-outline-variant',
+  primary: 'bg-primary-500',
+  sage: 'bg-sage-500',
+  success: 'bg-success-500',
+  warning: 'bg-warning-500',
+  danger: 'bg-danger-500',
+};
+
 const FILTERS = [
   { key: 'all', label: '全部', match: () => true },
   { key: 'todo', label: '待填報', match: (s: ActionStatus) => s === 'PENDING' || s === 'DRAFT' },
@@ -110,7 +120,7 @@ export default async function DeficienciesPage({
           {FILTERS.map((f) => {
             const n = countOf(f);
             const active = f.key === activeFilter.key;
-            if (f.key !== 'all' && n === 0) return null;
+            if (f.key !== 'all' && n === 0 && !active) return null;
             return (
               <FilterChipLink
                 key={f.key}
@@ -175,8 +185,14 @@ export default async function DeficienciesPage({
                             const round = d.action?.round ?? 1;
                             return (
                               <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="group block focus-ring rounded-md">
-                                <Card interactive padded={false}>
-                                  <div className="flex items-center gap-4 p-4 sm:p-5">
+                                <Card interactive padded={false} className="overflow-hidden">
+                                  <div className="flex">
+                                    {/* 左緣狀態色條(顏色非唯一訊號,右側仍有 Chip+dot+文字) */}
+                                    <div
+                                      className={`w-0.5 self-stretch shrink-0 ${RAIL_BG[actionStatusTone(status)]}`}
+                                      aria-hidden
+                                    />
+                                    <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">
                                     <span className="w-9 h-9 rounded-md bg-surface-container flex items-center justify-center text-title text-on-surface-variant tabular-nums shrink-0">
                                       {d.itemNo}
                                     </span>
@@ -201,6 +217,7 @@ export default async function DeficienciesPage({
                                       {ACTION_STATUS_LABELS[status]}
                                     </Chip>
                                     <ChevronRight size={16} className="text-on-surface-variant shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                    </div>
                                   </div>
                                 </Card>
                               </Link>

@@ -67,6 +67,17 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
     : undefined;
 
+  // 矯正截止壓力提示(僅矯正執行中且未全通過時;以本地日界計天數,與追蹤信一致)
+  const dueDay = new Date(cycle.dueDate); dueDay.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const daysToDue = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
+  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed;
+  const deadlineChip = showDeadlineChip
+    ? (facts.overdue
+        ? <Chip tone="danger" size="sm" dot>已逾期 {Math.abs(daysToDue)} 天</Chip>
+        : <Chip tone="warning" size="sm" dot>距截止剩 {daysToDue} 天</Chip>)
+    : null;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -89,6 +100,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             )}
             {' '}· 矯正截止 {new Date(cycle.dueDate).toLocaleDateString('zh-TW')}
           </p>
+          {deadlineChip && <div className="mt-2">{deadlineChip}</div>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (

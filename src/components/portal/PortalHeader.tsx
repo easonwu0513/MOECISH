@@ -18,13 +18,13 @@ export function PortalHeader({ authed }: { authed: boolean }) {
         <nav className="flex items-center gap-1">
           <Link
             href="/news"
-            className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
           >
             資安資訊
           </Link>
           <Link
             href="/news?category=EVENT"
-            className="hidden sm:block px-4 py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
           >
             課程報名
           </Link>

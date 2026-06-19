@@ -297,8 +297,8 @@ export default async function LandingPage() {
                       </p>
                     )}
                     <div className="mt-4 flex items-center justify-between">
-                      <p className="text-caption text-on-surface-variant tabular-nums font-mono">
-                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
+                      <p className="text-caption text-on-surface-variant tabular-nums">
+                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
                       </p>
                       {/* 常駐低調顯示(觸控裝置無 hover,純 hover 顯示等於永遠看不到) */}
                       <span className="inline-flex items-center gap-0.5 text-caption text-on-surface-variant/70 group-hover:text-primary-700 transition-colors">

@@ -89,8 +89,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
       ]}
     >
       <header className="mb-5">
-        <h1 className="text-headline text-neutral-900">資通安全檢核表填報</h1>
-        <p className="text-body-sm text-neutral-500 mt-1">
+        <h1 className="text-headline text-on-surface">資通安全檢核表填報</h1>
+        <p className="text-body-sm text-on-surface-variant mt-1">
           {cycle.organization.name} · {cycle.checklistVersion.name} · 共 {cycle.checklistVersion.items.length} 題 ·{' '}
           {canEdit
             ? '填寫中(每題可展開「法規對照」查看稽核依據與應備文件)'

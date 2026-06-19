@@ -5,7 +5,7 @@ export const GREETINGS = {
   morning: '早安',
   noon: '午安',
   afternoon: '午安',
-  evening: '晚上好',
+  evening: '晚安',
 };
 
 export function greetingByHour(hour: number): string {

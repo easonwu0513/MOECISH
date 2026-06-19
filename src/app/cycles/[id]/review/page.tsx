@@ -81,7 +81,7 @@ export default async function ReviewPage({
       cycleId={cycle.id}
       crumbs={[
         { label: '總覽', href: '/dashboard' },
-        { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
+        { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '委員審閱' },
       ]}
     >
@@ -207,7 +207,7 @@ export default async function ReviewPage({
                                   <span>第 {cm.round} 輪 · {new Date(cm.createdAt).toLocaleString('zh-TW')}</span>
                                   {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                 </div>
-                                <p className="whitespace-pre-wrap text-neutral-700 leading-relaxed">{cm.content}</p>
+                                <p className="whitespace-pre-wrap text-on-surface-variant leading-relaxed">{cm.content}</p>
                               </div>
                             ))}
                           </div>
@@ -218,7 +218,7 @@ export default async function ReviewPage({
                             <CommentForm responseId={r.id} />
                           </div>
                         ) : (
-                          <p className="mt-2 text-caption text-neutral-400">（填報人尚未作答，暫無法留言）</p>
+                          <p className="mt-2 text-caption text-on-surface-variant">（填報人尚未作答，暫無法留言）</p>
                         )}
                       </div>
                     </div>

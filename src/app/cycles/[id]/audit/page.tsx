@@ -65,14 +65,14 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       cycleId={cycle.id}
       crumbs={[
         { label: '總覽', href: '/dashboard' },
-        { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
+        { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '實地稽核' },
       ]}
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-headline text-neutral-900">實地稽核評分與發現</h1>
-          <p className="text-body-sm text-neutral-500 mt-1">
+          <h1 className="text-headline text-on-surface">實地稽核評分與發現</h1>
+          <p className="text-body-sm text-on-surface-variant mt-1">
             {cycle.organization.name} · {cycle.year - 1911} 年度 ·{' '}
             {user.role === 'AUDITOR'
               ? canEdit

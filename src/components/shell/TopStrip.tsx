@@ -27,6 +27,11 @@ export function TopStrip({
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
       </div>
 
+      {/* 手機:麵包屑隱藏,改顯示當前頁標題提供脈絡 */}
+      <span className="flex-1 min-w-0 sm:hidden text-title text-on-surface truncate">
+        {crumbs[crumbs.length - 1]?.label}
+      </span>
+
       <div className="flex-1 min-w-0 hidden sm:block">
         <Breadcrumbs items={crumbs} />
       </div>

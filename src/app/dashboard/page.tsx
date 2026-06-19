@@ -188,6 +188,7 @@ export default async function HomePage() {
             />
             <StatTopBar
               tone="warning"
+              muted={toFill === 0}
               icon={<ClipboardCheck size={20} />}
               primary={`${toFill}`}
               label="待填報"
@@ -195,6 +196,7 @@ export default async function HomePage() {
             />
             <StatTopBar
               tone="danger"
+              muted={returned === 0}
               icon={<AlertCircle size={20} />}
               primary={`${returned}`}
               label="退回補正"
@@ -365,14 +367,17 @@ function StatTopBar({
   primary,
   label,
   sub,
+  muted,
 }: {
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'sage' | 'tertiary';
   icon: React.ReactNode;
   primary: string;
   label: string;
   sub: string;
+  /** 警示色卡(危急類)值為 0 時降噪:頂條與圖示改中性,不誤導為「有待處理」 */
+  muted?: boolean;
 }) {
-  const bar = {
+  const bar = muted ? 'bg-outline-variant' : {
     primary: 'bg-primary-500',
     success: 'bg-success-500',
     warning: 'bg-warning-500',
@@ -380,7 +385,7 @@ function StatTopBar({
     sage: 'bg-sage-500',
     tertiary: 'bg-tertiary-500',
   }[tone];
-  const iconBg = {
+  const iconBg = muted ? 'bg-surface-container-high text-on-surface-variant' : {
     primary: 'bg-primary-50 text-primary-700',
     success: 'bg-success-50 text-success-700',
     warning: 'bg-warning-50 text-warning-700',
