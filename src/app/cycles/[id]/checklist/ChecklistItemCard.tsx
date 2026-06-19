@@ -52,6 +52,19 @@ export default function ChecklistItemCard({
   const savedTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => { if (savedTimer.current) clearTimeout(savedTimer.current); }, []);
 
+  // 離開保護:文字欄失焦才自動存,聚焦中關閉/重整分頁(未觸發 blur)會吞掉未存內容。
+  // 用 ref 避免 stale closure;dirty 時攔截關閉。
+  const textDirtyRef = useRef(false);
+  useEffect(() => { textDirtyRef.current = textDirty; }, [textDirty]);
+  useEffect(() => {
+    if (!canEdit) return;
+    const h = (e: BeforeUnloadEvent) => {
+      if (textDirtyRef.current) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [canEdit]);
+
   // 成功一律安靜(卡片內 ✓ 已儲存 就地閃示),失敗才跳 toast —
   // 87 題逐題點選若每次都跳通知會轟炸使用者。
   async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
@@ -123,7 +136,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-label text-neutral-700 mb-2">符合情形</label>
+            <label className="block text-label text-on-surface-variant mb-2">符合情形</label>
             <Segmented<ComplianceLevel>
               value={compliance}
               onChange={(v) => { setCompliance(v); save(v, description); }}
@@ -189,7 +202,7 @@ export default function ChecklistItemCard({
       label: '委員意見',
       badge: unresolved > 0 ? <Chip tone="warning" size="sm">{unresolved}</Chip> : undefined,
       content: (response?.comments ?? []).length === 0 ? (
-        <p className="text-body-sm text-neutral-500 py-4">本題尚無委員意見。</p>
+        <p className="text-body-sm text-on-surface-variant py-4">本題尚無委員意見。</p>
       ) : (
         <div className="space-y-2">
           {response!.comments.map((c) => (
@@ -201,7 +214,7 @@ export default function ChecklistItemCard({
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-caption text-neutral-500">
+                <span className="text-caption text-on-surface-variant">
                   第 {c.round} 輪 · {new Date(c.createdAt).toLocaleString('zh-TW')}
                 </span>
                 {c.resolvedAt ? (
@@ -212,7 +225,7 @@ export default function ChecklistItemCard({
                   </Button>
                 ) : null}
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-neutral-700 leading-relaxed">{c.content}</p>
+              <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
             </div>
           ))}
         </div>
@@ -266,7 +279,7 @@ export default function ChecklistItemCard({
           {item.itemNo}
         </Chip>
         <div className="flex-1 min-w-0">
-          <p className="text-body text-neutral-900 leading-relaxed">{item.content}</p>
+          <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             {compliance ? (
               <Chip tone={complianceTone(compliance)} size="sm" dot>
@@ -279,14 +292,14 @@ export default function ChecklistItemCard({
               <Chip tone="warning" size="sm">意見待補 {unresolved}</Chip>
             )}
             {response && (description || compliance) && !canEdit && (
-              <span className="text-caption text-neutral-400">唯讀</span>
+              <span className="text-caption text-on-surface-variant">唯讀</span>
             )}
           </div>
         </div>
         <ChevronDown
           size={18}
           className={cn(
-            'text-neutral-400 mt-1 transition-transform shrink-0',
+            'text-on-surface-variant mt-1 transition-transform shrink-0',
             expanded && 'rotate-180',
           )}
         />
@@ -394,8 +407,8 @@ function EvidenceBlock({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-label text-neutral-700">紀錄佐證上傳</p>
-        <span className="text-caption text-neutral-400">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
+        <p className="text-label text-on-surface-variant">紀錄佐證上傳</p>
+        <span className="text-caption text-on-surface-variant">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
       </div>
       {expectedEvidence && (
         <div className="mb-3 rounded-sm bg-primary-50/60 border border-primary-100 px-3 py-2">
@@ -404,7 +417,7 @@ function EvidenceBlock({
         </div>
       )}
       {files.length === 0 ? (
-        <p className="text-body-sm text-neutral-400 mb-3">尚未上傳任何佐證文件</p>
+        <p className="text-body-sm text-on-surface-variant mb-3">尚未上傳任何佐證文件</p>
       ) : (
         <ul className="mb-3 space-y-1">
           {files.map((f) => (

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { cn } from '@/lib/cn';
 import { Check } from '../icons';
 
@@ -39,6 +40,27 @@ export function Segmented<T extends string>({
   className,
   ariaLabel,
 }: Props<T>) {
+  // radiogroup 鍵盤導覽:roving tabindex(整組單一 tab stop)+ 方向鍵移動並選取
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIdx = options.findIndex((o) => o.value === value);
+  const tabbableIdx = selectedIdx >= 0 ? selectedIdx : 0;
+
+  function moveTo(i: number) {
+    const n = options.length;
+    if (n === 0) return;
+    const next = (i + n) % n;
+    btnRefs.current[next]?.focus();
+    onChange(options[next].value); // selection follows focus
+  }
+
+  function onKeyDown(e: React.KeyboardEvent, idx: number) {
+    if (disabled) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); moveTo(idx + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); moveTo(idx - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); moveTo(0); }
+    else if (e.key === 'End') { e.preventDefault(); moveTo(options.length - 1); }
+  }
+
   return (
     <div
       role="radiogroup"
@@ -55,10 +77,13 @@ export function Segmented<T extends string>({
         return (
           <button
             key={opt.value}
+            ref={(el) => { btnRefs.current[idx] = el; }}
             role="radio"
             aria-checked={selected}
+            tabIndex={idx === tabbableIdx ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
+            onKeyDown={(e) => onKeyDown(e, idx)}
             className={cn(
               'flex items-center justify-center gap-1.5 font-medium transition-colors duration-150 ease-standard focus-ring',
               idx > 0 && 'border-l border-outline-variant',

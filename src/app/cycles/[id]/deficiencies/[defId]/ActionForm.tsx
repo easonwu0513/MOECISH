@@ -136,6 +136,7 @@ export default function ActionForm({
   const [evidences, setEvidences] = useState<{ id: string; originalName: string }[]>([]);
   const [evLoading, setEvLoading] = useState(!!action);
   const [uploading, setUploading] = useState(false);
+  const [pendingEv, setPendingEv] = useState<{ id: string; name: string } | null>(null);
   useEffect(() => {
     if (!action) return;
     setEvLoading(true);
@@ -281,8 +282,8 @@ export default function ActionForm({
     e.target.value = '';
   }
 
-  async function removeEvidence(id: string, name: string) {
-    if (!window.confirm(`確定刪除佐證「${name}」?刪除後無法復原。`)) return;
+  async function doRemoveEvidence(id: string, name: string) {
+    setPendingEv(null);
     const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setEvidences((prev) => prev.filter((f) => f.id !== id));
@@ -520,7 +521,7 @@ export default function ActionForm({
                       {editable && (
                         <button
                           type="button"
-                          onClick={() => removeEvidence(f.id, f.originalName)}
+                          onClick={() => setPendingEv({ id: f.id, name: f.originalName })}
                           className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
                           aria-label={`刪除佐證 ${f.originalName}`}
                           title="刪除這個佐證檔"
@@ -584,6 +585,17 @@ export default function ActionForm({
         tone="primary"
         onConfirm={submit}
         loading={saving}
+      />
+
+      {/* 刪除佐證確認(取代原生 window.confirm) */}
+      <ConfirmDialog
+        open={pendingEv !== null}
+        onOpenChange={(o) => !o && setPendingEv(null)}
+        title="刪除佐證"
+        description={pendingEv ? `確定刪除佐證「${pendingEv.name}」?刪除後無法復原。` : undefined}
+        confirmLabel="刪除"
+        tone="danger"
+        onConfirm={() => { if (pendingEv) doRemoveEvidence(pendingEv.id, pendingEv.name); }}
       />
     </Card>
   );

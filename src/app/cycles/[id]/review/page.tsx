@@ -86,9 +86,15 @@ export default async function ReviewPage({
       ]}
     >
       <header className="mb-5">
-        <h1 className="text-headline text-neutral-900">委員審閱</h1>
-        <p className="text-body-sm text-neutral-500 mt-1">
+        <h1 className="text-headline text-on-surface">委員審閱</h1>
+        <p className="text-body-sm text-on-surface-variant mt-1 leading-relaxed">
+          逐題檢視機關說明與佐證,於每題下方留意見;完成後可退回補正或維持送審。
+        </p>
+        <p className="text-body-sm text-on-surface-variant mt-1">
           {cycle.organization.name} · 已作答 {answered} / {total} 題 · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+          {withOpenComments > 0 && (
+            <span className="text-warning-700">,其中 {withOpenComments} 題尚有意見待機關補正</span>
+          )}
         </p>
       </header>
 
@@ -157,14 +163,14 @@ export default async function ReviewPage({
                           )}
                         </div>
                         {r?.description && (
-                          <div className="mt-3 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                            <p className="text-caption font-medium text-neutral-500 mb-1">機關說明(規範內容、執行方式、執行結果)</p>
+                          <div className="mt-3 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+                            <p className="text-caption font-medium text-on-surface-variant mb-1">機關說明(規範內容、執行方式、執行結果)</p>
                             {r.description}
                           </div>
                         )}
                         {r?.recordDocs && (
-                          <div className="mt-2 rounded-md bg-neutral-50 border border-neutral-100 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                            <p className="text-caption font-medium text-neutral-500 mb-1">紀錄文件</p>
+                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+                            <p className="text-caption font-medium text-on-surface-variant mb-1">紀錄文件</p>
                             {r.recordDocs}
                           </div>
                         )}
@@ -175,7 +181,7 @@ export default async function ReviewPage({
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
                               法規對照(稽核依據・稽核重點・佐證資料)
                             </summary>
-                            <div className="px-3 pb-3 pt-1 bg-white">
+                            <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
                               <LawPanel
                                 auditBasis={item.auditBasis}
                                 auditFocus={item.auditFocus}
@@ -197,7 +203,7 @@ export default async function ReviewPage({
                                     : 'bg-warning-50 border-warning-100')
                                 }
                               >
-                                <div className="text-caption text-neutral-500 mb-1 flex items-center gap-2">
+                                <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
                                   <span>第 {cm.round} 輪 · {new Date(cm.createdAt).toLocaleString('zh-TW')}</span>
                                   {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                 </div>

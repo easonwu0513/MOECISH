@@ -15,6 +15,7 @@ import { Search, X, ChevronDown, ChevronUp, Check } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import type { ComplianceLevel, Dimension } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
+import { FilterChipButton } from '@/components/ui/FilterChip';
 import ChecklistItemCard from './ChecklistItemCard';
 import SubmissionBanner from './SubmissionBanner';
 
@@ -178,12 +179,6 @@ export default function ChecklistShell({
     });
   }
 
-  function expandAll() {
-    setExpanded(new Set(visible.map((i) => i.id)));
-  }
-  function collapseAll() {
-    setExpanded(new Set());
-  }
   function expandUnanswered() {
     const unans = visible
       .filter((i) => !responsesByItem.get(i.id)?.compliance)
@@ -285,15 +280,8 @@ export default function ChecklistShell({
                 未答全標符合
               </Button>
             )}
-            <span className="text-caption text-on-surface-variant ml-1 mr-1 hidden lg:inline">題目</span>
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
-              未作答
-            </Button>
-            <Button size="sm" variant="text" onClick={expandAll} leadingIcon={<ChevronDown size={14} />}>
-              全展開
-            </Button>
-            <Button size="sm" variant="text" onClick={collapseAll} leadingIcon={<ChevronUp size={14} />}>
-              全收合
+              展開未作答
             </Button>
             <span className="mx-2 h-4 w-px bg-outline-variant hidden lg:inline-block" aria-hidden />
             <span className="text-caption text-on-surface-variant mr-1 hidden lg:inline">構面</span>
@@ -307,20 +295,11 @@ export default function ChecklistShell({
         </div>
 
         {/* Filters */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="篩選題目">
           {filterOptions.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                'h-7 px-3 rounded-full text-label transition-colors focus-ring border',
-                filter === f.key
-                  ? 'bg-primary-600 text-white border-primary-600'
-                  : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400',
-              )}
-            >
+            <FilterChipButton key={f.key} selected={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
-            </button>
+            </FilterChipButton>
           ))}
         </div>
 
@@ -329,21 +308,24 @@ export default function ChecklistShell({
           <div className="flex-1">
             <ProgressBar value={filled} max={total} tone="primary" size="sm" />
           </div>
-          <div className="text-body-sm text-neutral-600 tabular-nums">
-            <span className="font-semibold text-neutral-900">{filled}</span> / {total} <span className="text-neutral-400">({pct}%)</span>
+          <div className="text-body-sm text-on-surface-variant tabular-nums">
+            <span className="font-semibold text-on-surface">{filled}</span> / {total} <span className="text-on-surface-variant">({pct}%)</span>
             {search || filter !== 'all' ? (
-              <span className="ml-2 text-caption text-neutral-500">· 顯示 {visible.length} 題</span>
+              <span className="ml-2 text-caption text-on-surface-variant">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
           {canSubmit && !submittedAtISO && (
             filled < total ? (
-              <Tooltip content={`尚餘 ${total - filled} 題未作答(沒有的項目請選「不適用」)`}>
-                <span>
-                  <Button size="sm" variant="filled" disabled>
-                    完成送出
-                  </Button>
-                </span>
-              </Tooltip>
+              <Button
+                size="sm"
+                variant="filled"
+                aria-disabled="true"
+                aria-describedby="submit-block-reason"
+                onClick={(e) => e.preventDefault()}
+                className="opacity-40 cursor-not-allowed"
+              >
+                完成送出
+              </Button>
             ) : (
               <Button size="sm" variant="filled" onClick={() => setSubmitOpen(true)}>
                 完成送出
@@ -354,6 +336,13 @@ export default function ChecklistShell({
             <span className="kbd">?</span>
           </Tooltip>
         </div>
+
+        {/* 送出阻擋原因:常駐(觸控/鍵盤皆可見,不只藏在 hover Tooltip) */}
+        {canSubmit && !submittedAtISO && filled < total && (
+          <p id="submit-block-reason" className="mt-2 text-caption text-warning-700">
+            尚餘 {total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。
+          </p>
+        )}
       </div>
 
       {/* Content */}

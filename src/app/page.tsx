@@ -36,15 +36,20 @@ export const dynamic = 'force-dynamic';
 
 /** Hero 醫療×資安場景照片池(明亮專業);每次載入隨機選 6 張交錯輪播。 */
 const PHOTO_POOL = [
-  { src: '/photos/med-1.jpg', alt: '醫護人員使用行動裝置' },
+  // 醫院場域
   { src: '/photos/med-2.jpg', alt: '明亮醫院服務櫃台' },
   { src: '/photos/med-3.jpg', alt: '明亮整潔的病房' },
   { src: '/photos/med-7.jpg', alt: '明亮現代化診間' },
+  { src: '/photos/med-1.jpg', alt: '醫護人員使用行動裝置' },
   { src: '/photos/med-8.jpg', alt: '病患生理監測儀器' },
-  { src: '/photos/med-4.jpg', alt: '稽核文件審閱與工作底稿' },
+  // 達文西 / 醫療機器人儀器
+  { src: '/photos/med-9.jpg', alt: '醫療機器人手術系統機械臂' },
+  { src: '/photos/med-11.jpg', alt: '醫療機器人放射治療系統' },
+  // 資安機房 / 醫療資安
+  { src: '/photos/med-6.jpg', alt: '明亮資料中心機房' },
   { src: '/photos/med-5.jpg', alt: '資料中心機房與伺服器' },
-  { src: '/photos/med-6.jpg', alt: '手術室醫療儀器與監控設備' },
   { src: '/photos/med-10.jpg', alt: '資安監控數據儀表板' },
+  { src: '/photos/med-4.jpg', alt: '資安稽核文件審閱與工作底稿' },
 ];
 
 const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {

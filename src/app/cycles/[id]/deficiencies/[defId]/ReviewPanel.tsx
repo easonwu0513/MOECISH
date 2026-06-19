@@ -16,6 +16,12 @@ const RETURN_PHRASES = [
   '改善時程過長,請重新評估並說明理由',
 ];
 
+/** 通過意見常用片語(高頻動作也提供快捷,免手打) */
+const PASS_PHRASES = [
+  '佐證齊備,符合要求',
+  '已改善並留存紀錄',
+];
+
 export default function ReviewPanel({
   deficiencyId,
   round,
@@ -105,6 +111,18 @@ export default function ReviewPanel({
               onChange={(e) => setComment(e.target.value)}
               rows={2}
             />
+            <div className="flex flex-wrap gap-1.5">
+              {PASS_PHRASES.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => appendPhrase(p)}
+                  className="text-caption px-2.5 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-outline hover:text-on-surface hover:bg-surface-container transition-colors"
+                >
+                  + {p}
+                </button>
+              ))}
+            </div>
           </div>
         }
         confirmLabel="通過"

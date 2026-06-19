@@ -11,7 +11,7 @@ import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } f
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import type { CycleStatus, Role } from '@/lib/types';
-import { AlertTriangle, ClipboardCheck, Eye, FileText } from '@/components/icons';
+import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
@@ -163,10 +163,10 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </Card>
       </section>
 
-      {/* 模組入口(委員/管理員多一張「實地稽核」) */}
+      {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}
       <section
         className={`grid grid-cols-1 gap-5 mb-8 ${
-          user.role === 'ORG_ADMIN' ? 'md:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'
+          user.role === 'ORG_ADMIN' ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3'
         }`}
       >
         <ModuleTile
@@ -190,6 +190,15 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             title="實地稽核評分與發現"
             desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
             href={`/cycles/${cycle.id}/audit`}
+          />
+        )}
+        {user.role !== 'ORG_ADMIN' && (
+          <ModuleTile
+            icon={<CheckCircle size={22} />}
+            tone="primary"
+            title="委員審閱(檢核表)"
+            desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
+            href={`/cycles/${cycle.id}/review`}
           />
         )}
         <ModuleTile

@@ -60,6 +60,9 @@ export default function PrepBoard({
   // AUDITOR 缺件 dialog
   const [insufOpen, setInsufOpen] = useState<string | null>(null); // submissionId
   const [insufNote, setInsufNote] = useState('');
+  // 破壞性刪除確認(改用 ConfirmDialog,取代原生 window.confirm)
+  const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
+  const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
@@ -154,9 +157,11 @@ export default function PrepBoard({
     e.target.value = '';
   }
 
-  async function removeFile(id: string, name: string) {
-    if (!window.confirm(`確定刪除「${name}」?刪除後無法復原。`)) return;
+  async function doRemoveFile(id: string, name: string) {
+    setBusy(true);
     const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
+    setBusy(false);
+    setPendingFile(null);
     if (res.ok) {
       toast.success('已刪除檔案', name);
       router.refresh();
@@ -214,7 +219,7 @@ export default function PrepBoard({
             const status = (sub?.status ?? 'EMPTY') as PrepStatus;
             const files = filesOf(sub?.id);
             return (
-              <Card key={item.id} padded={false}>
+              <Card key={item.id} padded={false} variant={status === 'CONFIRMED' ? 'filled' : 'elevated'}>
                 <div className="p-5">
                   <div className="flex items-start gap-4">
                     <span className="w-8 h-8 rounded-md bg-surface-container flex items-center justify-center text-body-sm font-medium text-on-surface-variant tabular-nums shrink-0">
@@ -260,7 +265,7 @@ export default function PrepBoard({
                               {orgCanEdit && status !== 'CONFIRMED' && (
                                 <button
                                   type="button"
-                                  onClick={() => removeFile(f.id, f.originalName)}
+                                  onClick={() => setPendingFile({ id: f.id, name: f.originalName })}
                                   className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
                                   aria-label={`刪除檔案 ${f.originalName}`}
                                   title="刪除這個檔案"
@@ -304,7 +309,7 @@ export default function PrepBoard({
                           </Button>
                         )}
                         {isAdmin && files.length === 0 && (
-                          <Button size="sm" variant="text" onClick={() => removeItem(item.id)} disabled={busy}>
+                          <Button size="sm" variant="text" onClick={() => setDeletingItem({ id: item.id, title: item.title })} disabled={busy}>
                             刪除
                           </Button>
                         )}
@@ -360,6 +365,30 @@ export default function PrepBoard({
           if (insufOpen) review(insufOpen, 'INSUFFICIENT', insufNote.trim());
         }}
         loading={busyItemId !== null}
+      />
+
+      {/* 刪除檔案確認 */}
+      <ConfirmDialog
+        open={pendingFile !== null}
+        onOpenChange={(o) => !busy && !o && setPendingFile(null)}
+        title="刪除檔案"
+        description={pendingFile ? `確定刪除「${pendingFile.name}」?刪除後無法復原。` : undefined}
+        confirmLabel="刪除"
+        tone="danger"
+        onConfirm={() => { if (pendingFile) doRemoveFile(pendingFile.id, pendingFile.name); }}
+        loading={busy}
+      />
+
+      {/* 刪除需求項確認 */}
+      <ConfirmDialog
+        open={deletingItem !== null}
+        onOpenChange={(o) => !busy && !o && setDeletingItem(null)}
+        title="刪除需求項"
+        description={deletingItem ? `確定刪除需求項「${deletingItem.title}」?此操作無法復原。` : undefined}
+        confirmLabel="刪除"
+        tone="danger"
+        onConfirm={() => { if (deletingItem) { removeItem(deletingItem.id); setDeletingItem(null); } }}
+        loading={busy}
       />
     </div>
   );

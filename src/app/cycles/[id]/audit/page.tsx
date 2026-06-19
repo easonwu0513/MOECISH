@@ -104,9 +104,20 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           initialFindings={findings}
         />
       ) : (
-        <div className="rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-4 text-body-sm text-on-surface-variant">
-          評分與發現由受指派之稽核委員登入填寫;您可至「彙整報告」即時檢視全體委員的整合結果、列印,
-          並一鍵將待改善/建議事項轉入缺失管考。
+        <div className="rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-5">
+          <p className="text-body-sm text-on-surface-variant leading-relaxed">
+            評分與發現由受指派之稽核委員登入填寫;您可至「彙整報告」即時檢視全體委員的整合結果、列印,
+            並一鍵將待改善/建議事項轉入缺失管考。
+          </p>
+          <Button
+            href={`/cycles/${cycle.id}/audit/report`}
+            variant="filled"
+            size="sm"
+            leadingIcon={<FileText size={15} />}
+            className="mt-4"
+          >
+            前往彙整報告
+          </Button>
         </div>
       )}
     </AppShell>

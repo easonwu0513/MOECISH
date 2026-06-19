@@ -6,6 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { AlertTriangle, ChevronRight } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
@@ -105,25 +106,20 @@ export default async function DeficienciesPage({
 
       {/* 狀態篩選 tabs */}
       {total > 0 && (
-        <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <div className="mb-6 flex items-center gap-2 flex-wrap" role="group" aria-label="篩選缺失狀態">
           {FILTERS.map((f) => {
             const n = countOf(f);
             const active = f.key === activeFilter.key;
             if (f.key !== 'all' && n === 0) return null;
             return (
-              <Link
+              <FilterChipLink
                 key={f.key}
                 href={f.key === 'all' ? `/cycles/${cycle.id}/deficiencies` : `/cycles/${cycle.id}/deficiencies?status=${f.key}`}
-                className={
-                  'inline-flex items-center gap-1.5 h-9 px-4 rounded-full border text-body-sm transition-colors focus-ring ' +
-                  (active
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline hover:text-on-surface')
-                }
+                selected={active}
               >
                 {f.label}
-                <span className={'tabular-nums ' + (active ? 'text-primary-100' : 'text-on-surface-variant')}>{n}</span>
-              </Link>
+                <FilterChipCount selected={active}>{n}</FilterChipCount>
+              </FilterChipLink>
             );
           })}
         </div>
@@ -164,13 +160,13 @@ export default async function DeficienciesPage({
                 <h2 className="text-title-lg text-on-surface mb-4">
                   {aspectNumber[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
                 </h2>
-                <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-6">
                   {types.map((type) => {
                     const items = inAspect.filter((d) => d.type === type);
                     if (items.length === 0) return null;
                     return (
                       <div key={type}>
-                        <p className="text-label text-on-surface-variant mb-2">
+                        <p className="text-label text-on-surface-variant mb-3">
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
                         <div className="flex flex-col gap-2.5">
@@ -178,7 +174,7 @@ export default async function DeficienciesPage({
                             const status = (d.action?.status ?? 'PENDING') as ActionStatus;
                             const round = d.action?.round ?? 1;
                             return (
-                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="block focus-ring rounded-md">
+                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="group block focus-ring rounded-md">
                                 <Card interactive padded={false}>
                                   <div className="flex items-center gap-4 p-4 sm:p-5">
                                     <span className="w-9 h-9 rounded-md bg-surface-container flex items-center justify-center text-title text-on-surface-variant tabular-nums shrink-0">
@@ -204,7 +200,7 @@ export default async function DeficienciesPage({
                                     <Chip tone={actionStatusTone(status)} size="sm" dot>
                                       {ACTION_STATUS_LABELS[status]}
                                     </Chip>
-                                    <ChevronRight size={16} className="text-on-surface-variant shrink-0" />
+                                    <ChevronRight size={16} className="text-on-surface-variant shrink-0 transition-transform group-hover:translate-x-0.5" />
                                   </div>
                                 </Card>
                               </Link>
