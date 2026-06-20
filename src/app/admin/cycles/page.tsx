@@ -3,12 +3,14 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
+import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
@@ -91,34 +93,32 @@ export default async function AdminCyclesPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '稽核週期' }]}
+      crumbs={[{ label: '管理' }, { label: '跨院週期總覽' }]}
     >
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-headline text-on-surface">稽核週期管理</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
-            跨機關進度總覽:矯正通過率與逾期一目了然。
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <BatchCreateCycles
-            orgs={orgs.map((o) => ({ id: o.id, name: o.name, years: o.cycles.map((c) => c.year) }))}
-            versions={versions}
-            defaultYear={defaultYear}
-          />
-          <BatchAssignAuditors auditors={auditors} cycles={cycleOptions} />
-          <Button size="sm" variant="tonal" href="/admin/scores">
-            跨院評分比較
-          </Button>
-          <Button
-            size="sm"
-            variant="text"
-            href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
-          >
-            下載彙整表(Excel)
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title="跨院週期總覽"
+        subtitle="跨機關進度總覽:矯正通過率與逾期一目了然。"
+        actions={
+          <>
+            <BatchCreateCycles
+              orgs={orgs.map((o) => ({ id: o.id, name: o.name, years: o.cycles.map((c) => c.year) }))}
+              versions={versions}
+              defaultYear={defaultYear}
+            />
+            <BatchAssignAuditors auditors={auditors} cycles={cycleOptions} />
+            <Button size="sm" variant="tonal" href="/admin/scores">
+              跨院評分比較
+            </Button>
+            <Button
+              size="sm"
+              variant="text"
+              href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
+            >
+              下載彙整表(Excel)
+            </Button>
+          </>
+        }
+      />
 
       {/* 年度篩選 */}
       {years.length > 1 && (
@@ -151,35 +151,33 @@ export default async function AdminCyclesPage({
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">年度</th>
-                <th className="text-left px-5 py-3 font-medium">機關</th>
-                <th className="text-left px-5 py-3 font-medium">狀態</th>
-                <th className="text-left px-5 py-3 font-medium w-56">矯正進度</th>
-                <th className="text-right px-5 py-3 font-medium">委員</th>
-                <th className="text-right px-5 py-3 font-medium">截止</th>
-                <th className="text-right px-5 py-3 font-medium">停滯</th>
-                <th className="text-right px-5 py-3 font-medium">開啟</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+              <Th>年度</Th>
+              <Th>機關</Th>
+              <Th>狀態</Th>
+              <Th className="w-56">矯正進度</Th>
+              <Th numeric>委員</Th>
+              <Th numeric>截止</Th>
+              <Th numeric>停滯</Th>
+              <Th numeric>開啟</Th>
+            </THead>
             <tbody>
               {shown.map((r) => {
                 const { c, total, passed, returned, allPassed, overdue, stalled, stallDays } = r;
                 return (
-                  <tr key={c.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors">
-                    <td className="px-5 py-3 tabular-nums font-medium">{c.year - 1911}</td>
-                    <td className="px-5 py-3">{c.organization.name}</td>
-                    <td className="px-5 py-3">
+                  <Tr key={c.id}>
+                    <Td className="tabular-nums font-medium">{c.year - 1911}</Td>
+                    <Td>{c.organization.name}</Td>
+                    <Td>
                       <span className="inline-flex items-center gap-1.5 flex-wrap">
                         <Chip size="sm" tone={cycleStatusTone(c.status as CycleStatus)} dot>
                           {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
                         </Chip>
                         {overdue && <Chip size="sm" tone="danger">逾期</Chip>}
                       </span>
-                    </td>
-                    <td className="px-5 py-3">
+                    </Td>
+                    <Td>
                       {total === 0 ? (
                         <span className="text-caption text-on-surface-variant">尚未發布缺失</span>
                       ) : (
@@ -191,26 +189,26 @@ export default async function AdminCyclesPage({
                           </p>
                         </div>
                       )}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums">{c.assignments.length}</td>
-                    <td className={'px-5 py-3 text-right ' + (overdue ? 'text-danger-600 font-medium' : 'text-on-surface-variant')}>
+                    </Td>
+                    <Td numeric>{c.assignments.length}</Td>
+                    <Td className={'text-right tabular-nums ' + (overdue ? 'text-danger-600 font-medium' : 'text-on-surface-variant')}>
                       {fmtROC(c.dueDate)}
-                    </td>
-                    <td className="px-5 py-3 text-right">
+                    </Td>
+                    <Td className="text-right">
                       {stalled ? (
                         <Chip size="sm" tone={stallDays >= STALL_DANGER ? 'danger' : 'warning'}>停滯 {stallDays} 天</Chip>
                       ) : (
                         <span className="text-on-surface-variant">—</span>
                       )}
-                    </td>
-                    <td className="px-5 py-3 text-right">
+                    </Td>
+                    <Td className="text-right">
                       <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:underline">開啟</Link>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 );
               })}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}

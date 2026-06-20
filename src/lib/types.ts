@@ -11,6 +11,13 @@ export const ROLE_LABELS: Record<Role, string> = {
   AUDITOR: '稽核委員',
 };
 
+/** 角色 → Chip 色調(單一來源,確保同角色跨頁同色;以 UserMenu 既有對應為準) */
+export const ROLE_TONE: Record<Role, 'primary' | 'sage' | 'warning'> = {
+  SUPER_ADMIN: 'primary',
+  AUDITOR: 'sage',
+  ORG_ADMIN: 'warning',
+};
+
 // ════════════════════════════════════════════
 // 稽核週期狀態（2.0 生命週期）
 // ════════════════════════════════════════════

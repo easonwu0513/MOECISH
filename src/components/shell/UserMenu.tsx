@@ -5,19 +5,7 @@ import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/cn';
 import { Chip } from '../ui/Chip';
 import { ChevronDown, LogOut, User } from '../icons';
-import type { Role } from '@/lib/types';
-
-const roleLabel: Record<Role, string> = {
-  SUPER_ADMIN: '最高管理員',
-  AUDITOR: '稽核委員',
-  ORG_ADMIN: '機關管理員',
-};
-
-const roleTone: Record<Role, 'primary' | 'sage' | 'neutral' | 'warning'> = {
-  SUPER_ADMIN: 'primary',
-  AUDITOR: 'sage',
-  ORG_ADMIN: 'warning',
-};
+import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
 
 const avatarBg: Record<Role, string> = {
   SUPER_ADMIN: 'bg-primary-container text-on-primary-container',
@@ -46,8 +34,15 @@ export function UserMenu({
         setOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const initials = name.slice(0, 1);
@@ -58,6 +53,7 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 h-10 pl-1 pr-2 rounded-full hover:bg-surface-container focus-ring transition-colors duration-200"
         aria-label="使用者選單"
+        aria-haspopup="menu"
         aria-expanded={open}
       >
         <span
@@ -71,7 +67,7 @@ export function UserMenu({
         </span>
         <span className="hidden md:flex flex-col items-start leading-tight">
           <span className="text-body-sm text-on-surface">{name}</span>
-          <span className="text-caption text-on-surface-variant">{roleLabel[role]}</span>
+          <span className="text-caption text-on-surface-variant">{ROLE_LABELS[role]}</span>
         </span>
         <ChevronDown size={16} className="text-on-surface-variant hidden md:block" />
       </button>
@@ -97,7 +93,7 @@ export function UserMenu({
               </div>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
-              <Chip tone={roleTone[role]} size="sm">{roleLabel[role]}</Chip>
+              <Chip tone={ROLE_TONE[role]} size="sm">{ROLE_LABELS[role]}</Chip>
               {organizationName && (
                 <span className="text-caption text-on-surface-variant truncate">{organizationName}</span>
               )}

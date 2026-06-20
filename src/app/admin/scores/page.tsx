@@ -8,7 +8,9 @@ import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
 import { FilterChipLink } from '@/components/ui/FilterChip';
+import { Button } from '@/components/ui/Button';
 import { BarChart } from '@/components/icons';
+import { EMPTY } from '@/lib/copy';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { DIMENSION_NUM, DIMENSION_MAX_SCORE, gradeOf, GRADE_TONE } from '@/lib/audit-score';
 import type { Dimension } from '@/lib/types';
@@ -71,7 +73,7 @@ export default async function CrossOrgScoresPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '跨院評分比較' }]}
+      crumbs={[{ label: '管理' }, { label: '跨院評分比較' }]}
     >
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">跨院評分比較</h1>
@@ -93,7 +95,16 @@ export default async function CrossOrgScoresPage({
 
       {rows.length === 0 ? (
         <Card>
-          <EmptyState icon={<BarChart size={28} />} title="尚無評分資料" description="待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。" />
+          {yearFilter ? (
+            <EmptyState
+              icon={<BarChart size={28} />}
+              title={EMPTY.noResults.title}
+              description="此年度尚無已完成評分的稽核週期;試試其他年度或查看全部。"
+              action={<Button href="/admin/scores" variant="tonal" size="sm">全部年度</Button>}
+            />
+          ) : (
+            <EmptyState icon={<BarChart size={28} />} title="尚無評分資料" description="待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。" />
+          )}
         </Card>
       ) : (
         <Card padded={false} variant="outlined">

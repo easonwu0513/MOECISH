@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -12,13 +12,17 @@ export default function PasswordForm() {
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmErr, setConfirmErr] = useState<string | null>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (next !== confirm) {
-      toast.error('兩次輸入的新密碼不一致');
+      setConfirmErr('兩次輸入的新密碼不一致');
+      confirmRef.current?.focus();
       return;
     }
+    setConfirmErr(null);
     setBusy(true);
     const res = await fetch('/api/account/password', {
       method: 'POST',
@@ -55,11 +59,13 @@ export default function PasswordForm() {
           required
         />
         <TextField
+          ref={confirmRef}
           label="確認新密碼"
           type="password"
           value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
+          onChange={(e) => { setConfirm(e.target.value); if (confirmErr) setConfirmErr(null); }}
           autoComplete="new-password"
+          errorText={confirmErr ?? undefined}
           required
         />
         <div className="flex justify-end">

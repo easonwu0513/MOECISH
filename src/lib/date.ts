@@ -33,3 +33,14 @@ export function fmtROCDateTime(d: Date | string | null | undefined): string {
   const mm = String(dt.getMinutes()).padStart(2, '0');
   return `${fmtROC(dt)} ${hh}:${mm}`;
 }
+
+/** 民國年 + 時:分:秒:115年6月11日 14:30:05(稽核軌跡等需秒級鑑識精度處) */
+export function fmtROCDateTimeSec(d: Date | string | null | undefined): string {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const mm = String(dt.getMinutes()).padStart(2, '0');
+  const ss = String(dt.getSeconds()).padStart(2, '0');
+  return `${fmtROC(dt)} ${hh}:${mm}:${ss}`;
+}

@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
  * - 一般:surface 底 + outline,hover 提升
  */
 const base =
-  'inline-flex items-center gap-1.5 h-9 px-4 rounded-full border text-body-sm transition-colors duration-200 ease-standard focus-ring whitespace-nowrap';
+  `relative inline-flex items-center gap-1.5 h-9 px-4 rounded-full border text-body-sm transition-colors duration-200 ease-standard focus-ring whitespace-nowrap after:absolute after:content-[''] after:inset-x-0 after:-inset-y-1`;
 
 function chipClass(selected: boolean) {
   return cn(

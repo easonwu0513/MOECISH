@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { Chip } from '@/components/ui/Chip';
+import { Card } from '@/components/ui/Card';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { ChevronRight, FileText } from '@/components/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -63,9 +64,9 @@ export default async function NewsPage({
         </div>
 
         {posts.length === 0 ? (
-          <div className="rounded-lg border border-outline-variant/70 bg-surface-container-lowest">
+          <Card variant="outlined">
             <EmptyState icon={<FileText size={26} />} title="此分類暫無內容" description="切換上方分類查看其他資安資訊。" />
-          </div>
+          </Card>
         ) : (
           <div className="flex flex-col gap-2.5">
             {posts.map((p) => (

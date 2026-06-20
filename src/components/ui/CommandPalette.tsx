@@ -91,7 +91,7 @@ export function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-[95] animate-fade-in" role="dialog" aria-modal="true" aria-label="命令面板">
-      <div className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
+      <div className="absolute inset-0 scrim" onClick={() => onOpenChange(false)} />
       <div className="relative mx-auto mt-24 w-[min(96%,640px)] bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden animate-slide-up">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-100">
           <Search size={18} className="text-neutral-400 shrink-0" />

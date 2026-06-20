@@ -6,7 +6,11 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
+import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
+import { Button } from '@/components/ui/Button';
 import { History } from '@/components/icons';
+import { EMPTY } from '@/lib/copy';
+import { fmtROCDateTimeSec } from '@/lib/date';
 
 const ACTION_LABELS: Record<string, string> = {
   CYCLE_CREATE: '建立週期',
@@ -93,7 +97,7 @@ export default async function AuditLogPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '稽核軌跡' }]}
+      crumbs={[{ label: '管理' }, { label: '稽核軌跡' }]}
     >
       <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
         <div>
@@ -142,28 +146,35 @@ export default async function AuditLogPage({
 
       {logs.length === 0 ? (
         <Card>
-          <EmptyState icon={<History size={28} />} title="尚無紀錄" description="系統操作後將自動留存軌跡。" />
+          {entity || actorId || from || to ? (
+            <EmptyState
+              icon={<History size={28} />}
+              title={EMPTY.noResults.title}
+              description="此條件區間查無操作紀錄;請調整或清除篩選後再試。"
+              action={<Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button>}
+            />
+          ) : (
+            <EmptyState icon={<History size={28} />} title="尚無紀錄" description="系統操作後將自動留存軌跡。" />
+          )}
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">時間</th>
-                <th className="text-left px-5 py-3 font-medium">操作者</th>
-                <th className="text-left px-5 py-3 font-medium">動作</th>
-                <th className="text-left px-5 py-3 font-medium">對象</th>
-                <th className="text-left px-5 py-3 font-medium">IP</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+                <Th>時間</Th>
+                <Th>操作者</Th>
+                <Th>動作</Th>
+                <Th>對象</Th>
+                <Th>IP</Th>
+            </THead>
             <tbody>
               {logs.map((l) => (
-                <tr key={l.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors align-top">
-                  <td className="px-5 py-3 text-on-surface-variant whitespace-nowrap tabular-nums">
-                    {l.createdAt.toLocaleString('zh-TW', { hour12: false })}
-                  </td>
-                  <td className="px-5 py-3">
+                <Tr key={l.id} className="align-top">
+                  <Td className="text-on-surface-variant whitespace-nowrap tabular-nums">
+                    {fmtROCDateTimeSec(l.createdAt)}
+                  </Td>
+                  <Td>
                     {l.actor ? (
                       <>
                         <span className="text-on-surface">{l.actor.name}</span>
@@ -172,23 +183,23 @@ export default async function AuditLogPage({
                     ) : (
                       <span className="text-on-surface-variant">系統</span>
                     )}
-                  </td>
-                  <td className="px-5 py-3">
+                  </Td>
+                  <Td>
                     <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
-                  </td>
-                  <td className="px-5 py-3">
+                  </Td>
+                  <Td>
                     <span className="text-on-surface">{entityLabel(l.entityType)}</span>
                     <span className="block text-caption font-mono text-on-surface-variant truncate max-w-[180px]">
                       {l.entityId}
                     </span>
-                  </td>
-                  <td className="px-5 py-3 text-caption font-mono text-on-surface-variant">
+                  </Td>
+                  <Td className="text-caption font-mono text-on-surface-variant">
                     {l.ipAddress ?? '—'}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}

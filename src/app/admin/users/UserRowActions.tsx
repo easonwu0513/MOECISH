@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
-import type { Role } from '@/lib/types';
-
-const ROLE_LABELS: Record<Role, string> = {
-  SUPER_ADMIN: '最高管理員',
-  AUDITOR: '稽核委員',
-  ORG_ADMIN: '機關管理員',
-};
+import { ROLE_LABELS, type Role } from '@/lib/types';
 
 /** 使用者列操作:停用/啟用、變更角色(不可操作自己,後端另有最後管理員防呆)。 */
 export default function UserRowActions({

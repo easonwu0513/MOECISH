@@ -6,7 +6,7 @@ import { inviteStatus } from '@/lib/invite';
 import { sendEmail } from '@/lib/email';
 import { appBaseUrl } from '@/lib/baseUrl';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import type { Role } from '@/lib/types';
+import { ROLE_LABELS, type Role } from '@/lib/types';
 
 /** 撤銷邀請(打錯 email 不用等 14 天過期)。 */
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
@@ -57,18 +57,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await prisma.invitation.update({ where: { id: inv.id }, data: { expiresAt } });
 
     const link = `${appBaseUrl(req)}/invite/${inv.token}`;
-    const roleLabel: Record<Role, string> = {
-      SUPER_ADMIN: '最高管理員',
-      AUDITOR: '稽核委員',
-      ORG_ADMIN: '機關管理員',
-    };
     await sendEmail({
       to: inv.email,
       toName: inv.name,
       subject: '[MOECISH] 邀請您加入資通安全稽核管考平台(重寄)',
       body:
         `${inv.name} 您好,\n\n` +
-        `提醒您:您已被邀請加入 MOECISH 資通安全稽核管考平台,角色為 ${roleLabel[inv.role as Role]}` +
+        `提醒您:您已被邀請加入 MOECISH 資通安全稽核管考平台,角色為 ${ROLE_LABELS[inv.role as Role]}` +
         (inv.organization ? `(${inv.organization.name})` : '') + `。\n\n` +
         `請於 14 日內點擊以下連結設定您的密碼完成啟用:\n${link}\n\n` +
         `若您未預期收到此信,請忽略本信件。\n\n` +

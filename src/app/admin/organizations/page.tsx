@@ -2,10 +2,12 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
+import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { Briefcase, Plus, ChevronRight } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
@@ -30,15 +32,13 @@ export default async function OrganizationsPage() {
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '醫院管理' }]}
+      crumbs={[{ label: '管理' }, { label: '醫院管理' }]}
     >
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-headline text-on-surface">醫院管理</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">管理受稽機關（醫院）、新增機關、查看人員與稽核週期。</p>
-        </div>
-        <CreateOrganizationButton />
-      </header>
+      <PageHeader
+        title="醫院管理"
+        subtitle="管理受稽機關（醫院）、新增機關、查看人員與稽核週期。"
+        actions={<CreateOrganizationButton />}
+      />
 
       {orgs.length === 0 ? (
         <Card>
@@ -51,28 +51,26 @@ export default async function OrganizationsPage() {
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">機關</th>
-                <th className="text-left px-5 py-3 font-medium">代碼</th>
-                <th className="text-right px-5 py-3 font-medium">人員</th>
-                <th className="text-right px-5 py-3 font-medium">邀請</th>
-                <th className="text-left px-5 py-3 font-medium">最新稽核週期</th>
-                <th className="text-right px-5 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+              <Th>機關</Th>
+              <Th>代碼</Th>
+              <Th numeric>人員</Th>
+              <Th numeric>邀請</Th>
+              <Th>最新稽核週期</Th>
+              <Th numeric>操作</Th>
+            </THead>
             <tbody>
               {orgs.map((o) => (
-                <tr key={o.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors">
-                  <td className="px-5 py-3.5">
+                <Tr key={o.id}>
+                  <Td className="py-3.5">
                     <div className="font-medium text-on-surface">{o.name}</div>
                     {o.shortName && <div className="text-caption text-on-surface-variant">{o.shortName}</div>}
-                  </td>
-                  <td className="px-5 py-3.5 font-mono text-body-sm text-on-surface-variant">{o.code}</td>
-                  <td className="px-5 py-3.5 text-right tabular-nums">{o._count.users}</td>
-                  <td className="px-5 py-3.5 text-right tabular-nums">{o._count.invitations}</td>
-                  <td className="px-5 py-3.5">
+                  </Td>
+                  <Td className="py-3.5 font-mono text-body-sm text-on-surface-variant">{o.code}</Td>
+                  <Td numeric className="py-3.5">{o._count.users}</Td>
+                  <Td numeric className="py-3.5">{o._count.invitations}</Td>
+                  <Td className="py-3.5">
                     {o.cycles[0] ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="tabular-nums">{o.cycles[0].year - 1911} 年</span>
@@ -83,8 +81,8 @@ export default async function OrganizationsPage() {
                     ) : (
                       <span className="text-caption text-on-surface-variant">—</span>
                     )}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
+                  </Td>
+                  <Td className="py-3.5 text-right">
                     <Link
                       href={`/admin/organizations/${o.id}`}
                       className="inline-flex items-center gap-1 text-primary-700 hover:text-primary-800 text-body-sm"
@@ -92,11 +90,11 @@ export default async function OrganizationsPage() {
                       查看
                       <ChevronRight size={14} />
                     </Link>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}

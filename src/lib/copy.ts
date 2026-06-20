@@ -21,6 +21,11 @@ export const EMPTY = {
     title: '目前還沒有稽核週期',
     description: '等最高管理員開立稽核週期後，這裡就會顯示您的待辦。',
   },
+  // 最高管理員視角:有開立權限者不應被叫「等別人」,給主動引導
+  noCyclesAdmin: {
+    title: '建立第一個稽核週期',
+    description: '先在「醫院管理」建立受稽機關，即可開立年度稽核週期，啟動稽核管考流程。',
+  },
   noDeficiencies: {
     title: '尚未發布稽核缺失',
     description: '實地稽核後由最高管理員發布缺失清單；目前沒有需要處理的項目。',

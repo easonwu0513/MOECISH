@@ -3,20 +3,16 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { inviteStatus } from '@/lib/invite';
-import type { Role } from '@/lib/types';
+import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
+import { fmtROC, fmtROCDateTime, rocYear } from '@/lib/date';
 import InvitePanel from './InvitePanel';
 import CreateCycleButton from './CreateCycleButton';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
-
-const roleLabel: Record<Role, string> = {
-  SUPER_ADMIN: '最高管理員',
-  AUDITOR: '稽核委員',
-  ORG_ADMIN: '機關管理員',
-};
 
 export default async function OrganizationDetail({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -51,22 +47,22 @@ export default async function OrganizationDetail({ params }: { params: { id: str
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[
-        { label: '管理', href: '/admin/organizations' },
+        { label: '管理' },
         { label: '醫院管理', href: '/admin/organizations' },
         { label: org.name },
       ]}
     >
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-headline text-on-surface">{org.name}</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
+      <PageHeader
+        title={org.name}
+        subtitle={
+          <>
             <span className="font-mono">{org.code}</span>
             {org.shortName ? <> · {org.shortName}</> : null}
             {' · '}
-            建立於 {new Date(org.createdAt).toLocaleDateString('zh-TW')}
-          </p>
-        </div>
-      </header>
+            建立於 {fmtROC(org.createdAt)}
+          </>
+        }
+      />
 
       {/* Users + invites */}
       <section className="mb-8">
@@ -92,13 +88,13 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <Chip size="sm" tone={u.role === 'ORG_ADMIN' ? 'warning' : u.role === 'SUPER_ADMIN' ? 'primary' : 'neutral'}>
-                        {roleLabel[u.role as Role]}
+                      <Chip size="sm" tone={ROLE_TONE[u.role as Role]}>
+                        {ROLE_LABELS[u.role as Role]}
                       </Chip>
                     </td>
                     <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
                       {u.lastLoginAt
-                        ? <>最後登入 {new Date(u.lastLoginAt).toLocaleString('zh-TW')}</>
+                        ? <>最後登入 {fmtROCDateTime(u.lastLoginAt)}</>
                         : <>尚未登入</>}
                     </td>
                   </tr>
@@ -121,10 +117,10 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                         <div className="text-caption font-mono text-on-surface-variant">{inv.email}</div>
                       </td>
                       <td className="px-5 py-3">
-                        <Chip size="sm" tone="warning">{roleLabel[inv.role as Role]}</Chip>
+                        <Chip size="sm" tone={ROLE_TONE[inv.role as Role]}>{ROLE_LABELS[inv.role as Role]}</Chip>
                       </td>
                       <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
-                        至 {new Date(inv.expiresAt).toLocaleDateString('zh-TW')} 前
+                        至 {fmtROC(inv.expiresAt)} 前
                       </td>
                     </tr>
                   ))}
@@ -167,15 +163,15 @@ export default async function OrganizationDetail({ params }: { params: { id: str
               <tbody>
                 {org.cycles.map((c) => (
                   <tr key={c.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors">
-                    <td className="px-5 py-3 tabular-nums">{c.year - 1911} 年</td>
-                    <td className="px-5 py-3 text-on-surface-variant">{c.checklistVersion.year - 1911} 版</td>
+                    <td className="px-5 py-3 tabular-nums">{rocYear(c.year)} 年</td>
+                    <td className="px-5 py-3 text-on-surface-variant tabular-nums">{rocYear(c.checklistVersion.year)} 版</td>
                     <td className="px-5 py-3">
                       <Chip size="sm" tone="neutral">{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums">{c._count.responses}</td>
                     <td className="px-5 py-3 text-right tabular-nums">{c._count.deficiencies}</td>
-                    <td className="px-5 py-3 text-right text-on-surface-variant">
-                      {new Date(c.dueDate).toLocaleDateString('zh-TW')}
+                    <td className="px-5 py-3 text-right text-on-surface-variant tabular-nums">
+                      {fmtROC(c.dueDate)}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:text-primary-800">

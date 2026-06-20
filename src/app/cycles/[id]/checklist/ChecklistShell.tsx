@@ -364,7 +364,7 @@ export default function ChecklistShell({
                 onClick={() => toggleDim(dim)}
                 aria-expanded={!dimCollapsed}
                 className={cn(
-                  'group w-full flex items-center gap-4 text-left rounded-md border transition-all duration-180 ease-standard focus-ring scroll-mt-40',
+                  'group w-full flex items-center gap-4 text-left rounded-md border transition-all duration-200 ease-standard focus-ring scroll-mt-40',
                   'bg-surface-container-lowest hover:bg-surface-container-low',
                   dimCollapsed ? 'border-outline-variant/60' : 'border-outline-variant/60 shadow-xs',
                   'px-5 py-3.5',
@@ -393,7 +393,7 @@ export default function ChecklistShell({
                 <ChevronDown
                   size={18}
                   className={cn(
-                    'text-on-surface-variant shrink-0 transition-transform duration-180',
+                    'text-on-surface-variant shrink-0 transition-transform duration-200',
                     !dimCollapsed && 'rotate-180',
                   )}
                 />

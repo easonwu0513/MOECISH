@@ -49,7 +49,7 @@ export function StatTopBar({
             <span className="text-headline-sm font-semibold text-on-surface tabular-nums">{primary}</span>
           </div>
           <div className="mt-0.5 text-body-sm text-on-surface font-medium">{label}</div>
-          <div className="text-caption text-on-surface-variant mt-0.5 truncate">{sub}</div>
+          <div className="text-caption text-on-surface-variant mt-0.5 truncate tabular-nums">{sub}</div>
         </div>
       </div>
     </div>

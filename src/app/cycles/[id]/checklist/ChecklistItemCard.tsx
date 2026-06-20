@@ -247,7 +247,7 @@ export default function ChecklistItemCard({
     <div
       data-item-id={item.id}
       className={cn(
-        'relative bg-surface-container-lowest rounded-md border transition-all duration-180 ease-standard overflow-hidden',
+        'relative bg-surface-container-lowest rounded-md border transition-all duration-200 ease-standard overflow-hidden',
         focused ? 'border-primary-400 shadow-elev-2' : 'border-outline-variant/60',
         !focused && expanded && 'shadow-elev-1',
         !focused && !expanded && 'hover:border-outline-variant',

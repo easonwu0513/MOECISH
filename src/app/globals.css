@@ -167,6 +167,13 @@ a:focus-visible {
     @apply inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 text-[11px] font-mono font-medium text-neutral-600 bg-surface-container border border-outline-variant rounded-[6px];
   }
 
+  /* 單一遮罩配方 — 取代散落的 bg-[rgba(...)] / bg-black/40 三種寫法 */
+  .scrim {
+    background-color: rgba(20, 20, 30, 0.32);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
   .dotted-divider {
     background-image: radial-gradient(currentColor 1px, transparent 1px);
     background-size: 4px 1px;

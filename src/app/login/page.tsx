@@ -8,6 +8,7 @@ import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Chip } from '@/components/ui/Chip';
+import { Alert } from '@/components/ui/Alert';
 import { AlertCircle, ChevronLeft, Shield, Eye, EyeOff } from '@/components/icons';
 
 const demoAccounts = [
@@ -106,22 +107,15 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring"
+                  className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
                   aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
-                  tabIndex={-1}
                 >
                   {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               }
             />
             {err && (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-sm bg-danger-50 text-danger-700 px-3 py-2.5 text-body-sm animate-fade-in"
-              >
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <span>{err}</span>
-              </div>
+              <Alert tone="danger" role="alert" icon={<AlertCircle size={18} />}>{err}</Alert>
             )}
             <Button type="submit" loading={loading} fullWidth size="lg" className="mt-2">
               登入

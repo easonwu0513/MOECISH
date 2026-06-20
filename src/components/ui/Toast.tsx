@@ -90,7 +90,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              role="status"
+              role={t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'}
               className="pointer-events-auto flex gap-3 rounded-xs bg-neutral-800 shadow-elev-3 pl-4 pr-2 py-3 animate-slide-up"
             >
               <div className={cn(tone.accent, 'shrink-0')}>{tone.icon}</div>
