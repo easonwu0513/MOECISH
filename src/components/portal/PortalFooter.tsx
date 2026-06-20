@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Logo } from '@/components/brand/Logo';
+import { APP_VERSION, BUILD_REV } from '@/lib/version';
 
 /** 前台共用頁尾(三欄完整版,首頁/公告列表/公告詳情一致)。 */
 export function PortalFooter() {
@@ -44,7 +45,7 @@ export function PortalFooter() {
       <div className="border-t border-outline-variant/50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3 flex-wrap text-caption text-on-surface-variant">
           <span>© 中華民國 {rocYear} 年　教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
-          <span className="tabular-nums">MOECISH v2.0</span>
+          <span className="tabular-nums">MOECISH v{APP_VERSION} · {BUILD_REV}</span>
         </div>
       </div>
     </footer>
