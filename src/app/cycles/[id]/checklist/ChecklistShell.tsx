@@ -69,6 +69,7 @@ export default function ChecklistShell({
   submittedAtISO = null,
   submittedBy = null,
   reopenNote = null,
+  evidenceCountByItem = {},
 }: {
   cycleId: string;
   items: ClientItem[];
@@ -82,6 +83,8 @@ export default function ChecklistShell({
   submittedAtISO?: string | null;
   submittedBy?: string | null;
   reopenNote?: string | null;
+  /** 每題佐證檔數(itemId → count),供卡頭徽章 */
+  evidenceCountByItem?: Record<string, number>;
 }) {
   const responsesByItem = useMemo(() => {
     const m = new Map<string, ClientResponse>();
@@ -417,6 +420,7 @@ export default function ChecklistShell({
                         expanded={expanded.has(it.id)}
                         onToggle={() => toggle(it.id)}
                         focused={isFocused}
+                        evidenceCount={evidenceCountByItem[it.id] ?? 0}
                       />
                     );
                   })}

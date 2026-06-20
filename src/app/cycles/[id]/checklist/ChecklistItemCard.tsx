@@ -27,6 +27,7 @@ export default function ChecklistItemCard({
   expanded,
   onToggle,
   focused,
+  evidenceCount = 0,
 }: {
   cycleId: string;
   item: ClientItem;
@@ -36,6 +37,7 @@ export default function ChecklistItemCard({
   expanded: boolean;
   onToggle: () => void;
   focused: boolean;
+  evidenceCount?: number;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -94,8 +96,16 @@ export default function ChecklistItemCard({
     });
   }
 
-  // 文字欄失焦時靜默自動存(避免切題忘按儲存)
+  // 邊打邊存:停止輸入 900ms 後自動儲存;失焦則立即 flush。消除「有沒有存到」的不確定。
+  const debTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => { if (debTimer.current) clearTimeout(debTimer.current); }, []);
+  function scheduleSave(nextDesc: string, nextDocs: string) {
+    if (!canEdit) return;
+    if (debTimer.current) clearTimeout(debTimer.current);
+    debTimer.current = setTimeout(() => save(compliance, nextDesc, nextDocs), 900);
+  }
   function autoSaveOnBlur() {
+    if (debTimer.current) clearTimeout(debTimer.current);
     if (textDirty && canEdit) save(compliance, description, recordDocs);
   }
 
@@ -154,7 +164,7 @@ export default function ChecklistItemCard({
           <Textarea
             label="簡述規範內容、執行方式、執行結果"
             value={description}
-            onChange={(e) => { setTextDirty(true); setDescription(e.target.value); }}
+            onChange={(e) => { setTextDirty(true); setDescription(e.target.value); scheduleSave(e.target.value, recordDocs); }}
             onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={4}
@@ -163,7 +173,7 @@ export default function ChecklistItemCard({
           <Textarea
             label="紀錄文件(如規範、紀錄、公文等)"
             value={recordDocs}
-            onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); }}
+            onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); scheduleSave(description, e.target.value); }}
             onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={2}
@@ -182,19 +192,6 @@ export default function ChecklistItemCard({
               )}
             </div>
           )}
-        </div>
-      ),
-    },
-    {
-      id: 'law',
-      label: '法規對照',
-      content: (
-        <div className="py-1">
-          <LawPanel
-            auditBasis={item.auditBasis}
-            auditFocus={item.auditFocus}
-            expectedEvidence={item.expectedEvidence}
-          />
         </div>
       ),
     },
@@ -292,6 +289,17 @@ export default function ChecklistItemCard({
             {unresolved > 0 && (
               <Chip tone="warning" size="sm">意見待補 {unresolved}</Chip>
             )}
+            {evidenceCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
+                <Paperclip size={12} className="shrink-0" />{evidenceCount}
+              </span>
+            )}
+            {canEdit && (textDirty || justSaved) && (
+              <span className={cn('text-caption inline-flex items-center gap-1', textDirty ? 'text-warning-600' : 'text-success-600')}>
+                <span className={cn('w-1.5 h-1.5 rounded-full', textDirty ? 'bg-warning-400' : 'bg-success-500')} aria-hidden />
+                {textDirty ? '未存' : '已存'}
+              </span>
+            )}
             {response && (description || compliance) && !canEdit && (
               <span className="text-caption text-on-surface-variant">唯讀</span>
             )}
@@ -309,6 +317,21 @@ export default function ChecklistItemCard({
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-outline-variant/60">
           <Tabs tabs={tabs} />
+          {/* 法規對照:填報者最需照法規填,故展開即顯眼(與委員審閱頁同範式),不再藏在分頁 */}
+          {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
+            <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
+              <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
+                法規對照(稽核依據・稽核重點・應備文件)
+              </summary>
+              <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
+                <LawPanel
+                  auditBasis={item.auditBasis}
+                  auditFocus={item.auditFocus}
+                  expectedEvidence={item.expectedEvidence}
+                />
+              </div>
+            </details>
+          )}
         </div>
       )}
     </div>
