@@ -105,13 +105,7 @@ export default async function DeficienciesPage({
           <h1 className="text-headline text-on-surface">缺失與矯正管考</h1>
           <p className="mt-1 text-body-sm text-on-surface-variant">
             {yearROC} 年度 · {cycle.organization.name} · 共 {total} 項
-            {total > 0 && (
-              <>
-                {' '}· 通過 <span className="tabular-nums font-medium text-success-700">{passed}</span>
-                {submitted > 0 && <> · 待審 <span className="tabular-nums font-medium text-sage-700">{submitted}</span></>}
-                {returned > 0 && <> · 退回 <span className="tabular-nums font-medium text-danger-700">{returned}</span></>}
-              </>
-            )}
+            {/* 通過/待審/退回 分項數字由下方可點擊的篩選 chip 承擔,header 不重述 */}
           </p>
           <div className="mt-2">
             <DeadlineChip status={cycle.status} dueDate={cycle.dueDate} allPassed={total > 0 && passed === total} />

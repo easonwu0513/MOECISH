@@ -51,6 +51,15 @@ export const Mail = ({ size, ...p }: IconProps) => (
   </svg>
 );
 
+export const BarChart = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M3 20h18" />
+    <path d="M6 20v-7" />
+    <path d="M12 20V5" />
+    <path d="M18 20v-10" />
+  </svg>
+);
+
 export const Megaphone = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <path d="M3 10v4a1 1 0 0 0 1 1h3l9 4V5L7 9H4a1 1 0 0 0-1 1z" />

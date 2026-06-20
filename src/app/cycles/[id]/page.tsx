@@ -230,13 +230,6 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* 用印報告(矯正執行中之後顯示):結案最後一哩,移到動線前段並就近提供下載 */}
       {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
         <section id="signed-report" className="mb-6 scroll-mt-20">
-          {facts.allPassed && total > 0 && (
-            <div className="mb-2">
-              <a href={`/api/cycles/${cycle.id}/export/remediation-report`} className="inline-flex">
-                <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>下載 Word 改善報告(用印用)</Button>
-              </a>
-            </div>
-          )}
           <SignedReportPanel cycleId={cycle.id} role={user.role} />
         </section>
       )}
