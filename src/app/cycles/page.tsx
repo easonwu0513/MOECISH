@@ -11,6 +11,8 @@ import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
+import { fmtROC } from '@/lib/date';
+import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 
 export default async function CyclesPage() {
   const session = await auth();
@@ -67,12 +69,15 @@ export default async function CyclesPage() {
                         {c.year - 1911} 年度 · {c.organization.name}
                       </p>
                       <p className="text-caption text-on-surface-variant mt-1">
-                        矯正截止 {new Date(c.dueDate).toLocaleDateString('zh-TW')}
+                        矯正截止 {fmtROC(c.dueDate)}
                       </p>
                     </div>
-                    <Chip tone={cycleStatusTone(c.status as CycleStatus)} size="sm" dot>
-                      {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
-                    </Chip>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <Chip tone={cycleStatusTone(c.status as CycleStatus)} size="sm" dot>
+                        {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
+                      </Chip>
+                      <DeadlineChip status={c.status} dueDate={c.dueDate} allPassed={total > 0 && passed === total} />
+                    </div>
                   </div>
                   {total > 0 ? (
                     <>

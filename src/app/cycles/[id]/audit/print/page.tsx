@@ -9,6 +9,7 @@ import {
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind, type DimStat,
 } from '@/lib/audit-score';
 import PrintTrigger from '../../print/PrintTrigger';
+import { fmtROC } from '@/lib/date';
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
@@ -72,6 +73,7 @@ export default async function Att17PrintPage({
           first={idx === 0}
           orgName={cycle.organization.name}
           yearROC={cycle.year - 1911}
+          onsiteDateROC={cycle.onsiteDate ? fmtROC(cycle.onsiteDate) : null}
           auditorName={auditor.name}
           stats={stats}
           scores={Object.fromEntries(
@@ -90,11 +92,12 @@ const FONT = "'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif";
 const B = '1px solid #000';
 
 function Att17Sheet({
-  first, orgName, yearROC, auditorName, stats, scores, findings,
+  first, orgName, yearROC, onsiteDateROC, auditorName, stats, scores, findings,
 }: {
   first: boolean;
   orgName: string;
   yearROC: number;
+  onsiteDateROC: string | null;
   auditorName: string;
   stats: Record<string, DimStat>;
   scores: Record<string, number>;
@@ -216,8 +219,13 @@ function Att17Sheet({
         </tbody>
       </table>
 
-      <div style={{ fontSize: '12pt', marginTop: '18pt' }}>
-        委員簽名:{auditorName ? `${auditorName}　` : ''}______________________
+      <div style={{ fontSize: '12pt', marginTop: '18pt', lineHeight: 2 }}>
+        <div>稽核日期:{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
+        <div>受稽機關:{orgName}</div>
+        <div style={{ marginTop: '14pt', display: 'flex', gap: '48pt', flexWrap: 'wrap' }}>
+          <span>委員簽名:{auditorName ? `${auditorName}　` : ''}________________</span>
+          <span>服務機關／職稱:________________</span>
+        </div>
       </div>
     </div>
   );

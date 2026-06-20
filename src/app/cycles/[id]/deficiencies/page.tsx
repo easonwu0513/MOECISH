@@ -18,6 +18,7 @@ import {
 } from '@/lib/types';
 import { actionStatusTone } from '@/lib/state-machine';
 import { EMPTY } from '@/lib/copy';
+import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
@@ -108,6 +109,9 @@ export default async function DeficienciesPage({
               </>
             )}
           </p>
+          <div className="mt-2">
+            <DeadlineChip status={cycle.status} dueDate={cycle.dueDate} allPassed={total > 0 && passed === total} />
+          </div>
         </div>
         {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
           <AdminDeficiencyTools cycleId={cycle.id} cycleStatus={cycle.status} />
@@ -189,7 +193,7 @@ export default async function DeficienciesPage({
                                   <div className="flex">
                                     {/* 左緣狀態色條(顏色非唯一訊號,右側仍有 Chip+dot+文字) */}
                                     <div
-                                      className={`w-0.5 self-stretch shrink-0 ${RAIL_BG[actionStatusTone(status)]}`}
+                                      className={`w-1.5 self-stretch shrink-0 ${RAIL_BG[actionStatusTone(status)]}`}
                                       aria-hidden
                                     />
                                     <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">
