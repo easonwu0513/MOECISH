@@ -134,6 +134,11 @@ export default async function HomePage() {
   for (const e of enriched) {
     if (e.step >= 1 && e.step <= 4) stepCycleCounts[e.step - 1] += 1;
   }
+  // 跨院分佈(SUPER_ADMIN 指揮台用):逾期院數、各指標散在幾院
+  const overdueCount = enriched.filter((e) => e.overdue).length;
+  const orgsWith = (f: (e: Enriched) => number) =>
+    new Set(enriched.filter((e) => f(e) > 0).map((e) => e.c.organizationId)).size;
+  const isSuper = user.role === 'SUPER_ADMIN';
 
   const greeting = greetingByHour(now.getHours());
   const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
@@ -174,6 +179,35 @@ export default async function HomePage() {
         </Card>
       ) : (
         <>
+          {/* SUPER_ADMIN 指揮台:全院階段分布(一眼看誰落後) */}
+          {isSuper && (
+            <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-label text-on-surface-variant">全院稽核階段分布</p>
+                <span className="text-caption text-on-surface-variant tabular-nums">共 {cycles.length} 個週期</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {PROCESS_STEPS.map((s, i) => (
+                  <Link
+                    key={s.no}
+                    href="/admin/cycles"
+                    className="rounded-md bg-surface-container px-3 py-2.5 hover:bg-surface-container-high transition-colors focus-ring"
+                  >
+                    <p className="text-caption text-on-surface-variant">步驟 {s.no}・{s.title}</p>
+                    <p className="text-headline-sm text-on-surface tabular-nums">
+                      {stepCycleCounts[i]}<span className="text-body-sm text-on-surface-variant"> 院</span>
+                    </p>
+                  </Link>
+                ))}
+              </div>
+              {overdueCount > 0 && (
+                <Link href="/admin/cycles?behind=1" className="mt-2 inline-block text-caption text-danger-700 hover:underline">
+                  ⚠ {overdueCount} 個週期矯正已逾期,前往催辦 →
+                </Link>
+              )}
+            </section>
+          )}
+
           {/* 統計列 */}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTopBar
@@ -188,7 +222,7 @@ export default async function HomePage() {
               icon={<Eye size={20} />}
               primary={`${submitted}`}
               label="待委員審查"
-              sub={submitted > 0 ? '已送審項目' : '無待審'}
+              sub={submitted > 0 ? (isSuper ? `散在 ${orgsWith((e) => e.submitted)} 院` : '已送審項目') : '無待審'}
             />
             <StatTopBar
               tone="warning"
@@ -196,7 +230,7 @@ export default async function HomePage() {
               icon={<ClipboardCheck size={20} />}
               primary={`${toFill}`}
               label="待填報"
-              sub={toFill > 0 ? '機關尚未送審' : '全部已送'}
+              sub={toFill > 0 ? (isSuper ? `${orgsWith((e) => e.toFill)} 院尚未送審` : '機關尚未送審') : '全部已送'}
             />
             <StatTopBar
               tone="danger"
@@ -204,7 +238,7 @@ export default async function HomePage() {
               icon={<AlertCircle size={20} />}
               primary={`${returned}`}
               label="退回補正"
-              sub={returned > 0 ? '需儘速處理' : '無退回'}
+              sub={returned > 0 ? (isSuper ? `${orgsWith((e) => e.returned)} 院需處理` : '需儘速處理') : '無退回'}
             />
           </section>
 

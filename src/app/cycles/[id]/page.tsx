@@ -39,6 +39,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
 
+  // 委員視角:本人於此週期的九構面評分進度(磚上徽章)
+  const myScoreCount = user.role === 'AUDITOR'
+    ? await prisma.auditScore.count({ where: { cycleId: cycle.id, auditorId: user.id } })
+    : 0;
+
   const total = cycle.deficiencies.length;
   const byStatus = (s: string) => cycle.deficiencies.filter((d) => d.action?.status === s).length;
   const passed = byStatus('PASSED');
@@ -63,6 +68,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     : undefined;
   const checklistBadge = cycle.checklistSubmittedAt
     ? <Chip tone="success" size="sm" dot>已送出</Chip>
+    : undefined;
+  const auditBadge = user.role === 'AUDITOR'
+    ? <Chip tone={myScoreCount >= 9 ? 'success' : 'neutral'} size="sm">評分 {myScoreCount}/9</Chip>
     : undefined;
   const defBadge = total > 0
     ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
@@ -197,6 +205,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             title="實地稽核評分與發現"
             desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
             href={`/cycles/${cycle.id}/audit`}
+            badge={auditBadge}
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
