@@ -138,11 +138,7 @@ function ScoreSection({
           {canEdit && saveState === 'saving' && (
             <span className="text-caption text-on-surface-variant">儲存中…</span>
           )}
-          {canEdit && saveState === 'saved' && (
-            <span className="inline-flex items-center gap-1 text-caption text-success-600 animate-fade-in">
-              <Check size={13} /> 已儲存
-            </span>
-          )}
+          {/* 成功一律安靜(進度 Chip 即持久訊號),只在未存/儲存中提示 */}
           <Chip tone={filledCount === 9 ? 'success' : 'neutral'} size="sm">
             {filledCount === 9 ? `總分 ${myTotal}` : `已評 ${filledCount} / 9 項`}
           </Chip>

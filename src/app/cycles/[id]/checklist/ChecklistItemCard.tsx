@@ -184,12 +184,7 @@ export default function ChecklistItemCard({
               <Button variant="filled" size="sm" loading={saving} onClick={() => save()}>
                 儲存
               </Button>
-              {justSaved && (
-                <span className="text-success-700 text-body-sm animate-fade-in">✓ 已儲存</span>
-              )}
-              {textDirty && !justSaved && (
-                <span className="text-caption text-on-surface-variant">未儲存(離開欄位會自動儲存)</span>
-              )}
+              {/* 存檔狀態只由卡頭那顆點呈現(收合也看得到);此處不重述 */}
             </div>
           )}
         </div>
@@ -198,7 +193,7 @@ export default function ChecklistItemCard({
     {
       id: 'comments',
       label: '委員意見',
-      badge: unresolved > 0 ? <Chip tone="warning" size="sm">{unresolved}</Chip> : undefined,
+      // 意見待補數已由卡頭 Chip 呈現(收合可見),此處不重複 tab badge
       content: (response?.comments ?? []).length === 0 ? (
         <p className="text-body-sm text-on-surface-variant py-4">本題尚無委員意見。</p>
       ) : (
@@ -294,10 +289,9 @@ export default function ChecklistItemCard({
                 <Paperclip size={12} className="shrink-0" />{evidenceCount}
               </span>
             )}
-            {canEdit && (textDirty || justSaved) && (
-              <span className={cn('text-caption inline-flex items-center gap-1', textDirty ? 'text-warning-600' : 'text-success-600')}>
-                <span className={cn('w-1.5 h-1.5 rounded-full', textDirty ? 'bg-warning-400' : 'bg-success-500')} aria-hidden />
-                {textDirty ? '未存' : '已存'}
+            {canEdit && textDirty && (
+              <span className="text-caption inline-flex items-center gap-1 text-warning-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning-400" aria-hidden />未存
               </span>
             )}
             {response && (description || compliance) && !canEdit && (

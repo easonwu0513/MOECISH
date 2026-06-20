@@ -14,6 +14,7 @@ import {
   Folder,
   Mail,
   Megaphone,
+  BarChart,
 } from '../icons';
 import type { Role } from '@/lib/types';
 import { Wordmark } from '../brand/Logo';
@@ -45,7 +46,7 @@ const groups: Group[] = [
     items: [
       { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/cycles', label: '跨院週期總覽', icon: <BarChart size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/checklists', label: '檢核表題庫', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/posts', label: '公告管理', icon: <Megaphone size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/emails', label: 'Email', icon: <Mail size={20} />, allow: ['SUPER_ADMIN'] },

@@ -355,7 +355,8 @@ export default async function HomePage() {
             </Card>
           </section>
 
-          {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
+          {/* ════ 流程指引:四步驟 × 我的角色工作(SUPER_ADMIN 已有頂部階段分布 band,不重複印 step 計數) ════ */}
+          {!isSuper && (
           <section className="mb-10 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
               <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
@@ -393,6 +394,7 @@ export default async function HomePage() {
               })}
             </div>
           </section>
+          )}
         </>
       )}
     </AppShell>
