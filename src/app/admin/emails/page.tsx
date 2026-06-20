@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FileText } from '@/components/icons';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { TableScroll } from '@/components/ui/TableScroll';
+import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
+import { fmtROCDateTime } from '@/lib/date';
 import ComposeTracking from './ComposeTracking';
 import ResendButton from './ResendButton';
 
@@ -93,7 +95,7 @@ export default async function EmailLogPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: 'Email' }]}
+      crumbs={[{ label: '管理' }, { label: 'Email' }]}
     >
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">Email</h1>
@@ -161,51 +163,49 @@ export default async function EmailLogPage({
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">時間</th>
-                <th className="text-left px-5 py-3 font-medium">類型</th>
-                <th className="text-left px-5 py-3 font-medium">狀態</th>
-                <th className="text-left px-5 py-3 font-medium">收件者</th>
-                <th className="text-left px-5 py-3 font-medium">主旨</th>
-                <th className="text-right px-5 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+              <Th>時間</Th>
+              <Th>類型</Th>
+              <Th>狀態</Th>
+              <Th>收件者</Th>
+              <Th>主旨</Th>
+              <Th numeric>操作</Th>
+            </THead>
             <tbody>
               {logs.map((l) => {
                 const k = kindLabel[l.kind] ?? kindLabel.other;
                 const d = deliveryMeta[deliveryOf(l.context)];
                 return (
-                  <tr key={l.id} className="border-t border-outline-variant/60 align-top">
-                    <td className="px-5 py-3 text-caption text-on-surface-variant tabular-nums whitespace-nowrap">
-                      {new Date(l.sentAt).toLocaleString('zh-TW')}
-                    </td>
-                    <td className="px-5 py-3">
+                  <Tr key={l.id} hover={false} className="align-top">
+                    <Td className="text-caption text-on-surface-variant tabular-nums whitespace-nowrap">
+                      {fmtROCDateTime(l.sentAt)}
+                    </Td>
+                    <Td>
                       <Chip size="sm" tone={k.tone}>{k.label}</Chip>
-                    </td>
-                    <td className="px-5 py-3">
+                    </Td>
+                    <Td>
                       <Chip size="sm" tone={d.tone} dot>{d.label}</Chip>
-                    </td>
-                    <td className="px-5 py-3">
+                    </Td>
+                    <Td>
                       <div className="font-medium">{l.toName ?? '—'}</div>
                       <div className="text-caption font-mono text-on-surface-variant">{l.toEmail}</div>
-                    </td>
-                    <td className="px-5 py-3">
+                    </Td>
+                    <Td>
                       <div className="text-on-surface">{l.subject}</div>
                       <details className="mt-1 text-caption text-on-surface-variant">
                         <summary className="cursor-pointer hover:text-primary-700">內文</summary>
                         <pre className="mt-2 p-3 bg-surface-container-low rounded-md whitespace-pre-wrap font-sans text-body-sm text-on-surface-variant leading-relaxed">{l.body}</pre>
                       </details>
-                    </td>
-                    <td className="px-5 py-3 text-right">
+                    </Td>
+                    <Td className="text-right">
                       {deliveryOf(l.context) === 'failed' && <ResendButton logId={l.id} />}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 );
               })}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}

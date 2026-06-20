@@ -10,6 +10,8 @@ import IdleLogout from './IdleLogout';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
+import { useDialogA11y } from '../ui/useDialogA11y';
+import { NavProvider } from './NavProgress';
 import {
   LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield,
 } from '../icons';
@@ -29,6 +31,7 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   useCommandHotkey(setCmdOpen);
+  const drawerRef = useDialogA11y(mobileOpen, () => setMobileOpen(false));
 
   const commands: Command[] = [
     { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/dashboard') },
@@ -53,6 +56,7 @@ export function AppShell({
   ];
 
   return (
+    <NavProvider>
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
@@ -61,9 +65,14 @@ export function AppShell({
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-[rgba(20,20,30,0.45)]" onClick={() => setMobileOpen(false)} />
-          <div className="relative z-50 animate-slide-in-right shadow-elev-5">
+        <div
+          className="md:hidden fixed inset-0 z-40"
+          role="dialog"
+          aria-modal="true"
+          aria-label="主選單"
+        >
+          <div className="absolute inset-0 scrim" onClick={() => setMobileOpen(false)} />
+          <div ref={drawerRef} tabIndex={-1} className="relative z-50 animate-slide-in-right shadow-elev-5 outline-none">
             <Sidebar role={user.role} onClose={() => setMobileOpen(false)} />
           </div>
         </div>
@@ -76,7 +85,7 @@ export function AppShell({
           onMenuClick={() => setMobileOpen(true)}
           onCommandOpen={() => setCmdOpen(true)}
         />
-        <main className={cn('flex-1 min-w-0')}>
+        <main id="main-content" tabIndex={-1} className={cn('flex-1 min-w-0 outline-none')}>
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
             {children}
           </div>
@@ -86,5 +95,6 @@ export function AppShell({
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
       <IdleLogout />
     </div>
+    </NavProvider>
   );
 }

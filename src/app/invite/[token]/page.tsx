@@ -3,14 +3,8 @@ import { inviteStatus } from '@/lib/invite';
 import { Logo } from '@/components/brand/Logo';
 import { Chip } from '@/components/ui/Chip';
 import { AlertCircle } from '@/components/icons';
-import type { Role } from '@/lib/types';
+import { ROLE_LABELS, type Role } from '@/lib/types';
 import InviteAcceptForm from './InviteAcceptForm';
-
-const roleLabel: Record<Role, string> = {
-  SUPER_ADMIN: '最高管理員',
-  AUDITOR: '稽核委員',
-  ORG_ADMIN: '機關管理員',
-};
 
 export default async function InvitePage({ params }: { params: { token: string } }) {
   const inv = await prisma.invitation.findUnique({
@@ -69,7 +63,7 @@ export default async function InvitePage({ params }: { params: { token: string }
                     : '您已被邀請加入 MOECISH'}
                 </p>
                 <div className="mt-3 flex items-center gap-2">
-                  <Chip size="sm" tone="primary">{roleLabel[inv.role as Role]}</Chip>
+                  <Chip size="sm" tone="primary">{ROLE_LABELS[inv.role as Role]}</Chip>
                   <span className="text-caption text-on-surface-variant">
                     至 {new Date(inv.expiresAt).toLocaleDateString('zh-TW')} 前有效
                   </span>

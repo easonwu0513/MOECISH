@@ -21,7 +21,7 @@ import {
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
-import { ROLE_LABELS, type CycleStatus } from '@/lib/types';
+import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
 type Todo = {
@@ -173,8 +173,16 @@ export default async function HomePage() {
           <div className="p-6">
             <EmptyState
               icon={<ClipboardCheck size={28} />}
-              title={EMPTY.noCycles.title}
-              description={EMPTY.noCycles.description}
+              title={isSuper ? EMPTY.noCyclesAdmin.title : EMPTY.noCycles.title}
+              description={isSuper ? EMPTY.noCyclesAdmin.description : EMPTY.noCycles.description}
+              action={
+                isSuper ? (
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <Button href="/admin/cycles" variant="tonal" size="sm">開立稽核週期</Button>
+                    <Button href="/admin/organizations" variant="text" size="sm">醫院管理</Button>
+                  </div>
+                ) : undefined
+              }
             />
           </div>
         </Card>
@@ -306,13 +314,12 @@ export default async function HomePage() {
               </div>
               <div className="flex flex-col gap-1.5">
                 {todos.length === 0 ? (
-                  <div className="flex flex-col items-center text-center py-8 px-2">
-                    <div className="w-14 h-14 rounded-full bg-success-50 text-success-600 flex items-center justify-center mb-3">
-                      <CheckCircle size={26} />
-                    </div>
-                    <p className="text-title text-on-surface">{EMPTY.noTodos.title}</p>
-                    <p className="text-caption text-on-surface-variant mt-1">{EMPTY.noTodos.description}</p>
-                  </div>
+                  <EmptyState
+                    tone="success"
+                    icon={<CheckCircle size={28} />}
+                    title={EMPTY.noTodos.title}
+                    description={EMPTY.noTodos.description}
+                  />
                 ) : (
                   todos.map((t) => (
                     <Link
@@ -361,7 +368,7 @@ export default async function HomePage() {
           <section className="mb-10 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
               <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
-              <Chip tone="primary" size="sm">{ROLE_LABELS[user.role]}</Chip>
+              <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>
               <span className="text-caption text-on-surface-variant">
                 你在每一階段的工作;標亮 = 有週期正在該階段
               </span>

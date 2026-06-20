@@ -41,6 +41,8 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
   const genId = useId();
   const inputId = id ?? genId;
   const hasError = Boolean(errorText);
+  const descId = `${inputId}-desc`;
+  const describedBy = hasError || helperText ? descId : undefined;
   const [focused, setFocused] = useState(false);
   const filled = Boolean(value ?? defaultValue);
   // date/time 類輸入框永遠渲染原生佔位文字(年/月/日),placeholder:text-transparent 蓋不掉,
@@ -87,6 +89,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
             id={inputId}
             disabled={disabled}
             aria-invalid={hasError}
+            aria-describedby={describedBy}
             value={value}
             defaultValue={defaultValue}
             onFocus={(e) => { setFocused(true); onFocus?.(e); }}
@@ -104,9 +107,9 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           )}
         </div>
         {hasError ? (
-          <p className="text-caption text-danger-700 px-3.5">{errorText}</p>
+          <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
         ) : helperText ? (
-          <p className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+          <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
         ) : null}
       </div>
     );
@@ -151,6 +154,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           id={inputId}
           disabled={disabled}
           aria-invalid={hasError}
+          aria-describedby={describedBy}
           value={value}
           defaultValue={defaultValue}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
@@ -169,9 +173,9 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
         )}
       </div>
       {hasError ? (
-        <p className="text-caption text-danger-700 px-3.5">{errorText}</p>
+        <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+        <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
       ) : null}
     </div>
   );

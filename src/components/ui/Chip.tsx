@@ -79,7 +79,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        'inline-flex items-center font-medium whitespace-nowrap',
+        'inline-flex items-center font-medium whitespace-nowrap tabular-nums',
         palette,
         sizes[size],
         className,

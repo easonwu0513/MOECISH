@@ -16,6 +16,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
   const genId = useId();
   const inputId = id ?? genId;
   const hasError = Boolean(errorText);
+  const descId = `${inputId}-desc`;
+  const describedBy = hasError || helperText ? descId : undefined;
   const [focused, setFocused] = useState(false);
   const filled = Boolean(value ?? defaultValue);
   // textarea 的 placeholder 可見,若標籤停在中間會與其重疊;有 placeholder 時一律上浮
@@ -57,6 +59,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
           rows={rows}
           disabled={disabled}
           aria-invalid={hasError}
+          aria-describedby={describedBy}
           value={value}
           defaultValue={defaultValue}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
@@ -70,9 +73,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
         />
       </div>
       {hasError ? (
-        <p className="text-caption text-danger-700 px-3.5">{errorText}</p>
+        <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+        <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
       ) : null}
     </div>
   );

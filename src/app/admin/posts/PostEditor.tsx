@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -34,10 +34,18 @@ export default function PostEditor({ post }: { post: PostData | null }) {
   const [pinned, setPinned] = useState(post?.pinned ?? false);
   const [busy, setBusy] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  const [titleErr, setTitleErr] = useState<string | null>(null);
+  const [contentErr, setContentErr] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   async function save(): Promise<string | null> {
-    if (title.trim().length < 2) { toast.error('請輸入標題'); return null; }
-    if (contentMd.trim().length < 5) { toast.error('請輸入內文'); return null; }
+    const badTitle = title.trim().length < 2;
+    const badContent = contentMd.trim().length < 5;
+    setTitleErr(badTitle ? '請輸入標題（至少 2 個字）' : null);
+    setContentErr(badContent ? '請輸入內文（至少 5 個字）' : null);
+    if (badTitle) { titleRef.current?.focus(); return null; }
+    if (badContent) { contentRef.current?.focus(); return null; }
     setBusy(true);
     const payload = { title: title.trim(), category, contentMd, important, pinned };
     const res = isNew
@@ -126,7 +134,13 @@ export default function PostEditor({ post }: { post: PostData | null }) {
       </CardDescription>
 
       <div className="mt-5 flex flex-col gap-4">
-        <TextField label="標題" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <TextField
+          ref={titleRef}
+          label="標題"
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); if (titleErr) setTitleErr(null); }}
+          errorText={titleErr ?? undefined}
+        />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <Select label="分類" value={category} onChange={(e) => setCategory(e.target.value)}>
             {POST_CATEGORIES.map((c) => (
@@ -143,11 +157,13 @@ export default function PostEditor({ post }: { post: PostData | null }) {
           </label>
         </div>
         <Textarea
+          ref={contentRef}
           label="內文(Markdown)"
           value={contentMd}
-          onChange={(e) => setContentMd(e.target.value)}
+          onChange={(e) => { setContentMd(e.target.value); if (contentErr) setContentErr(null); }}
           rows={14}
           placeholder={'## 摘要\n\n說明文字…\n\n- 重點一\n- 重點二'}
+          errorText={contentErr ?? undefined}
         />
 
         <div className="flex flex-wrap gap-2 pt-1">

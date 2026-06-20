@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { prisma } from './db';
 import { sendEmail } from './email';
-import type { Role } from './types';
+import { ROLE_LABELS, type Role } from './types';
 
 const INVITE_TTL_DAYS = 14;
 
@@ -45,15 +45,10 @@ export async function createInvitation(input: {
   });
 
   const link = `${input.appBaseUrl}/invite/${token}`;
-  const roleLabel: Record<Role, string> = {
-    SUPER_ADMIN: '最高管理員',
-    AUDITOR: '稽核委員',
-    ORG_ADMIN: '機關管理員',
-  };
 
   const body =
     `${input.name} 您好，\n\n` +
-    `您已被邀請加入 MOECISH 資通安全稽核管考平台，角色為 ${roleLabel[input.role]}` +
+    `您已被邀請加入 MOECISH 資通安全稽核管考平台，角色為 ${ROLE_LABELS[input.role]}` +
     (inv.organization ? `（${inv.organization.name}）` : '') + `。\n\n` +
     `請於 14 日內點擊以下連結設定您的密碼完成啟用：\n${link}\n\n` +
     `若您未預期收到此信，請忽略本信件。\n\n` +

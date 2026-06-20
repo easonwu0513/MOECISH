@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -16,12 +16,18 @@ export default function CreateOrganizationButton() {
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [codeErr, setCodeErr] = useState<string | null>(null);
+  const [nameErr, setNameErr] = useState<string | null>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   async function submit() {
-    if (!code.trim() || !name.trim()) {
-      toast.error('代碼與全名為必填');
-      return;
-    }
+    const missingCode = !code.trim();
+    const missingName = !name.trim();
+    setCodeErr(missingCode ? '此欄為必填' : null);
+    setNameErr(missingName ? '此欄為必填' : null);
+    if (missingCode) { codeRef.current?.focus(); return; }
+    if (missingName) { nameRef.current?.focus(); return; }
     setSaving(true);
     const res = await fetch('/api/admin/organizations', {
       method: 'POST',
@@ -59,15 +65,19 @@ export default function CreateOrganizationButton() {
       >
         <div className="flex flex-col gap-4 pt-2">
           <TextField
+            ref={codeRef}
             label="代碼"
             helperText="如 NTUH-001，英數及連字號"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onChange={(e) => { setCode(e.target.value.toUpperCase()); if (codeErr) setCodeErr(null); }}
+            errorText={codeErr ?? undefined}
           />
           <TextField
+            ref={nameRef}
             label="全名"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); if (nameErr) setNameErr(null); }}
+            errorText={nameErr ?? undefined}
           />
           <TextField
             label="簡稱（選填）"

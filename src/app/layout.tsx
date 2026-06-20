@@ -35,6 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-Hant" className={`${inter.variable} ${mono.variable} ${noto.variable}`}>
       <body className="min-h-screen bg-surface text-neutral-900 antialiased">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[200] focus:px-4 focus:py-2 focus:rounded-md focus:bg-primary-container focus:text-on-primary-container focus:shadow-elev-3 focus-ring"
+        >
+          跳至主要內容
+        </a>
         <Providers>
           <ToastProvider>{children}</ToastProvider>
         </Providers>

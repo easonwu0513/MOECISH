@@ -1,8 +1,10 @@
 'use client';
 
-import { ReactNode, useEffect, useId, useRef } from 'react';
+import { ReactNode, useId } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from './Button';
+import { useDialogA11y } from './useDialogA11y';
+import { usePresence } from './usePresence';
 
 export function Dialog({
   open,
@@ -24,81 +26,33 @@ export function Dialog({
   icon?: ReactNode;
 }) {
   const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const panelRef = useDialogA11y(open, () => onOpenChange(false));
+  const { mounted, leaving } = usePresence(open, 200);
 
-  // 用 ref 穩住 onOpenChange,避免父元件每次 render 產生新 callback 導致
-  // 本 effect 重跑、初始焦點被搶回第一個欄位(會中斷中文輸入法組字)。
-  const onOpenChangeRef = useRef(onOpenChange);
-  onOpenChangeRef.current = onOpenChange;
-
-  useEffect(() => {
-    if (!open) return;
-
-    // 記住開啟前的焦點;關閉時還原(鍵盤使用者不迷路)
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-
-    const panel = panelRef.current;
-    const focusables = () =>
-      Array.from(
-        panel?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ) ?? [],
-      );
-
-    // 初始焦點:第一個可聚焦元素,否則面板本身(只在開啟當下執行一次)
-    const first = focusables()[0];
-    (first ?? panel)?.focus();
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onOpenChangeRef.current(false);
-        return;
-      }
-      // 焦點陷阱:Tab 在面板內循環,不跑到背景頁面
-      if (e.key === 'Tab') {
-        const els = focusables();
-        if (els.length === 0) return;
-        const firstEl = els[0];
-        const lastEl = els[els.length - 1];
-        if (e.shiftKey && document.activeElement === firstEl) {
-          e.preventDefault();
-          lastEl.focus();
-        } else if (!e.shiftKey && document.activeElement === lastEl) {
-          e.preventDefault();
-          firstEl.focus();
-        }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-      restoreFocusRef.current?.focus?.();
-    };
-  }, [open]);
-
-  if (!open) return null;
+  if (!mounted) return null;
 
   const w = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : 'max-w-md';
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-fade-in"
+      className={cn(
+        'fixed inset-0 z-[90] flex items-center justify-center p-4',
+        leaving ? 'animate-fade-out' : 'animate-fade-in',
+      )}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
     >
       <div
-        className="absolute inset-0 bg-[rgba(20,20,30,0.32)] backdrop-blur-[2px]"
+        className="absolute inset-0 scrim"
         onClick={() => onOpenChange(false)}
       />
       <div
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 animate-slide-up outline-none',
+          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 outline-none',
+          leaving ? 'animate-slide-down-out' : 'animate-slide-up',
           w,
         )}
       >

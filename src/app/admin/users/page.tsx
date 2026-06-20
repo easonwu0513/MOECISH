@@ -2,28 +2,19 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
+import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { Users } from '@/components/icons';
 import { inviteStatus } from '@/lib/invite';
-import type { Role } from '@/lib/types';
+import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
+import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import GlobalInvitePanel from './GlobalInvitePanel';
 import UserRowActions from './UserRowActions';
 import InviteRowActions from './InviteRowActions';
-
-const roleLabel: Record<Role, string> = {
-  SUPER_ADMIN: '最高管理員',
-  AUDITOR: '稽核委員',
-  ORG_ADMIN: '機關管理員',
-};
-
-const roleTone: Record<Role, 'primary' | 'sage' | 'neutral' | 'warning'> = {
-  SUPER_ADMIN: 'primary',
-  AUDITOR: 'sage',
-  ORG_ADMIN: 'warning',
-};
 
 export default async function UsersPage() {
   const session = await auth();
@@ -42,19 +33,19 @@ export default async function UsersPage() {
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理', href: '/admin/organizations' }, { label: '使用者' }]}
+      crumbs={[{ label: '管理' }, { label: '使用者' }]}
     >
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-headline text-on-surface">使用者管理</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
+      <PageHeader
+        title="使用者管理"
+        subtitle={
+          <>
             全系統帳號總覽。稽核委員與管理員用右上角邀請;機關管理員請至
             <Link href="/admin/organizations" className="text-primary-700 hover:underline mx-1">醫院管理</Link>
             選擇對應醫院 → 邀請人員。
-          </p>
-        </div>
-        <GlobalInvitePanel />
-      </header>
+          </>
+        }
+        actions={<GlobalInvitePanel />}
+      />
 
       {pendingInvites.length > 0 && (
         <Card padded={false} variant="outlined" className="mb-8">
@@ -62,37 +53,35 @@ export default async function UsersPage() {
             待接受邀請（{pendingInvites.length}）
           </div>
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">姓名 / Email</th>
-                <th className="text-left px-5 py-3 font-medium">角色</th>
-                <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
-                <th className="text-right px-5 py-3 font-medium">到期</th>
-                <th className="text-right px-5 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+              <Th>姓名 / Email</Th>
+              <Th>角色</Th>
+              <Th>所屬醫院</Th>
+              <Th numeric>到期</Th>
+              <Th numeric>操作</Th>
+            </THead>
             <tbody>
               {pendingInvites.map((inv) => (
-                <tr key={inv.id} className="border-t border-outline-variant/60">
-                  <td className="px-5 py-3">
+                <Tr key={inv.id} hover={false}>
+                  <Td>
                     <div className="font-medium text-on-surface">{inv.name}</div>
                     <div className="text-caption font-mono text-on-surface-variant">{inv.email}</div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <Chip size="sm" tone={roleTone[inv.role as Role]}>{roleLabel[inv.role as Role]}</Chip>
-                  </td>
-                  <td className="px-5 py-3 text-on-surface-variant">{inv.organization?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
-                    {new Date(inv.expiresAt).toLocaleDateString('zh-TW')}
-                  </td>
-                  <td className="px-5 py-3 text-right">
+                  </Td>
+                  <Td>
+                    <Chip size="sm" tone={ROLE_TONE[inv.role as Role]}>{ROLE_LABELS[inv.role as Role]}</Chip>
+                  </Td>
+                  <Td className="text-on-surface-variant">{inv.organization?.name ?? '—'}</Td>
+                  <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    {fmtROC(inv.expiresAt)}
+                  </Td>
+                  <Td className="text-right">
                     <InviteRowActions inviteId={inv.id} email={inv.email} />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}
@@ -108,37 +97,35 @@ export default async function UsersPage() {
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll>
-          <table className="w-full text-body-sm">
-            <thead className="text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium">姓名 / Email</th>
-                <th className="text-left px-5 py-3 font-medium">角色</th>
-                <th className="text-left px-5 py-3 font-medium">所屬醫院</th>
-                <th className="text-left px-5 py-3 font-medium">狀態</th>
-                <th className="text-right px-5 py-3 font-medium">最後登入</th>
-                <th className="text-right px-5 py-3 font-medium">操作</th>
-              </tr>
-            </thead>
+          <Table>
+            <THead>
+              <Th>姓名 / Email</Th>
+              <Th>角色</Th>
+              <Th>所屬醫院</Th>
+              <Th>狀態</Th>
+              <Th numeric>最後登入</Th>
+              <Th numeric>操作</Th>
+            </THead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors">
-                  <td className="px-5 py-3">
+                <Tr key={u.id}>
+                  <Td>
                     <div className="font-medium text-on-surface">{u.name}</div>
                     <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <Chip size="sm" tone={roleTone[u.role as Role]}>{roleLabel[u.role as Role]}</Chip>
-                  </td>
-                  <td className="px-5 py-3 text-on-surface-variant">{u.organization?.name ?? '—'}</td>
-                  <td className="px-5 py-3">
+                  </Td>
+                  <Td>
+                    <Chip size="sm" tone={ROLE_TONE[u.role as Role]}>{ROLE_LABELS[u.role as Role]}</Chip>
+                  </Td>
+                  <Td className="text-on-surface-variant">{u.organization?.name ?? '—'}</Td>
+                  <Td>
                     {u.isActive
                       ? <Chip size="sm" tone="success">啟用</Chip>
                       : <Chip size="sm" tone="neutral">停用</Chip>}
-                  </td>
-                  <td className="px-5 py-3 text-right text-caption text-on-surface-variant">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('zh-TW') : '尚未登入'}
-                  </td>
-                  <td className="px-5 py-3 text-right">
+                  </Td>
+                  <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    {u.lastLoginAt ? fmtROCDateTime(u.lastLoginAt) : '尚未登入'}
+                  </Td>
+                  <Td className="text-right">
                     <UserRowActions
                       userId={u.id}
                       name={u.name}
@@ -147,11 +134,11 @@ export default async function UsersPage() {
                       hasOrganization={!!u.organizationId}
                       isSelf={u.id === user.id}
                     />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
           </TableScroll>
         </Card>
       )}

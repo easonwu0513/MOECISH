@@ -17,6 +17,8 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
   const genId = useId();
   const inputId = id ?? genId;
   const hasError = Boolean(errorText);
+  const descId = `${inputId}-desc`;
+  const describedBy = hasError || helperText ? descId : undefined;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -31,6 +33,7 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
           id={inputId}
           disabled={disabled}
           aria-invalid={hasError}
+          aria-describedby={describedBy}
           className={cn(
             'w-full appearance-none bg-surface-container rounded-t-md px-3.5 h-12 pr-10 text-body outline-none',
             'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-outline',
@@ -49,9 +52,9 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
         />
       </div>
       {hasError ? (
-        <p className="text-caption text-danger-700 px-3.5">{errorText}</p>
+        <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+        <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
       ) : null}
     </div>
   );
