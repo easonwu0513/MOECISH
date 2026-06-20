@@ -57,6 +57,22 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     expectedEvidence: i.expectedEvidence,
   }));
 
+  // 每題佐證檔數(供卡頭徽章 A2):依 responseId 統計 → 對映 itemId
+  const responseIds = cycle.responses.map((r) => r.id);
+  const evCounts = responseIds.length
+    ? await prisma.evidence.groupBy({
+        by: ['targetId'],
+        where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: responseIds } },
+        _count: true,
+      })
+    : [];
+  const countByResponse = Object.fromEntries(evCounts.map((e) => [e.targetId, e._count])) as Record<string, number>;
+  const evidenceCountByItem: Record<string, number> = {};
+  for (const r of cycle.responses) {
+    const n = countByResponse[r.id] ?? 0;
+    if (n > 0) evidenceCountByItem[r.checklistItemId] = n;
+  }
+
   const responses = cycle.responses.map((r) => ({
     id: r.id,
     checklistItemId: r.checklistItemId,
@@ -111,6 +127,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
         submittedAtISO={cycle.checklistSubmittedAt?.toISOString() ?? null}
         submittedBy={cycle.checklistSubmittedBy}
         reopenNote={cycle.checklistReopenNote}
+        evidenceCountByItem={evidenceCountByItem}
       />
     </AppShell>
   );
