@@ -14,6 +14,7 @@ import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
+import BatchAssignAuditors from './BatchAssignAuditors';
 
 export default async function AdminCyclesPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function AdminCyclesPage({
   const session = await auth();
   const user = session!.user;
 
-  const [cycles, orgs, versions] = await Promise.all([
+  const [cycles, orgs, versions, auditors] = await Promise.all([
     prisma.auditCycle.findMany({
       include: {
         organization: true,
@@ -40,6 +41,11 @@ export default async function AdminCyclesPage({
       where: { isActive: true },
       orderBy: { year: 'desc' },
       select: { id: true, name: true, year: true },
+    }),
+    prisma.user.findMany({
+      where: { role: 'AUDITOR', isActive: true },
+      select: { id: true, name: true, organizationId: true },
+      orderBy: { name: 'asc' },
     }),
   ]);
 
@@ -76,6 +82,11 @@ export default async function AdminCyclesPage({
   };
 
   const defaultYear = years[0] ?? new Date().getFullYear();
+  const cycleOptions = cycles.map((c) => ({
+    id: c.id,
+    label: `${c.year - 1911} 年度 · ${c.organization.name}`,
+    organizationId: c.organizationId,
+  }));
 
   return (
     <AppShell
@@ -95,9 +106,13 @@ export default async function AdminCyclesPage({
             versions={versions}
             defaultYear={defaultYear}
           />
+          <BatchAssignAuditors auditors={auditors} cycles={cycleOptions} />
+          <Button size="sm" variant="tonal" href="/admin/scores">
+            跨院評分比較
+          </Button>
           <Button
             size="sm"
-            variant="tonal"
+            variant="text"
             href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
           >
             下載彙整表(Excel)
