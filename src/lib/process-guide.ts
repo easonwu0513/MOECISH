@@ -147,7 +147,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (f.returned > 0) return { text: `優先補正 ${f.returned} 項被退回的矯正措施`, href: `${base}/deficiencies?status=returned`, cta: '去補正' };
     if (f.toFill > 0) return { text: `填報 ${f.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '去填報' };
     if (!f.allPassed) return { text: `${f.submitted} 項審查中,等待委員結果`, href: `${base}/deficiencies?status=submitted`, cta: '查看' };
-    if (!f.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: base, cta: '去上傳' };
+    if (!f.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: `${base}#signed-report`, cta: '去上傳' };
     if (!f.signedConfirmed) return { text: '用印報告已上傳,等待中心確認結案' };
     return { text: '結案處理中' };
   }

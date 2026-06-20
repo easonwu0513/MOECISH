@@ -218,6 +218,20 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         />
       </section>
 
+      {/* 用印報告(矯正執行中之後顯示):結案最後一哩,移到動線前段並就近提供下載 */}
+      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
+        <section id="signed-report" className="mb-6 scroll-mt-20">
+          {facts.allPassed && total > 0 && (
+            <div className="mb-2">
+              <a href={`/api/cycles/${cycle.id}/export/remediation-report`} className="inline-flex">
+                <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>下載 Word 改善報告(用印用)</Button>
+              </a>
+            </div>
+          )}
+          <SignedReportPanel cycleId={cycle.id} role={user.role} />
+        </section>
+      )}
+
       {/* 匯出 */}
       <Card className="mb-6">
         <CardTitle>匯出</CardTitle>
@@ -258,11 +272,6 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
 
       {/* SUPER_ADMIN:委員指派 */}
       {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}
-
-      {/* 用印掃描檔(矯正執行中之後顯示) */}
-      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
-        <SignedReportPanel cycleId={cycle.id} role={user.role} />
-      )}
 
       {/* SUPER_ADMIN:管理動作 */}
       {user.role === 'SUPER_ADMIN' && (

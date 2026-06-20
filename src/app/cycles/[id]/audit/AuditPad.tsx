@@ -18,6 +18,7 @@ import {
 } from '@/lib/audit-score';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
+export type DimIssue = { itemNo: string; content: string; level: string };
 export type MyFinding = {
   id: string;
   aspect: DeficiencyAspect;
@@ -37,6 +38,8 @@ export default function AuditPad({
   canEdit,
   stats,
   itemRefs,
+  itemContent = {},
+  dimIssues = {},
   initialScores,
   initialFindings,
 }: {
@@ -44,6 +47,8 @@ export default function AuditPad({
   canEdit: boolean;
   stats: Record<string, DimStat>;
   itemRefs: string[];
+  itemContent?: Record<string, string>;
+  dimIssues?: Record<string, DimIssue[]>;
   initialScores: Record<string, number>;
   initialFindings: MyFinding[];
 }) {
@@ -53,8 +58,8 @@ export default function AuditPad({
       <datalist id="audit-item-refs">
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} stats={stats} initialScores={initialScores} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} initialFindings={initialFindings} />
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} stats={stats} dimIssues={dimIssues} initialScores={initialScores} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} initialFindings={initialFindings} />
     </div>
   );
 }
@@ -62,11 +67,12 @@ export default function AuditPad({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, stats, initialScores,
+  cycleId, canEdit, stats, dimIssues, initialScores,
 }: {
   cycleId: string;
   canEdit: boolean;
   stats: Record<string, DimStat>;
+  dimIssues: Record<string, DimIssue[]>;
   initialScores: Record<string, number>;
 }) {
   const toast = useToast();
@@ -153,10 +159,11 @@ function ScoreSection({
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const v = scores[dim] ?? null;
               const answered = st.c1 + st.c2 + st.c3 + st.c4;
+              const issues = dimIssues[dim] ?? [];
               return (
+                <div key={dim} className="border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest">
                 <div
-                  key={dim}
-                  className="flex flex-col lg:flex-row lg:items-center gap-3 px-5 py-3.5 border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest"
+                  className="flex flex-col lg:flex-row lg:items-center gap-3 px-5 py-3.5"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-body text-on-surface">
@@ -194,6 +201,22 @@ function ScoreSection({
                     </span>
                   </div>
                 </div>
+                {issues.length > 0 && (
+                  <details className="px-5 pb-3">
+                    <summary className="cursor-pointer text-caption text-danger-700 hover:underline select-none">
+                      查看扣分依據({issues.length} 項未達符合)
+                    </summary>
+                    <ul className="mt-2 space-y-1.5">
+                      {issues.map((it) => (
+                        <li key={it.itemNo} className="flex gap-2 text-caption text-on-surface-variant">
+                          <Chip size="sm" tone={it.level === 'NON_COMPLIANT' ? 'danger' : 'warning'} className="shrink-0 font-mono">{it.itemNo}</Chip>
+                          <span className="leading-relaxed">{it.content}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                </div>
               );
             })}
           </div>
@@ -218,10 +241,11 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, initialFindings,
+  cycleId, canEdit, itemContent, initialFindings,
 }: {
   cycleId: string;
   canEdit: boolean;
+  itemContent: Record<string, string>;
   initialFindings: MyFinding[];
 }) {
   const router = useRouter();
@@ -391,6 +415,16 @@ function FindingSection({
                         </>
                       )}
                     </div>
+                    {/* A5:即時顯示所引項次的題目摘要,避免引錯項次 */}
+                    {f.checklistRef?.trim() && (
+                      itemContent[f.checklistRef.trim()] ? (
+                        <p className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
+                          對應檢核項【{f.checklistRef.trim()}】{itemContent[f.checklistRef.trim()]}
+                        </p>
+                      ) : (
+                        <p className="text-caption text-warning-700">查無檢核項次「{f.checklistRef.trim()}」,請確認編號</p>
+                      )
+                    )}
                     <Textarea
                       label="發現內容"
                       value={f.content}
