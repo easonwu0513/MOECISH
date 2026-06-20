@@ -17,6 +17,7 @@ import {
 } from '../icons';
 import type { Role } from '@/lib/types';
 import { Wordmark } from '../brand/Logo';
+import { APP_VERSION, BUILD_REV } from '@/lib/version';
 
 type Item = {
   href: string;
@@ -135,7 +136,8 @@ export function Sidebar({
 
       {!collapsed && (
         <div className="px-6 py-4 text-caption text-on-surface-variant">
-          <span className="font-medium">MOECISH</span> · v2.0
+          <span className="font-medium">MOECISH</span> · v{APP_VERSION}
+          <span className="tabular-nums"> · {BUILD_REV}</span>
         </div>
       )}
     </aside>
