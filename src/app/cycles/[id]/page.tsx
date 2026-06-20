@@ -223,21 +223,33 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         <CardTitle>匯出</CardTitle>
         <CardDescription>產出制式公文格式檔案</CardDescription>
         <div className="mt-4 flex flex-wrap gap-2">
-          <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              Word 改善報告
-            </Button>
-          </a>
-          <Link href={`/cycles/${cycle.id}/print`} target="_blank" rel="noopener">
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              列印版(瀏覽器另存 PDF)
-            </Button>
-          </Link>
-          <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              Word 檢核表(遞交版)
-            </Button>
-          </a>
+          {total > 0 ? (
+            <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
+              <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 改善報告</Button>
+            </a>
+          ) : (
+            <span title="缺失發布後才能匯出改善報告">
+              <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 改善報告</Button>
+            </span>
+          )}
+          {total > 0 ? (
+            <Link href={`/cycles/${cycle.id}/print`} target="_blank" rel="noopener">
+              <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
+            </Link>
+          ) : (
+            <span title="缺失發布後才能列印改善報告">
+              <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
+            </span>
+          )}
+          {cycle.checklistSubmittedAt ? (
+            <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
+              <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
+            </a>
+          ) : (
+            <span title="檢核表送出後才能匯出遞交版">
+              <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
+            </span>
+          )}
           <a href={`/api/cycles/${cycle.id}/export/checklist`}>
             <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
           </a>
