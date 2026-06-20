@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { AlertTriangle, ChevronRight } from '@/components/icons';
@@ -78,6 +79,9 @@ export default async function DeficienciesPage({
   const passed = cycle.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
   const submitted = cycle.deficiencies.filter((d) => d.action?.status === 'SUBMITTED').length;
   const returned = cycle.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
+  // 連續審查:第一筆待審(已送審)缺失,委員/管理員一鍵進入逐筆審
+  const firstSubmitted = cycle.deficiencies.find((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
+  const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
 
   // 套用狀態篩選
   const statusOf = (d: (typeof cycle.deficiencies)[number]) => (d.action?.status ?? 'PENDING') as ActionStatus;
@@ -113,9 +117,16 @@ export default async function DeficienciesPage({
             <DeadlineChip status={cycle.status} dueDate={cycle.dueDate} allPassed={total > 0 && passed === total} />
           </div>
         </div>
-        {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
-          <AdminDeficiencyTools cycleId={cycle.id} cycleStatus={cycle.status} />
-        )}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {canReview && submitted > 0 && firstSubmitted && (
+            <Link href={`/cycles/${cycle.id}/deficiencies/${firstSubmitted.id}`}>
+              <Button variant="filled" size="sm">開始連續審查({submitted})</Button>
+            </Link>
+          )}
+          {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+            <AdminDeficiencyTools cycleId={cycle.id} cycleStatus={cycle.status} />
+          )}
+        </div>
       </header>
 
       {/* 狀態篩選 tabs */}

@@ -99,6 +99,9 @@ export default async function HomePage() {
       if (st === 'PREPARATION' && e.prepToConfirm > 0) {
         todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 份資料待確認齊備`, href: `${base}/prep`, cta: '去確認' });
       }
+      if (st === 'PREPARATION' && c.checklistSubmittedAt) {
+        todos.push({ key: `${c.id}-review`, tone: 'warning', title: `${org}:檢核表已送出,待委員審閱`, href: `${base}/review`, cta: '去審閱' });
+      }
       if (e.submitted > 0) {
         todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${org}:${e.submitted} 項矯正待審查`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' });
       }

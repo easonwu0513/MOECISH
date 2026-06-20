@@ -9,16 +9,16 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { FilterChipLink } from '@/components/ui/FilterChip';
+import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
-import type { ActionStatus, CycleStatus } from '@/lib/types';
+import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
 
 export default async function AdminCyclesPage({
   searchParams,
 }: {
-  searchParams: { year?: string };
+  searchParams: { year?: string; behind?: string };
 }) {
   const session = await auth();
   const user = session!.user;
@@ -47,6 +47,33 @@ export default async function AdminCyclesPage({
   const yearFilter = searchParams.year ? parseInt(searchParams.year, 10) : null;
   const filtered = yearFilter ? cycles.filter((c) => c.year === yearFilter) : cycles;
   const now = new Date();
+  const behindOnly = searchParams.behind === '1';
+
+  // 停滯:進行中階段距上次狀態變動(updatedAt)的天數,門檻 14/30 天
+  const STALL_WARN = 14;
+  const STALL_DANGER = 30;
+  const rows = filtered.map((c) => {
+    const total = c.deficiencies.length;
+    const passed = c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'PASSED').length;
+    const returned = c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'RETURNED').length;
+    const allPassed = total > 0 && passed === total;
+    const overdue = c.status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+    const activeStage =
+      ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED'].includes(c.status) ||
+      (c.status === 'REMEDIATION' && !allPassed);
+    const stallDays = Math.floor((now.getTime() - new Date(c.updatedAt).getTime()) / 86400000);
+    const stalled = activeStage && stallDays >= STALL_WARN;
+    return { c, total, passed, returned, allPassed, overdue, activeStage, stallDays, stalled, behind: overdue || stalled };
+  });
+  const shown = behindOnly ? rows.filter((r) => r.behind) : rows;
+  const behindCount = rows.filter((r) => r.behind).length;
+  const behindHref = (b: boolean) => {
+    const p = new URLSearchParams();
+    if (yearFilter) p.set('year', String(yearFilter));
+    if (b) p.set('behind', '1');
+    const q = p.toString();
+    return q ? `/admin/cycles?${q}` : '/admin/cycles';
+  };
 
   const defaultYear = years[0] ?? new Date().getFullYear();
 
@@ -90,12 +117,20 @@ export default async function AdminCyclesPage({
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {/* 落後篩選:中心核心是「誰落後、催誰」 */}
+      <div className="mb-5 flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
+        <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
+        <FilterChipLink href={behindHref(true)} selected={behindOnly}>
+          只看落後(逾期/停滯) <FilterChipCount selected={behindOnly}>{behindCount}</FilterChipCount>
+        </FilterChipLink>
+      </div>
+
+      {shown.length === 0 ? (
         <Card>
           <EmptyState
             icon={<ClipboardCheck size={28} />}
-            title="尚無稽核週期"
-            description="用右上角「批次開立年度週期」一次建立,或到醫院管理逐家開立。"
+            title={behindOnly ? '目前沒有落後的週期' : '尚無稽核週期'}
+            description={behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立,或到醫院管理逐家開立。'}
           />
         </Card>
       ) : (
@@ -110,17 +145,13 @@ export default async function AdminCyclesPage({
                 <th className="text-left px-5 py-3 font-medium w-56">矯正進度</th>
                 <th className="text-right px-5 py-3 font-medium">委員</th>
                 <th className="text-right px-5 py-3 font-medium">截止</th>
+                <th className="text-right px-5 py-3 font-medium">停滯</th>
                 <th className="text-right px-5 py-3 font-medium">開啟</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => {
-                const total = c.deficiencies.length;
-                const statusOf = (s: string | undefined) => (s ?? 'PENDING') as ActionStatus;
-                const passed = c.deficiencies.filter((d) => statusOf(d.action?.status) === 'PASSED').length;
-                const returned = c.deficiencies.filter((d) => statusOf(d.action?.status) === 'RETURNED').length;
-                const allPassed = total > 0 && passed === total;
-                const overdue = c.status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+              {shown.map((r) => {
+                const { c, total, passed, returned, allPassed, overdue, stalled, stallDays } = r;
                 return (
                   <tr key={c.id} className="border-t border-outline-variant/60 hover:bg-surface-container-low transition-colors">
                     <td className="px-5 py-3 tabular-nums font-medium">{c.year - 1911}</td>
@@ -149,6 +180,13 @@ export default async function AdminCyclesPage({
                     <td className="px-5 py-3 text-right tabular-nums">{c.assignments.length}</td>
                     <td className={'px-5 py-3 text-right ' + (overdue ? 'text-danger-600 font-medium' : 'text-on-surface-variant')}>
                       {fmtROC(c.dueDate)}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      {stalled ? (
+                        <Chip size="sm" tone={stallDays >= STALL_DANGER ? 'danger' : 'warning'}>停滯 {stallDays} 天</Chip>
+                      ) : (
+                        <span className="text-on-surface-variant">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:underline">開啟</Link>
