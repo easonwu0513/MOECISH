@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
-import { FileText, Settings } from '@/components/icons';
+import { FileText, Settings, Check } from '@/components/icons';
 import { loadAuditReport, buildReportData, ScoreOverview } from './ReportBody';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
@@ -83,6 +83,28 @@ export default async function AuditReportPage({ params }: { params: { id: string
         <CardDescription>
           各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)
         </CardDescription>
+        {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
+        {data.assignments.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {data.assignments.map((a) => {
+              const sc = data.auditScores.filter((s) => s.auditorId === a.auditor.id).length;
+              const fc = data.auditFindings.filter((f) => f.auditorId === a.auditor.id).length;
+              const done = sc >= 9;
+              return (
+                <span
+                  key={a.auditor.id}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-caption tabular-nums ${
+                    done ? 'border-success-200 bg-success-50 text-success-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
+                  }`}
+                >
+                  <span className="font-medium text-on-surface">{a.auditor.name}</span>
+                  評分 {sc}/9 · 發現 {fc} 條
+                  {done && <Check size={13} className="text-success-600" />}
+                </span>
+              );
+            })}
+          </div>
+        )}
         <div className="mt-4">
           <ScoreOverview data={data} />
         </div>

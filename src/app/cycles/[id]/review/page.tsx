@@ -14,6 +14,7 @@ import { LawPanel } from '@/components/checklist/LawBasis';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import SubmissionBanner from '../checklist/SubmissionBanner';
+import ReviewReopenBar from './ReviewReopenBar';
 
 const complianceTone = COMPLIANCE_TONE;
 
@@ -263,6 +264,11 @@ export default async function ReviewPage({
             </div>
           </section>
         ))
+      )}
+
+      {/* 審閱收尾:已送出且尚未結案時,委員可整批退回補正(接 checklist/reopen) */}
+      {cycle.checklistSubmittedAt && cycle.status !== 'CLOSED' && (
+        <ReviewReopenBar cycleId={cycle.id} openComments={withOpenComments} />
       )}
     </AppShell>
   );

@@ -99,7 +99,7 @@ export default function ChecklistShell({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState<null | 'NA' | 'COMPLIANT'>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -119,19 +119,24 @@ export default function ChecklistShell({
     router.refresh();
   }
 
-  // 一鍵將未作答全部標為符合(之後逐題調整例外)
-  async function bulkCompliant() {
+  // 一鍵將未作答全部標記(預設「不適用」,亦可「符合」),之後逐題調整例外
+  async function bulkFill(mode: 'NA' | 'COMPLIANT') {
     setBulkBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, { method: 'POST' });
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fill: mode }),
+    });
     setBulkBusy(false);
-    setBulkOpen(false);
+    setBulkMode(null);
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '操作失敗' }));
       toast.error('操作失敗', j.error);
       return;
     }
     const j = await res.json();
-    toast.success('已批次標記', `${j.updated} 題標為「符合」;請逐題確認並調整例外。`);
+    const label = mode === 'COMPLIANT' ? '符合' : '不適用';
+    toast.success('已批次標記', `${j.updated} 題標為「${label}」;請逐題確認並調整例外。`);
     router.refresh();
   }
 
@@ -254,13 +259,17 @@ export default function ChecklistShell({
         loading={submitBusy}
       />
       <ConfirmDialog
-        open={bulkOpen}
-        onOpenChange={(o) => !bulkBusy && setBulkOpen(o)}
-        title="未作答全部標為符合"
-        description={`將把 ${total - filled} 題未作答項目標為「符合」(已作答的不會被覆寫)。之後請逐題確認,把例外調整為部分符合/不符合/不適用。確定執行?`}
-        confirmLabel="全部標為符合"
+        open={bulkMode !== null}
+        onOpenChange={(o) => !bulkBusy && !o && setBulkMode(null)}
+        title={bulkMode === 'COMPLIANT' ? '未作答全部標為符合' : '未作答全部標為不適用'}
+        description={
+          bulkMode === 'COMPLIANT'
+            ? `將把 ${total - filled} 題未作答標為「符合」(已作答不覆寫)。注意:應據實填報,沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行?`
+            : `將把 ${total - filled} 題未作答標為「不適用」(已作答不覆寫)。適用於本機關無此項作為者;有作為的請逐題改回符合/部分符合並補充說明。確定執行?`
+        }
+        confirmLabel={bulkMode === 'COMPLIANT' ? '全部標為符合' : '全部標為不適用'}
         tone="primary"
-        onConfirm={bulkCompliant}
+        onConfirm={() => bulkFill(bulkMode === 'COMPLIANT' ? 'COMPLIANT' : 'NA')}
         loading={bulkBusy}
       />
       {/* Sticky toolbar */}
@@ -279,9 +288,14 @@ export default function ChecklistShell({
           </div>
           <div className="flex items-center gap-1 flex-wrap">
             {canEdit && filled < total && (
-              <Button size="sm" variant="tonal" onClick={() => setBulkOpen(true)} leadingIcon={<Check size={14} />}>
-                未答全標符合
-              </Button>
+              <>
+                <Button size="sm" variant="tonal" onClick={() => setBulkMode('NA')} leadingIcon={<Check size={14} />}>
+                  未答全標不適用
+                </Button>
+                <Button size="sm" variant="text" onClick={() => setBulkMode('COMPLIANT')}>
+                  全標符合
+                </Button>
+              </>
             )}
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
               展開未作答

@@ -5,11 +5,13 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 /**
- * 一鍵將「未作答」項目全部標為符合(機關先全選符合、再逐題調整例外)。
- * 只動未作答項,不覆寫既有作答。
+ * 一鍵將「未作答」項目全部標記(預設「不適用」,亦可指定「符合」)。
+ * 只動未作答項,不覆寫既有作答。fill: 'NA'(預設) | 'COMPLIANT'。
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const fill = (body as { fill?: string })?.fill === 'COMPLIANT' ? 'COMPLIANT' : 'NOT_APPLICABLE';
     const { user, cycle } = await assertCycleAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可操作' }, { status: 403 });
@@ -44,13 +46,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           create: {
             cycleId: cycle.id,
             checklistItemId: it.id,
-            compliance: 'COMPLIANT',
+            compliance: fill,
             version: 1,
             lastEditorId: user.id,
             lastEditedAt: new Date(),
           },
           update: {
-            compliance: 'COMPLIANT',
+            compliance: fill,
             version: { increment: 1 },
             lastEditorId: user.id,
             lastEditedAt: new Date(),
@@ -64,14 +66,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
-      action: 'CHECKLIST_BULK_COMPLIANT',
+      action: 'CHECKLIST_BULK_FILL',
       entityType: 'AuditCycle',
       entityId: cycle.id,
-      after: { updated },
+      after: { updated, fill },
       ...meta,
     });
 
-    return NextResponse.json({ updated });
+    return NextResponse.json({ updated, fill });
   } catch (e) {
     return errorResponse(e);
   }
