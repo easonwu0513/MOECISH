@@ -30,6 +30,9 @@ export type MyFinding = {
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
+// 構面(九)→ 缺失構面(三):從不符合題帶入發現時自動歸構面
+const DIM_TO_ASPECT: Record<string, DeficiencyAspect> = {};
+for (const a of ASPECTS) for (const dim of ASPECT_DIMENSIONS[a]) DIM_TO_ASPECT[dim] = a;
 
 // ─────────────────────────────────────────────
 
@@ -59,7 +62,7 @@ export default function AuditPad({
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
       <ScoreSection cycleId={cycleId} canEdit={canEdit} stats={stats} dimIssues={dimIssues} initialScores={initialScores} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} initialFindings={initialFindings} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} />
     </div>
   );
 }
@@ -237,11 +240,12 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, initialFindings,
+  cycleId, canEdit, itemContent, dimIssues, initialFindings,
 }: {
   cycleId: string;
   canEdit: boolean;
   itemContent: Record<string, string>;
+  dimIssues: Record<string, DimIssue[]>;
   initialFindings: MyFinding[];
 }) {
   const router = useRouter();
@@ -303,6 +307,33 @@ function FindingSection({
     setDrafts((d) => { const n = { ...d }; delete n[kind]; return n; });
   }
 
+  // 從不符合/部分符合題一鍵帶成發現草稿(待改善),委員再補述後儲存
+  async function importFinding(itemNo: string, content: string, dim: string) {
+    setBusy(`import:${itemNo}`);
+    const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
+        kind: 'IMPROVE',
+        content: `依檢核項 ${itemNo}「${content}」,機關尚未符合;建議:(請委員補述缺失情形與改善建議)`,
+        checklistRef: itemNo,
+      }),
+    });
+    setBusy(null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '帶入失敗' }));
+      toast.error('帶入失敗', j.error);
+      return;
+    }
+    const created = await res.json();
+    setFindings((f) => [...f, {
+      id: created.id, aspect: created.aspect, kind: created.kind,
+      content: created.content, checklistRef: created.checklistRef, locked: false,
+    }]);
+    toast.success('已帶入發現草稿', '請補述缺失內容後儲存。');
+  }
+
   async function patchFinding(f: MyFinding) {
     setBusy(f.id);
     const res = await fetch(`/api/audit-findings/${f.id}`, {
@@ -357,6 +388,36 @@ function FindingSection({
       <p className="text-body-sm text-on-surface-variant mb-4">
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善/建議事項日後由管理員一鍵轉入缺失管考。
       </p>
+
+      {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打 */}
+      {canEdit && (() => {
+        const issues = Object.entries(dimIssues).flatMap(([dim, items]) => items.map((it) => ({ ...it, dim })));
+        if (issues.length === 0) return null;
+        return (
+          <details className="mb-4 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+            <summary className="cursor-pointer select-none px-4 py-3 text-body-sm font-medium text-on-surface hover:bg-surface-container-low">
+              從檢核表「部分符合/不符合」題帶入發現({issues.length})
+            </summary>
+            <ul className="divide-y divide-outline-variant/40">
+              {issues.map((it) => (
+                <li key={it.itemNo} className="flex items-start gap-3 px-4 py-3">
+                  <Chip size="sm" tone={it.level === 'NON_COMPLIANT' ? 'danger' : 'warning'} className="shrink-0 font-mono">{it.itemNo}</Chip>
+                  <span className="flex-1 min-w-0 text-body-sm text-on-surface-variant leading-relaxed">{it.content}</span>
+                  <Button
+                    size="sm"
+                    variant="tonal"
+                    loading={busy === `import:${it.itemNo}`}
+                    onClick={() => importFinding(it.itemNo, it.content, it.dim)}
+                    className="shrink-0"
+                  >
+                    帶入
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      })()}
 
       <div className="flex flex-col gap-5">
         {KINDS.map((kind) => {
