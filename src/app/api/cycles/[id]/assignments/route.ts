@@ -69,6 +69,47 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 }
 
+const PatchBody = z.object({ auditorId: z.string().min(1), role: z.enum(['LEAD', 'MEMBER']) });
+
+/** 設定召集委員(LEAD):一週期僅一位,設 LEAD 時其餘自動降為 MEMBER。 */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const body = PatchBody.parse(await req.json());
+    const exists = await prisma.auditorAssignment.findUnique({
+      where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.auditorId } },
+    });
+    if (!exists) return NextResponse.json({ error: '該委員未指派此週期' }, { status: 404 });
+
+    await prisma.$transaction(async (tx) => {
+      if (body.role === 'LEAD') {
+        await tx.auditorAssignment.updateMany({ where: { cycleId: params.id }, data: { role: 'MEMBER' } });
+        await tx.auditorAssignment.update({
+          where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.auditorId } },
+          data: { role: 'LEAD' },
+        });
+      } else {
+        await tx.auditorAssignment.update({
+          where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.auditorId } },
+          data: { role: 'MEMBER' },
+        });
+      }
+    });
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'AUDITOR_SET_ROLE',
+      entityType: 'AuditCycle',
+      entityId: params.id,
+      after: { auditorId: body.auditorId, role: body.role },
+      ...extractRequestMeta(req),
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');

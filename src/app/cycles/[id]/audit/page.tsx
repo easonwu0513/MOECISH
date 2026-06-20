@@ -24,7 +24,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     include: {
       organization: true,
       assignments: true,
-      checklistVersion: { include: { items: { select: { id: true, dimension: true, itemNo: true }, orderBy: { orderIndex: 'asc' } } } },
+      checklistVersion: { include: { items: { select: { id: true, dimension: true, itemNo: true, content: true }, orderBy: { orderIndex: 'asc' } } } },
       responses: { select: { checklistItemId: true, compliance: true } },
     },
   });
@@ -37,6 +37,20 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
 
   // 各構面檢核統計(自動帶入評分表)
   const stats = computeDimStats(cycle.checklistVersion.items, cycle.responses);
+
+  // A5:項次 → 題目內容(委員輸入發現項次時顯示題目摘要)
+  const itemContent: Record<string, string> = {};
+  for (const i of cycle.checklistVersion.items) itemContent[i.itemNo] = i.content;
+
+  // A4:各構面「部分符合/不符合」題目明細(委員打分前就地看扣分依據)
+  const respByItemId = new Map(cycle.responses.map((r) => [r.checklistItemId, r.compliance]));
+  const dimIssues: Record<string, { itemNo: string; content: string; level: string }[]> = {};
+  for (const i of cycle.checklistVersion.items) {
+    const comp = respByItemId.get(i.id);
+    if (comp === 'PARTIALLY_COMPLIANT' || comp === 'NON_COMPLIANT') {
+      (dimIssues[i.dimension] ??= []).push({ itemNo: i.itemNo, content: i.content, level: comp });
+    }
+  }
 
   const [myScores, myFindings] = await Promise.all([
     user.role === 'AUDITOR'
@@ -101,6 +115,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           canEdit={canEdit}
           stats={stats}
           itemRefs={cycle.checklistVersion.items.map((i) => i.itemNo)}
+          itemContent={itemContent}
+          dimIssues={dimIssues}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
           initialFindings={findings}
         />

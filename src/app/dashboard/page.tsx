@@ -91,7 +91,7 @@ export default async function HomePage() {
       if (st === 'REMEDIATION') {
         if (e.returned > 0) todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${e.returned} 項被退回,需補正後重送`, href: `${base}/deficiencies?status=returned`, cta: '去補正' });
         if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填' });
-        if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過!請列印改善報告、用印後上傳', href: base, cta: '去上傳' });
+        if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過!請列印改善報告、用印後上傳', href: `${base}#signed-report`, cta: '去上傳' });
       }
     }
 

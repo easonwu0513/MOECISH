@@ -9,7 +9,7 @@ import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
 
 type Auditor = { id: string; name: string; email: string };
-type Assignment = { id: string; auditor: Auditor };
+type Assignment = { id: string; auditor: Auditor; role?: string };
 
 export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
   const router = useRouter();
@@ -51,6 +51,24 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
     router.refresh();
   }
 
+  async function setLead(auditorId: string) {
+    setBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ auditorId, role: 'LEAD' }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      toast.success('已設為召集委員');
+      await load();
+      router.refresh();
+    } else {
+      const j = await res.json().catch(() => ({ error: '設定失敗' }));
+      toast.error('設定失敗', j.error);
+    }
+  }
+
   async function remove(auditorId: string) {
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/assignments?auditorId=${auditorId}`, {
@@ -73,10 +91,23 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
         {assignments.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">尚未指派任何委員</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {assignments.map((a) => (
-              <span key={a.id} className="inline-flex items-center gap-1.5">
-                <Chip tone="sage" size="md" dot>{a.auditor.name}</Chip>
+              <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full bg-surface-container pl-1 pr-2 py-0.5">
+                <Chip tone={a.role === 'LEAD' ? 'primary' : 'sage'} size="md" dot>
+                  {a.auditor.name}{a.role === 'LEAD' && ' · 召集'}
+                </Chip>
+                {a.role !== 'LEAD' && (
+                  <button
+                    type="button"
+                    onClick={() => setLead(a.auditor.id)}
+                    disabled={busy}
+                    className="text-caption text-primary-700 hover:underline focus-ring rounded-sm px-1"
+                    aria-label={`設 ${a.auditor.name} 為召集委員`}
+                  >
+                    設為召集
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => remove(a.auditor.id)}
