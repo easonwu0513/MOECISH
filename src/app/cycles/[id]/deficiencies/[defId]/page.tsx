@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
@@ -9,9 +10,11 @@ import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
   ACTION_STATUS_LABELS,
+  COMPLIANCE_LABELS,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
+  type ComplianceLevel,
   type CycleStatus,
 } from '@/lib/types';
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
@@ -58,6 +61,20 @@ export default async function DeficiencyDetailPage({
       })
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
+
+  // 缺失回鏈:依 checklistRef 找來源檢核項題目 + 機關當初填報(容錯:對不上就不顯示)
+  const sourceItem = deficiency.checklistRef
+    ? await prisma.checklistItem.findFirst({
+        where: { versionId: cycle.checklistVersionId, itemNo: deficiency.checklistRef.trim() },
+        select: { id: true, content: true },
+      })
+    : null;
+  const sourceResponse = sourceItem
+    ? await prisma.checklistResponse.findUnique({
+        where: { cycleId_checklistItemId: { cycleId: cycle.id, checklistItemId: sourceItem.id } },
+        select: { compliance: true, description: true },
+      })
+    : null;
 
   const canFill =
     user.role === 'ORG_ADMIN' &&
@@ -160,6 +177,26 @@ export default async function DeficiencyDetailPage({
           {deficiency.description}
         </p>
       </Card>
+
+      {/* 缺失回鏈:來源檢核項題目 + 機關當初填報,免翻回檢核表對照 */}
+      {sourceItem && (
+        <Card className="mb-6" variant="outlined">
+          <CardTitle>來源檢核項 {deficiency.checklistRef}</CardTitle>
+          <p className="mt-3 text-body-sm text-on-surface leading-relaxed">{sourceItem.content}</p>
+          {sourceResponse?.compliance && (
+            <p className="mt-2 text-caption text-on-surface-variant leading-relaxed">
+              機關當初填報:
+              <span className="font-medium text-on-surface">
+                {COMPLIANCE_LABELS[sourceResponse.compliance as ComplianceLevel] ?? sourceResponse.compliance}
+              </span>
+              {sourceResponse.description && ` — ${sourceResponse.description}`}
+            </p>
+          )}
+          <Link href={`/cycles/${cycle.id}/checklist`} className="mt-2 inline-block text-caption text-primary-700 hover:underline focus-ring rounded-sm">
+            於檢核表查看 →
+          </Link>
+        </Card>
+      )}
 
       {/* 退回補正:最新退回意見置頂(機關第一眼資訊) */}
       {status === 'RETURNED' && latestReturn?.comment && (

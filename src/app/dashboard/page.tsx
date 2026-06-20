@@ -121,7 +121,7 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,通知機關開始矯正`, href: base, cta: '去通知' });
       }
       if (st === 'REMEDIATION') {
-        if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: '/admin/emails', cta: '寄追蹤信' });
+        if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });
         if (e.allPassed && e.signedUploaded && !e.signedConfirmed) todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${org}:用印報告已上傳,確認後即可結案`, href: base, cta: '去結案' });
         else if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-waitsign`, tone: 'sage', title: `${org}:全數通過,待機關上傳用印報告`, href: base, cta: '查看' });
       }
@@ -136,6 +136,7 @@ export default async function HomePage() {
   }
   // 跨院分佈(SUPER_ADMIN 指揮台用):逾期院數、各指標散在幾院
   const overdueCount = enriched.filter((e) => e.overdue).length;
+  const overdueOrgIds = Array.from(new Set(enriched.filter((e) => e.overdue).map((e) => e.c.organizationId)));
   const orgsWith = (f: (e: Enriched) => number) =>
     new Set(enriched.filter((e) => f(e) > 0).map((e) => e.c.organizationId)).size;
   const isSuper = user.role === 'SUPER_ADMIN';
@@ -201,8 +202,8 @@ export default async function HomePage() {
                 ))}
               </div>
               {overdueCount > 0 && (
-                <Link href="/admin/cycles?behind=1" className="mt-2 inline-block text-caption text-danger-700 hover:underline">
-                  ⚠ {overdueCount} 個週期矯正已逾期,前往催辦 →
+                <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="mt-2 inline-block text-caption text-danger-700 hover:underline">
+                  ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
                 </Link>
               )}
             </section>

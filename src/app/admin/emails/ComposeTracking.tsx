@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
@@ -25,7 +25,13 @@ const DEFAULT_BODY = `{{orgName}} 資安窗口您好，
 export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
   const router = useRouter();
   const toast = useToast();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const searchParams = useSearchParams();
+  // 從 ?orgIds=a,b,c 預選收件機關(由 dashboard 逾期催辦一鍵帶入,免回頭逐家勾)
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const raw = searchParams.get('orgIds');
+    const valid = new Set(orgs.map((o) => o.id));
+    return new Set((raw ? raw.split(',') : []).filter((id) => valid.has(id)));
+  });
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
   const [sending, setSending] = useState(false);

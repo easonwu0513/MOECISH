@@ -38,10 +38,18 @@ const ACTION_LABELS: Record<string, string> = {
   TRACKING_SEND: '寄送追蹤信',
 };
 
+const ENTITY_LABELS: Record<string, string> = {
+  AuditCycle: '稽核週期', Deficiency: '缺失', CorrectiveAction: '矯正措施', AuditorAssignment: '委員指派',
+  SignedReport: '用印報告', Evidence: '佐證', PrepRequirement: '資料需求', PrepSubmission: '資料上傳',
+  ChecklistResponse: '檢核回應', AuditorComment: '委員意見', Invitation: '邀請', User: '使用者',
+  Organization: '機關', ChecklistVersion: '檢核表版本', AuditScore: '評分', AuditFinding: '稽核發現',
+};
+const entityLabel = (t: string) => ENTITY_LABELS[t] ?? t;
+
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: { entity?: string };
+  searchParams: { entity?: string; actor?: string; from?: string; to?: string };
 }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/admin/audit-log');
@@ -49,8 +57,20 @@ export default async function AuditLogPage({
   if (user.role !== 'SUPER_ADMIN' && user.role !== 'AUDITOR') redirect('/dashboard');
 
   const entity = searchParams.entity || undefined;
+  const actorId = searchParams.actor || undefined;
+  const from = searchParams.from || undefined;
+  const to = searchParams.to || undefined;
+  const createdAt = from || to
+    ? { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}) }
+    : undefined;
+
+  const where = {
+    ...(entity ? { entityType: entity } : {}),
+    ...(actorId ? { actorId } : {}),
+    ...(createdAt ? { createdAt } : {}),
+  };
   const logs = await prisma.auditLog.findMany({
-    where: entity ? { entityType: entity } : {},
+    where,
     include: { actor: { select: { name: true, email: true, role: true } } },
     orderBy: { createdAt: 'desc' },
     take: 200,
@@ -60,6 +80,14 @@ export default async function AuditLogPage({
     by: ['entityType'],
     _count: true,
     orderBy: { entityType: 'asc' },
+  });
+
+  // 操作者篩選選項(曾留下軌跡者)
+  const actorGroups = await prisma.auditLog.groupBy({ by: ['actorId'], where: { NOT: { actorId: null } } });
+  const actorList = await prisma.user.findMany({
+    where: { id: { in: actorGroups.map((g) => g.actorId).filter((x): x is string => Boolean(x)) } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
   });
 
   return (
@@ -81,12 +109,36 @@ export default async function AuditLogPage({
           {entityTypes.map((t) => (
             <a key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`}>
               <Chip tone={entity === t.entityType ? 'primary' : 'neutral'} size="sm">
-                {t.entityType}({t._count})
+                {entityLabel(t.entityType)}({t._count})
               </Chip>
             </a>
           ))}
         </div>
       </header>
+
+      {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
+      <form method="get" className="mb-5 flex items-end gap-2 flex-wrap">
+        {entity && <input type="hidden" name="entity" value={entity} />}
+        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
+          操作者
+          <select name="actor" defaultValue={actorId ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring">
+            <option value="">全部</option>
+            {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
+          起
+          <input type="date" name="from" defaultValue={from ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
+        </label>
+        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
+          迄
+          <input type="date" name="to" defaultValue={to ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
+        </label>
+        <button type="submit" className="h-9 px-4 rounded-md bg-primary-600 text-white text-body-sm focus-ring hover:bg-primary-700">套用</button>
+        {(actorId || from || to) && (
+          <a href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} className="h-9 inline-flex items-center px-3 text-body-sm text-on-surface-variant hover:text-on-surface">清除</a>
+        )}
+      </form>
 
       {logs.length === 0 ? (
         <Card>
@@ -125,7 +177,7 @@ export default async function AuditLogPage({
                     <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
                   </td>
                   <td className="px-5 py-3">
-                    <span className="text-on-surface-variant">{l.entityType}</span>
+                    <span className="text-on-surface">{entityLabel(l.entityType)}</span>
                     <span className="block text-caption font-mono text-on-surface-variant truncate max-w-[180px]">
                       {l.entityId}
                     </span>
