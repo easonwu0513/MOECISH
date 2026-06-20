@@ -4,6 +4,7 @@ import { ReactNode, useId } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from './Button';
 import { useDialogA11y } from './useDialogA11y';
+import { usePresence } from './usePresence';
 
 export function Dialog({
   open,
@@ -26,14 +27,18 @@ export function Dialog({
 }) {
   const titleId = useId();
   const panelRef = useDialogA11y(open, () => onOpenChange(false));
+  const { mounted, leaving } = usePresence(open, 200);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   const w = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : 'max-w-md';
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 animate-fade-in"
+      className={cn(
+        'fixed inset-0 z-[90] flex items-center justify-center p-4',
+        leaving ? 'animate-fade-out' : 'animate-fade-in',
+      )}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
@@ -46,7 +51,8 @@ export function Dialog({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 animate-slide-up outline-none',
+          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 outline-none',
+          leaving ? 'animate-slide-down-out' : 'animate-slide-up',
           w,
         )}
       >

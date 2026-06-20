@@ -1,7 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Fragment, ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Search, ChevronRight } from '../icons';
 
@@ -27,6 +26,7 @@ export function CommandPalette({
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
 
   useEffect(() => {
     if (open) {
@@ -88,58 +88,66 @@ export function CommandPalette({
   }
 
   let idx = 0;
+  const activeId = filtered.length ? `${listId}-opt-${active}` : undefined;
 
   return (
     <div className="fixed inset-0 z-[95] animate-fade-in" role="dialog" aria-modal="true" aria-label="命令面板">
       <div className="absolute inset-0 scrim" onClick={() => onOpenChange(false)} />
-      <div className="relative mx-auto mt-24 w-[min(96%,640px)] bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden animate-slide-up">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-100">
-          <Search size={18} className="text-neutral-400 shrink-0" />
+      <div className="relative mx-auto mt-24 w-[min(96%,640px)] bg-surface-container-high rounded-lg shadow-elev-5 border border-outline-variant/60 overflow-hidden animate-slide-up">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-outline-variant/60">
+          <Search size={18} className="text-on-surface-variant shrink-0" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="搜尋指令、頁面、動作…"
-            className="flex-1 bg-transparent outline-none text-body text-neutral-900 placeholder:text-neutral-400"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={activeId}
+            aria-autocomplete="list"
+            className="flex-1 bg-transparent outline-none text-body text-on-surface placeholder:text-on-surface-variant"
           />
           <span className="kbd">Esc</span>
         </div>
         <div className="max-h-[60vh] overflow-y-auto scrollbar-thin py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-10 text-center text-body-sm text-neutral-500">找不到符合的指令</div>
+            <div className="px-4 py-10 text-center text-body-sm text-on-surface-variant">找不到符合的指令</div>
           ) : (
-            Array.from(groups.entries()).map(([g, list]) => (
-              <div key={g} className="mb-1 last:mb-0">
-                <div className="px-4 py-1 text-caption text-neutral-400 uppercase tracking-wider">{g}</div>
-                <ul>
+            <ul role="listbox" id={listId}>
+              {Array.from(groups.entries()).map(([g, list]) => (
+                <Fragment key={g}>
+                  <li role="presentation" className="px-4 py-1 mt-1 first:mt-0 text-caption text-on-surface-variant uppercase tracking-wider">
+                    {g}
+                  </li>
                   {list.map((c) => {
                     const myIdx = idx;
                     idx++;
                     const selected = myIdx === active;
                     return (
-                      <li key={c.id}>
+                      <li key={c.id} id={`${listId}-opt-${myIdx}`} role="option" aria-selected={selected}>
                         <button
                           onMouseEnter={() => setActive(myIdx)}
                           onClick={() => { c.action(); onOpenChange(false); }}
                           className={cn(
                             'w-full flex items-center gap-3 px-4 py-2.5 text-body-sm transition-colors',
-                            selected ? 'bg-primary-50 text-primary-900' : 'text-neutral-700 hover:bg-neutral-50',
+                            selected ? 'bg-primary-container text-on-primary-container' : 'text-on-surface hover:bg-surface-container',
                           )}
                         >
-                          {c.icon && <span className={selected ? 'text-primary-600' : 'text-neutral-400'}>{c.icon}</span>}
+                          {c.icon && <span className={selected ? 'text-on-primary-container' : 'text-on-surface-variant'}>{c.icon}</span>}
                           <span className="flex-1 text-left">{c.label}</span>
-                          {c.hint && <span className="text-caption text-neutral-400">{c.hint}</span>}
-                          <ChevronRight size={14} className={selected ? 'text-primary-500' : 'text-neutral-300'} />
+                          {c.hint && <span className={cn('text-caption', selected ? 'text-on-primary-container/80' : 'text-on-surface-variant')}>{c.hint}</span>}
+                          <ChevronRight size={14} className={selected ? 'text-on-primary-container' : 'text-outline-variant'} />
                         </button>
                       </li>
                     );
                   })}
-                </ul>
-              </div>
-            ))
+                </Fragment>
+              ))}
+            </ul>
           )}
         </div>
-        <div className="flex items-center justify-between px-4 py-2 border-t border-neutral-100 text-caption text-neutral-500 bg-neutral-50">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-outline-variant/60 text-caption text-on-surface-variant bg-surface-container-low">
           <span className="flex items-center gap-1.5">
             <span className="kbd">↑</span>
             <span className="kbd">↓</span>

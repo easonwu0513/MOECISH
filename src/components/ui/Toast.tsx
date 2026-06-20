@@ -14,6 +14,7 @@ type Toast = {
   title: string;
   description?: string;
   duration?: number;
+  leaving?: boolean;
 };
 
 type ToastContextValue = {
@@ -44,9 +45,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const remove = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
     const timer = timers.current.get(id);
     if (timer) { clearTimeout(timer); timers.current.delete(id); }
+    // 先標 leaving 播退場,再卸載(消除堆疊上跳)
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 200);
   }, []);
 
   const show = useCallback<ToastContextValue['show']>(
@@ -91,7 +94,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role={t.type === 'error' || t.type === 'warning' ? 'alert' : 'status'}
-              className="pointer-events-auto flex gap-3 rounded-xs bg-neutral-800 shadow-elev-3 pl-4 pr-2 py-3 animate-slide-up"
+              className={cn(
+                'pointer-events-auto flex gap-3 rounded-xs bg-neutral-800 shadow-elev-3 pl-4 pr-2 py-3 transition-all duration-200 ease-standard',
+                t.leaving ? 'opacity-0 translate-y-1' : 'animate-slide-up',
+              )}
             >
               <div className={cn(tone.accent, 'shrink-0')}>{tone.icon}</div>
               <div className="flex-1 min-w-0">

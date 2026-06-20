@@ -18,6 +18,7 @@ import {
 } from '../icons';
 import type { Role } from '@/lib/types';
 import { Wordmark } from '../brand/Logo';
+import { useNav } from './NavProgress';
 import { APP_VERSION, BUILD_REV } from '@/lib/version';
 
 type Item = {
@@ -72,6 +73,7 @@ export function Sidebar({
   showBrand?: boolean;
 }) {
   const pathname = usePathname();
+  const nav = useNav();
 
   return (
     <aside
@@ -106,7 +108,12 @@ export function Sidebar({
                     <li key={i.href}>
                       <Link
                         href={i.href}
-                        onClick={onClose}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                          e.preventDefault();
+                          nav.navigate(i.href);
+                          onClose?.();
+                        }}
                         className={cn(
                           'group relative flex items-center gap-3 h-14 px-4 text-label-lg transition-all duration-200 ease-standard focus-ring rounded-full',
                           active

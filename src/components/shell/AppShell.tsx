@@ -11,6 +11,7 @@ import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
 import { useDialogA11y } from '../ui/useDialogA11y';
+import { NavProvider } from './NavProgress';
 import {
   LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield,
 } from '../icons';
@@ -55,6 +56,7 @@ export function AppShell({
   ];
 
   return (
+    <NavProvider>
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0">
@@ -93,5 +95,6 @@ export function AppShell({
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
       <IdleLogout />
     </div>
+    </NavProvider>
   );
 }

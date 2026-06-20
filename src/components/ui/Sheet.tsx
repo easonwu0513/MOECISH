@@ -5,6 +5,7 @@ import { cn } from '@/lib/cn';
 import { IconButton } from './IconButton';
 import { X } from '../icons';
 import { useDialogA11y } from './useDialogA11y';
+import { usePresence } from './usePresence';
 
 export function Sheet({
   open,
@@ -21,13 +22,19 @@ export function Sheet({
 }) {
   const titleId = useId();
   const panelRef = useDialogA11y(open, () => onOpenChange(false));
+  const { mounted, leaving } = usePresence(open, 250);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   const w = width === 'sm' ? 'max-w-sm' : width === 'lg' ? 'max-w-2xl' : 'max-w-md';
 
   return (
-    <div className="fixed inset-0 z-[90] animate-fade-in" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined}>
+    <div
+      className={cn('fixed inset-0 z-[90]', leaving ? 'animate-fade-out' : 'animate-fade-in')}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? titleId : undefined}
+    >
       <div
         className="absolute inset-0 scrim"
         onClick={() => onOpenChange(false)}
@@ -36,7 +43,8 @@ export function Sheet({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'absolute right-0 top-0 bottom-0 w-full bg-surface-container-high shadow-elev-5 flex flex-col animate-slide-in-right outline-none',
+          'absolute right-0 top-0 bottom-0 w-full bg-surface-container-high shadow-elev-5 flex flex-col outline-none',
+          leaving ? 'animate-slide-out-right' : 'animate-slide-in-right',
           w,
         )}
       >

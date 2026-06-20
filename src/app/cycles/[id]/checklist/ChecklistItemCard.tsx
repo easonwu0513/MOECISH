@@ -11,6 +11,7 @@ import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
 import { Paperclip, ChevronDown } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { SaveStatus } from '@/components/ui/SaveStatus';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawPanel } from '@/components/checklist/LawBasis';
@@ -289,10 +290,11 @@ export default function ChecklistItemCard({
                 <Paperclip size={12} className="shrink-0" />{evidenceCount}
               </span>
             )}
-            {canEdit && textDirty && (
-              <span className="text-caption inline-flex items-center gap-1 text-warning-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-warning-400" aria-hidden />未存
-              </span>
+            {canEdit && (
+              <SaveStatus
+                state={saving ? 'saving' : textDirty ? 'dirty' : justSaved ? 'saved' : 'idle'}
+                dirtyLabel="未存"
+              />
             )}
             {response && (description || compliance) && !canEdit && (
               <span className="text-caption text-on-surface-variant">唯讀</span>

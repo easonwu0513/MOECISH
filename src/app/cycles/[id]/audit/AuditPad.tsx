@@ -7,6 +7,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Textarea } from '@/components/ui/Textarea';
 import { TextField } from '@/components/ui/TextField';
 import { ConfirmDialog } from '@/components/ui/Dialog';
+import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Check } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
@@ -133,13 +134,8 @@ function ScoreSection({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {canEdit && saveState === 'dirty' && (
-            <span className="inline-flex items-center gap-1.5 text-caption text-warning-600">
-              <span className="w-2 h-2 rounded-full bg-warning-400 animate-pulse" aria-hidden /> 未儲存
-            </span>
-          )}
-          {canEdit && saveState === 'saving' && (
-            <span className="text-caption text-on-surface-variant">儲存中…</span>
+          {canEdit && (
+            <SaveStatus state={saveState === 'saved' ? 'idle' : saveState} dirtyLabel="未儲存" />
           )}
           {/* 成功一律安靜(進度 Chip 即持久訊號),只在未存/儲存中提示 */}
           <Chip tone={filledCount === 9 ? 'success' : 'neutral'} size="sm">
