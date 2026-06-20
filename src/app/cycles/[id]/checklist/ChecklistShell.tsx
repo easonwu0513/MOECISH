@@ -331,35 +331,16 @@ export default function ChecklistShell({
               <span className="ml-2 text-caption text-on-surface-variant">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
-          {canSubmit && !submittedAtISO && (
-            filled < total ? (
-              <Button
-                size="sm"
-                variant="filled"
-                aria-disabled="true"
-                aria-describedby="submit-block-reason"
-                onClick={(e) => e.preventDefault()}
-                className="opacity-40 cursor-not-allowed"
-              >
-                完成送出
-              </Button>
-            ) : (
-              <Button size="sm" variant="filled" onClick={() => setSubmitOpen(true)}>
-                完成送出
-              </Button>
-            )
+          {/* 僅「已全數作答」才於 sticky 顯精簡送出 CTA;未答阻擋說明交底部收尾卡,不在此重述 */}
+          {canSubmit && !submittedAtISO && filled === total && (
+            <Button size="sm" variant="filled" onClick={() => setSubmitOpen(true)}>
+              完成送出
+            </Button>
           )}
           <Tooltip content="快捷鍵：j/k 移動聚焦 · Enter 展開 · 1-4 對聚焦題選符合度">
             <span className="kbd">?</span>
           </Tooltip>
         </div>
-
-        {/* 送出阻擋原因:常駐(觸控/鍵盤皆可見,不只藏在 hover Tooltip) */}
-        {canSubmit && !submittedAtISO && filled < total && (
-          <p id="submit-block-reason" className="mt-2 text-caption text-warning-700">
-            尚餘 {total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。
-          </p>
-        )}
       </div>
 
       {/* Content */}

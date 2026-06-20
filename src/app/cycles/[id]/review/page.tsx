@@ -106,10 +106,8 @@ export default async function ReviewPage({
           逐題檢視機關說明與佐證,於每題下方留意見;完成後可退回補正或維持送審。
         </p>
         <p className="text-body-sm text-on-surface-variant mt-1">
-          {cycle.organization.name} · 已作答 {answered} / {total} 題 · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-          {withOpenComments > 0 && (
-            <span className="text-warning-700">,其中 {withOpenComments} 題尚有意見待機關補正</span>
-          )}
+          {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+          {/* 已作答 N/總 · 意見待補 N 由下方篩選 chip 承擔,header 不重述 */}
         </p>
       </header>
 
