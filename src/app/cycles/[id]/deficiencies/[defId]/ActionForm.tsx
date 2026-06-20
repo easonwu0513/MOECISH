@@ -595,7 +595,7 @@ export default function ActionForm({
         open={submitOpen}
         onOpenChange={(o) => !saving && setSubmitOpen(o)}
         title="送出審核"
-        description="送出後將鎖定編輯，由稽核委員進行審查。確認矯正措施與佐證皆已填妥？"
+        description="送出後將鎖定編輯,由稽核委員進行審查。"
         confirmLabel="送出"
         tone="primary"
         onConfirm={submit}
