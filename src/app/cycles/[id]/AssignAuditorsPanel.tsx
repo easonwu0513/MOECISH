@@ -56,29 +56,6 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
     }
   }
 
-  async function setRole(auditorId: string, role: 'LEAD' | 'MEMBER') {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ auditorId, role }),
-      });
-      if (res.ok) {
-        toast.success(role === 'LEAD' ? '已設為召集委員' : '已取消召集');
-        await load();
-        router.refresh();
-      } else {
-        const j = await res.json().catch(() => ({ error: '設定失敗' }));
-        toast.error('設定失敗', j.error);
-      }
-    } catch {
-      toast.error('設定失敗', '連線逾時或網路中斷,請稍後再試');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function remove(auditorId: string) {
     setBusy(true);
     try {
@@ -112,30 +89,9 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
           <div className="flex flex-wrap gap-3">
             {assignments.map((a) => (
               <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full bg-surface-container pl-1 pr-2 py-0.5">
-                <Chip tone={a.role === 'LEAD' ? 'primary' : 'sage'} size="md" dot>
-                  {a.auditor.name}{a.role === 'LEAD' && ' · 召集'}
+                <Chip tone="sage" size="md" dot>
+                  {a.auditor.name}
                 </Chip>
-                {a.role === 'LEAD' ? (
-                  <button
-                    type="button"
-                    onClick={() => setRole(a.auditor.id, 'MEMBER')}
-                    disabled={busy}
-                    className="text-caption text-on-surface-variant hover:text-primary-700 hover:underline focus-ring rounded-sm px-1"
-                    aria-label={`取消 ${a.auditor.name} 的召集身分`}
-                  >
-                    取消召集
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setRole(a.auditor.id, 'LEAD')}
-                    disabled={busy}
-                    className="text-caption text-primary-700 hover:underline focus-ring rounded-sm px-1"
-                    aria-label={`設 ${a.auditor.name} 為召集委員`}
-                  >
-                    設為召集
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => remove(a.auditor.id)}

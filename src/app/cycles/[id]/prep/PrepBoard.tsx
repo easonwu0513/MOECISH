@@ -246,8 +246,11 @@ export default function PrepBoard({
         <div className="flex flex-col gap-3">
           {initialItems.map((item, idx) => {
             const sub = item.submission;
-            const status = (sub?.status ?? 'EMPTY') as PrepStatus;
             const files = filesOf(sub?.id);
+            const rawStatus = (sub?.status ?? 'EMPTY') as PrepStatus;
+            // 有檔案卻仍 EMPTY(上傳後狀態更新漏掉/部署中斷)→ 以檔案為準視為已上傳,
+            // 避免「有檔卻顯示尚未上傳」,並讓中心的確認/標缺件按鈕正常出現
+            const status = rawStatus === 'EMPTY' && files.length > 0 ? 'UPLOADED' : rawStatus;
             return (
               <Card key={item.id} padded={false} variant={status === 'CONFIRMED' ? 'filled' : 'elevated'}>
                 <div className="p-5">
