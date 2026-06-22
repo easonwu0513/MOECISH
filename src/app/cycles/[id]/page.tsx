@@ -10,6 +10,7 @@ import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
+import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { fmtROC } from '@/lib/date';
 import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -121,40 +122,41 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         { label: `${yearROC} 年度 · ${cycle.organization.name}` },
       ]}
     >
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div className="min-w-0">
-          <h1 className="text-headline text-on-surface">
-            {yearROC} 年度資通安全稽核
-          </h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant truncate">
+      {/* 身分帶(與儀表板同骨架,統一工作台頂部;大標降一級,讓主行動橫幅為唯一最大焦點) */}
+      <h1 className="sr-only">{yearROC} 年度資通安全稽核 · {cycle.organization.name}</h1>
+      <IdentityBand
+        avatar={cycle.organization.name.slice(0, 1)}
+        title={`${yearROC} 年度資通安全稽核`}
+        subtitle={
+          <>
             {cycle.organization.name}
-            {cycle.onsiteDate && (
-              <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>
-            )}
-            {' '}· 矯正截止 {fmtROC(cycle.dueDate)}
-          </p>
-          {deadlineChip && <div className="mt-2">{deadlineChip}</div>}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+            {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>} · 矯正截止 {fmtROC(cycle.dueDate)}
+          </>
+        }
+        roleChip={
+          <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
+            {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+          </Chip>
+        }
+        right={
+          user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' ? (
             <EditCycleDialog
               cycleId={cycle.id}
               dueDate={cycle.dueDate.toISOString()}
               prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
               onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
             />
-          )}
-          <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="md" dot>
-            {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-          </Chip>
-        </div>
-      </header>
+          ) : undefined
+        }
+        className="mb-4"
+      />
+      {deadlineChip && <div className="mb-5">{deadlineChip}</div>}
 
       {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
       <PrimaryActionBanner next={bannerNext} subtext={`${cycle.organization.name} · ${yearROC} 年度`} className="mb-5" />
 
       {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
-      <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
+      <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
         <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant mb-3">稽核週期進度</p>
         <StageFlowRail status={cycle.status as CycleStatus} />
       </section>
@@ -393,7 +395,7 @@ function ModuleTile({
       }[tone];
 
   return (
-    <Link href={href} className="block h-full focus-ring rounded-md">
+    <Link href={href} className="block h-full focus-ring rounded-lg">
       <Card interactive className={`h-full ${muted ? 'bg-surface-container-low' : ''}`}>
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>

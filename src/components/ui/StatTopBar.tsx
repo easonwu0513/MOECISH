@@ -38,8 +38,8 @@ export function StatTopBar({
   }[tone];
 
   return (
-    <div className="relative bg-surface-container-lowest rounded-md shadow-elev-1 overflow-hidden border border-outline-variant/60">
-      <div className={`h-1 ${bar}`} aria-hidden />
+    <div className="relative bg-surface-container-lowest rounded-lg shadow-elev-1 overflow-hidden border border-outline-variant/60">
+      <div className={`h-1.5 ${bar}`} aria-hidden />
       <div className="p-5 flex items-center gap-4">
         <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
           {icon}
