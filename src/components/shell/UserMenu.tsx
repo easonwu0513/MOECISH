@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/cn';
@@ -100,13 +101,15 @@ export function UserMenu({
             </div>
           </div>
           <div className="py-2">
-            <button
+            <Link
+              href="/account"
               role="menuitem"
+              onClick={() => setOpen(false)}
               className="w-full flex items-center gap-3 px-5 h-12 text-body-sm text-on-surface hover:bg-surface-container transition-colors"
             >
               <User size={18} className="text-on-surface-variant" />
               <span>個人資料</span>
-            </button>
+            </Link>
             <button
               role="menuitem"
               onClick={() => signOut({ callbackUrl: '/login' })}
