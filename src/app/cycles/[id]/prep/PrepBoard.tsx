@@ -8,12 +8,13 @@ import { Chip } from '@/components/ui/Chip';
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
+import { Segmented } from '@/components/ui/Segmented';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { PREP_STATUS_LABELS, prepOrgEditable, type PrepStatus } from '@/lib/types';
-import { fmtROCDateTime } from '@/lib/date';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
   id: string;
@@ -28,6 +29,7 @@ type Item = {
   title: string;
   description: string | null;
   required: boolean;
+  category: string;
   submission: Sub | null;
 };
 type FileRec = { id: string; targetId: string; originalName: string; sizeBytes: number };
@@ -42,66 +44,69 @@ function statusTone(s: PrepStatus): 'neutral' | 'primary' | 'success' | 'danger'
   }
 }
 
+const GROUP_ORDER: PrepCategory[] = ['TECH', 'ONSITE', 'CENTER'];
+
 export default function PrepBoard({
   cycleId,
   role,
   cycleStatus,
+  prepDueOnsiteISO,
+  prepDueTechISO,
   initialItems,
   initialFiles,
 }: {
   cycleId: string;
   role: string;
   cycleStatus: string;
+  prepDueOnsiteISO: string | null;
+  prepDueTechISO: string | null;
   initialItems: Item[];
   initialFiles: FileRec[];
 }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  // 上傳/審核以單項為單位顯示忙碌,避免一項上傳全板按鈕跟著轉圈
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
-  // SUPER_ADMIN 新增需求
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
+  const [addCat, setAddCat] = useState<PrepCategory>('ONSITE');
 
-  // 中心退回 dialog
-  const [returnOpen, setReturnOpen] = useState<string | null>(null); // submissionId
+  const [returnOpen, setReturnOpen] = useState<string | null>(null);
   const [returnNote, setReturnNote] = useState('');
-  // 機關「無相關文件理由」編輯中的項目
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [reasonText, setReasonText] = useState('');
-  // 機關「確定繳交」確認
   const [submitOpen, setSubmitOpen] = useState(false);
-  // 破壞性刪除確認
   const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
-  // 資料準備改由最高管理員(中心)單一審核,委員不參與此關 → 消除多委員確認衝突
   const orgCanEdit = isOrg && (cycleStatus === 'PREPARATION' || cycleStatus === 'DRAFT');
-  // 中心審核(確認/退回)僅限資料準備階段;離開後資料凍結,不可再審,避免把已確認項退回卡死
   const adminCanReview = isAdmin && cycleStatus === 'PREPARATION';
+  const adminCanImport = isAdmin && cycleStatus !== 'CLOSED'; // 中心匯入區可上傳
 
-  const filesOf = (subId?: string) =>
-    subId ? initialFiles.filter((f) => f.targetId === subId) : [];
+  const filesOf = (subId?: string) => (subId ? initialFiles.filter((f) => f.targetId === subId) : []);
 
-  // 一項是否「已處理」(有檔案 或 已敘明無檔理由;已繳交/已確認亦視為已處理)
+  const catOf = (it: Item) => (it.category || 'ONSITE') as PrepCategory;
   const addressedOf = (it: Item) => {
     const sub = it.submission;
     if (!sub) return false;
     if (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED') return true;
     return filesOf(sub.id).length > 0 || !!sub.noFileReason?.trim();
   };
-  // 確定繳交:必填項須全處理;可繳交數 = 已處理且尚未繳交/確認者
-  const requiredUnaddressed = initialItems.filter((it) => it.required && !addressedOf(it));
-  const draftCount = initialItems.filter((it) => {
+  // 確定繳交僅涵蓋機關區(技術檢測 / 實地稽核);中心匯入區由中心上傳
+  const mechItems = initialItems.filter((it) => catOf(it) !== 'CENTER');
+  const requiredUnaddressed = mechItems.filter((it) => it.required && !addressedOf(it));
+  const draftCount = mechItems.filter((it) => {
     const s = it.submission?.status;
     return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
   }).length;
   const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
+
+  const dueOf = (cat: PrepCategory): string | null =>
+    cat === 'TECH' ? prepDueTechISO : cat === 'ONSITE' ? prepDueOnsiteISO : null;
 
   async function applyStandard() {
     setBusy(true);
@@ -129,10 +134,11 @@ export default function PrepBoard({
       const res = await fetch(`/api/cycles/${cycleId}/prep`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined }),
+        body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined, category: addCat }),
       });
       if (res.ok) {
         toast.success('已新增需求項');
+        // 保留上次選的分區(常連續新增同區項目),只清標題/說明
         setTitle(''); setDesc(''); setAddOpen(false);
         router.refresh();
       } else {
@@ -162,7 +168,7 @@ export default function PrepBoard({
     }
   }
 
-  async function upload(sub: Sub, e: React.ChangeEvent<HTMLInputElement>) {
+  async function upload(sub: Sub, e: React.ChangeEvent<HTMLInputElement>, center = false) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
     const tooBig = files.filter((f) => f.size > 20 * 1024 * 1024);
@@ -187,16 +193,20 @@ export default function PrepBoard({
         }
       }
       if (ok > 0) {
-        // 重算狀態(EMPTY→待繳交;清退回註記),失敗要讓使用者知道
-        const r2 = await fetch(`/api/prep-submissions/${sub.id}`, {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        if (r2.ok) {
-          toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
+        // 機關上傳需重算狀態(EMPTY→待繳交);中心匯入區(center)不走機關狀態機,免重算
+        if (!center) {
+          const r2 = await fetch(`/api/prep-submissions/${sub.id}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          if (!r2.ok) {
+            toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+          } else {
+            toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
+          }
         } else {
-          toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+          toast.success('已匯入', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
         }
         router.refresh();
       }
@@ -292,21 +302,198 @@ export default function PrepBoard({
     }
   }
 
+  function renderItem(item: Item, idx: number) {
+    const sub = item.submission;
+    const files = filesOf(sub?.id);
+    const isCenter = catOf(item) === 'CENTER';
+    const rawStatus = (sub?.status ?? 'EMPTY') as PrepStatus;
+    const addressedByContent = files.length > 0 || !!sub?.noFileReason?.trim();
+    const status = rawStatus === 'EMPTY' && addressedByContent ? 'UPLOADED' : rawStatus;
+    const orgItemEditable = orgCanEdit && !isCenter && prepOrgEditable(status);
+    const confirmedLook = !isCenter && status === 'CONFIRMED';
+
+    return (
+      <Card key={item.id} padded={false} variant={confirmedLook ? 'filled' : 'elevated'}>
+        <div className="p-5">
+          <div className="flex items-start gap-4">
+            <span
+              className={`w-8 h-8 rounded-md flex items-center justify-center text-body-sm font-medium tabular-nums shrink-0 ${
+                confirmedLook ? 'bg-success-50 text-success-700' : 'bg-surface-container text-on-surface-variant'
+              }`}
+            >
+              {confirmedLook ? <Check size={16} /> : idx + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-title text-on-surface">{item.title}</p>
+                {!item.required && !isCenter && <Chip tone="neutral" size="sm">選附</Chip>}
+                {isCenter ? (
+                  <Chip tone={files.length > 0 ? 'primary' : 'neutral'} size="sm" dot>
+                    {files.length > 0 ? '已匯入' : '中心待匯入'}
+                  </Chip>
+                ) : (
+                  <Chip tone={statusTone(status)} size="sm" dot>{PREP_STATUS_LABELS[status]}</Chip>
+                )}
+              </div>
+              {item.description && (
+                <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{item.description}</p>
+              )}
+
+              {!isCenter && status === 'INSUFFICIENT' && sub?.reviewNote && (
+                <div className="mt-2 flex items-start gap-2 rounded-sm bg-danger-50 text-danger-700 px-3 py-2 text-body-sm">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <span>退回說明:{sub.reviewNote}(請補正後重新繳交)</span>
+                </div>
+              )}
+              {!isCenter && status === 'SUBMITTED' && (
+                <p className="mt-2 text-caption text-on-surface-variant">
+                  已繳交{sub?.submittedAt ? `(${fmtROCDateTime(sub.submittedAt)})` : ''},等待中心審核;如需修改請洽中心退回。
+                </p>
+              )}
+
+              {/* 無相關文件理由(僅機關區) */}
+              {!isCenter && sub && reasonFor === sub.id ? (
+                <div className="mt-3 flex flex-col gap-2">
+                  <Textarea
+                    label="無相關文件說明"
+                    value={reasonText}
+                    onChange={(e) => setReasonText(e.target.value)}
+                    rows={2}
+                    placeholder="例:本機關無委外服務,故無委外管理相關文件…"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={busyItemId === sub.id} onClick={() => saveReason(sub.id, reasonText)}>儲存說明</Button>
+                    <Button size="sm" variant="text" onClick={() => { setReasonFor(null); setReasonText(''); }}>取消</Button>
+                  </div>
+                </div>
+              ) : !isCenter && sub?.noFileReason ? (
+                <div className="mt-2 flex items-start gap-2 rounded-sm bg-surface-container text-on-surface-variant px-3 py-2 text-body-sm">
+                  <FileText size={16} className="mt-0.5 shrink-0" />
+                  <span className="flex-1">無相關文件說明:{sub.noFileReason}</span>
+                  {orgItemEditable && (
+                    <button
+                      type="button"
+                      onClick={() => { setReasonFor(sub.id); setReasonText(sub.noFileReason ?? ''); }}
+                      className="text-caption text-primary-700 hover:underline shrink-0 focus-ring rounded-sm px-1"
+                    >修改</button>
+                  )}
+                </div>
+              ) : null}
+
+              {/* 檔案列表 */}
+              {files.length > 0 && (
+                <ul className="mt-3 space-y-1">
+                  {files.map((f) => (
+                    <li key={f.id} className="flex items-center gap-2">
+                      <a
+                        className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
+                        href={`/api/evidences/${f.id}/download?inline=1`}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <Paperclip size={14} />
+                        {f.originalName}
+                        <span className="text-caption text-on-surface-variant">({Math.round(f.sizeBytes / 1024)} KB)</span>
+                      </a>
+                      {((orgItemEditable) || (isCenter && adminCanImport)) && (
+                        <button
+                          type="button"
+                          onClick={() => setPendingFile({ id: f.id, name: f.originalName })}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                          aria-label={`刪除檔案 ${f.originalName}`}
+                          title="刪除這個檔案"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* 動作列 */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                {/* 機關區:可編輯狀態才有上傳 / 敘述理由 */}
+                {orgItemEditable && sub && (
+                  <>
+                    <FileUploadButton
+                      size="sm"
+                      label="上傳檔案(可多選)"
+                      busy={busyItemId === sub.id}
+                      onChange={(e) => upload(sub, e)}
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                    />
+                    {!sub.noFileReason && reasonFor !== sub.id && (
+                      <Button size="sm" variant="text" onClick={() => { setReasonFor(sub.id); setReasonText(''); }}>
+                        無相關文件,敘述理由
+                      </Button>
+                    )}
+                    <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB;PDF / 圖片上傳後會自動加機關浮水印</span>
+                  </>
+                )}
+
+                {/* 中心匯入區:中心上傳 */}
+                {isCenter && adminCanImport && sub && (
+                  <>
+                    <FileUploadButton
+                      size="sm"
+                      label="中心上傳資料"
+                      busy={busyItemId === sub.id}
+                      onChange={(e) => upload(sub, e, true)}
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                    />
+                    <span className="text-caption text-on-surface-variant">由中心上傳;上傳後委員即可審閱</span>
+                  </>
+                )}
+                {isCenter && !adminCanImport && files.length === 0 && (
+                  <span className="text-caption text-on-surface-variant">
+                    {isAdmin ? '週期已結案,無法再匯入' : '由中心匯入,尚未上傳'}
+                  </span>
+                )}
+
+                {/* 中心審核(僅機關區、僅資料準備階段) */}
+                {!isCenter && adminCanReview && sub && status === 'SUBMITTED' && (
+                  <>
+                    <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
+                      確認齊備
+                    </Button>
+                    <Button size="sm" variant="text" onClick={() => { setReturnOpen(sub.id); setReturnNote(''); }}>退回補正</Button>
+                  </>
+                )}
+                {!isCenter && adminCanReview && sub && status === 'CONFIRMED' && (
+                  <Button size="sm" variant="text" onClick={() => { setReturnOpen(sub.id); setReturnNote(''); }}>退回重審</Button>
+                )}
+                {!isCenter && adminCanReview && sub && (status === 'EMPTY' || status === 'UPLOADED' || status === 'INSUFFICIENT') && (
+                  <span className="text-caption text-on-surface-variant">
+                    {status === 'INSUFFICIENT' ? '已退回,待機關補正後重新繳交' : status === 'UPLOADED' ? '機關編輯中,尚未確定繳交' : '機關尚未上傳或敘明'}
+                  </span>
+                )}
+
+                {/* 中心可刪除尚無上傳檔/無理由的需求項(逐年清單可增刪;已上傳則不可刪) */}
+                {isAdmin && files.length === 0 && !sub?.noFileReason && (
+                  <Button size="sm" variant="text" onClick={() => setDeletingItem({ id: item.id, title: item.title })} disabled={busy}>刪除</Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {isAdmin && (
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" onClick={() => setAddOpen(true)} leadingIcon={<Plus size={15} />}>
-            新增需求項
-          </Button>
-          <Button size="sm" variant="tonal" onClick={applyStandard} loading={busy}>
-            套用標準清單
-          </Button>
+          <Button size="sm" onClick={() => setAddOpen(true)} leadingIcon={<Plus size={15} />}>新增需求項</Button>
+          <Button size="sm" variant="tonal" onClick={applyStandard} loading={busy}>套用標準清單</Button>
         </div>
       )}
 
-      {/* 機關:確定繳交 */}
-      {isOrg && cycleStatus === 'PREPARATION' && initialItems.length > 0 && (
+      {/* 機關:確定繳交(僅機關區) */}
+      {isOrg && cycleStatus === 'PREPARATION' && mechItems.length > 0 && (
         <Card padded={false} variant="filled">
           <div className="p-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="min-w-0">
@@ -315,16 +502,11 @@ export default function PrepBoard({
                 {requiredUnaddressed.length > 0
                   ? `尚有 ${requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
                   : draftCount > 0
-                  ? `${draftCount} 項待繳交。確定繳交後文件即鎖定送交中心審核,需中心退回才能再修改。`
-                  : '已全部繳交,等待中心審核。'}
+                    ? `${draftCount} 項待繳交(技術檢測 / 實地稽核區)。確定繳交後文件即鎖定送交中心審核,需中心退回才能再修改。`
+                    : '機關區已全部繳交,等待中心審核。'}
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setSubmitOpen(true)}
-              disabled={!canSubmit || busy || busyItemId !== null}
-              leadingIcon={<Check size={15} />}
-            >
+            <Button size="sm" onClick={() => setSubmitOpen(true)} disabled={!canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
               確定繳交{draftCount > 0 ? `(${draftCount})` : ''}
             </Button>
           </div>
@@ -337,183 +519,31 @@ export default function PrepBoard({
             <EmptyState
               icon={<FileText size={28} />}
               title="尚未設定資料準備需求"
-              description={isAdmin ? '點「套用標準清單」快速建立,或逐項新增。' : '等最高管理員設定需求清單後,這裡會顯示待上傳項目。'}
+              description={isAdmin ? '點「套用標準清單」快速建立,或逐項新增(可選技術檢測 / 實地稽核 / 中心匯入)。' : '等最高管理員設定需求清單後,這裡會顯示待上傳項目。'}
             />
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {initialItems.map((item, idx) => {
-            const sub = item.submission;
-            const files = filesOf(sub?.id);
-            const rawStatus = (sub?.status ?? 'EMPTY') as PrepStatus;
-            // 有檔案/有理由卻仍 EMPTY(舊資料或上傳後狀態漏更新)→ 視為「待繳交」
-            const addressedByContent = files.length > 0 || !!sub?.noFileReason?.trim();
-            const status = rawStatus === 'EMPTY' && addressedByContent ? 'UPLOADED' : rawStatus;
-            const orgItemEditable = orgCanEdit && prepOrgEditable(status);
+        <div className="flex flex-col gap-6">
+          {GROUP_ORDER.map((cat) => {
+            const groupItems = initialItems.filter((it) => catOf(it) === cat);
+            if (groupItems.length === 0) return null;
+            const due = dueOf(cat);
             return (
-              <Card key={item.id} padded={false} variant={status === 'CONFIRMED' ? 'filled' : 'elevated'}>
-                <div className="p-5">
-                  <div className="flex items-start gap-4">
-                    <span
-                      className={`w-8 h-8 rounded-md flex items-center justify-center text-body-sm font-medium tabular-nums shrink-0 ${
-                        status === 'CONFIRMED'
-                          ? 'bg-success-50 text-success-700'
-                          : 'bg-surface-container text-on-surface-variant'
-                      }`}
-                    >
-                      {status === 'CONFIRMED' ? <Check size={16} /> : idx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-title text-on-surface">{item.title}</p>
-                        {!item.required && <Chip tone="neutral" size="sm">選附</Chip>}
-                        <Chip tone={statusTone(status)} size="sm" dot>
-                          {PREP_STATUS_LABELS[status]}
-                        </Chip>
-                      </div>
-                      {item.description && (
-                        <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{item.description}</p>
-                      )}
-
-                      {/* 退回說明 */}
-                      {status === 'INSUFFICIENT' && sub?.reviewNote && (
-                        <div className="mt-2 flex items-start gap-2 rounded-sm bg-danger-50 text-danger-700 px-3 py-2 text-body-sm">
-                          <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                          <span>退回說明:{sub.reviewNote}(請補正後重新繳交)</span>
-                        </div>
-                      )}
-
-                      {/* 已繳交鎖定提示 */}
-                      {status === 'SUBMITTED' && (
-                        <p className="mt-2 text-caption text-on-surface-variant">
-                          已繳交{sub?.submittedAt ? `(${fmtROCDateTime(sub.submittedAt)})` : ''},等待中心審核;如需修改請洽中心退回。
-                        </p>
-                      )}
-
-                      {/* 無相關文件理由:編輯中 / 已填顯示 */}
-                      {sub && reasonFor === sub.id ? (
-                        <div className="mt-3 flex flex-col gap-2">
-                          <Textarea
-                            label="無相關文件說明"
-                            value={reasonText}
-                            onChange={(e) => setReasonText(e.target.value)}
-                            rows={2}
-                            placeholder="例:本機關無委外服務,故無委外管理相關文件…"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" loading={busyItemId === sub.id} onClick={() => saveReason(sub.id, reasonText)}>儲存說明</Button>
-                            <Button size="sm" variant="text" onClick={() => { setReasonFor(null); setReasonText(''); }}>取消</Button>
-                          </div>
-                        </div>
-                      ) : sub?.noFileReason ? (
-                        <div className="mt-2 flex items-start gap-2 rounded-sm bg-surface-container text-on-surface-variant px-3 py-2 text-body-sm">
-                          <FileText size={16} className="mt-0.5 shrink-0" />
-                          <span className="flex-1">無相關文件說明:{sub.noFileReason}</span>
-                          {orgItemEditable && (
-                            <button
-                              type="button"
-                              onClick={() => { setReasonFor(sub.id); setReasonText(sub.noFileReason ?? ''); }}
-                              className="text-caption text-primary-700 hover:underline shrink-0 focus-ring rounded-sm px-1"
-                            >
-                              修改
-                            </button>
-                          )}
-                        </div>
-                      ) : null}
-
-                      {/* 檔案列表 */}
-                      {files.length > 0 && (
-                        <ul className="mt-3 space-y-1">
-                          {files.map((f) => (
-                            <li key={f.id} className="flex items-center gap-2">
-                              <a
-                                className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                                href={`/api/evidences/${f.id}/download?inline=1`}
-                                target="_blank"
-                                rel="noopener"
-                              >
-                                <Paperclip size={14} />
-                                {f.originalName}
-                                <span className="text-caption text-on-surface-variant">
-                                  ({Math.round(f.sizeBytes / 1024)} KB)
-                                </span>
-                              </a>
-                              {orgItemEditable && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingFile({ id: f.id, name: f.originalName })}
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
-                                  aria-label={`刪除檔案 ${f.originalName}`}
-                                  title="刪除這個檔案"
-                                >
-                                  <X size={14} />
-                                </button>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {/* 動作列 */}
-                      <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        {/* 機關:可編輯狀態才有上傳 / 敘述理由 */}
-                        {orgItemEditable && sub && (
-                          <>
-                            <FileUploadButton
-                              size="sm"
-                              label="上傳檔案(可多選)"
-                              busy={busyItemId === sub.id}
-                              onChange={(e) => upload(sub, e)}
-                              multiple
-                              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
-                            />
-                            {!sub.noFileReason && reasonFor !== sub.id && (
-                              <Button size="sm" variant="text" onClick={() => { setReasonFor(sub.id); setReasonText(''); }}>
-                                無相關文件,敘述理由
-                              </Button>
-                            )}
-                            <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB;PDF / 圖片上傳後會自動加機關浮水印</span>
-                          </>
-                        )}
-
-                        {/* 中心:僅資料準備階段可審核「已繳交」/「已確認」 */}
-                        {adminCanReview && sub && status === 'SUBMITTED' && (
-                          <>
-                            <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
-                              確認齊備
-                            </Button>
-                            <Button size="sm" variant="text" onClick={() => { setReturnOpen(sub.id); setReturnNote(''); }}>
-                              退回補正
-                            </Button>
-                          </>
-                        )}
-                        {adminCanReview && sub && status === 'CONFIRMED' && (
-                          <Button size="sm" variant="text" onClick={() => { setReturnOpen(sub.id); setReturnNote(''); }}>
-                            退回重審
-                          </Button>
-                        )}
-                        {adminCanReview && sub && (status === 'EMPTY' || status === 'UPLOADED' || status === 'INSUFFICIENT') && (
-                          <span className="text-caption text-on-surface-variant">
-                            {status === 'INSUFFICIENT'
-                              ? '已退回,待機關補正後重新繳交'
-                              : status === 'UPLOADED'
-                              ? '機關編輯中,尚未確定繳交'
-                              : '機關尚未上傳或敘明'}
-                          </span>
-                        )}
-
-                        {/* 中心:無檔案且無理由的需求項可刪除 */}
-                        {isAdmin && files.length === 0 && !sub?.noFileReason && (
-                          <Button size="sm" variant="text" onClick={() => setDeletingItem({ id: item.id, title: item.title })} disabled={busy}>
-                            刪除
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              <section key={cat}>
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <h2 className="text-title-md text-on-surface">{PREP_CATEGORY_LABELS[cat]}</h2>
+                  <Chip tone="neutral" size="sm">{groupItems.length}</Chip>
+                  {cat === 'CENTER' ? (
+                    <span className="text-caption text-on-surface-variant">由中心上傳匯入,供委員審閱(無機關繳交)</span>
+                  ) : due ? (
+                    <span className="text-caption text-on-surface-variant">繳交截止 {fmtROC(due)}</span>
+                  ) : null}
                 </div>
-              </Card>
+                <div className="flex flex-col gap-3">
+                  {groupItems.map((item, i) => renderItem(item, i))}
+                </div>
+              </section>
             );
           })}
         </div>
@@ -524,7 +554,7 @@ export default function PrepBoard({
         open={addOpen}
         onOpenChange={(v) => !busy && setAddOpen(v)}
         title="新增資料需求項"
-        description="設定受稽機關於實地稽核前需上傳之文件。"
+        description="設定機關需上傳之技術檢測 / 實地稽核文件,或由中心匯入之資料。"
         footer={
           <>
             <Button variant="text" onClick={() => setAddOpen(false)} disabled={busy}>取消</Button>
@@ -533,6 +563,18 @@ export default function PrepBoard({
         }
       >
         <div className="flex flex-col gap-4 pt-2">
+          <div>
+            <p className="text-caption font-medium text-on-surface-variant mb-1.5">分區</p>
+            <Segmented
+              value={addCat}
+              onChange={(v) => setAddCat(v as PrepCategory)}
+              options={[
+                { value: 'TECH', label: '技術檢測' },
+                { value: 'ONSITE', label: '實地稽核' },
+                { value: 'CENTER', label: '中心匯入' },
+              ]}
+            />
+          </div>
           <TextField label="需求名稱" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例:資通安全維護計畫" />
           <Textarea label="說明(選填)" value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="例:最新核定版本" />
         </div>
@@ -568,7 +610,7 @@ export default function PrepBoard({
         open={submitOpen}
         onOpenChange={(o) => !busy && !o && setSubmitOpen(false)}
         title="確定繳交稽核前資料"
-        description={`將把 ${draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`}
+        description={`將把機關區(技術檢測 / 實地稽核)${draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`}
         confirmLabel="確定繳交"
         onConfirm={submitAll}
         loading={busy}

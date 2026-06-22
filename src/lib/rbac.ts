@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -127,5 +127,18 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
   if (!cycleId) throw new AuthError(404, '佐證對象不存在');
 
   const { user, cycle } = await assertCycleAccess(cycleId);
+
+  // 資料準備佐證:委員僅能存取中心已確認齊備之機關區、或中心匯入區已有檔者(API 層強制,非僅畫面過濾)
+  if (targetType === 'PREP_SUBMISSION' && user.role === 'AUDITOR') {
+    const sub = await prisma.prepSubmission.findUnique({
+      where: { id: targetId },
+      select: { status: true, requirement: { select: { category: true } } },
+    });
+    const fileCount = await prisma.evidence.count({ where: { targetType: 'PREP_SUBMISSION', targetId } });
+    if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0)) {
+      throw new AuthError(403, '此資料尚未開放委員檢視');
+    }
+  }
+
   return { user, cycle, cycleId };
 }

@@ -119,7 +119,8 @@ model AuditCycle {
   status             String   @default("DRAFT") // CycleStatus 2.0
   startDate          DateTime
   dueDate            DateTime              // 矯正填報截止
-  prepDueDate        DateTime?             // 資料準備截止（P2）
+  prepDueDate        DateTime?             // 資料準備(實地稽核區)繳交截止
+  prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
   onsiteDate         DateTime?
   closedAt           DateTime?
   version            Int @default(0)
@@ -227,6 +228,7 @@ model PrepTemplateItem {
   title       String
   description String?
   required    Boolean @default(true)
+  category    String  @default("ONSITE") // 同 PrepCategory(TECH/ONSITE/CENTER)
   orderIndex  Int
 }
 
@@ -237,6 +239,8 @@ model PrepRequirement {
   title       String
   description String?
   required    Boolean @default(true)
+  // PrepCategory:TECH(技術檢測)| ONSITE(實地稽核)| CENTER(中心匯入,中心上傳、無機關繳交)
+  category    String  @default("ONSITE")
   orderIndex  Int
   submission  PrepSubmission?
 }

@@ -116,6 +116,26 @@ export function prepOrgEditable(s: string): boolean {
 export function prepReviewable(s: string): boolean {
   return s === 'SUBMITTED' || s === 'CONFIRMED';
 }
+
+// 資料準備三區:技術檢測 / 實地稽核(機關繳交,各有截止日);中心匯入(中心上傳,無機關繳交)。委員三區皆可審。
+export const PREP_CATEGORIES = ['TECH', 'ONSITE', 'CENTER'] as const;
+export type PrepCategory = (typeof PREP_CATEGORIES)[number];
+export const PREP_CATEGORY_LABELS: Record<PrepCategory, string> = {
+  TECH: '技術檢測',
+  ONSITE: '實地稽核',
+  CENTER: '中心匯入',
+};
+/** 該區是否為「中心匯入」(中心上傳、無機關繳交/確認流程)。 */
+export function isCenterCategory(c: string): boolean {
+  return c === 'CENTER';
+}
+/**
+ * 委員是否可檢視某資料準備項(單一真實來源,API 與畫面共用):
+ * 機關區(TECH/ONSITE)僅看中心已「確認齊備」者;中心匯入區(CENTER)看已有檔案者。
+ */
+export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean): boolean {
+  return status === 'CONFIRMED' || (category === 'CENTER' && hasFiles);
+}
 /** 該週期階段是否仍開放異動資料準備(機關編輯/上傳/刪檔僅限草稿與資料準備中;離開後一律凍結)。 */
 export function prepCyclePhaseOpen(cycleStatus: string): boolean {
   return cycleStatus === 'DRAFT' || cycleStatus === 'PREPARATION';
