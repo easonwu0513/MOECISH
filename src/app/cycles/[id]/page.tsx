@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
+import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { fmtROC } from '@/lib/date';
 import { CycleStepper } from '@/components/dashboard/CycleStepper';
 import type { CycleStatus, Role } from '@/lib/types';
@@ -70,7 +71,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     review: stForMod === 'ONSITE',
     deficiencies: stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED',
   };
-  const showCta = !!(next?.href && next.cta && next.href !== `/cycles/${cycle.id}`);
+  // 主行動橫幅:下一步連結若就是本頁則不顯示 CTA(避免自連)
+  const bannerNext = next && next.href === `/cycles/${cycle.id}` ? { ...next, href: undefined, cta: undefined } : next;
 
   // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
   const prepTotal = cycle.prepRequirements.length;
@@ -138,26 +140,14 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </div>
       </header>
 
-      {/* 流程位置 + 下一步 */}
+      {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
+      <PrimaryActionBanner next={bannerNext} className="mb-5" />
+
+      {/* 流程位置 */}
       <section className="mb-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
-        <div className="px-5 pt-4 pb-3.5">
+        <div className="px-5 py-4">
           <CycleStepper current={facts.step} statusLabel={CYCLE_STATUS_LABELS[cycle.status as CycleStatus]} />
         </div>
-        {next ? (
-          <div className="flex items-center gap-3 px-5 py-3 border-t border-outline-variant/60 bg-primary-50/40 flex-wrap">
-            <span className="text-label-sm font-semibold text-primary-800 tracking-[0.06em] shrink-0">下一步</span>
-            <span className="text-body-sm text-on-surface flex-1 min-w-44">{next.text}</span>
-            {showCta && (
-              <Link href={next.href!} className="shrink-0">
-                <Button size="sm" variant="tonal">{next.cta}</Button>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="px-5 py-3 border-t border-outline-variant/60 text-body-sm text-on-surface-variant">
-            本週期已結案,全部流程完成。
-          </div>
-        )}
       </section>
 
       {/* 統計(三卡統一三段式:大數字 + 標題 + 一行說明,與總覽同語彙) */}
