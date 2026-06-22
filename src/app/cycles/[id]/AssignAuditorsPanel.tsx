@@ -34,51 +34,69 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
   async function add() {
     if (!pick) return;
     setBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ auditorId: pick }),
-    });
-    setBusy(false);
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '指派失敗' }));
-      toast.error('指派失敗', j.error);
-      return;
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ auditorId: pick }),
+      });
+      if (res.ok) {
+        setPick('');
+        toast.success('已指派委員');
+        await load();
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '指派失敗' }));
+        toast.error('指派失敗', j.error);
+      }
+    } catch {
+      toast.error('指派失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
-    setPick('');
-    toast.success('已指派委員');
-    await load();
-    router.refresh();
   }
 
-  async function setLead(auditorId: string) {
+  async function setRole(auditorId: string, role: 'LEAD' | 'MEMBER') {
     setBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ auditorId, role: 'LEAD' }),
-    });
-    setBusy(false);
-    if (res.ok) {
-      toast.success('已設為召集委員');
-      await load();
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '設定失敗' }));
-      toast.error('設定失敗', j.error);
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ auditorId, role }),
+      });
+      if (res.ok) {
+        toast.success(role === 'LEAD' ? '已設為召集委員' : '已取消召集');
+        await load();
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '設定失敗' }));
+        toast.error('設定失敗', j.error);
+      }
+    } catch {
+      toast.error('設定失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function remove(auditorId: string) {
     setBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/assignments?auditorId=${auditorId}`, {
-      method: 'DELETE',
-    });
-    setBusy(false);
-    if (res.ok) {
-      toast.success('已移除指派');
-      await load();
-      router.refresh();
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/assignments?auditorId=${auditorId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        toast.success('已移除指派');
+        await load();
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '移除失敗' }));
+        toast.error('移除失敗', j.error);
+      }
+    } catch {
+      toast.error('移除失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -97,10 +115,20 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
                 <Chip tone={a.role === 'LEAD' ? 'primary' : 'sage'} size="md" dot>
                   {a.auditor.name}{a.role === 'LEAD' && ' · 召集'}
                 </Chip>
-                {a.role !== 'LEAD' && (
+                {a.role === 'LEAD' ? (
                   <button
                     type="button"
-                    onClick={() => setLead(a.auditor.id)}
+                    onClick={() => setRole(a.auditor.id, 'MEMBER')}
+                    disabled={busy}
+                    className="text-caption text-on-surface-variant hover:text-primary-700 hover:underline focus-ring rounded-sm px-1"
+                    aria-label={`取消 ${a.auditor.name} 的召集身分`}
+                  >
+                    取消召集
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRole(a.auditor.id, 'LEAD')}
                     disabled={busy}
                     className="text-caption text-primary-700 hover:underline focus-ring rounded-sm px-1"
                     aria-label={`設 ${a.auditor.name} 為召集委員`}
