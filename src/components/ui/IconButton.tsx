@@ -50,6 +50,8 @@ export const IconButton = forwardRef<HTMLButtonElement, Props>(function IconButt
       title={label}
       className={cn(
         'inline-flex items-center justify-center rounded-full transition-all duration-200 ease-standard focus-ring',
+        // 觸控裝置最小命中區 ≥44×44px(無障礙);桌機維持精簡尺寸
+        '[@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11',
         'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
         '[&:active:not(:disabled)]:scale-[0.96]',
         v[variant],
