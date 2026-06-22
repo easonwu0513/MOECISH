@@ -34,10 +34,6 @@ export default function SubmissionBanner({
   const [busy, setBusy] = useState(false);
 
   async function reopen() {
-    if (!reason.trim()) {
-      toast.error('請填寫退回原因', '機關會收到此說明,請具體指出需補正之處。');
-      return;
-    }
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/checklist/reopen`, {
       method: 'POST',
@@ -69,7 +65,7 @@ export default function SubmissionBanner({
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
               {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需機關補正,可退回重填。' : ';如需修改請洽稽核委員退回。'}
+              {canReopen ? ';如需機關補正,可退回重填。' : ';如需修改請洽中心(管理員)退回。'}
             </div>
           </div>
           {canReopen && (
@@ -91,11 +87,11 @@ export default function SubmissionBanner({
           }
         >
           <Textarea
-            label="退回原因(必填,機關會看到)"
+            label="退回原因(選填,機關會看到;留空則以各題委員意見為準)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="例:3.2、5.1 簡述內容與佐證不符,請補充執行紀錄;7.4 應檢附委外契約資安條款…"
+            placeholder="可留空。委員逐題意見即為補正依據;此處可補充整體說明。"
           />
         </Dialog>
       </>

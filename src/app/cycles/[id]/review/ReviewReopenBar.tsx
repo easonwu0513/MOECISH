@@ -8,15 +8,20 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 
 /**
- * 審閱頁底部收尾:委員逐題留意見後,於此明確「退回補正給機關」(接現有 checklist/reopen)。
- * 給審閱一個終點動作,不必回頭找頂端橫幅。
+ * 審閱頁收尾動作(角色化):
+ * - 委員:逐題留意見後按「意見填寫完成」通知中心(可取消重開);不再自行退回重填。
+ * - 中心:彙整委員意見後決定是否「退回重填」(原因選填,委員各題意見即補正依據)。
  */
 export default function ReviewReopenBar({
   cycleId,
+  role,
   openComments,
+  reviewDone,
 }: {
   cycleId: string;
+  role: string;
   openComments: number;
+  reviewDone: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -24,11 +29,24 @@ export default function ReviewReopenBar({
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
-  async function reopen() {
-    if (!reason.trim()) {
-      toast.error('請填寫退回原因', '機關會收到此說明,請具體指出需補正之處。');
+  async function markDone(done: boolean) {
+    setBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/review/done`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ done }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '操作失敗' }));
+      toast.error('操作失敗', j.error);
       return;
     }
+    toast.success(done ? '已標記意見填寫完成' : '已取消完成標記', done ? '中心將收到通知。' : undefined);
+    router.refresh();
+  }
+
+  async function reopen() {
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/checklist/reopen`, {
       method: 'POST',
@@ -43,30 +61,50 @@ export default function ReviewReopenBar({
     }
     setOpen(false);
     setReason('');
-    toast.success('已退回補正', '機關管理員將收到通知信與退回原因。');
+    toast.success('已退回重填', '機關管理員將收到通知信。');
     router.refresh();
   }
 
+  // 委員:意見填寫完成(可切換)
+  if (role === 'AUDITOR') {
+    return (
+      <div className="mt-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-title-md text-on-surface">{reviewDone ? '已標記:意見填寫完成' : '完成審閱'}</p>
+          <p className="text-body-sm text-on-surface-variant mt-0.5">
+            {reviewDone
+              ? '中心已收到你完成審閱的通知。如需補充意見,可取消後再留言。'
+              : openComments > 0
+                ? `已留 ${openComments} 題意見。逐題意見留妥後,按「意見填寫完成」通知中心彙整(退回重填由中心決定)。`
+                : '逐題意見留妥後,按「意見填寫完成」通知中心彙整(退回重填由中心決定)。'}
+          </p>
+        </div>
+        {reviewDone ? (
+          <Button variant="tonal" onClick={() => markDone(false)} loading={busy} className="shrink-0">取消完成標記</Button>
+        ) : (
+          <Button onClick={() => markDone(true)} loading={busy} className="shrink-0">意見填寫完成</Button>
+        )}
+      </div>
+    );
+  }
+
+  // 中心:退回重填(原因選填)
   return (
     <>
       <div className="mt-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-title-md text-on-surface">完成審閱</p>
+          <p className="text-title-md text-on-surface">退回重填</p>
           <p className="text-body-sm text-on-surface-variant mt-0.5">
-            {openComments > 0
-              ? `尚有 ${openComments} 題意見待機關補正;確認意見齊全後,可整批退回請機關修正。`
-              : '逐題意見已留;如需機關修正可退回補正,否則維持送審即可。'}
+            委員意見彙整後,可整批退回請機關依各題意見補正重填(原因選填,委員各題意見即補正依據)。
           </p>
         </div>
-        <Button variant="warning" onClick={() => setOpen(true)} className="shrink-0">
-          退回補正給機關
-        </Button>
+        <Button variant="warning" onClick={() => setOpen(true)} className="shrink-0">退回重填給機關</Button>
       </div>
       <Dialog
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
-        title="退回補正給機關"
-        description="退回後機關即可再次編輯,並會收到通知信與下方原因說明。"
+        title="退回重填給機關"
+        description="退回後機關即可再次編輯;委員各題意見會一併呈現給機關補正。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
@@ -75,11 +113,11 @@ export default function ReviewReopenBar({
         }
       >
         <Textarea
-          label="退回原因(必填,機關會看到)"
+          label="退回原因(選填,機關會看到)"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={4}
-          placeholder="例:3.2、5.1 說明與佐證不符,請補充執行紀錄;7.4 應檢附委外契約資安條款…"
+          placeholder="可留空。委員逐題意見即為補正依據;此處可補充整體說明。"
         />
       </Dialog>
     </>

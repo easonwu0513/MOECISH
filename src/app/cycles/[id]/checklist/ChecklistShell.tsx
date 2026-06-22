@@ -36,6 +36,7 @@ export type ClientResponse = {
   compliance: ComplianceLevel | null;
   description: string | null;
   recordDocs: string | null;
+  orgRevisionNote: string | null;
   version: number;
   comments: {
     id: string;
@@ -253,7 +254,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定、稽核委員會收到通知開始審閱;如需再修改,須由委員退回重填。確定送出?`}
+        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定、稽核委員會收到通知開始審閱;如需再修改,須由中心退回重填。確定送出?`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}
@@ -435,7 +436,7 @@ export default function ChecklistShell({
             <p className="text-body-sm text-on-surface-variant mt-0.5">
               {filled < total
                 ? `尚餘 ${total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。`
-                : '全部題目已作答,可送出給稽核委員審閱。送出後將鎖定,需委員退回才能修改。'}
+                : '全部題目已作答,可送出給稽核委員審閱。送出後將鎖定,需中心退回才能修改。'}
             </p>
           </div>
           {filled < total ? (

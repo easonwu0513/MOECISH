@@ -101,8 +101,9 @@ export default async function HomePage() {
     }
 
     if (user.role === 'AUDITOR') {
-      if (st === 'PREPARATION' && c.checklistSubmittedAt) {
-        todos.push({ key: `${c.id}-review`, tone: 'warning', title: `${org}:檢核表已送出,待委員審閱`, href: `${base}/review`, cta: '去審閱' });
+      // 委員逐題審閱屬實地稽核階段的「筆記/快速查找」用途,選填(未留意見不算未完成)
+      if (st === 'ONSITE' && c.checklistSubmittedAt) {
+        todos.push({ key: `${c.id}-review`, tone: 'neutral', title: `${org}:可逐題檢視機關自評、留審閱註記(選填)`, href: `${base}/review`, cta: '去檢視' });
       }
       if (e.submitted > 0) {
         todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${org}:${e.submitted} 項矯正待審查`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' });

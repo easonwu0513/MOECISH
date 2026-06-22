@@ -51,6 +51,10 @@ export default function ChecklistItemCard({
   const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
   const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;
+  // 機關補正回應(針對委員意見的文字回應,與原填答區隔)
+  const [revText, setRevText] = useState(response?.orgRevisionNote ?? '');
+  const [revOpen, setRevOpen] = useState(false);
+  const [revSaving, setRevSaving] = useState(false);
 
   // Handle inline saved checkmark flash
   const [justSaved, setJustSaved] = useState(false);
@@ -120,6 +124,25 @@ export default function ChecklistItemCard({
       router.refresh();
     } else {
       toast.error('操作失敗');
+    }
+  }
+
+  async function saveRevision() {
+    if (!response) return;
+    setRevSaving(true);
+    const res = await fetch(`/api/responses/${response.id}/revision`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ note: revText }),
+    });
+    setRevSaving(false);
+    if (res.ok) {
+      toast.success(revText.trim() ? '已儲存補正回應' : '已清除補正回應');
+      setRevOpen(false);
+      router.refresh();
+    } else {
+      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+      toast.error('儲存失敗', j.error);
     }
   }
 
@@ -227,9 +250,43 @@ export default function ChecklistItemCard({
           )}
           {userRole === 'ORG_ADMIN' && unresolved > 0 && !canEdit && (
             <div className="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2 text-caption text-primary-800 leading-relaxed">
-              委員要求補正:請至本題「紀錄佐證」分頁補上佐證文件,完成後按上方「標記為已補正」。若需修改作答內容(符合度/說明),請洽中心退回補正後再編輯。
+              委員要求補正:可於下方填「機關補正回應」說明、並至本題「紀錄佐證」分頁補上佐證,完成後按上方「標記為已補正」。若需修改原作答(符合度/說明),請洽中心退回重填。
             </div>
           )}
+
+          {/* 機關補正回應(針對委員意見,與原填答區隔);有委員意見才出現 */}
+          {response && response.comments.length > 0 && (
+            <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3">
+              {revOpen ? (
+                <div className="space-y-2">
+                  <Textarea
+                    label="機關補正回應(針對委員意見,與原填答區隔)"
+                    value={revText}
+                    onChange={(e) => setRevText(e.target.value)}
+                    rows={3}
+                    placeholder="說明已如何補正,或對委員意見的回應…"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={revSaving} onClick={saveRevision}>儲存回應</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setRevOpen(false); setRevText(response.orgRevisionNote ?? ''); }}>取消</Button>
+                  </div>
+                </div>
+              ) : response.orgRevisionNote ? (
+                <div>
+                  <p className="text-caption font-medium text-primary-800 mb-1">機關補正回應</p>
+                  <p className="text-body-sm text-primary-900 whitespace-pre-wrap leading-relaxed">{response.orgRevisionNote}</p>
+                  {userRole === 'ORG_ADMIN' && (
+                    <button type="button" onClick={() => setRevOpen(true)} className="mt-1.5 text-caption text-primary-700 hover:underline focus-ring rounded-sm px-1">修改回應</button>
+                  )}
+                </div>
+              ) : userRole === 'ORG_ADMIN' ? (
+                <button type="button" onClick={() => setRevOpen(true)} className="text-body-sm text-primary-700 hover:underline focus-ring rounded-sm px-1">＋ 新增機關補正回應(文字)</button>
+              ) : (
+                <p className="text-caption text-on-surface-variant">機關尚未填寫補正回應。</p>
+              )}
+            </div>
+          )}
+
           {/* 委員/中心可在此逐輪留意見(已補正後仍可續提,第 N 輪);需機關已作答(有 response) */}
           {(userRole === 'AUDITOR' || userRole === 'SUPER_ADMIN') &&
             (response ? (

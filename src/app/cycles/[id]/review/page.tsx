@@ -35,9 +35,9 @@ export default async function ReviewPage({
     where: { id: params.id },
     include: {
       organization: true,
-      assignments: true,
       checklistVersion: { include: { items: { orderBy: { orderIndex: 'asc' } } } },
       responses: { include: { comments: { orderBy: { createdAt: 'asc' } } } },
+      assignments: { include: { auditor: { select: { id: true, name: true } } } },
     },
   });
   if (!cycle) notFound();
@@ -84,6 +84,11 @@ export default async function ReviewPage({
     const cs = responsesByItem.get(i.id)?.comments ?? [];
     return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
   }).length;
+
+  // 委員審閱完成進度(中心掌握);本委員是否已標記「意見填寫完成」
+  const myReviewDone = Boolean(cycle.assignments.find((a) => a.auditorId === session.user.id)?.reviewDoneAt);
+  const reviewDoneList = cycle.assignments.map((a) => ({ name: a.auditor?.name ?? '委員', done: Boolean(a.reviewDoneAt) }));
+  const reviewDoneCount = reviewDoneList.filter((x) => x.done).length;
 
   // 篩選:answered=只看已作答、comments=意見待補、resolved=已補正待複核
   const filter =
@@ -136,8 +141,24 @@ export default async function ReviewPage({
         submittedAtISO={cycle.checklistSubmittedAt?.toISOString() ?? null}
         submittedBy={cycle.checklistSubmittedBy}
         reopenNote={null}
-        canReopen
+        canReopen={session.user.role === 'SUPER_ADMIN'}
       />
+
+      {/* 中心:委員審閱完成進度 */}
+      {session.user.role === 'SUPER_ADMIN' && cycle.checklistSubmittedAt && reviewDoneList.length > 0 && (
+        <div className="mb-5 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-3">
+          <p className="text-body-sm text-on-surface">
+            委員審閱進度:<span className="font-semibold tabular-nums">{reviewDoneCount}</span> / {reviewDoneList.length} 已完成意見
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {reviewDoneList.map((x, i) => (
+              <Chip key={i} tone={x.done ? 'success' : 'neutral'} size="sm" dot>
+                {x.name}{x.done ? ' · 已完成' : ' · 審閱中'}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 篩選 */}
       {answered > 0 && (
@@ -210,6 +231,12 @@ export default async function ReviewPage({
                           <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-on-surface-variant mb-1">紀錄文件</p>
                             {r.recordDocs}
+                          </div>
+                        )}
+                        {r?.orgRevisionNote && (
+                          <div className="mt-2 rounded-md bg-primary-50/50 border border-primary-100 p-3 text-body-sm text-primary-900 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-caption font-medium text-primary-800 mb-1">機關補正回應(針對委員意見)</p>
+                            {r.orgRevisionNote}
                           </div>
                         )}
                         {r && (evidenceByResponse.get(r.id)?.length ?? 0) > 0 && (
@@ -291,7 +318,7 @@ export default async function ReviewPage({
 
       {/* 審閱收尾:已送出且尚未結案時,委員可整批退回補正(接 checklist/reopen) */}
       {cycle.checklistSubmittedAt && cycle.status !== 'CLOSED' && (
-        <ReviewReopenBar cycleId={cycle.id} openComments={withOpenComments} />
+        <ReviewReopenBar cycleId={cycle.id} role={session.user.role} openComments={withOpenComments} reviewDone={myReviewDone} />
       )}
     </AppShell>
   );

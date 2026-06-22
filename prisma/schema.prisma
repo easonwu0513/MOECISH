@@ -191,6 +191,7 @@ model AuditorAssignment {
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   role      String   @default("MEMBER") // LEAD / MEMBER
+  reviewDoneAt DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
   createdAt DateTime @default(now())
 
   @@unique([cycleId, auditorId])
@@ -372,6 +373,7 @@ model ChecklistResponse {
   compliance      String?
   description     String?  // 簡述規範內容、執行方式、執行結果
   recordDocs      String?  // 紀錄文件(如規範、紀錄、公文等)
+  orgRevisionNote String?  // 機關對委員意見的「補正回應」(與原填答區隔;有委員意見時可填)
   version         Int      @default(0)
   lastEditorId    String?
   lastEditedAt    DateTime?

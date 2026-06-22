@@ -242,7 +242,8 @@ async function main() {
 
   console.log('\n── 流程閉環行為(P2)──');
   await expectStatus('A管理員 未全答即送出', jarA, 'POST', `/api/cycles/${cycleA.id}/checklist/submit`, [400]);
-  await expectStatus('委員Y 未送出即退回', jarY, 'POST', `/api/cycles/${cycleA.id}/checklist/reopen`, [409], { reason: 'x' });
+  // Round A:退回重填改僅中心(SUPER_ADMIN)→ 委員退回一律 403(權限),不再到 409(未送出)
+  await expectStatus('委員Y 退回檢核表(僅中心可退→403)', jarY, 'POST', `/api/cycles/${cycleA.id}/checklist/reopen`, [403], { reason: 'x' });
 
   console.log('\n── 實地稽核模組(評分/發現/轉換)──');
   const scoreBody = { scores: [{ dimension: 'CORE_BUSINESS', score: 9 }] };

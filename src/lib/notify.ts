@@ -190,6 +190,48 @@ export async function notifyChecklistSubmitted(opts: {
   return { recipientCount: recipients.length };
 }
 
+/** 委員完成檢核表審閱意見 → 通知最高管理員(中心)彙整、決定是否退回。 */
+export async function notifyChecklistReviewDone(opts: {
+  cycleId: string;
+  auditorName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/review`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${opts.auditorName} 已完成 ${orgName} ${yearROC} 年度檢核表審閱意見`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${opts.auditorName} 委員已完成 ${cycle.organization.name} ${yearROC} 年度資通安全檢核表的審閱意見填寫。\n` +
+          `請登入檢視各題委員意見,並決定是否退回機關補正:\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'checklist-review-done',
+        relatedCycleId: cycle.id,
+        context: { auditorName: opts.auditorName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 檢核表被退回重填 → 通知機關管理員(帶退回原因)。 */
 export async function notifyChecklistReopened(opts: {
   cycleId: string;
