@@ -8,6 +8,7 @@ import { TextField } from '@/components/ui/TextField';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Paperclip, CheckCircle } from '@/components/icons';
+import { copyText } from '@/lib/clipboard';
 import type { Role } from '@/lib/types';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
@@ -54,12 +55,8 @@ export default function InvitePanel({ orgId, orgName }: { orgId: string; orgName
 
   async function copyLink() {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success('已複製邀請連結');
-    } catch {
-      toast.error('複製失敗', '請手動選取');
-    }
+    if (await copyText(link)) toast.success('已複製邀請連結');
+    else toast.error('複製失敗', '請長按或反白連結文字手動複製');
   }
 
   return (
