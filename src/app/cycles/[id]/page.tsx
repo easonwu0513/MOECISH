@@ -60,6 +60,16 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
   const facts = deriveCycleFacts(cycle);
   const next = nextActionForRole(user.role, facts);
+
+  // 階段聚焦:只有「當前階段相關」的入口維持高亮,其餘降權(仍可點),讓現在該做的最突出
+  const stForMod = cycle.status as CycleStatus;
+  const modActive = {
+    prep: stForMod === 'DRAFT' || stForMod === 'PREPARATION',
+    checklist: stForMod === 'PREPARATION' || stForMod === 'ONSITE',
+    audit: stForMod === 'ONSITE',
+    review: stForMod === 'ONSITE',
+    deficiencies: stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED',
+  };
   const showCta = !!(next?.href && next.cta && next.href !== `/cycles/${cycle.id}`);
 
   // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
@@ -191,6 +201,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           desc="實地稽核前，機關上傳文件或敘明無相關文件後「確定繳交」；中心確認資料齊備或退回補正。"
           href={`/cycles/${cycle.id}/prep`}
           badge={prepBadge}
+          muted={!modActive.prep}
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
@@ -199,6 +210,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
           href={`/cycles/${cycle.id}/checklist`}
           badge={checklistBadge}
+          muted={!modActive.checklist}
         />
         {user.role !== 'ORG_ADMIN' && (
           <ModuleTile
@@ -208,6 +220,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
             href={`/cycles/${cycle.id}/audit`}
             badge={auditBadge}
+            muted={!modActive.audit}
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
@@ -217,6 +230,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             title="委員審閱(檢核表)"
             desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
             href={`/cycles/${cycle.id}/review`}
+            muted={!modActive.review}
           />
         )}
         <ModuleTile
@@ -226,6 +240,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
           href={`/cycles/${cycle.id}/deficiencies`}
           badge={defBadge}
+          muted={!modActive.deficiencies}
         />
       </section>
 
@@ -316,6 +331,7 @@ function ModuleTile({
   desc,
   href,
   badge,
+  muted,
 }: {
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
@@ -324,6 +340,8 @@ function ModuleTile({
   href: string;
   /** 右上角狀態徽章(進度一目了然);無進度可省略 */
   badge?: React.ReactNode;
+  /** 非當前階段的入口降權(淡化但仍可點),讓「現在該做的」那張最突出 */
+  muted?: boolean;
 }) {
   const iconBg = {
     primary: 'bg-primary-50 text-primary-700',
@@ -333,7 +351,7 @@ function ModuleTile({
 
   return (
     <Link href={href} className="block h-full focus-ring rounded-md">
-      <Card interactive className="h-full">
+      <Card interactive className={`h-full transition-opacity ${muted ? 'opacity-55 hover:opacity-100' : ''}`}>
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
             {icon}

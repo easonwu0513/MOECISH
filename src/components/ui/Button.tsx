@@ -100,6 +100,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
 ) {
   const classes = cn(
     'relative inline-flex items-center justify-center font-medium whitespace-nowrap select-none',
+    // 觸控裝置(平板/手機)最小命中區 ≥44px,符合無障礙;桌機指標精準不放大
+    '[@media(pointer:coarse)]:min-h-11',
     'transition-all duration-200 ease-standard focus-ring',
     'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
     '[&:active:not(:disabled)]:scale-[0.985]',
