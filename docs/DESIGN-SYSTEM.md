@@ -138,13 +138,29 @@
 - 表單:`label` 連結 + `aria-invalid`;Segmented/Tabs/ProgressBar 有對應 ARIA role。
 - 尊重 `prefers-reduced-motion`。
 - 顏色不單獨承載語意 —— Chip/狀態同時用文字或圖示,不只靠顏色。
+- 觸控裝置(`@media (pointer:coarse)`)互動命中區自動 ≥44×44px(`Button`/`IconButton` 已內建;`FilterChip` 以 `after` 偽元素延伸)。
 
 ---
 
-## 6. 給 AI / 新進開發者的規則
+## 6. 邏輯單一真實來源(SoT)
+
+畫面文案/結構也有 SoT,**不要在消費端硬編、避免兩處漂移**。動到下列任一概念前,改它的來源檔,消費端會自動同步:
+
+| 概念 | 來源檔 | 派生的消費端 |
+|---|---|---|
+| 導覽(路由 label/allow/icon/分組) | [`src/components/shell/nav-map.tsx`](../src/components/shell/nav-map.tsx) | 側欄 `Sidebar`、命令面板 `⌘K`(AppShell)。新增/改名後台頁只動這裡 |
+| 週期階段(7 態 label/tone、4 步流程、狀態→步驟) | [`src/lib/stage.ts`](../src/lib/stage.ts) | `state-machine.ts`、`process-guide.ts` 皆 re-export;Chip、`CycleStepper`、首頁服務卡 |
+| 角色名詞 / 色調 | [`src/lib/types.ts`](../src/lib/types.ts) `ROLE_LABELS` / `ROLE_TONE` | 全站角色 Chip 與標籤 |
+| 角色化「下一步」與儀表板待辦 | [`src/lib/process-guide.ts`](../src/lib/process-guide.ts) `deriveCycleFacts` / `nextActionForRole` | 週期頁下一步橫幅、儀表板待辦卡 |
+| 問候語 / 共用微文案 | [`src/lib/copy.ts`](../src/lib/copy.ts) | 首頁問候等 |
+
+---
+
+## 7. 給 AI / 新進開發者的規則
 
 1. 動任何畫面或元件前,**先查本文件與 `tailwind.config.ts`**。
 2. 寫任何顏色、間距、字級、圓角前,先確認系統已定義 → 用 token,不要寫死數值或 hex。
 3. 需要的東西系統沒有 → **停下來,先在 token 補定義**(並更新本文件),不要在元件裡發明一次性的值。
 4. 既有元件能用就用,不要重刻 Button/Dialog/Card 之類。
 5. 例外隔離區:`src/components/audit-merge/`(從單檔 HTML 工具 1:1 移植)刻意脫離本系統、用 Tailwind 預設色,**不要拿它當範本**,也不要去「修正」它。
+6. 改導覽、階段、角色名詞、下一步文案前,先看「6. 邏輯 SoT」找到來源檔 —— **改來源,不要改側欄/⌘K/各頁的硬編**,否則兩處會漂移。
