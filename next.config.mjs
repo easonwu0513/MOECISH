@@ -12,6 +12,8 @@ const securityHeaders = [
 const nextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '10mb' },
+    // 原生套件不可由 webpack 打包(含 .node 二進位);浮水印圖片用
+    serverComponentsExternalPackages: ['@napi-rs/canvas'],
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

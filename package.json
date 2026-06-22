@@ -20,12 +20,15 @@
     "graph:refresh": "tsx src/scripts/refresh-graph-token.ts"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.0",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "docx": "^9.6.1",
     "exceljs": "^4.4.0",
     "next": "^14.2.15",
     "next-auth": "^4.24.10",
+    "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8"
