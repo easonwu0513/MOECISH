@@ -39,6 +39,8 @@ const ACTION_LABELS: Record<string, string> = {
   PREP_INSUFFICIENT: '退回補正(舊)',
   AUDITOR_COMMENT_CREATE: '委員意見',
   AUDITOR_COMMENT_RESOLVE: '意見補正',
+  CHECKLIST_REVIEW_DONE: '委員完成檢核表意見',
+  CHECKLIST_ORG_REVISION: '機關補正回應',
   INVITATION_CREATE: '建立邀請',
   INVITATION_ACCEPT: '接受邀請',
   TRACKING_SEND: '寄送追蹤信',

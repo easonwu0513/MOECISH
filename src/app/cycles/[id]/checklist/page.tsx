@@ -44,7 +44,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   const canSubmit =
     user.role === 'ORG_ADMIN' &&
     (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION');
-  const canReopen = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
+  // 退回重填改由中心(最高管理員)單一決定;委員逐題留意見並按「意見填寫完成」
+  const canReopen = user.role === 'SUPER_ADMIN';
 
   const items = cycle.checklistVersion.items.map((i) => ({
     id: i.id,
@@ -90,6 +91,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     compliance: r.compliance as ('COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NON_COMPLIANT' | 'NOT_APPLICABLE' | null),
     description: r.description,
     recordDocs: r.recordDocs,
+    orgRevisionNote: r.orgRevisionNote,
     version: r.version,
     comments: r.comments.map((c) => ({
       id: c.id,

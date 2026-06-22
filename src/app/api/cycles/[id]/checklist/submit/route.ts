@@ -40,13 +40,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     const submittedAt = new Date();
-    await prisma.auditCycle.update({
-      where: { id: cycle.id },
-      data: {
-        checklistSubmittedAt: submittedAt,
-        checklistSubmittedBy: user.name,
-        checklistReopenNote: null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.auditCycle.update({
+        where: { id: cycle.id },
+        data: {
+          checklistSubmittedAt: submittedAt,
+          checklistSubmittedBy: user.name,
+          checklistReopenNote: null,
+        },
+      });
+      // 送出(含退回後重新送出)即開啟新一輪審閱 → 重置委員「意見填寫完成」標記,避免中心看到上一輪殘留進度
+      await tx.auditorAssignment.updateMany({
+        where: { cycleId: cycle.id },
+        data: { reviewDoneAt: null },
+      });
     });
 
     await writeAuditLog({
