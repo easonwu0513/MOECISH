@@ -326,7 +326,7 @@ export default function PrepBoard({
                               multiple
                               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
                             />
-                            <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB</span>
+                            <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB;PDF / 圖片上傳後會自動加機關浮水印</span>
                           </>
                         )}
                         {/* 中心審核:任一狀態(EMPTY 除外)皆可確認/標缺件,確認後仍可標缺件重啟,不卡死 */}
