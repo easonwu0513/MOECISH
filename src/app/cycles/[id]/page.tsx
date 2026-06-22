@@ -11,7 +11,9 @@ import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } f
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { fmtROC } from '@/lib/date';
-import { CycleStepper } from '@/components/dashboard/CycleStepper';
+import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
+import { ProgressRing } from '@/components/ui/ProgressRing';
+import { StackedBar } from '@/components/ui/StackedBar';
 import type { CycleStatus, Role } from '@/lib/types';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -143,12 +145,50 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
       <PrimaryActionBanner next={bannerNext} className="mb-5" />
 
-      {/* 流程位置 */}
-      <section className="mb-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
-        <div className="px-5 py-4">
-          <CycleStepper current={facts.step} statusLabel={CYCLE_STATUS_LABELS[cycle.status as CycleStatus]} />
-        </div>
+      {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
+      <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
+        <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant mb-3">稽核週期進度</p>
+        <StageFlowRail status={cycle.status as CycleStatus} />
       </section>
+
+      {/* 本階段進度讀數(資料準備中):把「還剩什麼」量化成讀數 */}
+      {cycle.status === 'PREPARATION' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (
+        <section className="mb-8 grid gap-4 sm:grid-cols-2">
+          {facts.prepTotal > 0 && (
+            <Card className="flex items-center gap-4">
+              <ProgressRing
+                value={facts.prepConfirmed}
+                max={facts.prepTotal}
+                size={76}
+                tone="primary"
+                label={`${facts.prepConfirmed}/${facts.prepTotal}`}
+                sublabel="已齊備"
+              />
+              <div className="min-w-0">
+                <p className="text-title text-on-surface">稽核前資料準備</p>
+                <p className="mt-1 text-body-sm text-on-surface-variant">
+                  退補 {facts.prepInsufficient} · 待繳 {facts.prepDraft} · 未處理 {facts.prepRemaining}
+                </p>
+              </div>
+            </Card>
+          )}
+          {facts.checklistTotal > 0 && (
+            <Card>
+              <p className="text-title text-on-surface">資安自評檢核表</p>
+              <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
+                {facts.checklistAnswered} / {facts.checklistTotal} 題已填{facts.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
+              </p>
+              <StackedBar
+                height={10}
+                segments={[
+                  { value: facts.checklistAnswered, tone: 'success', label: '已填' },
+                  { value: facts.checklistTotal - facts.checklistAnswered, tone: 'neutral', label: '未填' },
+                ]}
+              />
+            </Card>
+          )}
+        </section>
+      )}
 
       {/* 統計(三卡統一三段式:大數字 + 標題 + 一行說明,與總覽同語彙) */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
