@@ -2,62 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
-import {
-  LayoutDashboard,
-  ClipboardCheck,
-  Users,
-  History,
-  Briefcase,
-  FileText,
-  Folder,
-  Mail,
-  Megaphone,
-  BarChart,
-} from '../icons';
 import type { Role } from '@/lib/types';
 import { Wordmark } from '../brand/Logo';
 import { useNav } from './NavProgress';
 import { APP_VERSION, BUILD_REV } from '@/lib/version';
-
-type Item = {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  allow: Role[];
-};
-
-type Group = { label?: string; items: Item[] };
-
-const groups: Group[] = [
-  {
-    items: [
-      { href: '/dashboard', label: '總覽', icon: <LayoutDashboard size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
-    ],
-  },
-  {
-    label: '稽核作業',
-    items: [
-      { href: '/cycles', label: '稽核週期', icon: <ClipboardCheck size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'] },
-    ],
-  },
-  {
-    label: '管理',
-    items: [
-      { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/cycles', label: '跨院週期總覽', icon: <BarChart size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/scores', label: '跨院評分比較', icon: <BarChart size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/checklists', label: '檢核表題庫', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/prep-template', label: '資料準備清單', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/posts', label: '公告管理', icon: <Megaphone size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/emails', label: 'Email', icon: <Mail size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/tools/audit-merge', label: '報告彙整工具', icon: <Folder size={20} />, allow: ['SUPER_ADMIN'] },
-      { href: '/admin/audit-log', label: '稽核軌跡', icon: <History size={20} />, allow: ['SUPER_ADMIN', 'AUDITOR'] },
-    ],
-  },
-];
+import { sidebarGroups, navIcon } from './nav-map';
 
 /**
  * Material 3 Navigation Drawer.
@@ -76,6 +26,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const nav = useNav();
+  const groups = sidebarGroups(role); // 由 nav-map SoT 派生(已依角色過濾)
 
   return (
     <aside
@@ -92,8 +43,7 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto scrollbar-thin pb-6">
         {groups.map((g, gi) => {
-          const items = g.items.filter((i) => i.allow.includes(role));
-          if (items.length === 0) return null;
+          const items = g.items; // sidebarGroups 已依角色過濾且剔除空組
           return (
             <div key={gi} className="mt-2 first:mt-0">
               {g.label && !collapsed && (
@@ -132,7 +82,7 @@ export function Sidebar({
                             active ? 'text-on-primary-container' : 'text-on-surface-variant group-hover:text-on-surface',
                           )}
                         >
-                          {i.icon}
+                          {navIcon(i.iconKey, 20)}
                         </span>
                         {!collapsed && <span>{i.label}</span>}
                       </Link>
