@@ -58,7 +58,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           <div className="mt-4 max-w-md">
             <ProgressBar value={confirmed} max={total} tone="primary" size="sm" />
             <p className="mt-1.5 text-caption text-on-surface-variant">
-              委員已確認 <span className="tabular-nums font-medium text-on-surface">{confirmed}</span> / {total} 項
+              已確認齊備 <span className="tabular-nums font-medium text-on-surface">{confirmed}</span> / {total} 項
             </p>
           </div>
         )}

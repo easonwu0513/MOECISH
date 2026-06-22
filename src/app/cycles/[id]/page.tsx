@@ -186,7 +186,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           icon={<FileText size={22} />}
           tone="sage"
           title="稽核前資料準備"
-          desc="實地稽核前，機關上傳稽核表與相關文件；委員確認資料齊備或標記缺件。"
+          desc="實地稽核前，機關上傳稽核表與相關文件；中心確認資料齊備或標記缺件。"
           href={`/cycles/${cycle.id}/prep`}
           badge={prepBadge}
         />

@@ -66,7 +66,7 @@ export default function PrepBoard({
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
-  const isAuditor = role === 'AUDITOR';
+  // 資料準備改由最高管理員(中心)單一審核,委員不參與此關 → 消除多委員確認衝突
   const orgCanEdit = isOrg && (cycleStatus === 'PREPARATION' || cycleStatus === 'DRAFT');
 
   const filesOf = (subId?: string) =>
@@ -277,7 +277,7 @@ export default function PrepBoard({
                       {status === 'INSUFFICIENT' && sub?.reviewNote && (
                         <div className="mt-2 flex items-start gap-2 rounded-sm bg-danger-50 text-danger-700 px-3 py-2 text-body-sm">
                           <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                          <span>委員意見:{sub.reviewNote}</span>
+                          <span>審核意見:{sub.reviewNote}</span>
                         </div>
                       )}
 
@@ -329,20 +329,20 @@ export default function PrepBoard({
                             <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB</span>
                           </>
                         )}
-                        {isAuditor && sub && status === 'UPLOADED' && (
+                        {/* 中心審核:任一狀態(EMPTY 除外)皆可確認/標缺件,確認後仍可標缺件重啟,不卡死 */}
+                        {isAdmin && sub && status !== 'EMPTY' && (
                           <>
-                            <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
-                              確認齊備
-                            </Button>
-                            <Button size="sm" variant="text" onClick={() => { setInsufOpen(sub.id); setInsufNote(''); }}>
-                              標記缺件
-                            </Button>
+                            {status !== 'CONFIRMED' && (
+                              <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
+                                {status === 'INSUFFICIENT' ? '補件後確認' : '確認齊備'}
+                              </Button>
+                            )}
+                            {status !== 'INSUFFICIENT' && (
+                              <Button size="sm" variant="text" onClick={() => { setInsufOpen(sub.id); setInsufNote(''); }}>
+                                標記缺件
+                              </Button>
+                            )}
                           </>
-                        )}
-                        {isAuditor && sub && status === 'INSUFFICIENT' && (
-                          <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => review(sub.id, 'CONFIRMED')} loading={busyItemId === sub.id}>
-                            補件後確認
-                          </Button>
                         )}
                         {isAdmin && files.length === 0 && (
                           <Button size="sm" variant="text" onClick={() => setDeletingItem({ id: item.id, title: item.title })} disabled={busy}>
