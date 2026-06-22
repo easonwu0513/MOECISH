@@ -35,6 +35,8 @@ export default function BatchCreateCycles({
   const [versionId, setVersionId] = useState(versions[0]?.id ?? '');
   const [dueDate, setDueDate] = useState('');
   const [prepDueDate, setPrepDueDate] = useState('');
+  const [prepDueTech, setPrepDueTech] = useState('');
+  const [onsiteDate, setOnsiteDate] = useState('');
   const [applyPrep, setApplyPrep] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -77,6 +79,8 @@ export default function BatchCreateCycles({
         organizationIds: Array.from(selected),
         dueDate,
         prepDueDate: prepDueDate || null,
+        prepDueTech: prepDueTech || null,
+        onsiteDate: onsiteDate || null,
         applyStandardPrep: applyPrep,
       }),
     });
@@ -123,7 +127,9 @@ export default function BatchCreateCycles({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <TextField label="矯正填報截止(必填)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            <TextField label="資料準備截止(選填)" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
+            <TextField label="資料準備截止 · 實地稽核區(選填)" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
+            <TextField label="資料準備截止 · 技術檢測區(選填)" type="date" value={prepDueTech} onChange={(e) => setPrepDueTech(e.target.value)} />
+            <TextField label="實地稽核日期(選填,可開立時先訂)" type="date" value={onsiteDate} onChange={(e) => setOnsiteDate(e.target.value)} />
           </div>
 
           <div>

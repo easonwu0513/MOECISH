@@ -12,6 +12,7 @@ const DateStr = z
 const PatchBody = z.object({
   dueDate: DateStr.optional(),
   prepDueDate: DateStr.nullable().optional(),
+  prepDueTech: DateStr.nullable().optional(),
   onsiteDate: DateStr.nullable().optional(),
 });
 
@@ -34,6 +35,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         dueDate: body.dueDate ? toDate(body.dueDate) : undefined,
         prepDueDate:
           body.prepDueDate === undefined ? undefined : body.prepDueDate ? toDate(body.prepDueDate) : null,
+        prepDueTech:
+          body.prepDueTech === undefined ? undefined : body.prepDueTech ? toDate(body.prepDueTech) : null,
         onsiteDate:
           body.onsiteDate === undefined ? undefined : body.onsiteDate ? toDate(body.onsiteDate) : null,
       },
