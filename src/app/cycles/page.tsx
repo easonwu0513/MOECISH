@@ -14,6 +14,9 @@ import { EMPTY } from '@/lib/copy';
 import { fmtROC } from '@/lib/date';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 
+// 委員/機關清單依登入者即時查詢(含新指派的週期),不可被靜態快取
+export const dynamic = 'force-dynamic';
+
 export default async function CyclesPage() {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/cycles');
