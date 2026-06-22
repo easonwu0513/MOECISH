@@ -42,7 +42,7 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
                 'relative z-10 rounded-full flex items-center justify-center shrink-0',
                 state === 'now' && 'w-9 h-9 bg-primary-700 text-white ring-4 ring-primary-100',
                 state === 'done' && 'w-8 h-8 bg-success-50 text-success-700 border-2 border-success-500',
-                state === 'todo' && 'w-8 h-8 bg-surface text-on-surface-variant border-2 border-outline-variant opacity-60',
+                state === 'todo' && 'w-8 h-8 bg-surface-container text-on-surface-variant border-2 border-outline-variant',
               )}
               aria-hidden
             >
@@ -52,7 +52,7 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
               className={cn(
                 'mt-1.5 text-caption leading-tight whitespace-nowrap',
                 state === 'now' ? 'text-primary-800 font-medium' : 'text-on-surface-variant',
-                state === 'todo' && 'opacity-60',
+                state === 'todo' && 'text-on-surface-variant',
               )}
             >
               {CYCLE_STATUS_LABELS[s]}

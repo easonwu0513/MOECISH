@@ -19,6 +19,7 @@ import {
   AlertCircle,
   ShieldCheck,
   Eye,
+  Briefcase,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
@@ -170,7 +171,13 @@ export default async function HomePage() {
         ? `稽核委員 · 經指派 ${cycles.length} 個週期`
         : `教育部稽核中心 · 監督 ${orgCount} 院`;
   const topTodo = todos[0];
-  const topAction = topTodo ? { text: topTodo.title, href: topTodo.href, cta: topTodo.cta } : null;
+  // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
+  const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
+  const topAction = topTodo ? { text: topMatch ? topMatch[2] : topTodo.title, href: topTodo.href, cta: topTodo.cta } : null;
+  const topSubtext = topMatch ? topMatch[1] : undefined;
+  // 中心跨院總覽讀數(院數型,對齊中心心智模型)
+  const remediationCount = enriched.filter((e) => e.status === 'REMEDIATION').length;
+  const confirmOrgs = orgsWith((e) => e.prepToConfirm);
 
   return (
     <AppShell
@@ -190,14 +197,14 @@ export default async function HomePage() {
           right={
             todos.length > 0 ? (
               <>
-                <div className="text-headline text-primary-700 tabular-nums leading-none">{todos.length}</div>
+                <div className="text-title-lg text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
                 <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
               </>
             ) : undefined
           }
         />
         {cycles.length > 0 && (
-          <PrimaryActionBanner next={topAction} className="mt-4" doneText="目前沒有待辦事項,一切都在進度上。" />
+          <PrimaryActionBanner next={topAction} subtext={topSubtext} className="mt-4" doneText="目前沒有待辦事項,一切都在進度上。" />
         )}
       </section>
 
@@ -240,15 +247,17 @@ export default async function HomePage() {
                     const n = nextActionForRole('SUPER_ADMIN', e);
                     const waiting = e.prepToConfirm > 0 || (e.allPassed && e.signedUploaded && !e.signedConfirmed);
                     const dot = e.overdue ? 'bg-danger-500' : waiting ? 'bg-warning-400' : 'bg-success-500';
+                    const health = e.overdue ? '落後' : waiting ? '待留意' : '正常';
                     return (
                       <li key={e.c.id} className={cn('flex items-center gap-3 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
                         <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} aria-hidden />
-                        <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded">
+                        <span className="sr-only">健康度{health};</span>
+                        <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
                           <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
                           <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
                         </Link>
                         <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
-                        {n?.text && <span className="hidden md:block max-w-[15rem] truncate text-caption text-on-surface-variant">{n.text}</span>}
+                        {n?.text && <span className="hidden sm:block line-clamp-1 max-w-[15rem] text-caption text-on-surface-variant shrink-0">{n.text}</span>}
                       </li>
                     );
                   })}
@@ -274,34 +283,35 @@ export default async function HomePage() {
           {isSuper && (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTopBar
-              tone="success"
-              icon={<ShieldCheck size={20} />}
-              primary={`${passed}/${totalDefs}`}
-              label="矯正通過"
-              sub={totalDefs ? `${Math.round((passed / totalDefs) * 100)}% 完成` : '尚無缺失'}
-            />
-            <StatTopBar
-              tone="sage"
-              icon={<Eye size={20} />}
-              primary={`${submitted}`}
-              label="待委員審查"
-              sub={submitted > 0 ? (isSuper ? `散在 ${orgsWith((e) => e.submitted)} 院` : '已送審項目') : '無待審'}
-            />
-            <StatTopBar
-              tone="warning"
-              muted={toFill === 0}
-              icon={<ClipboardCheck size={20} />}
-              primary={`${toFill}`}
-              label="待填報"
-              sub={toFill > 0 ? (isSuper ? `${orgsWith((e) => e.toFill)} 院尚未送審` : '機關尚未送審') : '全部已送'}
+              tone="primary"
+              icon={<Briefcase size={20} />}
+              primary={`${orgCount}`}
+              label="本期院所"
+              sub="全國納管醫院"
             />
             <StatTopBar
               tone="danger"
-              muted={returned === 0}
+              muted={overdueCount === 0}
               icon={<AlertCircle size={20} />}
-              primary={`${returned}`}
-              label="退回補正"
-              sub={returned > 0 ? (isSuper ? `${orgsWith((e) => e.returned)} 院需處理` : '需儘速處理') : '無退回'}
+              primary={`${overdueCount}`}
+              label="逾期需催辦"
+              sub={overdueCount > 0 ? `${overdueOrgIds.length} 院已逾期` : '無逾期'}
+            />
+            <StatTopBar
+              tone="warning"
+              muted={confirmOrgs === 0}
+              icon={<ClipboardCheck size={20} />}
+              primary={`${confirmOrgs}`}
+              label="待你確認齊備"
+              sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'}
+            />
+            <StatTopBar
+              tone="sage"
+              muted={remediationCount === 0}
+              icon={<ShieldCheck size={20} />}
+              primary={`${remediationCount}`}
+              label="矯正執行中"
+              sub={remediationCount > 0 ? '缺失改善追蹤' : '無矯正中'}
             />
           </section>
           )}
