@@ -56,7 +56,7 @@ const dotColor: Record<Tone, string> = {
 };
 
 const sizes: Record<Size, string> = {
-  xs: 'h-5 px-2   text-[0.6875rem] gap-1   rounded-full',
+  xs: 'h-5 px-2   text-label-sm gap-1   rounded-full',
   sm: 'h-6 px-2.5 text-label        gap-1   rounded-full',
   md: 'h-7 px-3   text-label-lg     gap-1.5 rounded-full',
 };

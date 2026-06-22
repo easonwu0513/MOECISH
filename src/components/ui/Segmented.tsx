@@ -87,7 +87,7 @@ export function Segmented<T extends string>({
             className={cn(
               'flex items-center justify-center gap-1.5 font-medium transition-colors duration-150 ease-standard focus-ring',
               idx > 0 && 'border-l border-outline-variant',
-              size === 'sm' ? 'h-8 px-3 text-[0.8125rem]' : 'h-10 px-4 text-label-lg',
+              size === 'sm' ? 'h-8 px-3 text-body-sm' : 'h-10 px-4 text-label-lg',
               selected
                 ? selectedStyle[tone]
                 : 'bg-surface text-on-surface hover:bg-surface-container',

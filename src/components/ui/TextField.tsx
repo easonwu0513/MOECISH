@@ -74,7 +74,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
               className={cn(
                 'absolute pointer-events-none transition-all duration-200 ease-standard bg-surface px-1',
                 raised
-                  ? 'top-0 -translate-y-1/2 text-[0.75rem]'
+                  ? 'top-0 -translate-y-1/2 text-caption'
                   : 'top-1/2 -translate-y-1/2 text-body',
                 raised && (hasError ? 'text-danger-700' : focused ? 'text-primary-700' : 'text-on-surface-variant'),
                 !raised && 'text-on-surface-variant',
@@ -140,7 +140,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
             className={cn(
               'absolute pointer-events-none transition-all duration-200 ease-standard',
               raised
-                ? 'top-2 text-[0.75rem]'
+                ? 'top-2 text-caption'
                 : 'top-1/2 -translate-y-1/2 text-body',
               hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-on-surface-variant',
               leadingIcon ? 'left-10' : 'left-3.5',

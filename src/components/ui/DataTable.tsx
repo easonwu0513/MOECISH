@@ -27,7 +27,8 @@ export function THead({ className, children }: { className?: string; children: R
 }
 
 export function Th({ numeric, className, ...rest }: ThHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
-  return <th className={cn('px-5 py-3 font-medium', numeric ? 'text-right' : 'text-left', className)} {...rest} />;
+  // 無障礙:預設 scope="col"(欄標頭),呼叫端可覆寫為 row
+  return <th scope="col" className={cn('px-5 py-3 font-medium', numeric ? 'text-right' : 'text-left', className)} {...rest} />;
 }
 
 export function Tr({ hover = true, className, ...rest }: HTMLAttributes<HTMLTableRowElement> & { hover?: boolean }) {
