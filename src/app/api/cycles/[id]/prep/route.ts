@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
+import { auditorCanSeePrep } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    await assertCycleAccess(params.id);
+    const { user } = await assertCycleAccess(params.id);
     const items = await prisma.prepRequirement.findMany({
       where: { cycleId: params.id },
       include: { submission: true },
@@ -22,6 +23,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           orderBy: { uploadedAt: 'asc' },
         })
       : [];
+    // 委員僅能看到開放項目(機關區已確認齊備、中心匯入區有檔)— API 層過濾,非僅畫面
+    if (user.role === 'AUDITOR') {
+      const withFiles = new Set(files.map((f) => f.targetId));
+      const visItems = items.filter(
+        (i) => i.submission && auditorCanSeePrep(i.submission.status, i.category, withFiles.has(i.submission.id)),
+      );
+      const visSubIds = new Set(visItems.map((i) => i.submission!.id));
+      return NextResponse.json({ items: visItems, files: files.filter((f) => visSubIds.has(f.targetId)) });
+    }
     return NextResponse.json({ items, files });
   } catch (e) {
     return errorResponse(e);
@@ -32,6 +42,7 @@ const CreateBody = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
   required: z.boolean().optional(),
+  category: z.enum(['TECH', 'ONSITE', 'CENTER']).optional(),
 });
 
 import { ensureStandardPrepItems } from '@/lib/prep-standard';
@@ -70,6 +81,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         title: body.title,
         description: body.description || null,
         required: body.required ?? true,
+        category: body.category ?? 'ONSITE',
         orderIndex: (max._max.orderIndex ?? -1) + 1,
         submission: { create: {} },
       },

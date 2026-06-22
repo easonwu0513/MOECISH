@@ -48,6 +48,9 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         if (cycle.organizationId !== user.organizationId) {
           return NextResponse.json({ error: '無權刪除其他機關之文件' }, { status: 403 });
         }
+        if (sub.requirement.category === 'CENTER') {
+          return NextResponse.json({ error: '中心匯入區由中心管理,機關無法刪除' }, { status: 403 });
+        }
         if (
           sub.status === 'CONFIRMED' ||
           sub.status === 'SUBMITTED' ||
@@ -72,9 +75,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       if (left === 0) {
         const sub = await prisma.prepSubmission.findUnique({
           where: { id: e.targetId },
-          select: { status: true, noFileReason: true },
+          select: { status: true, noFileReason: true, requirement: { select: { category: true } } },
         });
-        if (sub && sub.status !== 'CONFIRMED' && sub.status !== 'SUBMITTED') {
+        // 中心匯入區無機關狀態機,不重算狀態
+        if (sub && sub.requirement.category !== 'CENTER' && sub.status !== 'CONFIRMED' && sub.status !== 'SUBMITTED') {
           await prisma.prepSubmission.update({
             where: { id: e.targetId },
             data: {

@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
+import { auditorCanSeePrep } from '@/lib/types';
 import { AppShell } from '@/components/shell/AppShell';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import PrepBoard from './PrepBoard';
@@ -24,19 +25,25 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     include: { submission: true },
     orderBy: { orderIndex: 'asc' },
   });
-  // 委員僅能檢視中心已「確認齊備」的資料(未確認/補件中者不開放,避免審閱到尚未定版的檔案)
-  const isAuditor = user.role === 'AUDITOR';
-  const visibleRequirements = isAuditor
-    ? requirements.filter((r) => r.submission?.status === 'CONFIRMED')
-    : requirements;
-  const subIds = visibleRequirements.map((r) => r.submission?.id).filter(Boolean) as string[];
-  const files = subIds.length
+  // 所有項目的佐證檔(供委員可見性判斷:中心匯入區有檔即開放)
+  const allSubIds = requirements.map((r) => r.submission?.id).filter(Boolean) as string[];
+  const allFiles = allSubIds.length
     ? await prisma.evidence.findMany({
-        where: { targetType: 'PREP_SUBMISSION', targetId: { in: subIds } },
+        where: { targetType: 'PREP_SUBMISSION', targetId: { in: allSubIds } },
         select: { id: true, targetId: true, originalName: true, sizeBytes: true },
         orderBy: { uploadedAt: 'asc' },
       })
     : [];
+  const subWithFiles = new Set(allFiles.map((f) => f.targetId));
+  // 委員可見:機關區(技術檢測/實地稽核)看中心已「確認齊備」者;中心匯入區看已有檔案者
+  const isAuditor = user.role === 'AUDITOR';
+  const visibleRequirements = isAuditor
+    ? requirements.filter(
+        (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id)),
+      )
+    : requirements;
+  const visibleSubIds = new Set(visibleRequirements.map((r) => r.submission?.id).filter(Boolean));
+  const files = allFiles.filter((f) => visibleSubIds.has(f.targetId));
 
   const yearROC = cycle.year - 1911;
   const total = requirements.length;
@@ -84,11 +91,14 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         cycleId={cycle.id}
         role={user.role}
         cycleStatus={cycle.status}
+        prepDueOnsiteISO={cycle.prepDueDate ? cycle.prepDueDate.toISOString() : null}
+        prepDueTechISO={cycle.prepDueTech ? cycle.prepDueTech.toISOString() : null}
         initialItems={visibleRequirements.map((r) => ({
           id: r.id,
           title: r.title,
           description: r.description,
           required: r.required,
+          category: r.category,
           submission: r.submission
             ? {
                 id: r.submission.id,

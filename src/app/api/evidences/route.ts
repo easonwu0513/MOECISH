@@ -45,8 +45,12 @@ export async function POST(req: Request) {
       }
       const sub = await prisma.prepSubmission.findUnique({
         where: { id: targetId },
-        select: { status: true },
+        select: { status: true, requirement: { select: { category: true } } },
       });
+      // 中心匯入區由中心上傳,機關不可上傳
+      if (sub?.requirement?.category === 'CENTER') {
+        return NextResponse.json({ error: '中心匯入區由中心上傳,機關無法上傳此區資料' }, { status: 403 });
+      }
       if (sub && (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED')) {
         return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
       }

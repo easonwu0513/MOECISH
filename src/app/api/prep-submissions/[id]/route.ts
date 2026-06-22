@@ -45,6 +45,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可更新' }, { status: 403 });
     }
+    if (sub.requirement.category === 'CENTER') {
+      return NextResponse.json({ error: '中心匯入區由中心管理,機關無法操作' }, { status: 403 });
+    }
     if (!prepCyclePhaseOpen(cycle.status)) {
       return NextResponse.json({ error: '資料準備階段已結束,不可再修改' }, { status: 400 });
     }
@@ -101,6 +104,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { user, sub, cycle } = await loadWithAccess(params.id);
     if (user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: '僅最高管理員可審核資料準備' }, { status: 403 });
+    }
+    if (sub.requirement.category === 'CENTER') {
+      return NextResponse.json({ error: '中心匯入區無需審核(中心直接上傳供委員審閱)' }, { status: 400 });
     }
     if (cycle.status !== 'PREPARATION') {
       return NextResponse.json({ error: '此週期已離開資料準備階段,不可審核資料準備' }, { status: 400 });

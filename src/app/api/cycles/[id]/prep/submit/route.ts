@@ -49,8 +49,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return files > 0 || !!sub.noFileReason?.trim();
     };
 
+    // 「中心匯入」區由中心上傳、不走機關繳交流程 → 確定繳交僅涵蓋機關區(技術檢測 / 實地稽核)
+    const mechReqs = reqs.filter((r) => r.category !== 'CENTER');
+
     // 必填項未處理 → 擋下並回清單
-    const missing = reqs.filter((r) => r.required && !addressed(r)).map((r) => r.title);
+    const missing = mechReqs.filter((r) => r.required && !addressed(r)).map((r) => r.title);
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `尚有必填項目未上傳檔案或敘明無檔理由:${missing.join('、')}` },
@@ -59,7 +62,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     // 已處理且尚未繳交/確認者 → 轉 SUBMITTED(含待繳交、已退回、以及舊資料狀態漏更新但有檔者)
-    const toSubmit = reqs.filter(
+    const toSubmit = mechReqs.filter(
       (r) =>
         r.submission &&
         r.submission.status !== 'SUBMITTED' &&
