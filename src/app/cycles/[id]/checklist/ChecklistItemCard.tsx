@@ -222,6 +222,11 @@ export default function ChecklistItemCard({
               <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
             </div>
           ))}
+          {userRole === 'ORG_ADMIN' && unresolved > 0 && !canEdit && (
+            <div className="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2 text-caption text-primary-800 leading-relaxed">
+              委員要求補正:請至本題「紀錄佐證」分頁補上佐證文件,完成後按上方「標記為已補正」。若需修改作答內容(符合度/說明),請洽中心退回補正後再編輯。
+            </div>
+          )}
         </div>
       ),
     },
@@ -237,7 +242,7 @@ export default function ChecklistItemCard({
           currentDescription={description}
           currentRecordDocs={recordDocs}
           currentVersion={response?.version ?? 0}
-          canEdit={canEdit}
+          canEdit={canEdit || (userRole === 'ORG_ADMIN' && unresolved > 0)}
           expectedEvidence={item.expectedEvidence}
         />
       ),
