@@ -7,6 +7,8 @@ import { canTransition, canRollback } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ensureStandardPrepItems } from '@/lib/prep-standard';
+import { notifyCycleStatusChange } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({ target: z.string(), reason: z.string().optional() });
 
@@ -32,6 +34,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const count = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
       if (count === 0) {
         return NextResponse.json({ error: '尚未發布任何缺失，無法開放填報' }, { status: 400 });
+      }
+    }
+
+    // 進入「資料齊備」(READY)前置:所有「必要」資料準備項須確認齊備,避免資料未齊就推進
+    if (to === 'READY' && forward) {
+      const reqs = await prisma.prepRequirement.findMany({
+        where: { cycleId: cycle.id, required: true },
+        include: { submission: { select: { status: true } } },
+      });
+      const notReady = reqs.filter((r) => r.submission?.status !== 'CONFIRMED');
+      if (notReady.length > 0) {
+        return NextResponse.json(
+          { error: `尚有 ${notReady.length} 份必要資料未確認齊備,無法進入下一階段;請於「稽核前資料準備」逐項確認。` },
+          { status: 400 },
+        );
       }
     }
 
@@ -76,6 +93,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await ensureStandardPrepItems(cycle.id);
       } catch (e) {
         console.error('[transition] 自動套用標準資料準備清單失敗:', (e as Error).message);
+      }
+    }
+
+    // 推進週期狀態時通知機關承辦(forward 才通知;失敗不影響轉換本身)
+    if (forward) {
+      try {
+        await notifyCycleStatusChange({ cycleId: cycle.id, status: to, appBaseUrl: appBaseUrl(req) });
+      } catch (e) {
+        console.error('[transition] 通知機關失敗:', (e as Error).message);
       }
     }
 

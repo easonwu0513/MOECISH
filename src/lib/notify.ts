@@ -268,3 +268,55 @@ export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: st
   );
   return { recipientCount: recipients.length };
 }
+
+/** 週期狀態推進(forward 轉換)時通知機關管理員;依新狀態給對應訊息與連結。 */
+export async function notifyCycleStatusChange(opts: {
+  cycleId: string;
+  status: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const MAP: Record<string, { label: string; path: string; hint: string }> = {
+    PREPARATION: { label: '資料準備', path: '/prep', hint: '請依清單上傳稽核前所需文件。' },
+    READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備,後續將安排實地稽核時程。' },
+    ONSITE: { label: '實地稽核中', path: '', hint: '已進入實地稽核階段。' },
+    REPORT_ISSUED: { label: '稽核報告已產出', path: '', hint: '稽核報告已產出,後續將開放缺失矯正。' },
+    REMEDIATION: { label: '缺失矯正', path: '/deficiencies', hint: '缺失已開放,請填報矯正措施與佐證。' },
+    CLOSED: { label: '已結案', path: '', hint: '本年度稽核已結案,感謝配合。' },
+  };
+  const m = MAP[opts.status];
+  if (!m) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}${m.path}`;
+  const yearROC = cycle.year - 1911;
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${yearROC} 年度稽核狀態更新:${m.label}`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核狀態已更新為「${m.label}」。\n` +
+          `${m.hint}\n\n` +
+          `請登入系統查看:\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'cycle-notify',
+        relatedCycleId: cycle.id,
+        dedupeKey: `status-${opts.status}`,
+        context: { status: opts.status },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
