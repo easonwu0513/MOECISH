@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatTopBar } from '@/components/ui/StatTopBar';
-import { CycleStepper } from '@/components/dashboard/CycleStepper';
+import { ProgressRing } from '@/components/ui/ProgressRing';
+import { StackedBar } from '@/components/ui/StackedBar';
 import PasswordExpiryNotice from '@/components/shell/PasswordExpiryNotice';
 import {
   ClipboardCheck,
@@ -313,118 +314,93 @@ export default async function HomePage() {
           )}
 
           {/* 委員 / 機關:我的(負責)週期 + 待辦(中心已由跨院矩陣涵蓋,不重複出清單) */}
+          {/* 委員 / 機關:我的(負責)週期 —— 乾淨任務卡(中心已由跨院矩陣涵蓋) */}
           {!isSuper && (
-          <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-6">
-            {/* 週期清單 */}
-            <Card className="lg:col-span-3" variant="elevated">
-              <div className="flex items-baseline justify-between mb-4">
-                <CardTitle className="text-title-lg">
-                  {user.role === 'SUPER_ADMIN' ? '全部稽核週期' : '我的稽核週期'}
-                </CardTitle>
-                <Link href="/cycles" className="text-caption text-primary-700 hover:underline">
-                  查看全部
-                </Link>
-              </div>
-              <div className="flex flex-col gap-3">
-                {enriched.slice(0, 5).map((e) => {
-                  const { c } = e;
-                  const next = nextActionForRole(user.role, e);
+            <section className="mb-8">
+              {/* 機關:資料準備中時,先給「還剩什麼」的準備讀數 */}
+              {user.role === 'ORG_ADMIN' &&
+                (() => {
+                  const pc = enriched.find((e) => e.status === 'PREPARATION');
+                  if (!pc || (pc.prepTotal === 0 && pc.checklistTotal === 0)) return null;
                   return (
-                    <div key={c.id} className="group rounded-md border border-outline-variant hover:border-outline transition-colors">
-                      <Link href={`/cycles/${c.id}`} className="block p-4 pb-3 hover:bg-surface-container transition-colors rounded-t-md focus-ring">
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                          <p className="text-body-sm font-medium text-on-surface truncate">
-                            {c.year - 1911} 年度 · {c.organization.name}
+                    <div className="grid gap-4 sm:grid-cols-2 mb-6">
+                      {pc.prepTotal > 0 && (
+                        <Card className="flex items-center gap-4">
+                          <ProgressRing value={pc.prepConfirmed} max={pc.prepTotal} size={76} tone="primary" label={`${pc.prepConfirmed}/${pc.prepTotal}`} sublabel="已齊備" />
+                          <div className="min-w-0">
+                            <p className="text-title text-on-surface">稽核前資料準備</p>
+                            <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.prepInsufficient} · 待繳 {pc.prepDraft} · 未處理 {pc.prepRemaining}</p>
+                          </div>
+                        </Card>
+                      )}
+                      {pc.checklistTotal > 0 && (
+                        <Card>
+                          <p className="text-title text-on-surface">資安自評檢核表</p>
+                          <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
+                            {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
                           </p>
-                          <Chip tone={cycleStatusTone(c.status as CycleStatus)} size="sm" dot>
-                            {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
-                          </Chip>
-                        </div>
-                        <CycleStepper current={e.step} statusLabel={CYCLE_STATUS_LABELS[c.status as CycleStatus]} className="mb-3" />
-                        {e.total > 0 && (
-                          <>
-                            <ProgressBar value={e.passed} max={e.total} tone="primary" size="sm" />
-                            <div className="mt-1.5 flex justify-between text-caption text-on-surface-variant">
-                              <span>矯正通過 <span className="tabular-nums font-medium text-on-surface">{e.passed}</span> / {e.total}</span>
-                              <span className="tabular-nums">{Math.round((e.passed / e.total) * 100)}%</span>
-                            </div>
-                          </>
-                        )}
-                      </Link>
-                      {next && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-outline-variant/60 bg-surface-container-low/60 rounded-b-md">
-                          <span className="text-caption text-primary-700 font-medium shrink-0">下一步</span>
-                          <span className="text-caption text-on-surface-variant truncate flex-1">{next.text}</span>
-                          {next.href && next.cta && (
-                            <Link href={next.href} className="text-caption text-primary-700 hover:underline shrink-0 inline-flex items-center gap-0.5">
-                              {next.cta}
-                              <ChevronRight size={12} />
-                            </Link>
-                          )}
-                        </div>
+                          <StackedBar
+                            height={10}
+                            segments={[
+                              { value: pc.checklistAnswered, tone: 'success', label: '已填' },
+                              { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
+                            ]}
+                          />
+                        </Card>
                       )}
                     </div>
                   );
-                })}
-              </div>
-            </Card>
+                })()}
 
-            {/* 待辦 */}
-            <Card className="lg:col-span-2" variant="elevated">
-              <div className="flex items-center justify-between mb-4">
-                <CardTitle className="text-title-lg">待辦</CardTitle>
-                <span className="text-caption text-on-surface-variant">按緊急度排序</span>
+              <div className="flex items-baseline justify-between mb-3 px-1">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
+                  {user.role === 'AUDITOR' ? `我負責的週期 · ${enriched.length} 個機關` : '我的稽核週期'}
+                </p>
+                <Link href="/cycles" className="text-caption text-primary-700 hover:underline">查看全部</Link>
               </div>
-              <div className="flex flex-col gap-1.5">
-                {todos.length === 0 ? (
-                  <EmptyState
-                    tone="success"
-                    icon={<CheckCircle size={28} />}
-                    title={EMPTY.noTodos.title}
-                    description={EMPTY.noTodos.description}
-                  />
-                ) : (
-                  todos.map((t) => (
+              <div className="flex flex-col gap-2.5">
+                {enriched.map((e) => {
+                  const { c } = e;
+                  const next = nextActionForRole(user.role, e);
+                  const tone = cycleStatusTone(c.status as CycleStatus);
+                  const border = {
+                    neutral: 'border-l-outline-variant',
+                    primary: 'border-l-primary-600',
+                    sage: 'border-l-sage-500',
+                    success: 'border-l-success-600',
+                    warning: 'border-l-warning-500',
+                  }[tone];
+                  return (
                     <Link
-                      key={t.key}
-                      href={t.href}
-                      className="group relative flex items-center gap-3 rounded-sm px-3 py-3 hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
+                      key={c.id}
+                      href={`/cycles/${c.id}`}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg border border-outline-variant border-l-4 bg-surface-container-lowest px-4 py-3.5 hover:bg-surface-container transition-colors focus-ring',
+                        border,
+                      )}
                     >
-                      <span
-                        className={
-                          'w-2 h-2 rounded-full shrink-0 ' +
-                          {
-                            warning: 'bg-warning-500',
-                            primary: 'bg-primary-500',
-                            sage: 'bg-sage-500',
-                            neutral: 'bg-neutral-500',
-                            danger: 'bg-danger-500',
-                          }[t.tone]
-                        }
-                        aria-hidden
-                      />
-                      <span className="flex-1 text-body-sm text-on-surface-variant truncate">{t.title}</span>
-                      <span className="text-caption text-on-surface-variant group-hover:text-primary-700 shrink-0 inline-flex items-center gap-0.5 transition-colors">
-                        {t.cta}
-                        <ChevronRight size={14} />
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
+                          <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
+                          <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                        </div>
+                        {next?.text && <p className="mt-1 text-caption text-on-surface-variant truncate">{next.text}</p>}
+                      </div>
+                      {next?.cta && (
+                        <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
+                          {next.cta}
+                          <ChevronRight size={16} />
+                        </span>
+                      )}
                     </Link>
-                  ))
+                  );
+                })}
+                {enriched.length === 0 && (
+                  <EmptyState tone="success" icon={<CheckCircle size={28} />} title={EMPTY.noTodos.title} description={EMPTY.noTodos.description} />
                 )}
               </div>
-
-              {user.role === 'SUPER_ADMIN' && (
-                <div className="mt-5 pt-4 border-t border-outline-variant flex gap-2 flex-wrap">
-                  <Link href="/admin/cycles">
-                    <Button size="sm" variant="tonal">開立稽核週期</Button>
-                  </Link>
-                  <Link href="/admin/organizations">
-                    <Button size="sm" variant="text">醫院管理</Button>
-                  </Link>
-                </div>
-              )}
-            </Card>
-          </section>
+            </section>
           )}
 
           {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
