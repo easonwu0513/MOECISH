@@ -283,7 +283,7 @@ export default async function HomePage() {
                             {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
                           </Chip>
                         </div>
-                        <CycleStepper current={e.step} className="mb-3" />
+                        <CycleStepper current={e.step} statusLabel={CYCLE_STATUS_LABELS[c.status as CycleStatus]} className="mb-3" />
                         {e.total > 0 && (
                           <>
                             <ProgressBar value={e.passed} max={e.total} tone="primary" size="sm" />

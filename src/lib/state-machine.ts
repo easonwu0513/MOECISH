@@ -61,29 +61,8 @@ export function rollbackTargets(from: CycleStatus, role: Role): CycleStatus[] {
   ).map((t) => t.to);
 }
 
-export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
-  DRAFT: '開立中',
-  PREPARATION: '資料準備中',
-  READY: '資料齊備',
-  ONSITE: '實地稽核',
-  REPORT_ISSUED: '缺失發布中',
-  REMEDIATION: '矯正執行中',
-  CLOSED: '結案',
-};
-
-export function cycleStatusTone(
-  status: CycleStatus,
-): 'neutral' | 'primary' | 'sage' | 'success' | 'warning' {
-  switch (status) {
-    case 'DRAFT':         return 'neutral';
-    case 'PREPARATION':   return 'primary';
-    case 'READY':         return 'sage';
-    case 'ONSITE':        return 'sage';
-    case 'REPORT_ISSUED': return 'warning';
-    case 'REMEDIATION':   return 'warning';
-    case 'CLOSED':        return 'success';
-  }
-}
+// 階段 label/tone 已收斂至單一真實來源 lib/stage.ts;此處 re-export 維持既有匯入路徑不變。
+export { CYCLE_STATUS_LABELS, cycleStatusTone } from './stage';
 
 // ════════════════════════════════════════════
 // 矯正措施狀態機（多輪）

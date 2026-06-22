@@ -1,32 +1,9 @@
 import type { CycleStatus, Role } from './types';
 
-/**
- * 稽核管考四步驟 — 與前台首頁「稽核管考流程」一致,
- * 後台用它把週期狀態對映到流程位置,並依角色顯示各階段工作。
- */
-export const PROCESS_STEPS = [
-  { no: 1, title: '資料準備' },
-  { no: 2, title: '實地稽核' },
-  { no: 3, title: '缺失矯正' },
-  { no: 4, title: '審查結案' },
-] as const;
-
-/**
- * 週期狀態 → 流程步驟位置。
- * 0 = 籌備中(尚未進入流程);1–4 = 對應步驟進行中;5 = 全部完成(結案)。
- * REMEDIATION 且全數通過時視為已走到「審查結案」(用印與結案確認階段)。
- */
-export function cycleStepIndex(status: CycleStatus, allPassed: boolean): number {
-  switch (status) {
-    case 'DRAFT':         return 0;
-    case 'PREPARATION':   return 1;
-    case 'READY':         return 1;
-    case 'ONSITE':        return 2;
-    case 'REPORT_ISSUED': return 3;
-    case 'REMEDIATION':   return allPassed ? 4 : 3;
-    case 'CLOSED':        return 5;
-  }
-}
+// 流程四步驟與「狀態→步驟」對映已收斂至單一真實來源 lib/stage.ts;
+// 此處 re-export 維持既有匯入路徑(CycleStepper/首頁/儀表板),deriveCycleFacts 內部亦由其派生。
+import { cycleStepIndex } from './stage';
+export { PROCESS_STEPS, cycleStepIndex } from './stage';
 
 // ════ 週期事實(facts)與角色化「下一步」 ════
 // dashboard 與週期內頁共用,避免兩處文案/邏輯分岔。

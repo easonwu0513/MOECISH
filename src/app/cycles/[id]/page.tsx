@@ -129,7 +129,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* 流程位置 + 下一步 */}
       <section className="mb-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
         <div className="px-5 pt-4 pb-3.5">
-          <CycleStepper current={facts.step} />
+          <CycleStepper current={facts.step} statusLabel={CYCLE_STATUS_LABELS[cycle.status as CycleStatus]} />
         </div>
         {next ? (
           <div className="flex items-center gap-3 px-5 py-3 border-t border-outline-variant/60 bg-primary-50/40 flex-wrap">
