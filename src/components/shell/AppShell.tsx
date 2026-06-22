@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
 import IdleLogout from './IdleLogout';
+import ScreenWatermark from './ScreenWatermark';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
@@ -93,6 +94,7 @@ export function AppShell({
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
+      <ScreenWatermark name={user.name} email={user.email} />
       <IdleLogout />
     </div>
     </NavProvider>
