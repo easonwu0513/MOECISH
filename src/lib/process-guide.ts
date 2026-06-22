@@ -138,7 +138,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'PREPARATION') {
       if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 份資料被標記不足,請補正重傳`, href: `${base}/prep`, cta: '去補正' };
       if (f.prepRemaining > 0) return { text: `上傳稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 份)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去上傳' };
-      return { text: '資料已上傳,等待委員確認', href: `${base}/prep`, cta: '查看' };
+      return { text: '資料已上傳,等待中心確認', href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
     if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
@@ -154,10 +154,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 
   // AUDITOR
   if (st === 'DRAFT') return { text: '週期開立中' };
-  if (st === 'PREPARATION') {
-    if (f.prepToConfirm > 0) return { text: `確認 ${f.prepToConfirm} 份已上傳資料是否齊備`, href: `${base}/prep`, cta: '去確認' };
-    return { text: '等機關上傳資料', href: `${base}/prep`, cta: '查看' };
-  }
+  if (st === 'PREPARATION') return { text: '資料準備中(由中心審核齊備),待實地稽核', href: `${base}/prep`, cta: '查看' };
   if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
   if (st === 'ONSITE') return { text: '依排定日期到場查核' };
   if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
@@ -170,19 +167,19 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 /** 各角色在四個步驟分別要做的事(後台流程指引文案)。 */
 export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = {
   SUPER_ADMIN: [
-    '開立稽核週期、設定截止日並指派委員,通知機關開始上傳資料。',
+    '開立稽核週期、設定截止日並指派委員;通知機關上傳資料,並逐項確認資料是否齊備。',
     '實地稽核當日留存查核紀錄;結束後彙整缺失內容。',
     '以表單或 Excel 發布稽核缺失;追蹤各機關填報進度、寄送追蹤信。',
     '委員全數審查通過後,確認機關用印報告並正式結案。',
   ],
   ORG_ADMIN: [
-    '於截止日前上傳檢核表與佐證文件;委員標記缺件時儘速補上。',
+    '於截止日前上傳檢核表與佐證文件;中心標記缺件時儘速補上。',
     '配合委員到場查核,協助提供現場資料。',
     '逐項填報根因分析與改善措施、上傳佐證後送審;退回項目補正重送。',
     '全數通過後列印改善報告,完成用印並上傳回傳中心。',
   ],
   AUDITOR: [
-    '線上逐份確認資料齊備;不足之處標記請機關補正。',
+    '資料準備由中心審核齊備;此階段可先熟悉受稽機關背景資料。',
     '依排定日期到場實地查核。',
     '機關送審後逐項審查矯正措施,必要時退回補正(可多輪)。',
     '全數通過後,配合中心完成結案確認。',

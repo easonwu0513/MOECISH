@@ -51,10 +51,13 @@ export async function POST(req: Request) {
         where: { id: cycle.organizationId },
         select: { name: true, shortName: true },
       });
-      const orgName = org?.shortName || org?.name || '受稽機關';
+      const orgName = org?.name || org?.shortName || '受稽機關';
       const dateStr = new Date().toLocaleDateString('zh-TW');
-      const wmText = `${orgName}・${cycle.year - 1911}年度資安稽核佐證・${dateStr}・請勿外流`;
-      const out = await applyWatermark(buf, mime, wmText);
+      const yr = cycle.year - 1911;
+      const out = await applyWatermark(buf, mime, {
+        tile: `${yr}年度資安稽核佐證・請勿外流`,
+        footer: `${orgName}・${yr}年度資安稽核佐證・上傳 ${dateStr}`,
+      });
       watermarked = out !== buf;
       buf = out;
     }
