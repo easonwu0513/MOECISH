@@ -32,6 +32,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       deficiencies: { include: { action: { select: { status: true } } } },
       prepRequirements: { include: { submission: { select: { status: true } } } },
       signedReports: { select: { id: true, confirmedAt: true } },
+      checklistVersion: { select: { _count: { select: { items: true } } } },
+      responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
     },
   });
   if (!cycle) notFound();

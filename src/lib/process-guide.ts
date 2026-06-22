@@ -17,6 +17,10 @@ export type CycleFactsInput = {
   deficiencies: { action: { status: string } | null }[];
   prepRequirements: { submission: { status: string } | null }[];
   signedReports: { confirmedAt: Date | null }[];
+  // 檢核表(87 題自評)— 選填;傳入才會納入「下一步」導引(救出原本隱形的填報死路)
+  checklistSubmittedAt?: Date | null;
+  checklistVersion?: { _count?: { items: number } | null } | null;
+  responses?: { compliance: string | null; comments?: { id: string }[] }[];
 };
 
 export type CycleFacts = {
@@ -42,6 +46,11 @@ export type CycleFacts = {
   signedConfirmed: boolean;
   overdue: boolean;
   step: number;
+  // 檢核表
+  checklistTotal: number;
+  checklistAnswered: number;
+  checklistSubmitted: boolean;
+  checklistOpenComments: number;
 };
 
 export type NextAction = { text: string; href?: string; cta?: string } | null;
@@ -77,12 +86,18 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const status = c.status as CycleStatus;
   const overdue = status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
 
+  const checklistTotal = c.checklistVersion?._count?.items ?? 0;
+  const checklistAnswered = (c.responses ?? []).filter((r) => r.compliance != null).length;
+  const checklistSubmitted = !!c.checklistSubmittedAt;
+  const checklistOpenComments = (c.responses ?? []).filter((r) => (r.comments?.length ?? 0) > 0).length;
+
   return {
     id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, onsiteDate: c.onsiteDate,
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
+    checklistTotal, checklistAnswered, checklistSubmitted, checklistOpenComments,
   };
 }
 
@@ -117,6 +132,8 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
     if (st === 'PREPARATION') {
       if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
+      // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出
+      if (f.checklistTotal > 0 && !f.checklistSubmitted) return { text: `填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' };
       if (f.prepRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 項)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去處理' };
       if (f.prepDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
       if (f.prepAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
@@ -138,7 +155,18 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (st === 'DRAFT') return { text: '週期開立中' };
   if (st === 'PREPARATION') return { text: '資料準備中(由中心審核齊備),待實地稽核', href: `${base}/prep`, cta: '查看' };
   if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
-  if (st === 'ONSITE') return { text: '依排定日期到場查核' };
+  if (st === 'ONSITE') {
+    if (f.checklistSubmitted) {
+      return {
+        text: f.checklistOpenComments > 0
+          ? `到場查核;檢核表已留 ${f.checklistOpenComments} 題意見(可續審)`
+          : '到場查核;可逐題檢視機關自評檢核表、留審閱註記',
+        href: `${base}/review`,
+        cta: '去檢視',
+      };
+    }
+    return { text: '依排定日期到場查核' };
+  }
   if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
   // REMEDIATION
   if (f.submitted > 0) return { text: `審查 ${f.submitted} 項已送審的矯正措施`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' };

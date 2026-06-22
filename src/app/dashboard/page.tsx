@@ -56,6 +56,8 @@ export default async function HomePage() {
       deficiencies: { include: { action: { select: { status: true } } } },
       prepRequirements: { include: { submission: { select: { status: true } } } },
       signedReports: { select: { id: true, confirmedAt: true } },
+      checklistVersion: { select: { _count: { select: { items: true } } } },
+      responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -92,6 +94,10 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.prepRemaining}/${e.prepTotal} 項未處理${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '去處理' });
       } else if (st === 'PREPARATION' && e.prepDraft > 0) {
         todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
+      }
+      // 檢核表為與資料準備平行的任務(先前不在導引中)→ 獨立提示,未送出即顯示
+      if (st === 'PREPARATION' && e.checklistTotal > 0 && !e.checklistSubmitted) {
+        todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資安檢核表待填報(${e.checklistAnswered}/${e.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' });
       }
       if (st === 'REMEDIATION') {
         if (e.returned > 0) todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${e.returned} 項被退回,需補正後重送`, href: `${base}/deficiencies?status=returned`, cta: '去補正' });
