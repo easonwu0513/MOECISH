@@ -15,6 +15,7 @@ import { SaveStatus } from '@/components/ui/SaveStatus';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawPanel } from '@/components/checklist/LawBasis';
+import CommentForm from '../review/CommentForm';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
 const complianceColor = COMPLIANCE_BAR;
@@ -195,38 +196,49 @@ export default function ChecklistItemCard({
       id: 'comments',
       label: '委員意見',
       // 意見待補數已由卡頭 Chip 呈現(收合可見),此處不重複 tab badge
-      content: (response?.comments ?? []).length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant py-4">本題尚無委員意見。</p>
-      ) : (
+      content: (
         <div className="space-y-2">
-          {response!.comments.map((c) => (
-            <div
-              key={c.id}
-              className={cn(
-                'rounded-lg p-3 border text-body-sm',
-                c.resolvedAt ? 'bg-success-50 border-success-100' : 'bg-warning-50 border-warning-100',
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-caption text-on-surface-variant">
-                  第 {c.round} 輪 · {fmtROCDateTime(c.createdAt)}
-                </span>
-                {c.resolvedAt ? (
-                  <Chip tone="success" size="sm">已補正</Chip>
-                ) : userRole === 'ORG_ADMIN' ? (
-                  <Button size="sm" variant="ghost" onClick={() => resolveComment(c.id)}>
-                    標記為已補正
-                  </Button>
-                ) : null}
+          {(response?.comments ?? []).length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant">本題尚無委員意見。</p>
+          ) : (
+            response!.comments.map((c) => (
+              <div
+                key={c.id}
+                className={cn(
+                  'rounded-lg p-3 border text-body-sm',
+                  c.resolvedAt ? 'bg-success-50 border-success-100' : 'bg-warning-50 border-warning-100',
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-caption text-on-surface-variant">
+                    第 {c.round} 輪 · {fmtROCDateTime(c.createdAt)}
+                  </span>
+                  {c.resolvedAt ? (
+                    <Chip tone="success" size="sm">已補正</Chip>
+                  ) : userRole === 'ORG_ADMIN' ? (
+                    <Button size="sm" variant="ghost" onClick={() => resolveComment(c.id)}>
+                      標記為已補正
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
-            </div>
-          ))}
+            ))
+          )}
           {userRole === 'ORG_ADMIN' && unresolved > 0 && !canEdit && (
             <div className="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2 text-caption text-primary-800 leading-relaxed">
               委員要求補正:請至本題「紀錄佐證」分頁補上佐證文件,完成後按上方「標記為已補正」。若需修改作答內容(符合度/說明),請洽中心退回補正後再編輯。
             </div>
           )}
+          {/* 委員/中心可在此逐輪留意見(已補正後仍可續提,第 N 輪);需機關已作答(有 response) */}
+          {(userRole === 'AUDITOR' || userRole === 'SUPER_ADMIN') &&
+            (response ? (
+              <div className="pt-1">
+                <CommentForm responseId={response.id} />
+              </div>
+            ) : (
+              <p className="text-caption text-on-surface-variant">(機關尚未作答,暫無法留言)</p>
+            ))}
         </div>
       ),
     },
