@@ -51,13 +51,14 @@ export function Dialog({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 outline-none',
+          // max-h + flex-col:長內容(或手機叫出鍵盤)時內容區捲動,標題/動作列恆可見,確認鈕不被推出畫面
+          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 outline-none max-h-[85dvh] flex flex-col',
           leaving ? 'animate-slide-down-out' : 'animate-slide-up',
           w,
         )}
       >
         {(icon || title || description) && (
-          <div className="px-6 pt-6 text-center sm:text-left">
+          <div className="px-6 pt-6 text-center sm:text-left shrink-0">
             {icon && (
               <div className="mb-4 inline-flex w-10 h-10 rounded-full bg-primary-container text-on-primary-container items-center justify-center">
                 {icon}
@@ -69,9 +70,9 @@ export function Dialog({
             )}
           </div>
         )}
-        {children && <div className="px-6 py-5">{children}</div>}
+        {children && <div className="px-6 py-5 overflow-y-auto min-h-0">{children}</div>}
         {footer && (
-          <div className="px-6 pb-5 pt-3 flex items-center justify-end gap-2">
+          <div className="px-6 pb-5 pt-3 flex flex-wrap items-center justify-end gap-2 shrink-0">
             {footer}
           </div>
         )}

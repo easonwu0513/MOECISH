@@ -14,7 +14,7 @@ import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPal
 import { useDialogA11y } from '../ui/useDialogA11y';
 import { NavProvider } from './NavProgress';
 import {
-  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield,
+  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield, BarChart, Briefcase,
 } from '../icons';
 
 export function AppShell({
@@ -47,7 +47,10 @@ export function AppShell({
       : []),
     ...(user.role === 'SUPER_ADMIN'
       ? [
+          { id: 'organizations', group: '管理', label: '醫院管理', icon: <Briefcase size={16} />, action: () => router.push('/admin/organizations') } as Command,
           { id: 'users', group: '管理', label: '使用者管理', icon: <Users size={16} />, action: () => router.push('/admin/users') } as Command,
+          { id: 'cycles-overview', group: '管理', label: '跨院週期總覽', icon: <BarChart size={16} />, action: () => router.push('/admin/cycles') } as Command,
+          { id: 'scores', group: '管理', label: '跨院評分比較', icon: <BarChart size={16} />, action: () => router.push('/admin/scores') } as Command,
           { id: 'merge-tool', group: '管理', label: '稽核報告彙整工具', icon: <ClipboardCheck size={16} />, action: () => router.push('/admin/tools/audit-merge') } as Command,
           { id: 'audit-log', group: '管理', label: '稽核軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
         ]
