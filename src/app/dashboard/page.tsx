@@ -34,6 +34,9 @@ type Todo = {
 
 const TONE_ORDER: Record<Todo['tone'], number> = { danger: 0, warning: 1, primary: 2, sage: 3, neutral: 4 };
 
+// 待辦/我的稽核週期依登入者即時查詢(含新指派),不可被靜態快取
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const session = await auth();
   if (!session) redirect('/login');
