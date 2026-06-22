@@ -21,11 +21,14 @@ export function AppShell({
   crumbs,
   children,
   cycleId,
+  watermark,
 }: {
   user: { name: string; email: string; role: Role; organizationName: string | null };
   crumbs: Crumb[];
   children: ReactNode;
   cycleId?: string;
+  /** 在「機關上傳資料」檢視頁開啟登入者浮水印(防外流可溯源);其餘頁面不套用。 */
+  watermark?: boolean;
 }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -97,7 +100,8 @@ export function AppShell({
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
-      <ScreenWatermark name={user.name} email={user.email} />
+      {/* 浮水印只在機關上傳資料的檢視頁套用(資料準備/檢核表審閱/缺失矯正),非全站 */}
+      {watermark && <ScreenWatermark name={user.name} email={user.email} />}
       <IdleLogout />
     </div>
     </NavProvider>
