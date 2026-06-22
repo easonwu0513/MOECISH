@@ -6,7 +6,7 @@ import { PROCESS_STEPS } from '@/lib/process-guide';
  * 稽核流程四步驟進度條(資料準備 → 實地稽核 → 缺失矯正 → 審查結案)。
  * current: 0=籌備中(全未開始)、1–4=該步進行中、5=全部完成。
  */
-export function CycleStepper({ current, className }: { current: number; className?: string }) {
+export function CycleStepper({ current, statusLabel, className }: { current: number; statusLabel?: string; className?: string }) {
   return (
     <ol className={cn('flex items-center', className)} aria-label="稽核流程進度">
       {PROCESS_STEPS.map((s) => {
@@ -35,7 +35,8 @@ export function CycleStepper({ current, className }: { current: number; classNam
                   state === 'todo' && 'text-on-surface-variant',
                 )}
               >
-                {s.title}
+                {/* 當前步同時帶出精確 7 態狀態,與週期 Chip 一致,消除「步驟3 vs 缺失發布中」雙重語彙 */}
+                {s.title}{state === 'now' && statusLabel ? ` · ${statusLabel}` : ''}
               </span>
             </span>
             {s.no < 4 && (
