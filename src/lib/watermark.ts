@@ -50,17 +50,19 @@ async function watermarkPdf(buf: Buffer, text: string, font: Buffer): Promise<Bu
   const pdf = await PDFDocument.load(buf, { ignoreEncryption: true });
   pdf.registerFontkit(fontkit);
   const f = await pdf.embedFont(font, { subset: true });
-  const size = 13;
-  const stepX = 300;
-  const stepY = 150;
+  const size = 16;
+  // 以實際文字寬度當水平間距 → 每組浮水印都完整顯示,不再被裁成片段
+  const textW = f.widthOfTextAtSize(text, size);
+  const stepX = textW + 48;
+  const stepY = 92;
   for (const page of pdf.getPages()) {
     const { width, height } = page.getSize();
-    for (let y = -60; y < height + stepY; y += stepY) {
-      for (let x = -60; x < width + stepX; x += stepX) {
+    for (let y = -100; y < height + stepY; y += stepY) {
+      for (let x = -100; x < width + stepX; x += stepX) {
         page.drawText(text, {
           x, y, size, font: f,
-          color: rgb(0.55, 0.55, 0.6),
-          opacity: 0.16,
+          color: rgb(0.5, 0.5, 0.55),
+          opacity: 0.28,
           rotate: degrees(30),
         });
       }
@@ -82,15 +84,15 @@ async function watermarkImage(buf: Buffer, mime: string, text: string, font: Buf
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0, w, h);
 
-  const fontSize = Math.max(14, Math.round(Math.min(w, h) / 28));
+  const fontSize = Math.max(16, Math.round(Math.min(w, h) / 22));
   ctx.font = `${fontSize}px MOECISHWM`;
-  ctx.fillStyle = 'rgba(110,110,120,0.22)';
+  ctx.fillStyle = 'rgba(95,95,110,0.32)';
   ctx.textBaseline = 'middle';
   ctx.save();
   ctx.translate(w / 2, h / 2);
   ctx.rotate((-30 * Math.PI) / 180);
-  const tileW = ctx.measureText(text).width + fontSize * 4;
-  const tileH = fontSize * 6;
+  const tileW = ctx.measureText(text).width + fontSize * 3;
+  const tileH = fontSize * 4.5;
   const reach = Math.max(w, h);
   for (let y = -reach; y < reach; y += tileH) {
     for (let x = -reach; x < reach; x += tileW) {
