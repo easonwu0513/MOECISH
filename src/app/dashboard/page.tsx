@@ -21,6 +21,8 @@ import {
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
+import { IdentityBand } from '@/components/dashboard/IdentityBand';
+import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
@@ -157,27 +159,44 @@ export default async function HomePage() {
   const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
   const duties = ROLE_STEP_DUTIES[user.role];
 
+  // 身分帶範圍 + 主行動(取最高優先待辦)
+  const orgCount = new Set(cycles.map((c) => c.organizationId)).size;
+  const scopeText =
+    user.role === 'ORG_ADMIN'
+      ? user.organizationName ?? '機關承辦'
+      : user.role === 'AUDITOR'
+        ? `稽核委員 · 經指派 ${cycles.length} 個週期`
+        : `教育部稽核中心 · 監督 ${orgCount} 院`;
+  const topTodo = todos[0];
+  const topAction = topTodo ? { text: topTodo.title, href: topTodo.href, cta: topTodo.cta } : null;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽' }]}
     >
       <PasswordExpiryNotice />
-      {/* Hero */}
+      {/* 身分帶 + 主行動橫幅(③ 工作台頂部) */}
       <section className="mb-6">
-        <p className="text-caption text-on-surface-variant tracking-wide">{today}</p>
-        <h1 className="mt-2 text-display-sm text-on-surface text-balance">
-          {greeting}，{user.name}。
-        </h1>
-        {todos.length > 0 ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant max-w-2xl text-pretty">
-            今天有 <span className="font-semibold text-primary-700 tabular-nums">{todos.length}</span> 項待辦需處理。
-          </p>
-        ) : cycles.length > 0 ? (
-          <p className="mt-3 text-body-lg text-on-surface-variant">
-            目前沒有待辦，隨時可進入稽核週期檢視進度。
-          </p>
-        ) : null}
+        <h1 className="sr-only">總覽工作台</h1>
+        <p className="text-caption text-on-surface-variant tracking-wide mb-2">{today}</p>
+        <IdentityBand
+          avatar={user.name.slice(0, 1)}
+          title={`${greeting}，${user.name}`}
+          subtitle={scopeText}
+          roleChip={<Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>}
+          right={
+            todos.length > 0 ? (
+              <>
+                <div className="text-headline text-primary-700 tabular-nums leading-none">{todos.length}</div>
+                <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
+              </>
+            ) : undefined
+          }
+        />
+        {cycles.length > 0 && (
+          <PrimaryActionBanner next={topAction} className="mt-4" doneText="目前沒有待辦事項,一切都在進度上。" />
+        )}
       </section>
 
       {cycles.length === 0 ? (
