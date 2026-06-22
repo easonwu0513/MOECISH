@@ -117,7 +117,9 @@ export async function sendEmail(input: SendEmailInput) {
     },
   });
 
-  try {
+  // 個資保護:正式環境不另外落地含姓名/Email/內文的明文信件副本
+  // (DB EmailLog 已是唯一真實來源);僅在非正式環境保留 .txt 供開發/示範檢視。
+  if (process.env.NODE_ENV !== 'production') try {
     const dir = path.join(STORAGE_DIR, 'emails');
     await mkdir(dir, { recursive: true });
     const safeSubject = input.subject.replace(/[^\w\-一-鿿]/g, '_').slice(0, 40);

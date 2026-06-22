@@ -112,14 +112,14 @@ export default async function CrossOrgScoresPage({
             <table className="w-full text-body-sm border-collapse">
               <thead className="text-label-sm text-on-surface-variant bg-surface-container-low">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium sticky left-0 bg-surface-container-low">機關</th>
-                  <th className="text-center px-2 py-3 font-medium">年度</th>
+                  <th scope="col" className="text-left px-4 py-3 font-medium sticky left-0 bg-surface-container-low">機關</th>
+                  <th scope="col" className="text-center px-2 py-3 font-medium">年度</th>
                   {DIMENSION_ORDER.map((dim) => (
-                    <th key={dim} className="text-center px-2 py-3 font-medium" title={DIMENSION_LABELS[dim as Dimension]}>
-                      {DIMENSION_NUM[dim as Dimension]}<span className="block text-[10px] font-normal text-on-surface-variant">滿{DIMENSION_MAX_SCORE[dim as Dimension]}</span>
+                    <th key={dim} scope="col" className="text-center px-2 py-3 font-medium" title={DIMENSION_LABELS[dim as Dimension]}>
+                      {DIMENSION_NUM[dim as Dimension]}<span className="block text-label-sm font-normal text-on-surface-variant">滿{DIMENSION_MAX_SCORE[dim as Dimension]}</span>
                     </th>
                   ))}
-                  <th className="text-center px-3 py-3 font-medium">總分</th>
+                  <th scope="col" className="text-center px-3 py-3 font-medium">總分</th>
                 </tr>
               </thead>
               <tbody>

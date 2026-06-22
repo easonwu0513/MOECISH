@@ -43,8 +43,13 @@ export function PortalFooter() {
         </div>
       </div>
       <div className="border-t border-outline-variant/50">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-3 flex-wrap text-caption text-on-surface-variant">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-x-6 gap-y-2 flex-wrap text-caption text-on-surface-variant">
           <span>© 中華民國 {rocYear} 年　教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
+          <nav aria-label="法律與政策" className="flex items-center gap-x-4 gap-y-1 flex-wrap">
+            <Link href="/privacy" className="hover:text-primary-700 transition-colors">隱私權政策</Link>
+            <Link href="/terms" className="hover:text-primary-700 transition-colors">服務條款</Link>
+            <Link href="/copyright" className="hover:text-primary-700 transition-colors">著作權聲明</Link>
+          </nav>
           <span className="tabular-nums">MOECISH v{APP_VERSION} · {BUILD_REV}</span>
         </div>
       </div>

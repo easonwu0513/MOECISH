@@ -108,6 +108,7 @@ export function Sidebar({
                     <li key={i.href}>
                       <Link
                         href={i.href}
+                        aria-current={active ? 'page' : undefined}
                         onClick={(e) => {
                           if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
                           e.preventDefault();

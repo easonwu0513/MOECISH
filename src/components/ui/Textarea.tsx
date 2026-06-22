@@ -45,7 +45,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
             className={cn(
               'absolute pointer-events-none transition-all duration-200 ease-standard left-3.5',
               raised
-                ? 'top-2 text-[0.75rem]'
+                ? 'top-2 text-caption'
                 : 'top-3 text-body',
               hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-on-surface-variant',
             )}
