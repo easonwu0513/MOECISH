@@ -34,7 +34,7 @@ const CreateBody = z.object({
   required: z.boolean().optional(),
 });
 
-import { STANDARD_PREP_ITEMS as STANDARD_ITEMS } from '@/lib/prep-standard';
+import { ensureStandardPrepItems } from '@/lib/prep-standard';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -49,27 +49,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const url = new URL(req.url);
     const meta = extractRequestMeta(req);
 
-    // ?standard=1 → 一鍵套用標準清單
+    // ?standard=1 → 一鍵套用標準清單(與「轉入 PREPARATION 自動套用」共用同一冪等函式)
     if (url.searchParams.get('standard') === '1') {
-      const existing = await prisma.prepRequirement.count({ where: { cycleId: cycle.id } });
-      let order = existing;
-      let created = 0;
-      for (const item of STANDARD_ITEMS) {
-        const dup = await prisma.prepRequirement.findFirst({
-          where: { cycleId: cycle.id, title: item.title },
-        });
-        if (dup) continue;
-        await prisma.prepRequirement.create({
-          data: {
-            cycleId: cycle.id,
-            title: item.title,
-            description: item.description,
-            orderIndex: order++,
-            submission: { create: {} },
-          },
-        });
-        created++;
-      }
+      const created = await ensureStandardPrepItems(cycle.id);
       await writeAuditLog({
         actorId: user.id, action: 'PREP_STANDARD_APPLY', entityType: 'AuditCycle',
         entityId: cycle.id, after: { created }, ...meta,
