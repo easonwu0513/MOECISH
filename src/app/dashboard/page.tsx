@@ -230,7 +230,7 @@ export default async function HomePage() {
         <>
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
-            <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院健康度 · {cycles.length} 個週期</p>
                 <div className="flex gap-3 text-caption text-on-surface-variant">
@@ -424,7 +424,7 @@ export default async function HomePage() {
 
           {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
           {!isSuper && (
-          <section className="mb-10 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+          <section className="mb-8 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
               <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
               <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>
