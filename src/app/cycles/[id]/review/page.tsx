@@ -119,6 +119,7 @@ export default async function ReviewPage({
         organizationName: session.user.organizationName,
       }}
       cycleId={cycle.id}
+      watermark
       crumbs={[
         { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },

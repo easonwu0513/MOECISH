@@ -53,6 +53,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       cycleId={cycle.id}
+      watermark
       crumbs={[
         { label: '總覽', href: '/dashboard' },
         { label: '稽核週期', href: '/cycles' },
