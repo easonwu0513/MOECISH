@@ -76,12 +76,12 @@ const ReviewBody = z.object({
   reviewNote: z.string().optional(),
 });
 
-/** 稽核委員:確認 / 標缺件(缺件必填理由) */
+/** 最高管理員(中心):確認 / 標缺件(缺件必填理由)。資料準備由中心單一審核,避免多委員衝突。 */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, sub } = await loadWithAccess(params.id);
-    if (user.role !== 'AUDITOR') {
-      return NextResponse.json({ error: '僅稽核委員可確認' }, { status: 403 });
+    if (user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: '僅最高管理員可確認資料準備' }, { status: 403 });
     }
     const body = ReviewBody.parse(await req.json());
     if (body.status === 'INSUFFICIENT' && !body.reviewNote?.trim()) {

@@ -99,7 +99,7 @@ export type PrepStatus = (typeof PREP_STATUSES)[number];
 export const PREP_STATUS_LABELS: Record<PrepStatus, string> = {
   EMPTY: '尚未上傳',
   UPLOADED: '已上傳',
-  CONFIRMED: '委員已確認',
+  CONFIRMED: '已確認齊備',
   INSUFFICIENT: '缺件',
 };
 

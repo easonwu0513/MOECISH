@@ -96,9 +96,6 @@ export default async function HomePage() {
     }
 
     if (user.role === 'AUDITOR') {
-      if (st === 'PREPARATION' && e.prepToConfirm > 0) {
-        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 份資料待確認齊備`, href: `${base}/prep`, cta: '去確認' });
-      }
       if (st === 'PREPARATION' && c.checklistSubmittedAt) {
         todos.push({ key: `${c.id}-review`, tone: 'warning', title: `${org}:檢核表已送出,待委員審閱`, href: `${base}/review`, cta: '去審閱' });
       }
@@ -110,6 +107,9 @@ export default async function HomePage() {
     if (user.role === 'SUPER_ADMIN') {
       if (st === 'DRAFT') {
         todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${org}:週期開立中,完成設定後開始準備`, href: base, cta: '去設定' });
+      }
+      if (st === 'PREPARATION' && e.prepToConfirm > 0) {
+        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 份資料待確認齊備`, href: `${base}/prep`, cta: '去確認' });
       }
       if (st === 'PREPARATION' && e.prepAllConfirmed) {
         todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
