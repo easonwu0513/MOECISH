@@ -13,7 +13,7 @@ import { Plus, Check } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   gradeOf, gradeHint, GRADE_TONE,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
@@ -97,7 +97,7 @@ function ScoreSection({
     timer.current = setTimeout(() => void save({ ...scores, [dim]: v }), 900);
   }
 
-  async function save(payload: Record<string, number | null>) {
+  async function save(payload: Record<string, number | null>): Promise<boolean> {
     setSaveState('saving');
     const body = {
       scores: Object.entries(payload).map(([dimension, score]) => ({
@@ -105,6 +105,7 @@ function ScoreSection({
         score: score ?? null,
       })),
     };
+    // 全部清空時送一筆 placeholder 仍會被後端 min(1) 擋;此處至少送出當前狀態
     const res = await fetch(`/api/cycles/${cycleId}/audit/scores`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -114,9 +115,19 @@ function ScoreSection({
       const j = await res.json().catch(() => ({ error: '儲存失敗' }));
       toast.error('評分儲存失敗', j.error);
       setSaveState('dirty');
-      return;
+      return false;
     }
     setSaveState('saved');
+    return true;
+  }
+
+  async function manualSave() {
+    if (timer.current) clearTimeout(timer.current);
+    if (await save(scores)) toast.success('已暫存', '評分已儲存,可稍後再繼續。');
+  }
+  async function confirmDone() {
+    if (timer.current) clearTimeout(timer.current);
+    if (await save(scores)) toast.success('評分填寫完成', '已儲存;如需調整可隨時再修改。');
   }
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -129,18 +140,24 @@ function ScoreSection({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
-          <p className="text-body-sm text-on-surface-variant mt-0.5">
-            九項合計滿分 100;檢核結果統計由機關檢核表自動帶入供參。
+          <p className="text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
+            九項合計滿分 100;檢核結果統計由機關檢核表自動帶入供參。<br />
+            可只評您負責的構面(未評的不計入您的小計);同一構面多位委員評分時,報告以各構面平均彙整。
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {canEdit && (
             <SaveStatus state={saveState === 'saved' ? 'idle' : saveState} dirtyLabel="未儲存" />
           )}
-          {/* 成功一律安靜(進度 Chip 即持久訊號),只在未存/儲存中提示 */}
-          <Chip tone={filledCount === 9 ? 'success' : 'neutral'} size="sm">
-            {filledCount === 9 ? `總分 ${myTotal}` : `已評 ${filledCount} / 9 項`}
+          <Chip tone={filledCount > 0 ? 'primary' : 'neutral'} size="sm">
+            已評 {filledCount} 項{filledCount > 0 ? `・小計 ${myTotal} 分` : ''}
           </Chip>
+          {canEdit && (
+            <>
+              <Button size="sm" variant="tonal" onClick={manualSave} loading={saveState === 'saving'}>暫存</Button>
+              <Button size="sm" leadingIcon={<Check size={14} />} onClick={confirmDone} loading={saveState === 'saving'}>確認填寫完畢</Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -162,7 +179,8 @@ function ScoreSection({
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-body text-on-surface">
-                      {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}
+                      {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
+                      {DIMENSION_LABELS[dim]}
                       <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]} 分)</span>
                     </div>
                     <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
@@ -217,14 +235,8 @@ function ScoreSection({
           </div>
         ))}
         <div className="flex items-center justify-end gap-3 px-5 py-3 bg-surface-container-low">
-          <span className="text-body-sm text-on-surface-variant">得分(滿分 100)</span>
-          {filledCount === 9 ? (
-            <span className="text-title-lg text-on-surface tabular-nums">{myTotal}</span>
-          ) : (
-            <span className="text-body-sm text-warning-700 tabular-nums">
-              {filledCount === 0 ? '尚未評分' : `暫計 ${myTotal} · 尚有 ${9 - filledCount} 項未評`}
-            </span>
-          )}
+          <span className="text-body-sm text-on-surface-variant">您的評分小計(已評 {filledCount} 項;週期彙整得分見報告頁,以各構面平均計算)</span>
+          <span className="text-title-lg text-on-surface tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
         </div>
       </div>
     </section>

@@ -122,9 +122,12 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
     if (vals.length === 0) return null;
     return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
   };
-  const totals = auditors.map((a) => totalOf(a.id)).filter((v): v is number => v !== null);
-  const avgTotal = totals.length > 0
-    ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10
+  // 彙整總分 = 各構面「跨委員平均」之加總(委員可只評其負責構面;此為正式週期得分,
+  // 不以「委員個人總分平均」計,避免只評部分構面的委員拉低整體)
+  const ALL_DIMS = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
+  const dimAvgVals = ALL_DIMS.map((d) => avgOf(d)).filter((v): v is number => v !== null);
+  const aggregateTotal = dimAvgVals.length > 0
+    ? Math.round(dimAvgVals.reduce((a, b) => a + b, 0) * 10) / 10
     : null;
 
   // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
@@ -197,15 +200,15 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               const t = totalOf(a.id);
               const filled = filledOf(a.id);
               if (t === null) return <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">—</td>;
-              const incomplete = filled < TOTAL_DIMS;
+              // 委員可只評負責構面 → 部分評分屬正常,以中性「(N 構面)」標示其評分範圍,非警示
               return (
-                <td key={a.id} className={`px-3 py-2.5 text-center tabular-nums ${incomplete ? 'text-warning-700' : ''}`}>
+                <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">
                   {t}
-                  {incomplete && <span className="ml-1 text-caption">({filled}/{TOTAL_DIMS})</span>}
+                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-on-surface-variant">({filled} 構面)</span>}
                 </td>
               );
             })}
-            <td className="px-3 py-2.5 text-center tabular-nums">{avgTotal ?? '—'}</td>
+            <td className="px-3 py-2.5 text-center tabular-nums font-semibold">{aggregateTotal ?? '—'}</td>
           </tr>
         </tbody>
       </table>
