@@ -269,7 +269,8 @@ export default async function HomePage() {
             </section>
           )}
 
-          {/* 統計列 */}
+          {/* 中心:跨院總覽 4 讀數(其餘角色有各自的讀數,不顯示這排缺失導向統計) */}
+          {isSuper && (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTopBar
               tone="success"
@@ -302,7 +303,17 @@ export default async function HomePage() {
               sub={returned > 0 ? (isSuper ? `${orgsWith((e) => e.returned)} 院需處理` : '需儘速處理') : '無退回'}
             />
           </section>
+          )}
 
+          {isSuper && (
+            <div className="flex gap-2 flex-wrap mb-8">
+              <Button href="/admin/cycles" size="sm" variant="tonal">開立稽核週期</Button>
+              <Button href="/admin/organizations" size="sm" variant="text">醫院管理</Button>
+            </div>
+          )}
+
+          {/* 委員 / 機關:我的(負責)週期 + 待辦(中心已由跨院矩陣涵蓋,不重複出清單) */}
+          {!isSuper && (
           <section className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-6">
             {/* 週期清單 */}
             <Card className="lg:col-span-3" variant="elevated">
@@ -414,8 +425,9 @@ export default async function HomePage() {
               )}
             </Card>
           </section>
+          )}
 
-          {/* ════ 流程指引:四步驟 × 我的角色工作(SUPER_ADMIN 已有頂部階段分布 band,不重複印 step 計數) ════ */}
+          {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
           {!isSuper && (
           <section className="mb-10 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
