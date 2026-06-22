@@ -4,14 +4,17 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { STANDARD_PREP_ITEMS } from '@/lib/prep-standard';
+import { ensureStandardPrepItems } from '@/lib/prep-standard';
 
+const D = /^\d{4}-\d{2}-\d{2}$/;
 const Body = z.object({
   year: z.number().int().min(1900).max(9999),
   checklistVersionId: z.string().min(1),
   organizationIds: z.array(z.string().min(1)).min(1),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  prepDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  dueDate: z.string().regex(D),
+  prepDueDate: z.string().regex(D).nullable().optional(),
+  prepDueTech: z.string().regex(D).nullable().optional(),
+  onsiteDate: z.string().regex(D).nullable().optional(),
   applyStandardPrep: z.boolean().optional(),
 });
 
@@ -44,23 +47,15 @@ export async function POST(req: Request) {
           startDate: new Date(),
           dueDate: new Date(`${body.dueDate}T00:00:00+08:00`),
           prepDueDate: body.prepDueDate ? new Date(`${body.prepDueDate}T00:00:00+08:00`) : null,
+          prepDueTech: body.prepDueTech ? new Date(`${body.prepDueTech}T00:00:00+08:00`) : null,
+          onsiteDate: body.onsiteDate ? new Date(`${body.onsiteDate}T00:00:00+08:00`) : null,
           status: 'DRAFT',
         },
       });
 
+      // 套用標準清單(含三區分類,來源為全域模板;模板空則內建後備)
       if (body.applyStandardPrep) {
-        let order = 0;
-        for (const item of STANDARD_PREP_ITEMS) {
-          await prisma.prepRequirement.create({
-            data: {
-              cycleId: cycle.id,
-              title: item.title,
-              description: item.description,
-              orderIndex: order++,
-              submission: { create: {} },
-            },
-          });
-        }
+        await ensureStandardPrepItems(cycle.id);
       }
 
       created.push({ organizationId: orgId, name: org.shortName ?? org.name, cycleId: cycle.id });
