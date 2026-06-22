@@ -32,7 +32,7 @@ export function PrimaryActionBanner({
   const hasCta = !!(next.href && next.cta);
   return (
     <section className={`rounded-lg bg-primary-700 px-5 py-4 sm:px-6 sm:py-5 ${className}`}>
-      <p className="text-label-sm font-medium uppercase tracking-[0.1em] text-white/70 mb-2">{eyebrow}</p>
+      <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-white/80 mb-2">{eyebrow}</p>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
           <h2 className="text-title-lg text-white leading-snug">{next.text}</h2>

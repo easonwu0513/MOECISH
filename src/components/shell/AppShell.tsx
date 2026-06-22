@@ -66,14 +66,14 @@ export function AppShell({
     <NavProvider>
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
-      <div className="hidden md:flex shrink-0">
+      <div className="hidden lg:flex shrink-0">
         <Sidebar role={user.role} />
       </div>
 
       {/* Mobile drawer */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40"
+          className="lg:hidden fixed inset-0 z-40"
           role="dialog"
           aria-modal="true"
           aria-label="主選單"

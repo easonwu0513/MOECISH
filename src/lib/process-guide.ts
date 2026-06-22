@@ -118,11 +118,11 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
       if (f.prepToConfirm > 0) return { text: `機關已繳交,待審核確認 ${f.prepToConfirm} 項`, href: `${base}/prep`, cta: '去審核' };
       return { text: `資料準備中:已確認 ${f.prepConfirmed}/${f.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
     }
-    if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '查看' };
+    if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '去安排' };
     if (st === 'ONSITE') return { text: '稽核結束後發布缺失(表單或 Excel 匯入)', href: `${base}/deficiencies`, cta: '去發布' };
     if (st === 'REPORT_ISSUED') return { text: '確認缺失內容,通知機關開始矯正', href: base, cta: '去通知' };
     // REMEDIATION
-    if (!f.allPassed) return { text: `追蹤填報:待填 ${f.toFill}・審查中 ${f.submitted}・退回 ${f.returned}${f.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '查看' };
+    if (!f.allPassed) return { text: `追蹤填報:待填 ${f.toFill}・審查中 ${f.submitted}・退回 ${f.returned}${f.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '去追蹤' };
     if (!f.signedUploaded) return { text: '全數通過,等機關上傳用印報告(可寄提醒)', href: '/admin/emails', cta: '寄提醒' };
     if (!f.signedConfirmed) return { text: '用印報告已上傳,確認後正式結案', href: base, cta: '去結案' };
     return { text: '結案處理中', href: base, cta: '查看' };

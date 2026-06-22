@@ -29,7 +29,7 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
         const state = i < curIdx ? 'done' : i === curIdx ? 'now' : 'todo';
         const Icon = state === 'done' ? Check : STAGE_ICON[s];
         return (
-          <li key={s} className="relative flex-1 min-w-[58px] flex flex-col items-center px-1 text-center">
+          <li key={s} className="relative flex-1 min-w-[58px] flex flex-col items-center px-1 text-center" aria-current={state === 'now' ? 'step' : undefined}>
             {/* 連接線:畫到「前一個節點中心」→「本節點中心」 */}
             {i > 0 && (
               <span
@@ -56,6 +56,7 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
               )}
             >
               {CYCLE_STATUS_LABELS[s]}
+              <span className="sr-only">（{state === 'done' ? '已完成' : state === 'now' ? '進行中' : '尚未開始'}）</span>
             </span>
             {state === 'now' && (
               <span className="mt-1 text-label-sm text-primary-700 bg-primary-50 rounded-full px-2 leading-5">進行中</span>

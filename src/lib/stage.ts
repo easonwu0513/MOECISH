@@ -7,7 +7,7 @@ import type { CycleStatus } from './types';
  * 值與原定義逐字相同 → 對既有畫面為等價(行為不變),只是收斂定義點。
  */
 
-export type StageTone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning';
+export type StageTone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger';
 
 /** 7 個週期狀態的顯示名稱。 */
 export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
@@ -26,9 +26,9 @@ export function cycleStatusTone(status: CycleStatus): StageTone {
     case 'DRAFT':         return 'neutral';
     case 'PREPARATION':   return 'primary';
     case 'READY':         return 'sage';
-    case 'ONSITE':        return 'sage';
+    case 'ONSITE':        return 'primary';
     case 'REPORT_ISSUED': return 'warning';
-    case 'REMEDIATION':   return 'warning';
+    case 'REMEDIATION':   return 'danger';
     case 'CLOSED':        return 'success';
   }
 }

@@ -197,7 +197,7 @@ export default async function HomePage() {
           right={
             todos.length > 0 ? (
               <>
-                <div className="text-title-lg text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
+                <div className="text-title-md text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
                 <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
               </>
             ) : undefined
@@ -249,7 +249,7 @@ export default async function HomePage() {
                     const dot = e.overdue ? 'bg-danger-500' : waiting ? 'bg-warning-400' : 'bg-success-500';
                     const health = e.overdue ? '落後' : waiting ? '待留意' : '正常';
                     return (
-                      <li key={e.c.id} className={cn('flex items-center gap-3 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
+                      <li key={e.c.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
                         <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} aria-hidden />
                         <span className="sr-only">健康度{health};</span>
                         <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
@@ -257,7 +257,15 @@ export default async function HomePage() {
                           <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
                         </Link>
                         <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
-                        {n?.text && <span className="hidden sm:block line-clamp-1 max-w-[15rem] text-caption text-on-surface-variant shrink-0">{n.text}</span>}
+                        {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
+                        {n?.href && n?.cta ? (
+                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
+                            {n.cta}
+                            <ChevronRight size={14} />
+                          </Link>
+                        ) : n?.text ? (
+                          <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-on-surface-variant">{n.text}</span>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -379,6 +387,7 @@ export default async function HomePage() {
                     sage: 'border-l-sage-500',
                     success: 'border-l-success-600',
                     warning: 'border-l-warning-500',
+                    danger: 'border-l-danger-600',
                   }[tone];
                   return (
                     <Link
