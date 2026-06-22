@@ -74,7 +74,15 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     deficiencies: stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED',
   };
   // 主行動橫幅:下一步連結若就是本頁則不顯示 CTA(避免自連)
-  const bannerNext = next && next.href === `/cycles/${cycle.id}` ? { ...next, href: undefined, cta: undefined } : next;
+  // 主行動橫幅:下一步若指回本頁(多為「推進狀態」類動作),SUPER 導向頁內管理動作區(避免無按鈕死路);
+  // 其餘角色無管理動作區,則退為純文字(不顯示假按鈕)。
+  const selfHref = `/cycles/${cycle.id}`;
+  const bannerNext =
+    next && next.href === selfHref
+      ? user.role === 'SUPER_ADMIN'
+        ? { ...next, href: `${selfHref}#management`, cta: next.cta ?? '前往處理' }
+        : { ...next, href: undefined, cta: undefined }
+      : next;
 
   // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
   const prepTotal = cycle.prepRequirements.length;
@@ -143,7 +151,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       </header>
 
       {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
-      <PrimaryActionBanner next={bannerNext} className="mb-5" />
+      <PrimaryActionBanner next={bannerNext} subtext={`${cycle.organization.name} · ${yearROC} 年度`} className="mb-5" />
 
       {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
       <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
@@ -332,9 +340,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* SUPER_ADMIN:委員指派 */}
       {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}
 
-      {/* SUPER_ADMIN:管理動作 */}
+      {/* SUPER_ADMIN:管理動作(主行動橫幅的 #management 錨點目標) */}
       {user.role === 'SUPER_ADMIN' && (
-        <Card className="mb-6">
+        <Card id="management" className="mb-6 scroll-mt-24">
           <CardTitle>管理動作</CardTitle>
           <CardDescription>通知機關管理員、推進週期狀態</CardDescription>
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -375,15 +383,18 @@ function ModuleTile({
   /** 非當前階段的入口降權(淡化但仍可點),讓「現在該做的」那張最突出 */
   muted?: boolean;
 }) {
-  const iconBg = {
-    primary: 'bg-primary-50 text-primary-700',
-    sage: 'bg-sage-50 text-sage-700',
-    neutral: 'bg-neutral-100 text-neutral-600',
-  }[tone];
+  // 降權改用「色彩弱化」而非整塊半透明:文字維持全對比(無障礙),非當前階段只把圖示轉中性、卡底略沉
+  const iconBg = muted
+    ? 'bg-surface-container-high text-on-surface-variant'
+    : {
+        primary: 'bg-primary-50 text-primary-700',
+        sage: 'bg-sage-50 text-sage-700',
+        neutral: 'bg-neutral-100 text-neutral-600',
+      }[tone];
 
   return (
     <Link href={href} className="block h-full focus-ring rounded-md">
-      <Card interactive className={`h-full transition-opacity ${muted ? 'opacity-55 hover:opacity-100' : ''}`}>
+      <Card interactive className={`h-full ${muted ? 'bg-surface-container-low' : ''}`}>
         <div className="flex items-start gap-4">
           <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
             {icon}
