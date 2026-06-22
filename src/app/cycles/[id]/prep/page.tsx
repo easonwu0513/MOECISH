@@ -24,7 +24,12 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     include: { submission: true },
     orderBy: { orderIndex: 'asc' },
   });
-  const subIds = requirements.map((r) => r.submission?.id).filter(Boolean) as string[];
+  // 委員僅能檢視中心已「確認齊備」的資料(未確認/補件中者不開放,避免審閱到尚未定版的檔案)
+  const isAuditor = user.role === 'AUDITOR';
+  const visibleRequirements = isAuditor
+    ? requirements.filter((r) => r.submission?.status === 'CONFIRMED')
+    : requirements;
+  const subIds = visibleRequirements.map((r) => r.submission?.id).filter(Boolean) as string[];
   const files = subIds.length
     ? await prisma.evidence.findMany({
         where: { targetType: 'PREP_SUBMISSION', targetId: { in: subIds } },
@@ -54,21 +59,32 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           {yearROC} 年度 · {cycle.organization.name}
           {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
         </p>
-        {total > 0 && (
-          <div className="mt-4 max-w-md">
-            <ProgressBar value={confirmed} max={total} tone="primary" size="sm" />
-            <p className="mt-1.5 text-caption text-on-surface-variant">
-              已確認齊備 <span className="tabular-nums font-medium text-on-surface">{confirmed}</span> / {total} 項
-            </p>
-          </div>
-        )}
+        {isAuditor
+          ? total > 0 && (
+              <p className="mt-3 text-caption text-on-surface-variant">
+                僅顯示中心已確認齊備、開放委員檢視之資料(目前 {confirmed} / {total} 項已確認)。
+              </p>
+            )
+          : total > 0 && (
+              <div className="mt-4 max-w-md">
+                <ProgressBar value={confirmed} max={total} tone="primary" size="sm" />
+                <p className="mt-1.5 text-caption text-on-surface-variant">
+                  已確認齊備 <span className="tabular-nums font-medium text-on-surface">{confirmed}</span> / {total} 項
+                </p>
+              </div>
+            )}
       </header>
 
+      {isAuditor && visibleRequirements.length === 0 ? (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
+          中心尚未確認齊備任何資料,暫無可檢視項目。待中心逐項確認齊備後即會開放於此。
+        </div>
+      ) : (
       <PrepBoard
         cycleId={cycle.id}
         role={user.role}
         cycleStatus={cycle.status}
-        initialItems={requirements.map((r) => ({
+        initialItems={visibleRequirements.map((r) => ({
           id: r.id,
           title: r.title,
           description: r.description,
@@ -89,6 +105,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           sizeBytes: f.sizeBytes,
         }))}
       />
+      )}
     </AppShell>
   );
 }
