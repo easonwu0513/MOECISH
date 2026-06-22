@@ -93,15 +93,33 @@ export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
 // 模組 B：資料準備（P2）
 // ════════════════════════════════════════════
 
-export const PREP_STATUSES = ['EMPTY', 'UPLOADED', 'CONFIRMED', 'INSUFFICIENT'] as const;
+// 資料準備狀態機:
+//   EMPTY(未處理) → UPLOADED(待繳交/草稿,機關仍可改) → SUBMITTED(機關「確定繳交」,鎖定) → CONFIRMED(中心確認齊備)
+//   SUBMITTED/CONFIRMED →(中心退回補正)→ INSUFFICIENT(解鎖,機關補正後重新繳交)
+// 機關「已處理」一項 = 有檔案 或 已填「無相關文件理由」(二擇一)。委員僅見 CONFIRMED。
+export const PREP_STATUSES = ['EMPTY', 'UPLOADED', 'SUBMITTED', 'CONFIRMED', 'INSUFFICIENT'] as const;
 export type PrepStatus = (typeof PREP_STATUSES)[number];
 
 export const PREP_STATUS_LABELS: Record<PrepStatus, string> = {
-  EMPTY: '尚未上傳',
-  UPLOADED: '已上傳',
+  EMPTY: '尚未處理',
+  UPLOADED: '待繳交',
+  SUBMITTED: '已繳交',
   CONFIRMED: '已確認齊備',
-  INSUFFICIENT: '缺件',
+  INSUFFICIENT: '已退回',
 };
+
+/** 機關此時可否編輯該項(上傳/刪檔/改理由):已繳交、已確認齊備 → 鎖定。 */
+export function prepOrgEditable(s: string): boolean {
+  return s === 'EMPTY' || s === 'UPLOADED' || s === 'INSUFFICIENT';
+}
+/** 中心此時可否審核該項(確認/退回):僅機關已繳交或已確認(已確認仍可再退回)。 */
+export function prepReviewable(s: string): boolean {
+  return s === 'SUBMITTED' || s === 'CONFIRMED';
+}
+/** 該週期階段是否仍開放異動資料準備(機關編輯/上傳/刪檔僅限草稿與資料準備中;離開後一律凍結)。 */
+export function prepCyclePhaseOpen(cycleStatus: string): boolean {
+  return cycleStatus === 'DRAFT' || cycleStatus === 'PREPARATION';
+}
 
 // ════════════════════════════════════════════
 // 前台公告（P3）

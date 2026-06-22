@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import { requireUser, AuthError } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { errorResponse } from '@/lib/api';
+import { prepReviewable, prepCyclePhaseOpen } from '@/lib/types';
+import { notifyPrepReturned } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 async function loadWithAccess(submissionId: string) {
   const user = await requireUser();
@@ -26,34 +29,46 @@ async function loadWithAccess(submissionId: string) {
   return { user, sub, cycle };
 }
 
-const OrgBody = z.object({ note: z.string().optional() });
+const OrgBody = z.object({
+  note: z.string().optional(),
+  // 無相關文件理由(與檔案二擇一);傳 '' 或 null 代表清除
+  noFileReason: z.string().nullable().optional(),
+});
 
-/** 機關管理員:更新備註 + 依檔案數重算狀態(EMPTY/UPLOADED;委員已確認則不動) */
+/**
+ * 機關管理員:更新備註 / 無檔案理由,並依「是否已處理(有檔或有理由)」重算狀態(EMPTY ↔ UPLOADED)。
+ * 已繳交(SUBMITTED)或已確認(CONFIRMED)的項目鎖定,需中心退回才能再編輯。
+ */
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { user, sub } = await loadWithAccess(params.id);
+    const { user, sub, cycle } = await loadWithAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可更新' }, { status: 403 });
+    }
+    if (!prepCyclePhaseOpen(cycle.status)) {
+      return NextResponse.json({ error: '資料準備階段已結束,不可再修改' }, { status: 400 });
+    }
+    if (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED') {
+      return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
     }
     const body = OrgBody.parse(await req.json());
 
     const fileCount = await prisma.evidence.count({
       where: { targetType: 'PREP_SUBMISSION', targetId: sub.id },
     });
-    const nextStatus =
-      sub.status === 'CONFIRMED'
-        ? 'CONFIRMED'
-        : fileCount > 0
-        ? 'UPLOADED'
-        : 'EMPTY';
+    const nextReason =
+      body.noFileReason !== undefined ? (body.noFileReason?.trim() || null) : sub.noFileReason;
+    const addressed = fileCount > 0 || !!nextReason;
+    const nextStatus = addressed ? 'UPLOADED' : 'EMPTY';
 
     const updated = await prisma.prepSubmission.update({
       where: { id: sub.id },
       data: {
-        note: body.note,
+        ...(body.note !== undefined ? { note: body.note } : {}),
+        ...(body.noFileReason !== undefined ? { noFileReason: nextReason } : {}),
         status: nextStatus,
-        // 重新上傳後清掉缺件註記
-        ...(nextStatus === 'UPLOADED' && sub.status === 'INSUFFICIENT'
+        // 補正重傳後清掉退回註記
+        ...(sub.status === 'INSUFFICIENT' && nextStatus === 'UPLOADED'
           ? { reviewNote: null, reviewedById: null, reviewedAt: null }
           : {}),
       },
@@ -76,23 +91,36 @@ const ReviewBody = z.object({
   reviewNote: z.string().optional(),
 });
 
-/** 最高管理員(中心):確認 / 標缺件(缺件必填理由)。資料準備由中心單一審核,避免多委員衝突。 */
+/**
+ * 最高管理員(中心):確認齊備 / 退回補正(退回必填說明)。
+ * 僅可審核「機關已確定繳交」(SUBMITTED)或先前已確認(CONFIRMED,可再退回)之項目;
+ * 草稿/未處理(機關尚未繳交)不可審。資料準備由中心單一審核,避免多委員衝突。
+ */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { user, sub } = await loadWithAccess(params.id);
+    const { user, sub, cycle } = await loadWithAccess(params.id);
     if (user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: '僅最高管理員可確認資料準備' }, { status: 403 });
+      return NextResponse.json({ error: '僅最高管理員可審核資料準備' }, { status: 403 });
+    }
+    if (cycle.status !== 'PREPARATION') {
+      return NextResponse.json({ error: '此週期已離開資料準備階段,不可審核資料準備' }, { status: 400 });
     }
     const body = ReviewBody.parse(await req.json());
+    if (!prepReviewable(sub.status)) {
+      return NextResponse.json({ error: '機關尚未確定繳交此項,無法審核' }, { status: 400 });
+    }
+    if (body.status === 'CONFIRMED' && sub.status !== 'SUBMITTED') {
+      return NextResponse.json({ error: '僅可確認機關已繳交之項目' }, { status: 400 });
+    }
     if (body.status === 'INSUFFICIENT' && !body.reviewNote?.trim()) {
-      return NextResponse.json({ error: '標記缺件必須填寫說明' }, { status: 400 });
+      return NextResponse.json({ error: '退回補正必須填寫說明' }, { status: 400 });
     }
 
     const updated = await prisma.prepSubmission.update({
       where: { id: sub.id },
       data: {
         status: body.status,
-        reviewNote: body.reviewNote?.trim() || null,
+        reviewNote: body.status === 'INSUFFICIENT' ? (body.reviewNote?.trim() || null) : null,
         reviewedById: user.id,
         reviewedAt: new Date(),
       },
@@ -101,12 +129,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
-      action: body.status === 'CONFIRMED' ? 'PREP_CONFIRM' : 'PREP_INSUFFICIENT',
+      action: body.status === 'CONFIRMED' ? 'PREP_CONFIRM' : 'PREP_RETURN',
       entityType: 'PrepSubmission',
       entityId: sub.id,
       after: { status: updated.status },
       ...meta,
     });
+
+    // 退回 → 通知機關補正(失敗不擋審核結果)
+    if (body.status === 'INSUFFICIENT') {
+      await notifyPrepReturned({
+        submissionId: sub.id,
+        reviewNote: updated.reviewNote ?? '',
+        appBaseUrl: appBaseUrl(req),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ item: updated });
   } catch (e) {

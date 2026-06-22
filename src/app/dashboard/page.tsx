@@ -84,9 +84,11 @@ export default async function HomePage() {
 
     if (user.role === 'ORG_ADMIN') {
       if (st === 'PREPARATION' && e.prepInsufficient > 0) {
-        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.prepInsufficient} 份稽核前資料被標記不足,請補正`, href: `${base}/prep`, cta: '去補正' });
+        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.prepInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
       } else if (st === 'PREPARATION' && e.prepRemaining > 0) {
-        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.prepRemaining}/${e.prepTotal} 份未上傳${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '去上傳' });
+        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.prepRemaining}/${e.prepTotal} 項未處理${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '去處理' });
+      } else if (st === 'PREPARATION' && e.prepDraft > 0) {
+        todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
       }
       if (st === 'REMEDIATION') {
         if (e.returned > 0) todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${e.returned} 項被退回,需補正後重送`, href: `${base}/deficiencies?status=returned`, cta: '去補正' });
@@ -109,7 +111,7 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${org}:週期開立中,完成設定後開始準備`, href: base, cta: '去設定' });
       }
       if (st === 'PREPARATION' && e.prepToConfirm > 0) {
-        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 份資料待確認齊備`, href: `${base}/prep`, cta: '去確認' });
+        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 項資料已繳交,待審核確認`, href: `${base}/prep`, cta: '去審核' });
       }
       if (st === 'PREPARATION' && e.prepAllConfirmed) {
         todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
