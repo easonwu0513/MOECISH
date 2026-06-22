@@ -13,9 +13,8 @@ import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
 import { useDialogA11y } from '../ui/useDialogA11y';
 import { NavProvider } from './NavProgress';
-import {
-  LayoutDashboard, ClipboardCheck, AlertTriangle, Eye, LogOut, Users, History, Shield, BarChart, Briefcase,
-} from '../icons';
+import { AlertTriangle, Eye, LogOut, Shield } from '../icons';
+import { navCommandRoutes, navIcon } from './nav-map';
 
 export function AppShell({
   user,
@@ -35,7 +34,18 @@ export function AppShell({
   const drawerRef = useDialogA11y(mobileOpen, () => setMobileOpen(false));
 
   const commands: Command[] = [
-    { id: 'home', group: '導覽', label: '總覽', icon: <LayoutDashboard size={16} />, action: () => router.push('/dashboard') },
+    // 導覽 + 管理:由 nav-map SoT 派生(與側欄同一份清單,杜絕兩處漂移)
+    ...navCommandRoutes(user.role).map(
+      (r) =>
+        ({
+          id: r.href,
+          group: r.cmdGroupResolved,
+          label: r.label,
+          icon: navIcon(r.iconKey, 16),
+          action: () => router.push(r.href),
+        }) as Command,
+    ),
+    // 週期內情境捷徑(依當前 cycleId 動態產生,非全站路由,故留在此)
     ...(cycleId
       ? [
           { id: 'deficiencies', group: '導覽', label: '缺失與矯正', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/deficiencies`) } as Command,
@@ -43,16 +53,6 @@ export function AppShell({
             ? [{ id: 'review', group: '導覽', label: '委員審閱（檢核表）', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
             : []),
           { id: 'cycle', group: '導覽', label: '稽核週期首頁', hint: '回到本週期', action: () => router.push(`/cycles/${cycleId}`) } as Command,
-        ]
-      : []),
-    ...(user.role === 'SUPER_ADMIN'
-      ? [
-          { id: 'organizations', group: '管理', label: '醫院管理', icon: <Briefcase size={16} />, action: () => router.push('/admin/organizations') } as Command,
-          { id: 'users', group: '管理', label: '使用者管理', icon: <Users size={16} />, action: () => router.push('/admin/users') } as Command,
-          { id: 'cycles-overview', group: '管理', label: '跨院週期總覽', icon: <BarChart size={16} />, action: () => router.push('/admin/cycles') } as Command,
-          { id: 'scores', group: '管理', label: '跨院評分比較', icon: <BarChart size={16} />, action: () => router.push('/admin/scores') } as Command,
-          { id: 'merge-tool', group: '管理', label: '稽核報告彙整工具', icon: <ClipboardCheck size={16} />, action: () => router.push('/admin/tools/audit-merge') } as Command,
-          { id: 'audit-log', group: '管理', label: '稽核軌跡', icon: <History size={16} />, action: () => router.push('/admin/audit-log') } as Command,
         ]
       : []),
     { id: 'password', group: '帳號', label: '變更密碼', icon: <Shield size={16} />, action: () => router.push('/account/password') },
