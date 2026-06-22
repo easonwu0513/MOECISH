@@ -52,6 +52,14 @@ export default async function ReviewPage({
 
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
 
+  // 委員意見作者(本頁僅委員/中心可進入,皆可具名顯示;受稽機關端不具名)
+  const commentAuthorIds = Array.from(new Set(cycle.responses.flatMap((r) => r.comments.map((c) => c.auditorId))));
+  const authorNameById: Record<string, string> = {};
+  if (commentAuthorIds.length) {
+    const authors = await prisma.user.findMany({ where: { id: { in: commentAuthorIds } }, select: { id: true, name: true } });
+    for (const a of authors) authorNameById[a.id] = a.name;
+  }
+
   // 佐證檔案:委員需看附件才能判定符合度(沿用 evidences 下載授權)
   const evidenceList = await prisma.evidence.findMany({
     where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: cycle.responses.map((r) => r.id) } },
@@ -71,13 +79,25 @@ export default async function ReviewPage({
     const r = responsesByItem.get(i.id);
     return (r?.comments ?? []).some((c) => !c.resolvedAt);
   }).length;
+  // 已補正待複核:機關已對最新一輪意見標記補正,委員應再次檢視(免得自己逐題翻找)
+  const resolvedPending = cycle.checklistVersion.items.filter((i) => {
+    const cs = responsesByItem.get(i.id)?.comments ?? [];
+    return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
+  }).length;
 
-  // 篩選:answered=只看已作答、comments=只看意見待補(87 題全平鋪對委員掃讀太沉重)
-  const filter = searchParams.filter === 'answered' || searchParams.filter === 'comments' ? searchParams.filter : null;
+  // 篩選:answered=只看已作答、comments=意見待補、resolved=已補正待複核
+  const filter =
+    ['answered', 'comments', 'resolved'].includes(searchParams.filter ?? '')
+      ? (searchParams.filter as 'answered' | 'comments' | 'resolved')
+      : null;
   const matchFilter = (itemId: string) => {
     const r = responsesByItem.get(itemId);
     if (filter === 'answered') return Boolean(r?.compliance);
     if (filter === 'comments') return (r?.comments ?? []).some((c) => !c.resolvedAt);
+    if (filter === 'resolved') {
+      const cs = r?.comments ?? [];
+      return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
+    }
     return true;
   };
   const grouped = DIMENSION_ORDER.map((dim) => ({
@@ -131,6 +151,11 @@ export default async function ReviewPage({
           {withOpenComments > 0 && (
             <FilterChipLink href={`/cycles/${cycle.id}/review?filter=comments`} selected={filter === 'comments'}>
               意見待補 <FilterChipCount selected={filter === 'comments'}>{withOpenComments}</FilterChipCount>
+            </FilterChipLink>
+          )}
+          {resolvedPending > 0 && (
+            <FilterChipLink href={`/cycles/${cycle.id}/review?filter=resolved`} selected={filter === 'resolved'}>
+              已補正待複核 <FilterChipCount selected={filter === 'resolved'}>{resolvedPending}</FilterChipCount>
             </FilterChipLink>
           )}
         </div>
@@ -238,7 +263,7 @@ export default async function ReviewPage({
                                 }
                               >
                                 <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
-                                  <span>第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
+                                  <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
                                   {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                 </div>
                                 <p className="whitespace-pre-wrap text-on-surface-variant leading-relaxed">{cm.content}</p>
