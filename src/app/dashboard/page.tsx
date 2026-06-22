@@ -21,6 +21,7 @@ import {
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
+import { cn } from '@/lib/cn';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
@@ -219,31 +220,51 @@ export default async function HomePage() {
         </Card>
       ) : (
         <>
-          {/* SUPER_ADMIN 指揮台:全院階段分布(一眼看誰落後) */}
+          {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
-            <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-label text-on-surface-variant">全院稽核階段分布</p>
-                <span className="text-caption text-on-surface-variant tabular-nums">共 {cycles.length} 個週期</span>
+            <section className="mb-6 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院健康度 · {cycles.length} 個週期</p>
+                <div className="flex gap-3 text-caption text-on-surface-variant">
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger-500" aria-hidden />落後</span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning-400" aria-hidden />待留意</span>
+                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success-500" aria-hidden />正常</span>
+                </div>
               </div>
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {PROCESS_STEPS.map((s, i) => (
-                  <Link
-                    key={s.no}
-                    href="/admin/cycles"
-                    className="rounded-md bg-surface-container px-3 py-2.5 hover:bg-surface-container-high transition-colors focus-ring"
-                  >
-                    <p className="text-caption text-on-surface-variant">步驟 {s.no}・{s.title}</p>
-                    <p className="text-headline-sm text-on-surface tabular-nums">
-                      {stepCycleCounts[i]}<span className="text-body-sm text-on-surface-variant"> 院</span>
-                    </p>
-                  </Link>
-                ))}
-              </div>
-              {overdueCount > 0 && (
-                <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="mt-2 inline-block text-caption text-danger-700 hover:underline">
-                  ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
-                </Link>
+              <ul className="divide-y divide-outline-variant/50">
+                {[...enriched]
+                  .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.step - b.step)
+                  .slice(0, 8)
+                  .map((e) => {
+                    const n = nextActionForRole('SUPER_ADMIN', e);
+                    const waiting = e.prepToConfirm > 0 || (e.allPassed && e.signedUploaded && !e.signedConfirmed);
+                    const dot = e.overdue ? 'bg-danger-500' : waiting ? 'bg-warning-400' : 'bg-success-500';
+                    return (
+                      <li key={e.c.id} className={cn('flex items-center gap-3 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
+                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} aria-hidden />
+                        <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded">
+                          <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
+                          <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
+                        </Link>
+                        <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
+                        {n?.text && <span className="hidden md:block max-w-[15rem] truncate text-caption text-on-surface-variant">{n.text}</span>}
+                      </li>
+                    );
+                  })}
+              </ul>
+              {(overdueCount > 0 || enriched.length > 8) && (
+                <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-outline-variant/60">
+                  {overdueCount > 0 ? (
+                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="text-caption text-danger-700 hover:underline">
+                      ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
+                    </Link>
+                  ) : (
+                    <span />
+                  )}
+                  {enriched.length > 8 && (
+                    <Link href="/admin/cycles" className="text-caption text-primary-700 hover:underline">查看全部 {enriched.length} 個週期 →</Link>
+                  )}
+                </div>
               )}
             </section>
           )}
