@@ -33,7 +33,12 @@ export function ProgressRing({
   }[tone];
 
   return (
-    <div className={cn('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }}>
+    <div
+      className={cn('relative inline-flex items-center justify-center', className)}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`${label ? label + ' ' : ''}${sublabel ?? ''}(${Math.round(pct)}%)`}
+    >
       <svg width={size} height={size} className="-rotate-90" aria-hidden>
         <circle
           cx={size / 2}

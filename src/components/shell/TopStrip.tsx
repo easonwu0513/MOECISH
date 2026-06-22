@@ -23,7 +23,7 @@ export function TopStrip({
 }) {
   return (
     <div className="sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60">
-      <div className="md:hidden">
+      <div className="lg:hidden">
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
       </div>
 
