@@ -43,6 +43,7 @@ export type ClientResponse = {
     round: number;
     resolvedAt: Date | string | null;
     createdAt: Date | string;
+    authorName: string | null;
   }[];
 };
 

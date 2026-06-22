@@ -73,6 +73,17 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     if (n > 0) evidenceCountByItem[r.checklistItemId] = n;
   }
 
+  // 委員意見作者:僅委員/中心可見具名;受稽機關端不顯示作者(避免針對個別委員)
+  const showAuthors = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
+  const commentAuthorIds = showAuthors
+    ? Array.from(new Set(cycle.responses.flatMap((r) => r.comments.map((c) => c.auditorId))))
+    : [];
+  const authorNameById: Record<string, string> = {};
+  if (commentAuthorIds.length) {
+    const authors = await prisma.user.findMany({ where: { id: { in: commentAuthorIds } }, select: { id: true, name: true } });
+    for (const a of authors) authorNameById[a.id] = a.name;
+  }
+
   const responses = cycle.responses.map((r) => ({
     id: r.id,
     checklistItemId: r.checklistItemId,
@@ -86,6 +97,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
       round: c.round,
       resolvedAt: c.resolvedAt,
       createdAt: c.createdAt,
+      authorName: showAuthors ? (authorNameById[c.auditorId] ?? '委員') : null,
     })),
   }));
 
