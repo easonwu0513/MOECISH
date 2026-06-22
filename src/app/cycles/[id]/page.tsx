@@ -190,7 +190,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </section>
       )}
 
-      {/* 統計(三卡統一三段式:大數字 + 標題 + 一行說明,與總覽同語彙) */}
+      {/* 統計(三卡:僅在已有缺失時顯示,資料準備/齊備等前段階段不擺空的缺失指標) */}
+      {total > 0 && (
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatTopBar
           tone="success"
@@ -217,6 +218,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           muted={pendingCount + returned === 0}
         />
       </section>
+      )}
 
       {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}
       <section
