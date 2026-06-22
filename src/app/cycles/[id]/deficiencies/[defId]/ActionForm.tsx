@@ -118,6 +118,7 @@ export default function ActionForm({
   const [actualDate, setActualDate] = useState(toDateInput(action?.actualDate ?? null));
   const [extendedDate, setExtendedDate] = useState(toDateInput(action?.extendedDate ?? null));
   const [delayReason, setDelayReason] = useState(action?.delayReason ?? '');
+  const [pendingExec, setPendingExec] = useState<{ next: ExecStatus; losing: string[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
 
@@ -162,7 +163,8 @@ export default function ActionForm({
     if (actualDate && !nNeedActual) losing.push('實際完成日期');
     if (extendedDate && !nNeedExtended) losing.push('延長日期');
     if (delayReason && !nNeedReason) losing.push('逾期原因');
-    if (losing.length > 0 && !window.confirm(`切換執行情形將清除已填的「${losing.join('、')}」,確定切換?`)) return;
+    // 改用 ConfirmDialog(原 window.confirm 會默默吃掉已填資料,且樣式/焦點不可控)
+    if (losing.length > 0) { setPendingExec({ next, losing }); return; }
     touch();
     setExecStatus(next);
   }
@@ -611,6 +613,17 @@ export default function ActionForm({
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (pendingEv) doRemoveEvidence(pendingEv.id, pendingEv.name); }}
+      />
+
+      {/* 切換執行情形會清掉已填日期/原因 → 明確確認(取代原生 window.confirm) */}
+      <ConfirmDialog
+        open={pendingExec !== null}
+        onOpenChange={(o) => !o && setPendingExec(null)}
+        title="切換執行情形"
+        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」,確定切換?` : undefined}
+        confirmLabel="確定切換"
+        tone="warning"
+        onConfirm={() => { if (pendingExec) { touch(); setExecStatus(pendingExec.next); setPendingExec(null); } }}
       />
     </Card>
   );

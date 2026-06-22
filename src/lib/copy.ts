@@ -2,6 +2,7 @@
 // 專業稽核術語（稽核、缺失、矯正措施、執行情形…）不在這裡改，避免影響公文對照。
 
 export const GREETINGS = {
+  lateNight: '夜深了',
   morning: '早安',
   noon: '午安',
   afternoon: '午安',
@@ -9,7 +10,8 @@ export const GREETINGS = {
 };
 
 export function greetingByHour(hour: number): string {
-  if (hour < 5) return GREETINGS.evening;
+  // 凌晨趕工的承辦讀到「晚安」像被趕走 → 改中性「夜深了」
+  if (hour < 5) return GREETINGS.lateNight;
   if (hour < 11) return GREETINGS.morning;
   if (hour < 14) return GREETINGS.noon;
   if (hour < 18) return GREETINGS.afternoon;

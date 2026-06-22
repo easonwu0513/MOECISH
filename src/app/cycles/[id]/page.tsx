@@ -237,7 +237,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* 匯出 */}
       <Card className="mb-6">
         <CardTitle>匯出</CardTitle>
-        <CardDescription>產出制式公文格式檔案</CardDescription>
+        <CardDescription>
+          產出制式公文格式檔案。
+          {user.role === 'ORG_ADMIN'
+            ? '「遞交版」為送主管機關之正式檔。'
+            : '「遞交版」為送主管機關正本;「工作底稿」供稽核方內部審查用。'}
+        </CardDescription>
         <div className="mt-4 flex flex-wrap gap-2">
           {total > 0 ? (
             <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
@@ -266,9 +271,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
             </span>
           )}
-          <a href={`/api/cycles/${cycle.id}/export/checklist`}>
-            <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
-          </a>
+          {/* 工作底稿為稽核方內部用,機關端不顯示(避免「這顆是不是給我按的」猶豫) */}
+          {user.role !== 'ORG_ADMIN' && (
+            <a href={`/api/cycles/${cycle.id}/export/checklist`}>
+              <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
+            </a>
+          )}
         </div>
       </Card>
 

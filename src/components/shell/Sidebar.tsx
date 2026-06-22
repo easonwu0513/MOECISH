@@ -48,6 +48,7 @@ const groups: Group[] = [
       { href: '/admin/organizations', label: '醫院管理', icon: <Briefcase size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/users', label: '使用者', icon: <Users size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/cycles', label: '跨院週期總覽', icon: <BarChart size={20} />, allow: ['SUPER_ADMIN'] },
+      { href: '/admin/scores', label: '跨院評分比較', icon: <BarChart size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/checklists', label: '檢核表題庫', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/prep-template', label: '資料準備清單', icon: <FileText size={20} />, allow: ['SUPER_ADMIN'] },
       { href: '/admin/posts', label: '公告管理', icon: <Megaphone size={20} />, allow: ['SUPER_ADMIN'] },
