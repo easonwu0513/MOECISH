@@ -74,45 +74,60 @@ export default function PrepBoard({
 
   async function applyStandard() {
     setBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/prep?standard=1`, { method: 'POST' });
-    setBusy(false);
-    if (res.ok) {
-      const j = await res.json();
-      toast.success('已套用標準清單', `新增 ${j.created} 項`);
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '失敗' }));
-      toast.error('套用失敗', j.error);
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/prep?standard=1`, { method: 'POST' });
+      if (res.ok) {
+        const j = await res.json();
+        toast.success('已套用標準清單', `新增 ${j.created} 項`);
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('套用失敗', j.error);
+      }
+    } catch {
+      toast.error('套用失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function addItem() {
     if (title.trim().length < 2) { toast.error('請輸入需求名稱'); return; }
     setBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/prep`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined }),
-    });
-    setBusy(false);
-    if (res.ok) {
-      toast.success('已新增需求項');
-      setTitle(''); setDesc(''); setAddOpen(false);
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '失敗' }));
-      toast.error('新增失敗', j.error);
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/prep`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), description: desc.trim() || undefined }),
+      });
+      if (res.ok) {
+        toast.success('已新增需求項');
+        setTitle(''); setDesc(''); setAddOpen(false);
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('新增失敗', j.error);
+      }
+    } catch {
+      toast.error('新增失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function removeItem(reqId: string) {
     setBusy(true);
-    const res = await fetch(`/api/prep-requirements/${reqId}`, { method: 'DELETE' });
-    setBusy(false);
-    if (res.ok) { toast.success('已刪除需求項'); router.refresh(); }
-    else {
-      const j = await res.json().catch(() => ({ error: '失敗' }));
-      toast.error('刪除失敗', j.error);
+    try {
+      const res = await fetch(`/api/prep-requirements/${reqId}`, { method: 'DELETE' });
+      if (res.ok) { toast.success('已刪除需求項'); router.refresh(); }
+      else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('刪除失敗', j.error);
+      }
+    } catch {
+      toast.error('刪除失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -126,66 +141,81 @@ export default function PrepBoard({
       return;
     }
     setBusyItemId(sub.id);
-    let ok = 0;
-    for (const f of files) {
-      const fd = new FormData();
-      fd.append('file', f);
-      fd.append('targetType', 'PREP_SUBMISSION');
-      fd.append('targetId', sub.id);
-      const res = await fetch('/api/evidences', { method: 'POST', body: fd });
-      if (res.ok) ok += 1;
-      else {
-        const j = await res.json().catch(() => ({ error: '上傳失敗' }));
-        toast.error(`「${f.name}」上傳失敗`, j.error);
+    try {
+      let ok = 0;
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append('file', f);
+        fd.append('targetType', 'PREP_SUBMISSION');
+        fd.append('targetId', sub.id);
+        const res = await fetch('/api/evidences', { method: 'POST', body: fd });
+        if (res.ok) ok += 1;
+        else {
+          const j = await res.json().catch(() => ({ error: '上傳失敗' }));
+          toast.error(`「${f.name}」上傳失敗`, j.error);
+        }
       }
-    }
-    if (ok > 0) {
-      // 重算狀態(EMPTY→UPLOADED;清缺件註記),失敗要讓使用者知道,否則委員端看不到待確認
-      const r2 = await fetch(`/api/prep-submissions/${sub.id}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (r2.ok) {
-        toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
-      } else {
-        toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+      if (ok > 0) {
+        // 重算狀態(EMPTY→UPLOADED;清缺件註記),失敗要讓使用者知道,否則委員端看不到待確認
+        const r2 = await fetch(`/api/prep-submissions/${sub.id}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (r2.ok) {
+          toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
+        } else {
+          toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+        }
+        router.refresh();
       }
-      router.refresh();
+    } catch {
+      toast.error('上傳失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusyItemId(null);
+      e.target.value = '';
     }
-    setBusyItemId(null);
-    e.target.value = '';
   }
 
   async function doRemoveFile(id: string, name: string) {
     setBusy(true);
-    const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
-    setBusy(false);
-    setPendingFile(null);
-    if (res.ok) {
-      toast.success('已刪除檔案', name);
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '刪除失敗' }));
-      toast.error('刪除失敗', j.error);
+    try {
+      const res = await fetch(`/api/evidences/${id}`, { method: 'DELETE' });
+      setPendingFile(null);
+      if (res.ok) {
+        toast.success('已刪除檔案', name);
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '刪除失敗' }));
+        toast.error('刪除失敗', j.error);
+      }
+    } catch {
+      toast.error('刪除失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function review(subId: string, status: 'CONFIRMED' | 'INSUFFICIENT', note?: string) {
     setBusyItemId(subId);
-    const res = await fetch(`/api/prep-submissions/${subId}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status, reviewNote: note }),
-    });
-    setBusyItemId(null);
-    if (res.ok) {
-      toast.success(status === 'CONFIRMED' ? '已確認' : '已標記缺件');
-      setInsufOpen(null); setInsufNote('');
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '失敗' }));
-      toast.error('操作失敗', j.error);
+    try {
+      const res = await fetch(`/api/prep-submissions/${subId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status, reviewNote: note }),
+      });
+      if (res.ok) {
+        toast.success(status === 'CONFIRMED' ? '已確認' : '已標記缺件');
+        setInsufOpen(null); setInsufNote('');
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('操作失敗', j.error);
+      }
+    } catch {
+      toast.error('操作失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusyItemId(null);
     }
   }
 
