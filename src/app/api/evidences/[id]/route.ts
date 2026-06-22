@@ -48,8 +48,12 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         if (cycle.organizationId !== user.organizationId) {
           return NextResponse.json({ error: '無權刪除其他機關之文件' }, { status: 403 });
         }
-        if (sub.status === 'CONFIRMED' || !(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION')) {
-          return NextResponse.json({ error: '已確認齊備或週期已進入後續階段,文件不可刪除' }, { status: 400 });
+        if (
+          sub.status === 'CONFIRMED' ||
+          sub.status === 'SUBMITTED' ||
+          !(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION')
+        ) {
+          return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段,文件不可刪除' }, { status: 400 });
         }
       } else {
         return NextResponse.json({ error: '此類型佐證不可刪除' }, { status: 400 });
@@ -59,16 +63,27 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     await prisma.evidence.delete({ where: { id: e.id } });
     await deleteFileByKey(e.storageKey);
 
-    // 準備文件刪到一份不剩時,狀態退回「未上傳」
+    // 準備文件刪到一份不剩時重算狀態:有無檔理由 → 仍「待繳交」,否則退回「未處理」
+    // (僅在機關仍可編輯之狀態重算;已繳交/已確認由管理員覆寫刪除時不動狀態)
     if (e.targetType === 'PREP_SUBMISSION') {
       const left = await prisma.evidence.count({
         where: { targetType: 'PREP_SUBMISSION', targetId: e.targetId },
       });
       if (left === 0) {
-        await prisma.prepSubmission.update({
+        const sub = await prisma.prepSubmission.findUnique({
           where: { id: e.targetId },
-          data: { status: 'EMPTY' },
+          select: { status: true, noFileReason: true },
         });
+        if (sub && sub.status !== 'CONFIRMED' && sub.status !== 'SUBMITTED') {
+          await prisma.prepSubmission.update({
+            where: { id: e.targetId },
+            data: {
+              status: sub.noFileReason?.trim() ? 'UPLOADED' : 'EMPTY',
+              // 從「已退回」清空檔案後一併清除退回註記,避免狀態與註記不一致
+              ...(sub.status === 'INSUFFICIENT' ? { reviewNote: null, reviewedById: null, reviewedAt: null } : {}),
+            },
+          });
+        }
       }
     }
 

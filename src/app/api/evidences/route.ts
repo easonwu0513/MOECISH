@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
+import { prepCyclePhaseOpen } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -36,6 +37,20 @@ export async function POST(req: Request) {
     }
     // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
     const { user, cycle } = await assertEvidenceAccess(targetType, targetId);
+
+    // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
+    if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
+      if (!prepCyclePhaseOpen(cycle.status)) {
+        return NextResponse.json({ error: '資料準備階段已結束,不可再上傳' }, { status: 400 });
+      }
+      const sub = await prisma.prepSubmission.findUnique({
+        where: { id: targetId },
+        select: { status: true },
+      });
+      if (sub && (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED')) {
+        return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
+      }
+    }
 
     if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json({ error: '檔案超過 20MB 上限' }, { status: 400 });

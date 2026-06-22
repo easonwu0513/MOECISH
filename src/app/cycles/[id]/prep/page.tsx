@@ -94,7 +94,9 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
                 id: r.submission.id,
                 status: r.submission.status,
                 note: r.submission.note,
+                noFileReason: r.submission.noFileReason,
                 reviewNote: r.submission.reviewNote,
+                submittedAt: r.submission.submittedAt ? r.submission.submittedAt.toISOString() : null,
               }
             : null,
         }))}

@@ -269,6 +269,90 @@ export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: st
   return { recipientCount: recipients.length };
 }
 
+/** 機關「確定繳交」稽核前資料 → 通知最高管理員(中心)開始審核。 */
+export async function notifyPrepSubmitted(opts: {
+  cycleId: string;
+  submittedByName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/prep`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} 已確定繳交 ${yearROC} 年度稽核前資料,請審核`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} 已由 ${opts.submittedByName} 完成 ${yearROC} 年度稽核前資料準備並「確定繳交」,內容已鎖定。\n` +
+          `請登入系統逐項審核(確認齊備或退回補正):\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'prep-submitted',
+        relatedCycleId: cycle.id,
+        context: { submittedBy: opts.submittedByName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 中心退回某項稽核前資料 → 通知機關管理員(帶退回說明與直達連結)。 */
+export async function notifyPrepReturned(opts: {
+  submissionId: string;
+  reviewNote: string;
+  appBaseUrl: string;
+}) {
+  const sub = await prisma.prepSubmission.findUnique({
+    where: { id: opts.submissionId },
+    include: { requirement: { include: { cycle: { include: { organization: true } } } } },
+  });
+  if (!sub) return { recipientCount: 0 };
+  const cycle = sub.requirement.cycle;
+
+  const recipients = await prisma.user.findMany({
+    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/prep`;
+  const yearROC = cycle.year - 1911;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${yearROC} 年度稽核前資料「${sub.requirement.title}」被退回補正`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} ${yearROC} 年度稽核前資料之「${sub.requirement.title}」經中心審核退回補正。\n\n` +
+          `退回說明:\n${opts.reviewNote}\n\n` +
+          `請依說明補正後重新「確定繳交」:\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'prep-returned',
+        relatedCycleId: cycle.id,
+        context: { submissionId: sub.id, title: sub.requirement.title },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 週期狀態推進(forward 轉換)時通知機關管理員;依新狀態給對應訊息與連結。 */
 export async function notifyCycleStatusChange(opts: {
   cycleId: string;

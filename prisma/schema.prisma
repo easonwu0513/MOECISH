@@ -244,8 +244,11 @@ model PrepSubmission {
   id            String  @id @default(cuid())
   requirementId String  @unique
   requirement   PrepRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
-  status        String  @default("EMPTY") // PrepStatus: EMPTY | UPLOADED | CONFIRMED | INSUFFICIENT
+  // PrepStatus: EMPTY(未處理) | UPLOADED(待繳交/草稿) | SUBMITTED(機關已確定繳交,鎖定) | CONFIRMED(中心確認齊備) | INSUFFICIENT(中心退回補正)
+  status        String  @default("EMPTY")
   note          String?
+  noFileReason  String?   // 無相關文件時的敘述理由(與檔案二擇一即視為已處理)
+  submittedAt   DateTime? // 機關「確定繳交」時間
   reviewNote    String?
   reviewedById  String?
   reviewedAt    DateTime?

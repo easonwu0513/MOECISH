@@ -14,6 +14,8 @@ export type EmailKind =
   | 'all-passed'       // 全數通過 → 通知機關用印
   | 'checklist-submitted' // 檢核表填報送出 → 通知委員
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
+  | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
+  | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

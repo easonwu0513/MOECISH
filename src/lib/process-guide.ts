@@ -56,9 +56,10 @@ export type CycleFacts = {
   allPassed: boolean;
   prepTotal: number;
   prepConfirmed: number;
-  prepToConfirm: number;
-  prepInsufficient: number;
-  prepRemaining: number;
+  prepToConfirm: number; // 機關已繳交、待中心確認(SUBMITTED)
+  prepDraft: number;     // 待繳交(UPLOADED,機關已處理未送)
+  prepInsufficient: number; // 中心退回補正(INSUFFICIENT)
+  prepRemaining: number; // 尚未處理(EMPTY / 未建)
   prepAllConfirmed: boolean;
   signedUploaded: boolean;
   signedConfirmed: boolean;
@@ -88,9 +89,10 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const prepStatus = (s: string) =>
     c.prepRequirements.filter((r) => r.submission?.status === s).length;
   const prepConfirmed = prepStatus('CONFIRMED');
-  const prepToConfirm = prepStatus('UPLOADED');
-  const prepInsufficient = prepStatus('INSUFFICIENT');
-  const prepRemaining = prepTotal - prepConfirmed - prepToConfirm; // EMPTY / INSUFFICIENT / 未建
+  const prepToConfirm = prepStatus('SUBMITTED');       // 機關已繳交,待中心確認
+  const prepDraft = prepStatus('UPLOADED');            // 待繳交(已處理未送)
+  const prepInsufficient = prepStatus('INSUFFICIENT'); // 中心退回補正
+  const prepRemaining = prepTotal - prepConfirmed - prepToConfirm - prepDraft - prepInsufficient; // EMPTY / 未建
   const prepAllConfirmed = prepTotal > 0 && prepConfirmed === prepTotal;
 
   const signedUploaded = c.signedReports.length > 0;
@@ -101,7 +103,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   return {
     id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, onsiteDate: c.onsiteDate,
     returned, submitted, toFill, passed, total, allPassed,
-    prepTotal, prepConfirmed, prepToConfirm, prepInsufficient, prepRemaining, prepAllConfirmed,
+    prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
   };
@@ -121,7 +123,8 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: base, cta: '去設定' };
     if (st === 'PREPARATION') {
       if (f.prepAllConfirmed) return { text: '資料全數確認齊備,可安排實地稽核', href: base, cta: '去安排' };
-      return { text: `資料準備進度:已確認 ${f.prepConfirmed}/${f.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
+      if (f.prepToConfirm > 0) return { text: `機關已繳交,待審核確認 ${f.prepToConfirm} 項`, href: `${base}/prep`, cta: '去審核' };
+      return { text: `資料準備中:已確認 ${f.prepConfirmed}/${f.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '查看' };
     if (st === 'ONSITE') return { text: '稽核結束後發布缺失(表單或 Excel 匯入)', href: `${base}/deficiencies`, cta: '去發布' };
@@ -136,9 +139,11 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (role === 'ORG_ADMIN') {
     if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
     if (st === 'PREPARATION') {
-      if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 份資料被標記不足,請補正重傳`, href: `${base}/prep`, cta: '去補正' };
-      if (f.prepRemaining > 0) return { text: `上傳稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 份)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去上傳' };
-      return { text: '資料已上傳,等待中心確認', href: `${base}/prep`, cta: '查看' };
+      if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
+      if (f.prepRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 項)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去處理' };
+      if (f.prepDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
+      if (f.prepAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
+      return { text: '資料已繳交,等待中心確認', href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
     if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
@@ -167,13 +172,13 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 /** 各角色在四個步驟分別要做的事(後台流程指引文案)。 */
 export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = {
   SUPER_ADMIN: [
-    '開立稽核週期、設定截止日並指派委員;通知機關上傳資料,並逐項確認資料是否齊備。',
+    '開立稽核週期、設定截止日並指派委員;機關確定繳交後,逐項確認資料齊備或退回補正。',
     '實地稽核當日留存查核紀錄;結束後彙整缺失內容。',
     '以表單或 Excel 發布稽核缺失;追蹤各機關填報進度、寄送追蹤信。',
     '委員全數審查通過後,確認機關用印報告並正式結案。',
   ],
   ORG_ADMIN: [
-    '於截止日前上傳檢核表與佐證文件;中心標記缺件時儘速補上。',
+    '於截止日前上傳檢核表與佐證(或敘明無相關文件理由),完成後按「確定繳交」送交中心;被退回時儘速補正重交。',
     '配合委員到場查核,協助提供現場資料。',
     '逐項填報根因分析與改善措施、上傳佐證後送審;退回項目補正重送。',
     '全數通過後列印改善報告,完成用印並上傳回傳中心。',
