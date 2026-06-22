@@ -53,39 +53,52 @@ export async function applyWatermark(buf: Buffer, mime: string, wm: WatermarkTex
 }
 
 async function watermarkPdf(buf: Buffer, wm: WatermarkText, font: Buffer): Promise<Buffer> {
-  const { PDFDocument, degrees, rgb } = await import('pdf-lib');
-  const fontkit = (await import('@pdf-lib/fontkit')).default;
+  // 關鍵:不在 PDF 內嵌中文字型(pdf-lib 對 CJK CFF/OTF 子集化會壞成方框);
+  // 改用 canvas 把浮水印「畫成透明 PNG 疊圖」再蓋到每頁 → CJK 由 canvas 正確渲染。
+  const { PDFDocument } = await import('pdf-lib');
+  const { createCanvas, GlobalFonts } = await import('@napi-rs/canvas');
+  if (!canvasFontRegistered) {
+    GlobalFonts.register(font, 'MOECISHWM');
+    canvasFontRegistered = true;
+  }
   const pdf = await PDFDocument.load(buf, { ignoreEncryption: true });
-  pdf.registerFontkit(fontkit);
-  const f = await pdf.embedFont(font, { subset: true });
-
-  const tileSize = 18;
-  const tileW = f.widthOfTextAtSize(wm.tile, tileSize);
-  const stepX = tileW + 80;
-  const stepY = 120;
-  const footerSize = 9;
+  const cache = new Map<string, Awaited<ReturnType<typeof pdf.embedPng>>>();
 
   for (const page of pdf.getPages()) {
     const { width, height } = page.getSize();
-    // 斜向平鋪短語(交錯排列,完整顯示)
-    let row = 0;
-    for (let y = 20; y < height + stepY; y += stepY, row++) {
-      const xStart = -40 + (row % 2 ? stepX / 2 : 0);
-      for (let x = xStart; x < width + 20; x += stepX) {
-        page.drawText(wm.tile, {
-          x, y, size: tileSize, font: f,
-          color: rgb(0.5, 0.5, 0.55),
-          opacity: 0.26,
-          rotate: degrees(30),
-        });
+    const key = `${Math.round(width)}x${Math.round(height)}`;
+    let img = cache.get(key);
+    if (!img) {
+      const scale = 2; // 以 2x 渲染再縮放,文字清晰
+      const cw = Math.max(1, Math.round(width * scale));
+      const ch = Math.max(1, Math.round(height * scale));
+      const c = createCanvas(cw, ch);
+      const ctx = c.getContext('2d');
+      // 斜向平鋪短語
+      const tileFs = Math.round(16 * scale);
+      ctx.font = `${tileFs}px MOECISHWM`;
+      ctx.fillStyle = 'rgba(110,110,120,0.30)';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.translate(cw / 2, ch / 2);
+      ctx.rotate((-30 * Math.PI) / 180);
+      const tw = ctx.measureText(wm.tile).width + tileFs * 4;
+      const th = tileFs * 5.5;
+      const reach = Math.max(cw, ch);
+      for (let y = -reach; y < reach; y += th) {
+        for (let x = -reach; x < reach; x += tw) ctx.fillText(wm.tile, x, y);
       }
+      ctx.restore();
+      // 頁尾完整資訊
+      const footFs = Math.round(9 * scale);
+      ctx.font = `${footFs}px MOECISHWM`;
+      ctx.fillStyle = 'rgba(70,70,80,0.7)';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(wm.footer, 12 * scale, ch - 10 * scale);
+      img = await pdf.embedPng(await c.encode('png'));
+      cache.set(key, img);
     }
-    // 頁尾完整資訊(水平、清楚可讀)
-    page.drawText(wm.footer, {
-      x: 24, y: 14, size: footerSize, font: f,
-      color: rgb(0.4, 0.4, 0.45),
-      opacity: 0.6,
-    });
+    page.drawImage(img, { x: 0, y: 0, width, height });
   }
   return Buffer.from(await pdf.save());
 }
