@@ -33,6 +33,22 @@ export function cycleStatusTone(status: CycleStatus): StageTone {
   }
 }
 
+/**
+ * StageTone → Tailwind 類別的單一真實來源(border/dot/iconBg)。
+ * 取代散落各處的手抄 tone→class 對照表,避免改色漏改、色階漂移。
+ */
+export function toneClasses(tone: StageTone): { border: string; dot: string; iconBg: string } {
+  const map: Record<StageTone, { border: string; dot: string; iconBg: string }> = {
+    neutral: { border: 'border-l-outline-variant', dot: 'bg-neutral-400', iconBg: 'bg-neutral-100 text-neutral-600' },
+    primary: { border: 'border-l-primary-600', dot: 'bg-primary-500', iconBg: 'bg-primary-50 text-primary-700' },
+    sage: { border: 'border-l-sage-500', dot: 'bg-sage-500', iconBg: 'bg-sage-50 text-sage-700' },
+    success: { border: 'border-l-success-600', dot: 'bg-success-500', iconBg: 'bg-success-50 text-success-700' },
+    warning: { border: 'border-l-warning-500', dot: 'bg-warning-500', iconBg: 'bg-warning-50 text-warning-700' },
+    danger: { border: 'border-l-danger-600', dot: 'bg-danger-500', iconBg: 'bg-danger-50 text-danger-700' },
+  };
+  return map[tone];
+}
+
 /** 對外四步驟流程(前台首頁與後台 Stepper 共用)。 */
 export const PROCESS_STEPS = [
   { no: 1, title: '資料準備' },

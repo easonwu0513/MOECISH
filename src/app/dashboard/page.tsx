@@ -22,6 +22,7 @@ import {
   Briefcase,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
+import { toneClasses } from '@/lib/stage';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { cn } from '@/lib/cn';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
@@ -359,6 +360,7 @@ export default async function HomePage() {
                           </p>
                           <StackedBar
                             height={10}
+                            legend
                             segments={[
                               { value: pc.checklistAnswered, tone: 'success', label: '已填' },
                               { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
@@ -381,14 +383,7 @@ export default async function HomePage() {
                   const { c } = e;
                   const next = nextActionForRole(user.role, e);
                   const tone = cycleStatusTone(c.status as CycleStatus);
-                  const border = {
-                    neutral: 'border-l-outline-variant',
-                    primary: 'border-l-primary-600',
-                    sage: 'border-l-sage-500',
-                    success: 'border-l-success-600',
-                    warning: 'border-l-warning-500',
-                    danger: 'border-l-danger-600',
-                  }[tone];
+                  const border = toneClasses(tone).border;
                   return (
                     <Link
                       key={c.id}

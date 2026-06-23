@@ -32,12 +32,12 @@ export function Sidebar({
     <aside
       className={cn(
         'relative flex flex-col bg-surface-container-low border-r border-outline-variant/60 transition-all duration-200 ease-standard',
-        collapsed ? 'w-20' : 'w-[18rem]',
+        collapsed ? 'w-20' : 'w-[min(18rem,85vw)]',
       )}
     >
       {showBrand && !collapsed && (
-        <div className="h-16 flex items-center px-5">
-          <Wordmark />
+        <div className="h-16 flex items-center px-5 bg-primary-800">
+          <Wordmark onDark />
         </div>
       )}
 
