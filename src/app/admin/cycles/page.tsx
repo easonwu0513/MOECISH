@@ -65,7 +65,7 @@ export default async function AdminCyclesPage({
     const passed = c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'PASSED').length;
     const returned = c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'RETURNED').length;
     const allPassed = total > 0 && passed === total;
-    const overdue = c.status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+    const overdue = c.status === 'REMEDIATION' && !allPassed && !!c.dueDate && new Date(c.dueDate) < now;
     const activeStage =
       ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED'].includes(c.status) ||
       (c.status === 'REMEDIATION' && !allPassed);

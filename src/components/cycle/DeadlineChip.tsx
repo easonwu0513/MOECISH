@@ -12,11 +12,11 @@ export function DeadlineChip({
   size = 'sm',
 }: {
   status: string;
-  dueDate: Date | string;
+  dueDate: Date | string | null;
   allPassed: boolean;
   size?: 'sm' | 'md';
 }) {
-  if (status !== 'REMEDIATION' || allPassed) return null;
+  if (status !== 'REMEDIATION' || allPassed || !dueDate) return null;
   const dueDay = new Date(dueDate);
   dueDay.setHours(0, 0, 0, 0);
   const today = new Date();

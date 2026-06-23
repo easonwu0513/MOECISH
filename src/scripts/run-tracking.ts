@@ -63,6 +63,7 @@ async function main() {
     const unfinished = c.deficiencies.filter((d) => d.action?.status !== 'PASSED').length;
     const returned = c.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
     if (unfinished === 0) continue;
+    if (!c.dueDate) continue; // 尚未設定矯正填報截止 → 無截止可追蹤,略過
 
     // 改用區間判斷:timer 若漏跑某一天,進入視窗後仍會補寄(配合週期級去重避免重發)
     const dleft = daysUntil(c.dueDate, now);

@@ -26,7 +26,7 @@ export async function notifyCycleOrgAdmins(opts: {
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies`;
   const yearROC = cycle.year - 1911;
-  const due = new Date(cycle.dueDate).toLocaleDateString('zh-TW');
+  const due = cycle.dueDate ? new Date(cycle.dueDate).toLocaleDateString('zh-TW') : '(實地稽核後另訂)';
 
   const results = await Promise.all(
     recipients.map((u) =>

@@ -118,7 +118,7 @@ model AuditCycle {
   checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
   status             String   @default("DRAFT") // CycleStatus 2.0
   startDate          DateTime
-  dueDate            DateTime              // 矯正填報截止
+  dueDate            DateTime?             // 矯正填報截止(實地稽核/發文後再設;可不填)
   prepDueDate        DateTime?             // 資料準備(實地稽核區)繳交截止
   prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
   onsiteDate         DateTime?

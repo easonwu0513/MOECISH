@@ -11,7 +11,7 @@ export { PROCESS_STEPS, cycleStepIndex } from './stage';
 export type CycleFactsInput = {
   id: string;
   status: string;
-  dueDate: Date;
+  dueDate: Date | null;
   prepDueDate: Date | null;
   onsiteDate: Date | null;
   deficiencies: { action: { status: string } | null }[];
@@ -26,7 +26,7 @@ export type CycleFactsInput = {
 export type CycleFacts = {
   id: string;
   status: CycleStatus;
-  dueDate: Date;
+  dueDate: Date | null;
   prepDueDate: Date | null;
   onsiteDate: Date | null;
   returned: number;
@@ -84,7 +84,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const signedUploaded = c.signedReports.length > 0;
   const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
   const status = c.status as CycleStatus;
-  const overdue = status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+  const overdue = status === 'REMEDIATION' && !allPassed && !!c.dueDate && new Date(c.dueDate) < now;
 
   const checklistTotal = c.checklistVersion?._count?.items ?? 0;
   const checklistAnswered = (c.responses ?? []).filter((r) => r.compliance != null).length;

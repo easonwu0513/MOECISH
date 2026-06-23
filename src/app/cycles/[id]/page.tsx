@@ -104,10 +104,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     : undefined;
 
   // 矯正截止壓力提示(僅矯正執行中且未全通過時;以本地日界計天數,與追蹤信一致)
-  const dueDay = new Date(cycle.dueDate); dueDay.setHours(0, 0, 0, 0);
+  const dueDay = cycle.dueDate ? new Date(cycle.dueDate) : null;
+  dueDay?.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const daysToDue = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
-  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed;
+  const daysToDue = dueDay ? Math.round((dueDay.getTime() - today.getTime()) / 86400000) : 0;
+  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed && !!cycle.dueDate;
   const deadlineChip = showDeadlineChip
     ? (facts.overdue
         ? <Chip tone="danger" size="sm" dot>已逾期 {Math.abs(daysToDue)} 天</Chip>
@@ -154,7 +155,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' ? (
             <EditCycleDialog
               cycleId={cycle.id}
-              dueDate={cycle.dueDate.toISOString()}
+              dueDate={cycle.dueDate?.toISOString() ?? ''}
               prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
               prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
               onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
