@@ -36,8 +36,8 @@ export function Sidebar({
       )}
     >
       {showBrand && !collapsed && (
-        <div className="h-16 flex items-center px-5 bg-primary-800">
-          <Wordmark onDark />
+        <div className="h-16 flex items-center px-5 border-b border-outline-variant/50">
+          <Wordmark />
         </div>
       )}
 
