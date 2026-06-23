@@ -96,7 +96,9 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
             {user.role === 'AUDITOR'
               ? canEdit
                 ? '填寫您個人的評分與稽核發現;檢核統計由機關填報自動帶入'
-                : '已結案,唯讀'
+                : locked
+                  ? '您已確認填寫完畢、目前鎖定中;如需修改請按「解除鎖定」'
+                  : '已結案,唯讀'
               : '管理員檢視(評分與發現由各委員填寫)'}
           </p>
         </div>
