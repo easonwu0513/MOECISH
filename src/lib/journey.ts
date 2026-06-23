@@ -1,6 +1,7 @@
 import type { Role, JourneyScope } from './types';
 import type { JourneyClientStage } from '@/components/journey/JourneyChecklist';
 import { prisma } from './db';
+import { autoItemDone, type JourneyAutoCtx } from './journey-auto';
 
 /**
  * 引導式精靈（Guided Journey）資料層 SoT。
@@ -51,8 +52,10 @@ export async function loadJourney(opts: {
   cycleId?: string;
   programmeYear?: number;
   role?: Role;
+  /** CYCLE 專用:傳入週期實況,完成度由系統自動判定(不靠 JourneyProgress)。 */
+  autoCtx?: JourneyAutoCtx;
 }): Promise<JourneyView | null> {
-  const { scope, cycleId, programmeYear, role } = opts;
+  const { scope, cycleId, programmeYear, role, autoCtx } = opts;
 
   // 進度過濾條件：CYCLE 綁 cycleId、PROGRAMME 綁 programmeYear。
   const progressWhere =
@@ -81,6 +84,20 @@ export async function loadJourney(opts: {
     const items: JourneyItemView[] = st.items
       .filter((it) => (role ? it.role == null || it.role === role : true))
       .map((it) => {
+        // CYCLE:依系統實況自動判定(不靠手動勾選);PROGRAMME:沿用手動 JourneyProgress。
+        if (scope === 'CYCLE') {
+          return {
+            id: it.id,
+            title: it.title,
+            hint: it.hint,
+            role: (it.role as Role | null) ?? null,
+            orderIndex: it.orderIndex,
+            done: autoCtx ? autoItemDone(st.stageKey, it.autoKey, autoCtx) : false,
+            doneAt: null,
+            doneByName: null,
+            note: null,
+          };
+        }
         const p = it.progress[0];
         return {
           id: it.id,
@@ -144,7 +161,8 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
       role: it.role,
       done: it.done,
       doneByName: it.doneByName,
-      canToggle: canToggleJourneyItem(role, view.scope, it.role),
+      // CYCLE 為系統自動判定 → 一律唯讀;PROGRAMME 維持依角色可手動勾選。
+      canToggle: view.scope === 'CYCLE' ? false : canToggleJourneyItem(role, view.scope, it.role),
     })),
   }));
 }

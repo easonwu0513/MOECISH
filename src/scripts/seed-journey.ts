@@ -11,7 +11,7 @@
  */
 import { prisma } from '../lib/db';
 
-type SeedItem = { title: string; hint?: string; role?: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'AUDITOR' };
+type SeedItem = { title: string; hint?: string; role?: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'AUDITOR'; autoKey?: string };
 type SeedStage = { stageKey: string; title: string; summary?: string; items: SeedItem[] };
 type SeedTemplate = { scope: 'CYCLE' | 'PROGRAMME'; title: string; stages: SeedStage[] };
 
@@ -125,10 +125,10 @@ const CYCLE: SeedTemplate = {
       title: '開立中',
       summary: '中心建立週期、設定截止日與指派委員。',
       items: [
-        { title: '建立稽核週期', role: 'SUPER_ADMIN' },
-        { title: '設定資料準備與矯正填報截止日', role: 'SUPER_ADMIN' },
-        { title: '掛上資料準備需求清單', role: 'SUPER_ADMIN' },
-        { title: '指派稽核委員', role: 'SUPER_ADMIN' },
+        { title: '建立稽核週期', role: 'SUPER_ADMIN', autoKey: 'always' },
+        { title: '設定資料準備與矯正填報截止日', role: 'SUPER_ADMIN', autoKey: 'always' },
+        { title: '掛上資料準備需求清單', role: 'SUPER_ADMIN', autoKey: 'prep_list_set' },
+        { title: '指派稽核委員', role: 'SUPER_ADMIN', autoKey: 'auditors_assigned' },
       ],
     },
     {
@@ -136,10 +136,10 @@ const CYCLE: SeedTemplate = {
       title: '資料準備中',
       summary: '機關上傳資料與填報自評；中心逐項審核齊備。',
       items: [
-        { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN' },
-        { title: '填報資安自評檢核表', role: 'ORG_ADMIN' },
-        { title: '確認資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN' },
-        { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN' },
+        { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN', autoKey: 'prep_uploaded' },
+        { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
+        { title: '確認資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
+        { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN', autoKey: 'prep_confirmed' },
       ],
     },
     {
@@ -147,7 +147,7 @@ const CYCLE: SeedTemplate = {
       title: '資料齊備',
       summary: '中心安排實地稽核；委員熟悉受稽機關。',
       items: [
-        { title: '安排實地稽核日期', role: 'SUPER_ADMIN' },
+        { title: '安排實地稽核日期', role: 'SUPER_ADMIN', autoKey: 'onsite_scheduled' },
         { title: '檢視已確認齊備之資料、熟悉受稽機關背景', role: 'AUDITOR' },
       ],
     },
@@ -159,7 +159,7 @@ const CYCLE: SeedTemplate = {
         { title: '依排定日期到場實地查核', role: 'AUDITOR' },
         { title: '逐題檢視機關自評檢核表並留審閱註記', role: 'AUDITOR' },
         { title: '填寫委員評分與稽核發現', role: 'AUDITOR' },
-        { title: '留存查核紀錄、稽核結束後彙整缺失', role: 'SUPER_ADMIN' },
+        { title: '留存查核紀錄、稽核結束後彙整缺失', role: 'SUPER_ADMIN', autoKey: 'deficiencies_published' },
       ],
     },
     {
@@ -167,7 +167,7 @@ const CYCLE: SeedTemplate = {
       title: '缺失發布中',
       summary: '中心發布缺失並通知機關開始矯正。',
       items: [
-        { title: '以表單或 Excel 發布稽核缺失', role: 'SUPER_ADMIN' },
+        { title: '以表單或 Excel 發布稽核缺失', role: 'SUPER_ADMIN', autoKey: 'deficiencies_published' },
         { title: '通知機關開始矯正', role: 'SUPER_ADMIN' },
         { title: '檢視已發布之缺失內容', role: 'ORG_ADMIN' },
       ],
@@ -177,9 +177,9 @@ const CYCLE: SeedTemplate = {
       title: '矯正執行中',
       summary: '機關逐項填報改善措施；委員審查；中心追蹤。',
       items: [
-        { title: '逐項填報根因分析與改善措施並上傳佐證後送審', role: 'ORG_ADMIN' },
+        { title: '逐項填報根因分析與改善措施並上傳佐證後送審', role: 'ORG_ADMIN', autoKey: 'remediation_submitted' },
         { title: '退回項目補正後重新送審', role: 'ORG_ADMIN' },
-        { title: '逐項審查矯正措施（通過 / 退回附理由）', role: 'AUDITOR' },
+        { title: '逐項審查矯正措施（通過 / 退回附理由）', role: 'AUDITOR', autoKey: 'remediation_reviewed' },
         { title: '追蹤各機關填報進度、寄送追蹤信', role: 'SUPER_ADMIN' },
       ],
     },
@@ -188,8 +188,8 @@ const CYCLE: SeedTemplate = {
       title: '結案',
       summary: '機關用印改善報告上傳；中心確認結案。',
       items: [
-        { title: '列印改善報告、完成用印後上傳回傳中心', role: 'ORG_ADMIN' },
-        { title: '確認機關用印報告並正式結案', role: 'SUPER_ADMIN' },
+        { title: '列印改善報告、完成用印後上傳回傳中心', role: 'ORG_ADMIN', autoKey: 'signed_uploaded' },
+        { title: '確認機關用印報告並正式結案', role: 'SUPER_ADMIN', autoKey: 'signed_confirmed' },
       ],
     },
   ],
@@ -227,6 +227,7 @@ async function seedTemplate(t: SeedTemplate) {
           title: it.title,
           hint: it.hint ?? null,
           role: it.role ?? null,
+          autoKey: it.autoKey ?? null,
           orderIndex: ii,
         },
       });
@@ -236,9 +237,36 @@ async function seedTemplate(t: SeedTemplate) {
   console.log(`[seed] ${t.scope}：${t.stages.length} 階段、${itemCount} 項`);
 }
 
+/**
+ * 對「已存在」的 CYCLE 範本補/校正 autoKey(seedTemplate 對已存在範本會略過建立,
+ * 故既有 prod 資料需在此依 stageKey + title 比對更新)。冪等,不動 title/role/順序。
+ */
+async function reconcileCycleAutoKeys() {
+  const t = await prisma.journeyTemplate.findUnique({
+    where: { scope: 'CYCLE' },
+    include: { stages: { include: { items: true } } },
+  });
+  if (!t) return;
+  let n = 0;
+  for (const s of CYCLE.stages) {
+    const stage = t.stages.find((x) => x.stageKey === s.stageKey);
+    if (!stage) continue;
+    for (const it of s.items) {
+      const want = it.autoKey ?? null;
+      const dbItem = stage.items.find((x) => x.title === it.title);
+      if (dbItem && dbItem.autoKey !== want) {
+        await prisma.journeyItem.update({ where: { id: dbItem.id }, data: { autoKey: want } });
+        n++;
+      }
+    }
+  }
+  if (n) console.log(`[reconcile] CYCLE autoKey 更新 ${n} 項`);
+}
+
 async function main() {
   await seedTemplate(PROGRAMME);
   await seedTemplate(CYCLE);
+  await reconcileCycleAutoKeys();
   console.log('引導式精靈 seed 完成。');
 }
 

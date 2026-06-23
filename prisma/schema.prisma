@@ -471,6 +471,9 @@ model JourneyItem {
   title      String
   hint       String?  // 附註 / 文件位置 / 提示
   role       String?  // CYCLE：限定角色（null = 全體）；PROGRAMME：null
+  // CYCLE 專用:此項對應的「系統動作」鍵 → 由 lib/journey-auto.ts 規則依週期實況自動判定完成,
+  // 不靠手動勾選(null = 無對應動作,於當前階段顯示為進行中、階段過了才視為完成)。PROGRAMME 不用。
+  autoKey    String?
   orderIndex Int
   progress   JourneyProgress[]
 

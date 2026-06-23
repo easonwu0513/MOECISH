@@ -313,9 +313,11 @@ export default function ChecklistShell({
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters（機關管理員不顯示「有意見待補」:填報階段不會事先有委員審核意見） */}
         <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="篩選題目">
-          {filterOptions.map((f) => (
+          {filterOptions
+            .filter((f) => !(f.key === 'comments' && userRole === 'ORG_ADMIN'))
+            .map((f) => (
             <FilterChipButton key={f.key} selected={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
             </FilterChipButton>

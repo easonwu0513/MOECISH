@@ -116,7 +116,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
 
   // 引導式精靈(本週期各階段 checklist):中心看全部(含角色標籤)、機關/委員看自己角色 + 全體項。
   const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
-  const journeyView = await loadJourney({ scope: 'CYCLE', cycleId: cycle.id, role: journeyRole });
+  const journeyView = await loadJourney({
+    scope: 'CYCLE',
+    cycleId: cycle.id,
+    role: journeyRole,
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length },
+  });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
 
   return (
@@ -174,6 +179,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
               引導式精靈 · 各階段任務
+              <span className="ml-2 normal-case tracking-normal text-on-surface-variant/80">依系統進度自動更新</span>
             </p>
             {journeyView && journeyView.total > 0 && (
               <span className="text-caption text-on-surface-variant tabular-nums">

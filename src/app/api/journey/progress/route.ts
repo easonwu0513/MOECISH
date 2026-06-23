@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireUser, assertCycleAccess, AuthError } from '@/lib/rbac';
+import { requireUser, AuthError } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { canToggleJourneyItem } from '@/lib/journey';
@@ -37,6 +37,8 @@ export async function POST(req: Request) {
 
     const scope = item.stage.template.scope as JourneyScope; // 以實際 scope 為準
     if (scope !== body.scope) throw new AuthError(400, 'scope 與項目不符');
+    // 週期精靈改為依系統實況自動判定,不接受手動勾選。
+    if (scope === 'CYCLE') throw new AuthError(400, '週期精靈依系統進度自動更新,無法手動勾選');
     if (!canToggleJourneyItem(user.role, scope, item.role)) {
       throw new AuthError(403, '此項目非您可勾選');
     }
@@ -49,23 +51,13 @@ export async function POST(req: Request) {
       ...(body.note !== undefined ? { note: body.note || null } : {}),
     };
 
-    let progress;
-    if (scope === 'CYCLE') {
-      if (!body.cycleId) throw new AuthError(400, '缺少 cycleId');
-      await assertCycleAccess(body.cycleId); // IDOR 防護:限自家機關 / 被指派委員 / 中心
-      progress = await prisma.journeyProgress.upsert({
-        where: { itemId_cycleId: { itemId: item.id, cycleId: body.cycleId } },
-        create: { itemId: item.id, cycleId: body.cycleId, ...fields },
-        update: fields,
-      });
-    } else {
-      if (body.programmeYear == null) throw new AuthError(400, '缺少 programmeYear');
-      progress = await prisma.journeyProgress.upsert({
-        where: { itemId_programmeYear: { itemId: item.id, programmeYear: body.programmeYear } },
-        create: { itemId: item.id, programmeYear: body.programmeYear, ...fields },
-        update: fields,
-      });
-    }
+    // 此處 scope 必為 PROGRAMME（CYCLE 已於上方擋下,改為系統自動判定)。
+    if (body.programmeYear == null) throw new AuthError(400, '缺少 programmeYear');
+    const progress = await prisma.journeyProgress.upsert({
+      where: { itemId_programmeYear: { itemId: item.id, programmeYear: body.programmeYear } },
+      create: { itemId: item.id, programmeYear: body.programmeYear, ...fields },
+      update: fields,
+    });
 
     await writeAuditLog({
       actorId: user.id,
