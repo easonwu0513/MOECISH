@@ -6,7 +6,7 @@ import {
   type Dimension,
 } from '@/lib/types';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeOf,
 } from '@/lib/audit-score';
 import {
@@ -168,7 +168,8 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
                     </td>
                   )}
                   <td className="px-3 py-2.5 text-on-surface">
-                    {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}
+                    {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
+                    {DIMENSION_LABELS[dim]}
                     <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]})</span>
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.total}</td>

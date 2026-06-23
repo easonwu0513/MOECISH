@@ -51,6 +51,20 @@ export async function assertCycleAccess(cycleId: string) {
 }
 
 /**
+ * 委員「確認填寫完畢」鎖定後,其評分/發現編輯一律擋下(防繞過 UI 直打 API)。
+ * SUPER_ADMIN 不受此限(管理員可覆核);僅對委員本人的鎖定生效。
+ */
+export async function assertAuditorScoreUnlocked(cycleId: string, auditorId: string) {
+  const a = await prisma.auditorAssignment.findUnique({
+    where: { cycleId_auditorId: { cycleId, auditorId } },
+    select: { scoreLockedAt: true },
+  });
+  if (a?.scoreLockedAt) {
+    throw new AuthError(409, '已確認填寫完畢,如需修改請先解除鎖定');
+  }
+}
+
+/**
  * 缺失存取控制（連同所屬週期一起驗證），回傳 user + deficiency(含 cycle/action)。
  */
 export async function assertDeficiencyAccess(deficiencyId: string) {

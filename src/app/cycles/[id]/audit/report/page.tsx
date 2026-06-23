@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
-import { FileText, Settings, Check } from '@/components/icons';
+import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
 import { loadAuditReport, buildReportData, ScoreOverview } from './ReportBody';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
@@ -51,6 +51,13 @@ export default async function AuditReportPage({ params }: { params: { id: string
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
+          <Link
+            href={isAdmin ? `/cycles/${data.id}` : `/cycles/${data.id}/audit`}
+            className="inline-flex items-center gap-1 min-h-9 -ml-1 mb-1 text-label-lg text-primary-700 hover:underline focus-ring rounded"
+          >
+            <ChevronLeft size={16} aria-hidden />
+            {isAdmin ? '返回週期' : '返回評分與發現'}
+          </Link>
           <h1 className="text-headline text-on-surface">實地稽核彙整報告</h1>
           <p className="text-body-sm text-on-surface-variant mt-1">
             {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess } from '@/lib/rbac';
+import { assertCycleAccess, assertAuditorScoreUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { FINDING_KINDS } from '@/lib/audit-score';
@@ -24,6 +24,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '已結案的週期不可再輸入' }, { status: 409 });
     }
+    await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下
 
     const body = CreateBody.parse(await req.json());
     const finding = await prisma.auditFinding.create({

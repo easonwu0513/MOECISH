@@ -194,6 +194,8 @@ model AuditorAssignment {
   auditor   User @relation(fields: [auditorId], references: [id])
   role      String   @default("MEMBER") // LEAD / MEMBER
   reviewDoneAt DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
+  // 委員按「確認填寫完畢」鎖定其評分與稽核發現的時間;鎖定後不可改,解除鎖定會通知最高管理員。
+  scoreLockedAt DateTime?
   createdAt DateTime @default(now())
 
   @@unique([cycleId, auditorId])

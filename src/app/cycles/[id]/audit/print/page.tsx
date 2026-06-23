@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeHint,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind, type DimStat,
 } from '@/lib/audit-score';
@@ -157,7 +157,8 @@ function Att17Sheet({
                     </td>
                   )}
                   <td style={td}>
-                    {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
+                    {/* DIMENSION_LABELS 已含「一、」前綴 */}
+                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
                     <div style={{ fontSize: '9.5pt' }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { requireUser, AuthError, assertAuditorScoreUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { FINDING_KINDS } from '@/lib/audit-score';
@@ -17,6 +17,10 @@ async function loadAndGuard(fid: string) {
   }
   if (finding.deficiencyId) {
     throw new AuthError(409, '此條已轉入缺失管考,鎖定不可再編輯');
+  }
+  // 委員本人已「確認填寫完畢」鎖定 → 擋下(SUPER 覆核不受限)
+  if (user.role === 'AUDITOR') {
+    await assertAuditorScoreUnlocked(finding.cycleId, user.id);
   }
   return { user, finding };
 }

@@ -35,7 +35,10 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
   const isAssigned = cycle.assignments.some((a) => a.auditorId === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
 
-  const canEdit = user.role === 'AUDITOR' && isAssigned && cycle.status !== 'CLOSED';
+  // 委員「確認填寫完畢」鎖定後唯讀;解除鎖定方可再編輯(會通知中心)
+  const myAssignment = cycle.assignments.find((a) => a.auditorId === user.id);
+  const locked = Boolean(myAssignment?.scoreLockedAt);
+  const canEdit = user.role === 'AUDITOR' && isAssigned && cycle.status !== 'CLOSED' && !locked;
 
   // 各構面檢核統計(自動帶入評分表)
   const stats = computeDimStats(cycle.checklistVersion.items, cycle.responses);
@@ -115,6 +118,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         <AuditPad
           cycleId={cycle.id}
           canEdit={canEdit}
+          locked={locked}
           stats={stats}
           itemRefs={cycle.checklistVersion.items.map((i) => i.itemNo)}
           itemContent={itemContent}

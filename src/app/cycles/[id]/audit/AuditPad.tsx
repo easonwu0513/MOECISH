@@ -40,6 +40,7 @@ for (const a of ASPECTS) for (const dim of ASPECT_DIMENSIONS[a]) DIM_TO_ASPECT[d
 export default function AuditPad({
   cycleId,
   canEdit,
+  locked = false,
   stats,
   itemRefs,
   itemContent = {},
@@ -49,6 +50,8 @@ export default function AuditPad({
 }: {
   cycleId: string;
   canEdit: boolean;
+  /** 委員已「確認填寫完畢」鎖定 → 唯讀,顯示「解除鎖定」 */
+  locked?: boolean;
   stats: Record<string, DimStat>;
   itemRefs: string[];
   itemContent?: Record<string, string>;
@@ -62,7 +65,7 @@ export default function AuditPad({
       <datalist id="audit-item-refs">
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} stats={stats} dimIssues={dimIssues} initialScores={initialScores} />
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} initialScores={initialScores} />
       <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} />
     </div>
   );
@@ -71,17 +74,21 @@ export default function AuditPad({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, stats, dimIssues, initialScores,
+  cycleId, canEdit, locked, stats, dimIssues, initialScores,
 }: {
   cycleId: string;
   canEdit: boolean;
+  locked: boolean;
   stats: Record<string, DimStat>;
   dimIssues: Record<string, DimIssue[]>;
   initialScores: Record<string, number>;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const [scores, setScores] = useState<Record<string, number | null>>(initialScores);
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
+  const [lockBusy, setLockBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   function setScore(dim: Dimension, raw: string) {
@@ -125,9 +132,31 @@ function ScoreSection({
     if (timer.current) clearTimeout(timer.current);
     if (await save(scores)) toast.success('已暫存', '評分已儲存,可稍後再繼續。');
   }
-  async function confirmDone() {
+  // 確認填寫完畢 → 先存當前評分,再鎖定(rebuild 後整頁唯讀)
+  async function doConfirmDone() {
     if (timer.current) clearTimeout(timer.current);
-    if (await save(scores)) toast.success('評分填寫完成', '已儲存;如需調整可隨時再修改。');
+    setLockBusy(true);
+    if (!(await save(scores))) { setLockBusy(false); return; }
+    const res = await fetch(`/api/cycles/${cycleId}/audit/lock`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ locked: true }),
+    });
+    setLockBusy(false);
+    setConfirmOpen(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('鎖定失敗', j.error); return; }
+    toast.success('已確認填寫完畢', '評分與發現已鎖定;如需修改請按「解除鎖定」。');
+    router.refresh();
+  }
+  async function unlock() {
+    setLockBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/audit/lock`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ locked: false }),
+    });
+    setLockBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
+    toast.success('已解除鎖定', '已通知最高管理員有內容異動,您可再編輯。');
+    router.refresh();
   }
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -137,6 +166,15 @@ function ScoreSection({
 
   return (
     <section>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => !lockBusy && !o && setConfirmOpen(false)}
+        title="確認填寫完畢?"
+        description="將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。"
+        confirmLabel="確認並鎖定"
+        onConfirm={doConfirmDone}
+        loading={lockBusy}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
@@ -155,7 +193,13 @@ function ScoreSection({
           {canEdit && (
             <>
               <Button size="sm" variant="tonal" onClick={manualSave} loading={saveState === 'saving'}>暫存</Button>
-              <Button size="sm" leadingIcon={<Check size={14} />} onClick={confirmDone} loading={saveState === 'saving'}>確認填寫完畢</Button>
+              <Button size="sm" leadingIcon={<Check size={14} />} onClick={() => setConfirmOpen(true)} loading={lockBusy}>確認填寫完畢</Button>
+            </>
+          )}
+          {locked && (
+            <>
+              <Chip tone="success" size="sm" dot>已確認填寫完畢</Chip>
+              <Button size="sm" variant="tonal" onClick={unlock} loading={lockBusy}>解除鎖定</Button>
             </>
           )}
         </div>
