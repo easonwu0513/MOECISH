@@ -190,6 +190,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               </p>
               <StackedBar
                 height={10}
+                legend
                 segments={[
                   { value: facts.checklistAnswered, tone: 'success', label: '已填' },
                   { value: facts.checklistTotal - facts.checklistAnswered, tone: 'neutral', label: '未填' },

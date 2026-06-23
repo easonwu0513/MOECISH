@@ -18,13 +18,17 @@ export function Logo({ size = 32, className }: { size?: number; className?: stri
   );
 }
 
-export function Wordmark({ className }: { className?: string }) {
+export function Wordmark({ className, onDark }: { className?: string; onDark?: boolean }) {
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <Logo size={30} />
       <span className="flex flex-col leading-none gap-[3px]">
-        <span className="text-[0.9375rem] font-semibold text-neutral-900 tracking-tight">MOECISH</span>
-        <span className="text-[0.6875rem] text-neutral-500 tracking-[0.02em]">資通安全稽核管考平台</span>
+        <span className={cn('text-[0.9375rem] font-semibold tracking-tight', onDark ? 'text-white' : 'text-neutral-900')}>
+          MOECISH
+        </span>
+        <span className={cn('text-[0.6875rem] tracking-[0.02em]', onDark ? 'text-white/75' : 'text-neutral-500')}>
+          資通安全稽核管考平台
+        </span>
       </span>
     </span>
   );
