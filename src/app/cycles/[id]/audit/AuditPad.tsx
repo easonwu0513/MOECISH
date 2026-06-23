@@ -35,6 +35,17 @@ const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
 const DIM_TO_ASPECT: Record<string, DeficiencyAspect> = {};
 for (const a of ASPECTS) for (const dim of ASPECT_DIMENSIONS[a]) DIM_TO_ASPECT[dim] = a;
 
+// 五等第評分標準(實地稽核評分方式):依檢核結果「符合 / 部分符合」數量評定等第與分數,委員打分前參考。
+const GRADE_STANDARD: {
+  cond: string; grade: string; tone: 'success' | 'sage' | 'primary' | 'warning' | 'danger'; s10: string; s20: string;
+}[] = [
+  { cond: '所有項目皆符合 — 執行良好', grade: '優', tone: 'success', s10: '9–10 分', s20: '17–20 分' },
+  { cond: '所有項目皆符合 — 執行尚可', grade: '良', tone: 'sage', s10: '7–8 分', s20: '13–16 分' },
+  { cond: '符合項目數 > 部分符合項目數', grade: '佳', tone: 'primary', s10: '5–6 分', s20: '9–12 分' },
+  { cond: '符合項目數 < 部分符合項目數', grade: '可', tone: 'warning', s10: '4 分', s20: '8 分' },
+  { cond: '半數以上不符合', grade: '待改進', tone: 'danger', s10: '3 分（含）以下', s20: '7 分（含）以下' },
+];
+
 // ─────────────────────────────────────────────
 
 export default function AuditPad({
@@ -204,6 +215,37 @@ function ScoreSection({
           )}
         </div>
       </div>
+
+      <details open className="mb-4 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+        <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-on-surface hover:bg-surface-container-low">
+          五等第評分標準說明(依檢核結果「符合 / 部分符合」數量評定等第與分數)
+        </summary>
+        <div className="px-5 pb-4 overflow-x-auto">
+          <table className="w-full text-caption border-collapse min-w-[30rem]">
+            <thead>
+              <tr className="text-on-surface-variant">
+                <th className="text-left font-medium py-1.5 pr-3 border-b border-outline-variant/60">檢核結果數量</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">等第</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">配分 10 分</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">配分 20 分</th>
+              </tr>
+            </thead>
+            <tbody>
+              {GRADE_STANDARD.map((r) => (
+                <tr key={r.grade} className="border-b border-outline-variant/40 last:border-b-0">
+                  <td className="py-1.5 pr-3 text-on-surface">{r.cond}</td>
+                  <td className="text-center py-1.5 px-2"><Chip size="sm" tone={r.tone}>{r.grade}</Chip></td>
+                  <td className="text-center py-1.5 px-2 tabular-nums text-on-surface-variant">{r.s10}</td>
+                  <td className="text-center py-1.5 px-2 tabular-nums text-on-surface-variant">{r.s20}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-2.5 text-caption text-on-surface-variant leading-relaxed">
+            「執行良好」包括:① 優於規定(如驗證範圍涵蓋全機關);② 對檢核項目要求執行完整確實(如資安績效指標完整且高標準);③ 記錄完整(相關執行紀錄如期如實表現)。
+          </p>
+        </div>
+      </details>
 
       <div className="rounded-md border border-outline-variant/60 overflow-hidden">
         {ASPECTS.map((aspect) => (

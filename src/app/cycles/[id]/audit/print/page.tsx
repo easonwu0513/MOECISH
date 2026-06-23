@@ -223,9 +223,9 @@ function Att17Sheet({
       <div style={{ fontSize: '12pt', marginTop: '18pt', lineHeight: 2 }}>
         <div>稽核日期:{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
         <div>受稽機關:{orgName}</div>
-        <div style={{ marginTop: '14pt', display: 'flex', gap: '48pt', flexWrap: 'wrap' }}>
+        {/* 服務機關／職稱欄移除:部分委員不願公布(依使用者回饋) */}
+        <div style={{ marginTop: '14pt' }}>
           <span>委員簽名:{auditorName ? `${auditorName}　` : ''}________________</span>
-          <span>服務機關／職稱:________________</span>
         </div>
       </div>
     </div>
