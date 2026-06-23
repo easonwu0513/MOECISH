@@ -3,9 +3,9 @@ import { ChevronRight } from '../icons';
 import type { NextAction } from '@/lib/process-guide';
 
 /**
- * 「你現在唯一該做的事」主行動橫幅(③ 政府級莊重設計系統的招牌元件)。
- * 全頁唯一飽和深藍區塊,直取 process-guide 的 nextActionForRole 輸出 → 三秒鎖定下一步。
- * 文案語氣可帶第二人稱暖句(subtext)。無下一步(已結案)時退為中性卡。
+ * 「你現在唯一該做的事」主行動橫幅。
+ * 輕盈版(減法):淺藍底白卡 + 深色動作大字 + 單一 primary 按鈕,以「唯一填色 CTA + 眉標 + 位置」鎖定焦點,
+ * 不用整塊飽和深藍(避免色調過重),保留舒適呼吸感。直取 process-guide 的 nextActionForRole 輸出。
  */
 export function PrimaryActionBanner({
   next,
@@ -23,7 +23,7 @@ export function PrimaryActionBanner({
   if (!next) {
     return (
       <section
-        className={`rounded-lg border border-outline-variant/60 bg-surface-container-low px-5 py-4 text-body-sm text-on-surface-variant ${className}`}
+        className={`rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4 text-body-sm text-on-surface-variant ${className}`}
       >
         {doneText}
       </section>
@@ -31,17 +31,17 @@ export function PrimaryActionBanner({
   }
   const hasCta = !!(next.href && next.cta);
   return (
-    <section className={`rounded-lg bg-primary-700 px-5 py-4 sm:px-6 sm:py-5 ${className}`}>
-      <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-white/80 mb-2">{eyebrow}</p>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <section className={`rounded-lg border border-primary-100 bg-primary-50/70 px-5 py-4 sm:px-6 sm:py-5 ${className}`}>
+      <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-primary-700 mb-1.5">{eyebrow}</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
-          <h2 className="text-title-lg text-white leading-snug">{next.text}</h2>
-          {subtext && <p className="mt-1.5 text-body-sm text-white/80 leading-relaxed">{subtext}</p>}
+          <h2 className="text-title-lg text-on-surface leading-snug">{next.text}</h2>
+          {subtext && <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{subtext}</p>}
         </div>
         {hasCta && (
           <Link
             href={next.href!}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white px-5 min-h-11 text-label-lg font-medium text-primary-800 hover:bg-primary-50 transition-colors focus-ring"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary-600 px-5 min-h-11 text-label-lg font-medium text-white hover:bg-primary-700 transition-colors focus-ring"
           >
             {next.cta}
             <ChevronRight size={18} />
