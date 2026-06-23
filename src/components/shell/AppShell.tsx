@@ -64,6 +64,12 @@ export function AppShell({
 
   return (
     <NavProvider>
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:fixed focus:z-[60] focus:top-3 focus:left-3 focus:rounded-md focus:bg-primary-600 focus:px-4 focus:py-2 focus:text-label-lg focus:font-medium focus:text-white focus:shadow-elev-2"
+    >
+      跳到主要內容
+    </a>
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex shrink-0">

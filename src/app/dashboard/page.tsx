@@ -233,12 +233,8 @@ export default async function HomePage() {
           {isSuper && (
             <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院健康度 · {cycles.length} 個週期</p>
-                <div className="flex gap-3 text-caption text-on-surface-variant">
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger-500" aria-hidden />落後</span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning-400" aria-hidden />待留意</span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success-500" aria-hidden />正常</span>
-                </div>
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院週期總覽 · {cycles.length} 個週期</p>
+                <span className="text-caption text-on-surface-variant">左色條 = 階段;逾期以紅標示</span>
               </div>
               <ul className="divide-y divide-outline-variant/50">
                 {[...enriched]
@@ -246,18 +242,23 @@ export default async function HomePage() {
                   .slice(0, 8)
                   .map((e) => {
                     const n = nextActionForRole('SUPER_ADMIN', e);
-                    const waiting = e.prepToConfirm > 0 || (e.allPassed && e.signedUploaded && !e.signedConfirmed);
-                    const dot = e.overdue ? 'bg-danger-500' : waiting ? 'bg-warning-400' : 'bg-success-500';
-                    const health = e.overdue ? '落後' : waiting ? '待留意' : '正常';
+                    const tone = cycleStatusTone(e.status);
                     return (
-                      <li key={e.c.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
-                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} aria-hidden />
-                        <span className="sr-only">健康度{health};</span>
+                      <li
+                        key={e.c.id}
+                        className={cn(
+                          'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-4 px-4 py-3',
+                          toneClasses(tone).border,
+                          e.overdue && 'bg-danger-50/50',
+                        )}
+                      >
+                        {e.overdue && <span className="sr-only">已逾期;</span>}
                         <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
                           <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
                           <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
                         </Link>
-                        <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
+                        {e.overdue && <Chip tone="danger" size="sm">逾期</Chip>}
+                        <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
                           <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 min-h-11 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
@@ -274,14 +275,14 @@ export default async function HomePage() {
               {(overdueCount > 0 || enriched.length > 8) && (
                 <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-outline-variant/60">
                   {overdueCount > 0 ? (
-                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="text-caption text-danger-700 hover:underline">
+                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="inline-flex items-center min-h-11 -my-1 text-caption text-danger-700 hover:underline focus-ring rounded">
                       ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
                     </Link>
                   ) : (
                     <span />
                   )}
                   {enriched.length > 8 && (
-                    <Link href="/admin/cycles" className="text-caption text-primary-700 hover:underline">查看全部 {enriched.length} 個週期 →</Link>
+                    <Link href="/admin/cycles" className="inline-flex items-center min-h-11 -my-1 text-caption text-primary-700 hover:underline focus-ring rounded">查看全部 {enriched.length} 個週期 →</Link>
                   )}
                 </div>
               )}
