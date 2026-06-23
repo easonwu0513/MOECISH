@@ -69,6 +69,14 @@ export function autoItemDone(stageKey: string, autoKey: string | null, ctx: Jour
   const curIdx = CYCLE_STATUSES.indexOf(ctx.facts.status);
   const stIdx = CYCLE_STATUSES.indexOf(stageKey as CycleStatus);
   if (stIdx < 0 || curIdx < 0) return false; // 非標準階段 key:無法定位,保守視為未完成
+  // 收尾項目(用印報告上傳/結案確認)實際發生在 REMEDIATION 末段(機關上傳→中心確認後才轉 CLOSED),
+  // 故掛在 CLOSED 階段者,自 REMEDIATION 起就依實況判定,避免在收尾期顯示與實情相反。
+  if (
+    (autoKey === 'signed_uploaded' || autoKey === 'signed_confirmed') &&
+    curIdx >= CYCLE_STATUSES.indexOf('REMEDIATION')
+  ) {
+    return RULES[autoKey]?.(ctx) ?? false;
+  }
   if (stIdx < curIdx) return true; // 已過階段 → 完成
   if (stIdx > curIdx) return false; // 未到階段
   if (!autoKey) return false; // 目前階段、無對應動作 → 進行中

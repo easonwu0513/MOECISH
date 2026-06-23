@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
@@ -70,14 +70,16 @@ export default function AuditPad({
   initialScores: Record<string, number>;
   initialFindings: MyFinding[];
 }) {
+  // 鎖定前需確認「稽核發現」沒有未儲存的編輯(兩個子元件不共享 state,以此 ref 橋接)。
+  const unsavedFindingsRef = useRef<() => boolean>(() => false);
   return (
     <div className="flex flex-col gap-8">
       {/* 對應檢核項次建議清單(委員輸入時下拉選 7.4 等有效項次) */}
       <datalist id="audit-item-refs">
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} initialScores={initialScores} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} />
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} initialScores={initialScores} unsavedFindingsRef={unsavedFindingsRef} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
 }
@@ -85,7 +87,7 @@ export default function AuditPad({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, locked, stats, dimIssues, initialScores,
+  cycleId, canEdit, locked, stats, dimIssues, initialScores, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
@@ -93,6 +95,7 @@ function ScoreSection({
   stats: Record<string, DimStat>;
   dimIssues: Record<string, DimIssue[]>;
   initialScores: Record<string, number>;
+  unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -204,7 +207,21 @@ function ScoreSection({
           {canEdit && (
             <>
               <Button size="sm" variant="tonal" onClick={manualSave} loading={saveState === 'saving'}>暫存</Button>
-              <Button size="sm" leadingIcon={<Check size={14} />} onClick={() => setConfirmOpen(true)} loading={lockBusy}>確認填寫完畢</Button>
+              <Button
+                size="sm"
+                leadingIcon={<Check size={14} />}
+                loading={lockBusy}
+                onClick={() => {
+                  // 鎖定前擋下未儲存的稽核發現,避免按「確認填寫完畢」後唯讀導致編輯遺失
+                  if (unsavedFindingsRef.current()) {
+                    toast.error('尚有稽核發現未儲存', '請先逐條按「儲存」或取消編輯,再確認填寫完畢。');
+                    return;
+                  }
+                  setConfirmOpen(true);
+                }}
+              >
+                確認填寫完畢
+              </Button>
             </>
           )}
           {locked && (
@@ -355,13 +372,14 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, dimIssues, initialFindings,
+  cycleId, canEdit, itemContent, dimIssues, initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
   itemContent: Record<string, string>;
   dimIssues: Record<string, DimIssue[]>;
   initialFindings: MyFinding[];
+  unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -378,6 +396,10 @@ function FindingSection({
       (d) => (d?.content?.trim().length ?? 0) > 0 || (d?.checklistRef?.trim().length ?? 0) > 0,
     );
   }, [drafts]);
+  // 向父層註冊「是否有未儲存的發現編輯」,供 ScoreSection 鎖定前檢查
+  useEffect(() => {
+    unsavedFindingsRef.current = () => editedRef.current.size > 0 || draftDirtyRef.current;
+  }, [unsavedFindingsRef]);
   useEffect(() => {
     if (!canEdit) return;
     const h = (e: BeforeUnloadEvent) => {

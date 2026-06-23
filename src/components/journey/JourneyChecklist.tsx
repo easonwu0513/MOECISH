@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { Chip } from '@/components/ui/Chip';
@@ -49,6 +49,12 @@ export function JourneyChecklist({
     () => new Set(defaultOpenStageKey ? [defaultOpenStageKey] : initialStages.map((s) => s.stageKey)),
   );
   const [pending, setPending] = useState<Set<string>>(new Set());
+
+  // CYCLE 為唯讀(server 依系統實況計算);router.refresh 軟刷新後同步最新進度。
+  // PROGRAMME 走樂觀更新、自管 state,不覆寫。
+  useEffect(() => {
+    if (scope === 'CYCLE') setStages(initialStages);
+  }, [initialStages, scope]);
 
   function toggleOpen(key: string) {
     setOpen((prev) => {

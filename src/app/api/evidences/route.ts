@@ -7,6 +7,17 @@ import { prepCyclePhaseOpen, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
+/**
+ * 以檔案開頭 magic bytes 判定真實型別(僅認可加浮水印的三種),不信任副檔名 / Content-Type。
+ * 杜絕「.docx 改名 .pdf + 偽造 Content-Type」繞過浮水印的情形。
+ */
+function sniffWatermarkableType(buf: Buffer): 'application/pdf' | 'image/png' | 'image/jpeg' | null {
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'application/pdf'; // %PDF
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png'; // PNG
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'; // JPEG
+  return null;
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -61,15 +72,28 @@ export async function POST(req: Request) {
     }
 
     let buf: Buffer = Buffer.from(await file.arrayBuffer());
-    const mime = file.type || 'application/octet-stream';
+    let mime = file.type || 'application/octet-stream';
 
     // 機關上傳僅允許可加浮水印的格式(PDF/JPG/PNG);Word、Excel 等須先另存為 PDF 再上傳。
     // 中心(SUPER_ADMIN)匯入區不受此限。
-    if (user.role === 'ORG_ADMIN' && !isOrgUploadAllowed(file.name, mime)) {
-      return NextResponse.json(
-        { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
-        { status: 400 },
-      );
+    if (user.role === 'ORG_ADMIN') {
+      // 友善前檢:副檔名與 Content-Type 皆明顯不符 → 直接擋,訊息清楚。
+      if (!isOrgUploadAllowed(file.name, mime)) {
+        return NextResponse.json(
+          { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
+          { status: 400 },
+        );
+      }
+      // 權威檢查:以實際內容判定真實型別(不信任副檔名/Content-Type),確保檔案一定可加浮水印,
+      // 並以真實型別作為浮水印與 DB mimeType 依據。
+      const realMime = sniffWatermarkableType(buf);
+      if (!realMime) {
+        return NextResponse.json(
+          { error: '檔案內容不是有效的 PDF / JPG / PNG(可能是改了副檔名的 Word/Excel 等);請以原程式「另存為 PDF」後再上傳。' },
+          { status: 400 },
+        );
+      }
+      mime = realMime;
     }
 
     // 單位管理員上傳的 PDF/圖片自動加機關浮水印(防外流、可溯源);其餘類型/角色維持原檔
