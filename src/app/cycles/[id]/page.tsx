@@ -175,7 +175,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
                 sublabel="已齊備"
               />
               <div className="min-w-0">
-                <p className="text-title text-on-surface">稽核前資料準備</p>
+                <p className="text-title-md text-on-surface">稽核前資料準備</p>
                 <p className="mt-1 text-body-sm text-on-surface-variant">
                   退補 {facts.prepInsufficient} · 待繳 {facts.prepDraft} · 未處理 {facts.prepRemaining}
                 </p>
@@ -184,7 +184,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           )}
           {facts.checklistTotal > 0 && (
             <Card>
-              <p className="text-title text-on-surface">資安自評檢核表</p>
+              <p className="text-title-md text-on-surface">資安自評檢核表</p>
               <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
                 {facts.checklistAnswered} / {facts.checklistTotal} 題已填{facts.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
               </p>
@@ -404,7 +404,7 @@ function ModuleTile({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <div className="text-title text-on-surface">{title}</div>
+              <div className="text-title-md text-on-surface">{title}</div>
               {badge && <div className="shrink-0">{badge}</div>}
             </div>
             <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>

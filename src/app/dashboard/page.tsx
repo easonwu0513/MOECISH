@@ -344,29 +344,37 @@ export default async function HomePage() {
                   return (
                     <div className="grid gap-4 sm:grid-cols-2 mb-6">
                       {pc.prepTotal > 0 && (
-                        <Card className="flex items-center gap-4">
-                          <ProgressRing value={pc.prepConfirmed} max={pc.prepTotal} size={76} tone="primary" label={`${pc.prepConfirmed}/${pc.prepTotal}`} sublabel="已齊備" />
-                          <div className="min-w-0">
-                            <p className="text-title text-on-surface">稽核前資料準備</p>
-                            <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.prepInsufficient} · 待繳 {pc.prepDraft} · 未處理 {pc.prepRemaining}</p>
-                          </div>
-                        </Card>
+                        <Link href={`/cycles/${pc.c.id}/prep`} className="block focus-ring rounded-lg">
+                          <Card interactive className="flex items-center gap-4 h-full">
+                            <ProgressRing value={pc.prepConfirmed} max={pc.prepTotal} size={76} tone="primary" label={`${pc.prepConfirmed}/${pc.prepTotal}`} sublabel="已齊備" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-title-md text-on-surface">稽核前資料準備</p>
+                              <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.prepInsufficient} · 待繳 {pc.prepDraft} · 未處理 {pc.prepRemaining}</p>
+                            </div>
+                            <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
+                          </Card>
+                        </Link>
                       )}
                       {pc.checklistTotal > 0 && (
-                        <Card>
-                          <p className="text-title text-on-surface">資安自評檢核表</p>
-                          <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
-                            {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
-                          </p>
-                          <StackedBar
-                            height={10}
-                            legend
-                            segments={[
-                              { value: pc.checklistAnswered, tone: 'success', label: '已填' },
-                              { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
-                            ]}
-                          />
-                        </Card>
+                        <Link href={`/cycles/${pc.c.id}/checklist`} className="block focus-ring rounded-lg">
+                          <Card interactive className="h-full">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-title-md text-on-surface">資安自評檢核表</p>
+                              <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
+                            </div>
+                            <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
+                              {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
+                            </p>
+                            <StackedBar
+                              height={10}
+                              legend
+                              segments={[
+                                { value: pc.checklistAnswered, tone: 'success', label: '已填' },
+                                { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
+                              ]}
+                            />
+                          </Card>
+                        </Link>
                       )}
                     </div>
                   );
