@@ -34,6 +34,20 @@ export const CYCLE_STATUSES = [
 export type CycleStatus = (typeof CYCLE_STATUSES)[number];
 
 // ════════════════════════════════════════════
+// 引導式精靈（Guided Journey）
+// ════════════════════════════════════════════
+
+// CYCLE：每家醫院一個週期，依 7 狀態階段、分角色逐項。
+// PROGRAMME：中心年度計畫執行 SOP（跨院、一次性），依年度綁定進度。
+export const JOURNEY_SCOPES = ['CYCLE', 'PROGRAMME'] as const;
+export type JourneyScope = (typeof JOURNEY_SCOPES)[number];
+
+export const JOURNEY_SCOPE_LABELS: Record<JourneyScope, string> = {
+  CYCLE: '週期各階段',
+  PROGRAMME: '中心年度計畫執行',
+};
+
+// ════════════════════════════════════════════
 // 模組 C：缺失與矯正（對齊教育部範本）
 // ════════════════════════════════════════════
 

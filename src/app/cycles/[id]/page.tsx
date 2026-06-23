@@ -13,6 +13,8 @@ import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner'
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { fmtROC } from '@/lib/date';
 import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
+import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
+import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
 import type { CycleStatus, Role } from '@/lib/types';
@@ -112,6 +114,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         : <Chip tone="warning" size="sm" dot>距截止剩 {daysToDue} 天</Chip>)
     : null;
 
+  // 引導式精靈(本週期各階段 checklist):中心看全部(含角色標籤)、機關/委員看自己角色 + 全體項。
+  const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
+  const journeyView = await loadJourney({ scope: 'CYCLE', cycleId: cycle.id, role: journeyRole });
+  const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -160,6 +167,29 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant mb-3">稽核週期進度</p>
         <StageFlowRail status={cycle.status as CycleStatus} />
       </section>
+
+      {/* 引導式精靈:各階段該做什麼(可勾選、存檔;預設展開目前階段) */}
+      {journeyStages.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
+              引導式精靈 · 各階段任務
+            </p>
+            {journeyView && journeyView.total > 0 && (
+              <span className="text-caption text-on-surface-variant tabular-nums">
+                已完成 {journeyView.doneCount}/{journeyView.total}
+              </span>
+            )}
+          </div>
+          <JourneyChecklist
+            scope="CYCLE"
+            binding={{ cycleId: cycle.id }}
+            stages={journeyStages}
+            defaultOpenStageKey={cycle.status}
+            showRoleChips={user.role === 'SUPER_ADMIN'}
+          />
+        </section>
+      )}
 
       {/* 本階段進度讀數(資料準備中):把「還剩什麼」量化成讀數 */}
       {cycle.status === 'PREPARATION' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (

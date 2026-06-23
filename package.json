@@ -15,6 +15,7 @@
     "graph:init": "tsx src/scripts/init-graph-auth.ts",
     "track:run": "tsx src/scripts/run-tracking.ts",
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
+    "journey:seed": "tsx src/scripts/seed-journey.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
     "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
     "graph:refresh": "tsx src/scripts/refresh-graph-token.ts"

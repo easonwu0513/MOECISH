@@ -141,6 +141,7 @@ model AuditCycle {
   assignments      AuditorAssignment[]
   auditScores      AuditScore[]
   auditFindings    AuditFinding[]
+  journeyProgress  JourneyProgress[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -431,6 +432,69 @@ model EmailLog {
   @@index([sentAt])
   @@index([toEmail])
   @@index([kind])
+}
+
+// ════════════════════════════════════════════
+// 引導式精靈（Guided Journey）：各階段可勾選的 SOP / checklist
+//   範本（Template→Stage→Item）可在後台編輯；進度（Progress）可勾選、存檔。
+//   scope = CYCLE（每家醫院一個週期，依 7 狀態階段、分角色） | PROGRAMME（中心年度計畫執行，依年度綁定）。
+//   結構對齊既有 PrepTemplate→PrepRequirement→PrepSubmission（範本→實例→狀態）。
+// ════════════════════════════════════════════
+
+model JourneyTemplate {
+  id        String   @id @default(cuid())
+  scope     String   @unique // JourneyScope: CYCLE | PROGRAMME（每 scope 單一啟用範本）
+  title     String
+  stages    JourneyStage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JourneyStage {
+  id         String  @id @default(cuid())
+  templateId String
+  template   JourneyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  stageKey   String  // CYCLE：CycleStatus（DRAFT..CLOSED）；PROGRAMME：自訂 key
+  title      String
+  summary    String?
+  orderIndex Int
+  items      JourneyItem[]
+
+  @@unique([templateId, stageKey]) // 同範本內 stageKey 不重複（防雙開/重複計數）
+  @@index([templateId])
+}
+
+model JourneyItem {
+  id         String  @id @default(cuid())
+  stageId    String
+  stage      JourneyStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  title      String
+  hint       String?  // 附註 / 文件位置 / 提示
+  role       String?  // CYCLE：限定角色（null = 全體）；PROGRAMME：null
+  orderIndex Int
+  progress   JourneyProgress[]
+
+  @@index([stageId])
+}
+
+model JourneyProgress {
+  id            String   @id @default(cuid())
+  itemId        String
+  item          JourneyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  cycleId       String?     // CYCLE scope 綁定
+  cycle         AuditCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  programmeYear Int?        // PROGRAMME scope 綁定（一律存民國年 ROC，例 115；由 API 驗證 101–199）
+  done          Boolean  @default(false)
+  doneAt        DateTime?
+  doneById      String?  // 勾選者 id（快照，無關聯）
+  doneByName    String?  // 勾選者姓名快照
+  note          String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([itemId, cycleId])
+  @@unique([itemId, programmeYear])
+  @@index([cycleId])
+  @@index([programmeYear])
 }
 
 // ════════════════════════════════════════════
