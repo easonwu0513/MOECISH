@@ -104,6 +104,9 @@ function ScoreSection({
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  // debounce 儲存讀「最新」評分,避免 setTimeout 捕捉到 setScore 當下的 stale 快照(連續改多格時漏存)
+  const scoresRef = useRef(scores);
+  useEffect(() => { scoresRef.current = scores; }, [scores]);
 
   function setScore(dim: Dimension, raw: string) {
     const max = DIMENSION_MAX_SCORE[dim];
@@ -115,7 +118,8 @@ function ScoreSection({
     setScores((prev) => ({ ...prev, [dim]: v }));
     setSaveState('dirty');
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void save({ ...scores, [dim]: v }), 900);
+    // 讀 scoresRef(下次 render 後即為含本次變更的最新值),不捕捉 stale 的 scores 快照
+    timer.current = setTimeout(() => void save(scoresRef.current), 900);
   }
 
   async function save(payload: Record<string, number | null>): Promise<boolean> {
@@ -306,7 +310,7 @@ function ScoreSection({
                         aria-label={`${DIMENSION_LABELS[dim]} 減一分`}
                         disabled={!canEdit || (v ?? 0) <= 0}
                         onClick={() => setScore(dim, String((v ?? 0) - 1))}
-                        className="w-9 h-10 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                        className="w-11 h-11 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
                       >
                         −
                       </button>
@@ -319,14 +323,14 @@ function ScoreSection({
                         onChange={(e) => setScore(dim, e.target.value)}
                         disabled={!canEdit}
                         aria-label={`${DIMENSION_LABELS[dim]} 評分(0-${DIMENSION_MAX_SCORE[dim]})`}
-                        className="w-12 h-10 border-x border-outline-variant bg-surface px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                        className="w-12 h-11 border-x border-outline-variant bg-surface px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
                       />
                       <button
                         type="button"
                         aria-label={`${DIMENSION_LABELS[dim]} 加一分`}
                         disabled={!canEdit || (v ?? 0) >= DIMENSION_MAX_SCORE[dim]}
                         onClick={() => setScore(dim, String((v ?? 0) + 1))}
-                        className="w-9 h-10 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                        className="w-11 h-11 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
                       >
                         ＋
                       </button>

@@ -3,6 +3,7 @@
 import { IconButton } from '../ui/IconButton';
 import { Menu, Search, Command as CmdIcon } from '../icons';
 import { UserMenu } from './UserMenu';
+import { Logo } from '../brand/Logo';
 import { Breadcrumbs, type Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 
@@ -23,8 +24,9 @@ export function TopStrip({
 }) {
   return (
     <div className="sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60 border-t-2 border-t-primary-600">
-      <div className="lg:hidden">
+      <div className="lg:hidden flex items-center gap-1.5">
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
+        <Logo size={26} />
       </div>
 
       {/* 手機:麵包屑隱藏,改顯示當前頁標題提供脈絡 */}
