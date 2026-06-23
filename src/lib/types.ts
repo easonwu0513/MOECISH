@@ -184,6 +184,15 @@ export const EVIDENCE_TARGET_TYPES = [
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
 
+// 機關上傳格式限制:浮水印僅能套用於 PDF / JPG / PNG;Word、Excel 等可編輯檔須先另存為這些格式再上傳,
+// 否則委員審閱到的資料無法加浮水印(防外流失效)。供前端 <input accept> 與後端驗證共用。
+export const ORG_UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
+const ORG_UPLOAD_MIMES = ['application/pdf', 'image/jpeg', 'image/png'];
+/** 機關上傳是否為允許格式(副檔名或 MIME 任一符合即可;Word/Excel/zip 等一律擋下)。 */
+export function isOrgUploadAllowed(fileName: string, mime: string): boolean {
+  return /\.(pdf|jpe?g|png)$/i.test(fileName) || ORG_UPLOAD_MIMES.includes(mime);
+}
+
 // ════════════════════════════════════════════
 // 檢核表模組（保留為選用功能）
 // ════════════════════════════════════════════

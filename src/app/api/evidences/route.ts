@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
-import { prepCyclePhaseOpen } from '@/lib/types';
+import { prepCyclePhaseOpen, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -62,6 +62,15 @@ export async function POST(req: Request) {
 
     let buf: Buffer = Buffer.from(await file.arrayBuffer());
     const mime = file.type || 'application/octet-stream';
+
+    // 機關上傳僅允許可加浮水印的格式(PDF/JPG/PNG);Word、Excel 等須先另存為 PDF 再上傳。
+    // 中心(SUPER_ADMIN)匯入區不受此限。
+    if (user.role === 'ORG_ADMIN' && !isOrgUploadAllowed(file.name, mime)) {
+      return NextResponse.json(
+        { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
+        { status: 400 },
+      );
+    }
 
     // 單位管理員上傳的 PDF/圖片自動加機關浮水印(防外流、可溯源);其餘類型/角色維持原檔
     let watermarked = false;

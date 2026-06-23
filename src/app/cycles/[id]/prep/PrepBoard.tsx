@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
@@ -422,14 +422,14 @@ export default function PrepBoard({
                       busy={busyItemId === sub.id}
                       onChange={(e) => upload(sub, e)}
                       multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                      accept={ORG_UPLOAD_ACCEPT}
                     />
                     {!sub.noFileReason && reasonFor !== sub.id && (
                       <Button size="sm" variant="text" onClick={() => { setReasonFor(sub.id); setReasonText(''); }}>
                         無相關文件,敘述理由
                       </Button>
                     )}
-                    <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB;PDF / 圖片上傳後會自動加機關浮水印</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB</span>
                   </>
                 )}
 

@@ -13,7 +13,7 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { Check, AlertTriangle, Paperclip, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, type ActionStatus, type ExecStatus } from '@/lib/types';
+import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, ORG_UPLOAD_ACCEPT, type ActionStatus, type ExecStatus } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { TOAST } from '@/lib/copy';
 
@@ -557,10 +557,10 @@ export default function ActionForm({
                     busy={uploading}
                     onChange={upload}
                     multiple
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                    accept={ORG_UPLOAD_ACCEPT}
                   />
                   <p className="mt-1.5 text-caption text-on-surface-variant">
-                    單檔 ≤ 20MB;支援 PDF、Word/Excel/PPT、圖片、ZIP
+                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB
                   </p>
                 </>
               )}

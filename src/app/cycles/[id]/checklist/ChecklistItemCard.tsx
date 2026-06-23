@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Paperclip, ChevronDown } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
@@ -528,7 +528,10 @@ function EvidenceBlock({
         </ul>
       )}
       {canEdit && (
-        <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} />
+        <div>
+          <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} accept={ORG_UPLOAD_ACCEPT} />
+          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等請先另存為 PDF。</p>
+        </div>
       )}
     </div>
   );
