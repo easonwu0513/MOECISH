@@ -156,6 +156,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               cycleId={cycle.id}
               dueDate={cycle.dueDate.toISOString()}
               prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+              prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
               onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
             />
           ) : undefined

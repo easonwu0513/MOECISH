@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { notifyAuditScoreUnlocked } from '@/lib/notify';
+import { notifyAuditScoreLocked, notifyAuditScoreUnlocked } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({ locked: z.boolean() });
@@ -45,19 +45,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...extractRequestMeta(req),
     });
 
-    // 解除鎖定 → 通知最高管理員有內容異動(失敗不擋操作)
+    // 通知最高管理員:鎖定(委員已定稿)/ 解除鎖定(內容異動)。失敗不擋操作。
     let notified = 0;
-    if (!locked) {
-      try {
-        const r = await notifyAuditScoreUnlocked({
-          cycleId: cycle.id,
-          auditorName: user.name,
-          appBaseUrl: appBaseUrl(req),
-        });
-        notified = r.recipientCount;
-      } catch (e) {
-        console.error('[audit.lock] 通知失敗:', e);
-      }
+    try {
+      const r = locked
+        ? await notifyAuditScoreLocked({ cycleId: cycle.id, auditorName: user.name, appBaseUrl: appBaseUrl(req) })
+        : await notifyAuditScoreUnlocked({ cycleId: cycle.id, auditorName: user.name, appBaseUrl: appBaseUrl(req) });
+      notified = r.recipientCount;
+    } catch (e) {
+      console.error('[audit.lock] 通知失敗:', e);
     }
 
     return NextResponse.json({ ok: true, locked, notified });

@@ -17,11 +17,13 @@ export default function EditCycleDialog({
   cycleId,
   dueDate,
   prepDueDate,
+  prepDueTech,
   onsiteDate,
 }: {
   cycleId: string;
   dueDate: string;
   prepDueDate: string | null;
+  prepDueTech: string | null;
   onsiteDate: string | null;
 }) {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function EditCycleDialog({
   const [saving, setSaving] = useState(false);
   const [due, setDue] = useState(toInput(dueDate));
   const [prepDue, setPrepDue] = useState(toInput(prepDueDate));
+  const [prepTech, setPrepTech] = useState(toInput(prepDueTech));
   const [onsite, setOnsite] = useState(toInput(onsiteDate));
 
   async function save() {
@@ -44,6 +47,7 @@ export default function EditCycleDialog({
       body: JSON.stringify({
         dueDate: due,
         prepDueDate: prepDue || null,
+        prepDueTech: prepTech || null,
         onsiteDate: onsite || null,
       }),
     });
@@ -67,7 +71,7 @@ export default function EditCycleDialog({
         open={open}
         onOpenChange={(v) => !saving && setOpen(v)}
         title="編輯週期日期"
-        description="調整實地稽核日、資料準備截止與矯正填報截止(展延)。異動會寫入稽核軌跡。"
+        description="調整實地稽核日、資料準備各區截止與矯正填報截止(展延)。異動會寫入稽核軌跡。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
@@ -83,11 +87,20 @@ export default function EditCycleDialog({
             onChange={(e) => setOnsite(e.target.value)}
           />
           <TextField
-            label="資料準備截止(選填)"
+            label="技術檢測資料截止(選填)"
+            type="date"
+            value={prepTech}
+            onChange={(e) => setPrepTech(e.target.value)}
+          />
+          <TextField
+            label="實地稽核資料截止(選填)"
             type="date"
             value={prepDue}
             onChange={(e) => setPrepDue(e.target.value)}
           />
+          <p className="-mt-1 text-caption text-on-surface-variant leading-relaxed">
+            中心匯入區資料由中心自行上傳、無機關繳交截止。
+          </p>
           <TextField
             label="矯正填報截止(必填)"
             type="date"

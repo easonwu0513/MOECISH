@@ -33,6 +33,37 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   signed_confirmed: (c) => c.facts.signedConfirmed,
 };
 
+/**
+ * CYCLE 精靈項目的「快捷跳轉」目的地(相對週期的子路徑;'' = 週期主頁)。
+ * 讓各角色點任務即可跳到實際執行頁面(機關→/prep、/checklist;委員→/audit;矯正→/deficiencies…)。
+ */
+export function journeyItemHref(stageKey: string, autoKey: string | null): string {
+  switch (autoKey) {
+    case 'checklist_filled': return '/checklist';
+    case 'prep_uploaded':
+    case 'prep_submitted':
+    case 'prep_confirmed': return '/prep';
+    case 'deficiencies_published':
+    case 'remediation_submitted':
+    case 'remediation_reviewed': return '/deficiencies';
+    case 'onsite_scheduled':
+    case 'signed_uploaded':
+    case 'signed_confirmed':
+    case 'prep_list_set':
+    case 'auditors_assigned':
+    case 'always': return ''; // 週期主頁(設定/安排/用印確認在此)
+  }
+  // 無對應動作鍵者,依階段給預設目的地
+  switch (stageKey) {
+    case 'PREPARATION':
+    case 'READY': return '/prep';
+    case 'ONSITE': return '/audit';
+    case 'REPORT_ISSUED':
+    case 'REMEDIATION': return '/deficiencies';
+    default: return '';
+  }
+}
+
 /** 依週期實況判定某 CYCLE 精靈項目是否已完成。 */
 export function autoItemDone(stageKey: string, autoKey: string | null, ctx: JourneyAutoCtx): boolean {
   const curIdx = CYCLE_STATUSES.indexOf(ctx.facts.status);

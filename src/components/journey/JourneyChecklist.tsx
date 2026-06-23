@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
@@ -15,6 +16,7 @@ export type JourneyClientItem = {
   done: boolean;
   doneByName: string | null;
   canToggle: boolean;
+  href?: string | null; // 唯讀(CYCLE)項目的快捷跳轉目的地
 };
 export type JourneyClientStage = {
   id: string;
@@ -133,7 +135,7 @@ export function JourneyChecklist({
                   s.items.map((it) => {
                     const rowClass = cn(
                       'w-full flex items-start gap-3 px-4 py-2.5 text-left min-h-11',
-                      it.canToggle ? 'hover:bg-surface-container focus-ring cursor-pointer' : 'cursor-default',
+                      it.canToggle || it.href ? 'hover:bg-surface-container focus-ring cursor-pointer' : 'cursor-default',
                     );
                     const inner = (
                       <>
@@ -161,6 +163,9 @@ export function JourneyChecklist({
                             <span className="block mt-0.5 text-label-sm text-success-700">已完成 · {it.doneByName}</span>
                           )}
                         </span>
+                        {it.href && (
+                          <ChevronRight size={15} className="self-center shrink-0 text-on-surface-variant" aria-hidden />
+                        )}
                       </>
                     );
                     return (
@@ -169,6 +174,8 @@ export function JourneyChecklist({
                           <button type="button" onClick={() => toggleItem(it)} aria-pressed={it.done} className={rowClass}>
                             {inner}
                           </button>
+                        ) : it.href ? (
+                          <Link href={it.href} className={rowClass}>{inner}</Link>
                         ) : (
                           <div className={rowClass}>{inner}</div>
                         )}

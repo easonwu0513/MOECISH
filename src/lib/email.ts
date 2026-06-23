@@ -17,6 +17,7 @@ export type EmailKind =
   | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
   | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
   | 'checklist-review-done' // 委員完成檢核表審閱意見 → 通知中心
+  | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
   | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';

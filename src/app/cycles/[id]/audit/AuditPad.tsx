@@ -282,17 +282,38 @@ function ScoreSection({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={DIMENSION_MAX_SCORE[dim]}
-                      value={v ?? ''}
-                      onChange={(e) => setScore(dim, e.target.value)}
-                      disabled={!canEdit}
-                      aria-label={`${DIMENSION_LABELS[dim]} 評分(0-${DIMENSION_MAX_SCORE[dim]})`}
-                      className="w-20 h-10 rounded-md border border-outline-variant bg-surface px-3 text-body text-right tabular-nums focus-ring disabled:bg-surface-container-low disabled:text-on-surface-variant"
-                    />
+                    {/* 自繪 −/＋ 級進器:取代原生 number spinner(原生 spinner 點一下會卷動、無法連續按) */}
+                    <div className="inline-flex items-center rounded-md border border-outline-variant bg-surface overflow-hidden">
+                      <button
+                        type="button"
+                        aria-label={`${DIMENSION_LABELS[dim]} 減一分`}
+                        disabled={!canEdit || (v ?? 0) <= 0}
+                        onClick={() => setScore(dim, String((v ?? 0) - 1))}
+                        className="w-9 h-10 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={DIMENSION_MAX_SCORE[dim]}
+                        value={v ?? ''}
+                        onChange={(e) => setScore(dim, e.target.value)}
+                        disabled={!canEdit}
+                        aria-label={`${DIMENSION_LABELS[dim]} 評分(0-${DIMENSION_MAX_SCORE[dim]})`}
+                        className="w-12 h-10 border-x border-outline-variant bg-surface px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                      />
+                      <button
+                        type="button"
+                        aria-label={`${DIMENSION_LABELS[dim]} 加一分`}
+                        disabled={!canEdit || (v ?? 0) >= DIMENSION_MAX_SCORE[dim]}
+                        onClick={() => setScore(dim, String((v ?? 0) + 1))}
+                        className="w-9 h-10 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                      >
+                        ＋
+                      </button>
+                    </div>
                     <span className="w-14">
                       {v !== null && (
                         <Chip size="sm" tone={GRADE_TONE[gradeOf(dim, v)]}>{gradeOf(dim, v)}</Chip>

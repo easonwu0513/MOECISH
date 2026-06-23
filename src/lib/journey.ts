@@ -1,7 +1,7 @@
 import type { Role, JourneyScope } from './types';
 import type { JourneyClientStage } from '@/components/journey/JourneyChecklist';
 import { prisma } from './db';
-import { autoItemDone, type JourneyAutoCtx } from './journey-auto';
+import { autoItemDone, journeyItemHref, type JourneyAutoCtx } from './journey-auto';
 
 /**
  * 引導式精靈（Guided Journey）資料層 SoT。
@@ -19,6 +19,7 @@ export type JourneyItemView = {
   doneAt: Date | null;
   doneByName: string | null;
   note: string | null;
+  href: string | null; // CYCLE:快捷跳轉到實際執行頁;PROGRAMME:null
 };
 
 export type JourneyStageView = {
@@ -96,6 +97,7 @@ export async function loadJourney(opts: {
             doneAt: null,
             doneByName: null,
             note: null,
+            href: cycleId ? `/cycles/${cycleId}${journeyItemHref(st.stageKey, it.autoKey)}` : null,
           };
         }
         const p = it.progress[0];
@@ -109,6 +111,7 @@ export async function loadJourney(opts: {
           doneAt: p?.doneAt ?? null,
           doneByName: p?.doneByName ?? null,
           note: p?.note ?? null,
+          href: null,
         };
       });
     const doneCount = items.filter((i) => i.done).length;
@@ -161,6 +164,7 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
       role: it.role,
       done: it.done,
       doneByName: it.doneByName,
+      href: it.href,
       // CYCLE 為系統自動判定 → 一律唯讀;PROGRAMME 維持依角色可手動勾選。
       canToggle: view.scope === 'CYCLE' ? false : canToggleJourneyItem(role, view.scope, it.role),
     })),

@@ -96,17 +96,21 @@ export default async function AuditReportPage({ params }: { params: { id: string
             {data.assignments.map((a) => {
               const sc = data.auditScores.filter((s) => s.auditorId === a.auditor.id).length;
               const fc = data.auditFindings.filter((f) => f.auditorId === a.auditor.id).length;
-              const done = sc >= 9;
+              const locked = !!a.scoreLockedAt; // 委員已按「確認填寫完畢」鎖定 = 已定稿
               return (
                 <span
                   key={a.auditor.id}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-caption tabular-nums ${
-                    done ? 'border-success-200 bg-success-50 text-success-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
+                    locked ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
                   }`}
                 >
                   <span className="font-medium text-on-surface">{a.auditor.name}</span>
                   評分 {sc}/9 · 發現 {fc} 條
-                  {done && <Check size={13} className="text-success-600" />}
+                  {locked && (
+                    <span className="inline-flex items-center gap-1 font-medium text-primary-700">
+                      <Check size={13} />已定稿
+                    </span>
+                  )}
                 </span>
               );
             })}

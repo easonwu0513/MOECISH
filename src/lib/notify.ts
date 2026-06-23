@@ -232,6 +232,48 @@ export async function notifyChecklistReviewDone(opts: {
   return { recipientCount: recipients.length };
 }
 
+/** 委員按「確認填寫完畢」鎖定評分/發現 → 通知最高管理員(讓中心掌握哪些委員已定稿)。 */
+export async function notifyAuditScoreLocked(opts: {
+  cycleId: string;
+  auditorName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/audit/report`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${opts.auditorName} 已完成 ${orgName} ${yearROC} 年度實地稽核評分/發現填寫`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${opts.auditorName} 委員已按「確認填寫完畢」,鎖定 ${cycle.organization.name} ${yearROC} 年度的實地稽核評分與稽核發現。\n` +
+          `可於彙整報告檢視該委員的評分與發現:\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'audit-score-lock',
+        relatedCycleId: cycle.id,
+        context: { auditorName: opts.auditorName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 委員解除「確認填寫完畢」鎖定、修改評分/發現 → 通知最高管理員有內容異動。 */
 export async function notifyAuditScoreUnlocked(opts: {
   cycleId: string;
