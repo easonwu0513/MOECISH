@@ -28,7 +28,7 @@ export function cycleStatusTone(status: CycleStatus): StageTone {
     case 'READY':         return 'sage';
     case 'ONSITE':        return 'primary';
     case 'REPORT_ISSUED': return 'warning';
-    case 'REMEDIATION':   return 'danger';
+    case 'REMEDIATION':   return 'primary';
     case 'CLOSED':        return 'success';
   }
 }

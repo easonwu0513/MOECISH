@@ -260,7 +260,7 @@ export default async function HomePage() {
                         <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
-                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
+                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 min-h-11 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
                             {n.cta}
                             <ChevronRight size={14} />
                           </Link>
@@ -315,7 +315,7 @@ export default async function HomePage() {
               sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'}
             />
             <StatTopBar
-              tone="sage"
+              tone="primary"
               muted={remediationCount === 0}
               icon={<ShieldCheck size={20} />}
               primary={`${remediationCount}`}

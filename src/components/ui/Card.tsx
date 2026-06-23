@@ -41,7 +41,7 @@ export const Card = forwardRef<HTMLDivElement, Props>(function Card(
     <div
       ref={ref}
       className={cn(
-        'rounded-md transition-all duration-200 ease-standard',
+        'rounded-lg transition-all duration-200 ease-standard',
         styles[resolved],
         interactive && 'cursor-pointer',
         padded && 'p-6',
