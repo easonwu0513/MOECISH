@@ -20,12 +20,13 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   always: () => true,
   prep_list_set: (c) => c.facts.prepTotal > 0,
   auditors_assigned: (c) => c.assignmentsCount > 0,
-  prep_uploaded: (c) => c.facts.prepTotal - c.facts.prepRemaining > 0,
-  checklist_filled: (c) => c.facts.checklistAnswered > 0,
-  // 「確定繳交」資料準備:僅當機關真的送交(項目進 SUBMITTED→prepToConfirm)或已全數確認時才算完成。
-  // 不可用 checklistSubmitted(那是另一條 87 題自評檢核表的送出,與資料準備繳交無關 → 會誤判已完成)。
-  prep_submitted: (c) => c.facts.prepToConfirm > 0 || c.facts.prepAllConfirmed,
-  prep_confirmed: (c) => c.facts.prepConfirmed > 0 || c.facts.prepAllConfirmed,
+  // 機關區「上傳/繳交/確認」三項一律以「全部完成」判定(非「任一」):機關區=技術檢測+實地稽核。
+  // 例:只傳了技術檢測、實地稽核未傳 → 不算「已上傳」;只確認了技術檢測 → 不算「已逐項確認」。
+  prep_uploaded: (c) => c.facts.mechAllAddressed,
+  // 自評檢核表「填報」以「已送出」為準(checklistSubmitted),非答了任一題就算完成。
+  checklist_filled: (c) => c.facts.checklistSubmitted,
+  prep_submitted: (c) => c.facts.mechAllSubmitted,
+  prep_confirmed: (c) => c.facts.mechAllConfirmed,
   onsite_scheduled: (c) => !!c.facts.onsiteDate,
   deficiencies_published: (c) => c.facts.total > 0,
   remediation_submitted: (c) => c.facts.submitted > 0 || c.facts.passed > 0,

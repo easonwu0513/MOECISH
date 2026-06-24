@@ -15,7 +15,7 @@ export type CycleFactsInput = {
   prepDueDate: Date | null;
   onsiteDate: Date | null;
   deficiencies: { action: { status: string } | null }[];
-  prepRequirements: { submission: { status: string } | null }[];
+  prepRequirements: { category: string; submission: { status: string } | null }[];
   signedReports: { confirmedAt: Date | null }[];
   // 檢核表(87 題自評)— 選填;傳入才會納入「下一步」導引(救出原本隱形的填報死路)
   checklistSubmittedAt?: Date | null;
@@ -42,6 +42,10 @@ export type CycleFacts = {
   prepInsufficient: number; // 中心退回補正(INSUFFICIENT)
   prepRemaining: number; // 尚未處理(EMPTY / 未建)
   prepAllConfirmed: boolean;
+  // 機關區(技術檢測 / 實地稽核,非中心匯入)整體進度 — 精靈「全部完成」判定用(非「任一」)
+  mechAllAddressed: boolean;  // 全部已上傳/敘明理由(非 EMPTY)
+  mechAllSubmitted: boolean;  // 全部已確定繳交(SUBMITTED 或 CONFIRMED)
+  mechAllConfirmed: boolean;  // 全部經中心確認齊備(CONFIRMED)
   signedUploaded: boolean;
   signedConfirmed: boolean;
   overdue: boolean;
@@ -80,6 +84,13 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const prepInsufficient = prepStatus('INSUFFICIENT'); // 中心退回補正
   const prepRemaining = prepTotal - prepConfirmed - prepToConfirm - prepDraft - prepInsufficient; // EMPTY / 未建
   const prepAllConfirmed = prepTotal > 0 && prepConfirmed === prepTotal;
+  // 機關區(非 CENTER)逐階段「全部完成」判定:精靈「上傳/繳交/確認」項不應只看「任一項」
+  const mechStatuses = c.prepRequirements
+    .filter((r) => r.category !== 'CENTER')
+    .map((r) => r.submission?.status ?? 'EMPTY');
+  const mechAllAddressed = mechStatuses.length > 0 && mechStatuses.every((s) => s !== 'EMPTY');
+  const mechAllSubmitted = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'SUBMITTED' || s === 'CONFIRMED');
+  const mechAllConfirmed = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'CONFIRMED');
 
   const signedUploaded = c.signedReports.length > 0;
   const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
@@ -95,6 +106,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
     id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, onsiteDate: c.onsiteDate,
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
+    mechAllAddressed, mechAllSubmitted, mechAllConfirmed,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
     checklistTotal, checklistAnswered, checklistSubmitted, checklistOpenComments,
