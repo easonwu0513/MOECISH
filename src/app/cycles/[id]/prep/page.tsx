@@ -49,8 +49,10 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const files = allFiles.filter((f) => visibleSubIds.has(f.targetId));
 
   const yearROC = cycle.year - 1911;
-  const total = requirements.length;
-  const confirmed = requirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 機關管理員只負責機關區(技術檢測 / 實地稽核);中心匯入由中心經手,不計入機關的「已確認齊備 X/Y」分母。
+  const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
+  const total = countReqs.length;
+  const confirmed = countReqs.filter((r) => r.submission?.status === 'CONFIRMED').length;
 
   return (
     <AppShell
