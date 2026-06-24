@@ -138,6 +138,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     >
       {/* 身分帶(與儀表板同骨架,統一工作台頂部;大標降一級,讓主行動橫幅為唯一最大焦點) */}
       <h1 className="sr-only">{yearROC} 年度資通安全稽核 · {cycle.organization.name}</h1>
+      {/* 開立中設定的快捷錨點:精靈「建立/設定截止日」項目與「去設定」CTA 跳轉至此(編輯日期在身分帶) */}
+      <div id="setup" className="scroll-mt-24" aria-hidden />
       <IdentityBand
         avatar={cycle.organization.name.slice(0, 1)}
         title={`${yearROC} 年度資通安全稽核`}
@@ -167,7 +169,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       />
       {deadlineChip && <div className="mb-5">{deadlineChip}</div>}
 
-      {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
+      {/* 主行動橫幅:建議的下一步(③ 招牌元件,取代原本細條下一步) */}
       <PrimaryActionBanner next={bannerNext} subtext={`${cycle.organization.name} · ${yearROC} 年度`} className="mb-5" />
 
       {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
@@ -379,8 +381,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </div>
       </Card>
 
-      {/* SUPER_ADMIN:委員指派 */}
-      {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}
+      {/* SUPER_ADMIN:委員指派(精靈「指派稽核委員」項目的跳轉錨點) */}
+      {user.role === 'SUPER_ADMIN' && (
+        <div id="assign-auditors" className="scroll-mt-24">
+          <AssignAuditorsPanel cycleId={cycle.id} />
+        </div>
+      )}
 
       {/* SUPER_ADMIN:管理動作(主行動橫幅的 #management 錨點目標) */}
       {user.role === 'SUPER_ADMIN' && (

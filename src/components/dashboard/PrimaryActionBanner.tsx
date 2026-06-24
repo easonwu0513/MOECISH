@@ -3,13 +3,13 @@ import { ChevronRight } from '../icons';
 import type { NextAction } from '@/lib/process-guide';
 
 /**
- * 「你現在唯一該做的事」主行動橫幅。
+ * 「建議的下一步」主行動橫幅。
  * 輕盈版(減法):淺藍底白卡 + 深色動作大字 + 單一 primary 按鈕,以「唯一填色 CTA + 眉標 + 位置」鎖定焦點,
  * 不用整塊飽和深藍(避免色調過重),保留舒適呼吸感。直取 process-guide 的 nextActionForRole 輸出。
  */
 export function PrimaryActionBanner({
   next,
-  eyebrow = '你現在唯一該做的事',
+  eyebrow = '建議的下一步',
   subtext,
   doneText = '本週期已結案,全部流程完成。',
   className = '',

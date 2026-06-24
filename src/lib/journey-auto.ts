@@ -22,8 +22,9 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   auditors_assigned: (c) => c.assignmentsCount > 0,
   prep_uploaded: (c) => c.facts.prepTotal - c.facts.prepRemaining > 0,
   checklist_filled: (c) => c.facts.checklistAnswered > 0,
-  prep_submitted: (c) =>
-    c.facts.checklistSubmitted || c.facts.prepToConfirm > 0 || c.facts.prepConfirmed > 0,
+  // 「確定繳交」資料準備:僅當機關真的送交(項目進 SUBMITTED→prepToConfirm)或已全數確認時才算完成。
+  // 不可用 checklistSubmitted(那是另一條 87 題自評檢核表的送出,與資料準備繳交無關 → 會誤判已完成)。
+  prep_submitted: (c) => c.facts.prepToConfirm > 0 || c.facts.prepAllConfirmed,
   prep_confirmed: (c) => c.facts.prepConfirmed > 0 || c.facts.prepAllConfirmed,
   onsite_scheduled: (c) => !!c.facts.onsiteDate,
   deficiencies_published: (c) => c.facts.total > 0,
@@ -48,10 +49,12 @@ export function journeyItemHref(stageKey: string, autoKey: string | null): strin
     case 'remediation_reviewed': return '/deficiencies';
     case 'onsite_scheduled':
     case 'signed_uploaded':
-    case 'signed_confirmed':
-    case 'prep_list_set':
-    case 'auditors_assigned':
-    case 'always': return ''; // 週期主頁(設定/安排/用印確認在此)
+    case 'signed_confirmed': return ''; // 委員安排/用印確認在週期主頁
+    case 'prep_list_set': return '/prep'; // 資料準備需求清單於 /prep 設定
+    case 'auditors_assigned': return '#assign-auditors'; // 委員指派面板錨點
+    case 'always':
+      // 開立中(建立週期/設定截止日)→ 跳頁首設定區(編輯日期);其餘階段的 always 維持週期主頁
+      return stageKey === 'DRAFT' ? '#setup' : '';
   }
   // 無對應動作鍵者,依階段給預設目的地
   switch (stageKey) {
