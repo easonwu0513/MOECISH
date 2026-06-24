@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
 import IdleLogout from './IdleLogout';
 import ScreenWatermark from './ScreenWatermark';
+import { AiAssistant } from '@/components/ai/AiAssistant';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
@@ -108,6 +109,8 @@ export function AppShell({
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
       {/* 浮水印只在機關上傳資料的檢視頁套用(資料準備/檢核表審閱/缺失矯正),非全站 */}
       {watermark && <ScreenWatermark name={user.name} email={user.email} />}
+      {/* AI 小幫手:NEXT_PUBLIC_AI_ASSISTANT=1 才掛載;未接 LLM 時後端回 503,旗標關則整個隱藏 */}
+      {process.env.NEXT_PUBLIC_AI_ASSISTANT === '1' && <AiAssistant />}
       <IdleLogout />
     </div>
     </NavProvider>
