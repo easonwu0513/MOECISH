@@ -129,7 +129,7 @@ export default async function ReviewPage({
       <header className="mb-5">
         <h1 className="text-headline text-on-surface">委員審閱</h1>
         <p className="text-body-sm text-on-surface-variant mt-1 leading-relaxed">
-          逐題檢視機關說明與佐證,於每題下方留意見;完成後可退回補正或維持送審。
+          逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心(是否退回重填由中心決定)。
         </p>
         <p className="text-body-sm text-on-surface-variant mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -188,7 +188,7 @@ export default async function ReviewPage({
           <EmptyState
             icon={<ClipboardCheck size={28} />}
             title="機關尚未開始填答"
-            description="等受稽機關至少完成一題後，才能在此留下委員意見。"
+            description="等機關至少完成一題後，才能在此留下委員意見。"
           />
         </Card>
       ) : (
@@ -266,7 +266,7 @@ export default async function ReviewPage({
                         {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
                           <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                              法規對照(稽核依據・稽核重點・佐證資料)
+                              法規對照(稽核依據・稽核重點・應備文件)
                             </summary>
                             <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
                               <LawPanel

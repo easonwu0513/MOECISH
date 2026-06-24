@@ -80,9 +80,9 @@ export const FINDING_KIND_LABELS: Record<FindingKind, string> = {
 };
 
 export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
-  COMPLIANCE: '開立情境:優於法規要求',
-  IMPROVE: '開立情境:未辦理或未有效執行法規要求事項',
-  SUGGEST: '開立情境:無法規要求但存有資安風險疑慮',
+  COMPLIANCE: '符合且優於法規要求的良好實踐',
+  IMPROVE: '未辦理或未有效執行法規要求事項,需改善',
+  SUGGEST: '無法規要求但存有資安風險,建議改善',
 };
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };

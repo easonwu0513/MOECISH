@@ -239,7 +239,7 @@ function ScoreSection({
 
       <details open className="mb-4 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
         <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-on-surface hover:bg-surface-container-low">
-          五等第評分標準說明(依檢核結果「符合 / 部分符合」數量評定等第與分數)
+          五等第評分標準說明(依檢核結果「符合 / 部分符合 / 不符合」數量評定等第與分數;不適用項目不計)
         </summary>
         <div className="px-5 pb-4 overflow-x-auto">
           <table className="w-full text-caption border-collapse min-w-[30rem]">
@@ -292,7 +292,7 @@ function ScoreSection({
                     </div>
                     <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap shrink-0 text-caption tabular-nums" aria-label="檢核結果統計">
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0 text-caption tabular-nums" aria-label="檢核結果統計:符合、部分符合、不符合、不適用題數">
                     <Chip size="sm" tone="neutral">{st.total} 題</Chip>
                     <Chip size="sm" tone="success">符 {st.c1}</Chip>
                     <Chip size="sm" tone="warning">部 {st.c2}</Chip>
@@ -345,7 +345,7 @@ function ScoreSection({
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">
                     <summary className="cursor-pointer text-caption text-danger-700 hover:underline select-none">
-                      查看扣分依據({issues.length} 項未達符合)
+                      查看扣分依據({issues.length} 項部分符合/不符合)
                     </summary>
                     <ul className="mt-2 space-y-1.5">
                       {issues.map((it) => (
@@ -457,7 +457,7 @@ function FindingSection({
       body: JSON.stringify({
         aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
         kind: 'IMPROVE',
-        content: `依檢核項 ${itemNo}「${content}」,機關尚未符合;建議:(請委員補述缺失情形與改善建議)`,
+        content: `依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`,
         checklistRef: itemNo,
       }),
     });
@@ -527,7 +527,7 @@ function FindingSection({
 
       <h2 className="text-title-lg text-on-surface mb-1">稽核發現</h2>
       <p className="text-body-sm text-on-surface-variant mb-4">
-        逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善/建議事項日後由管理員一鍵轉入缺失管考。
+        逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
       </p>
 
       {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打 */}

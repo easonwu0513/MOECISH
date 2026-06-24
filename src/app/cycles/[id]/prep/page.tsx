@@ -80,7 +80,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         {isAuditor
           ? total > 0 && (
               <p className="mt-3 text-caption text-on-surface-variant">
-                僅顯示中心已確認齊備、開放委員檢視之資料(目前 {confirmed} / {total} 項已確認)。
+                僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
               </p>
             )
           : total > 0 && (
@@ -95,7 +95,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
       {isAuditor && visibleRequirements.length === 0 ? (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
-          中心尚未確認齊備任何資料,暫無可檢視項目。待中心逐項確認齊備後即會開放於此。
+          目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
         </div>
       ) : (
       <PrepBoard

@@ -65,7 +65,7 @@ export default function SubmissionBanner({
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
               {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需機關補正,可退回重填。' : ';如需修改請洽中心退回。'}
+              {canReopen ? ';如需請機關補正,可在下方退回重填。' : ';如需修改請洽中心退回。'}
             </div>
           </div>
           {canReopen && (

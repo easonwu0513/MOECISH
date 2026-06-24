@@ -127,7 +127,7 @@ function LoginForm() {
             <div className="flex items-center justify-between mb-3">
               <p className="text-label-lg text-on-surface-variant">快速測試帳號</p>
               <span className="text-caption text-on-surface-variant">
-                密碼 <code className="font-mono">demo1234</code>
+                演示密碼 <code className="font-mono">demo1234</code>
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">

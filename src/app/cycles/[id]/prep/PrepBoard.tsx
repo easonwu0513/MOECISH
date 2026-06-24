@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
@@ -65,6 +65,8 @@ export default function PrepBoard({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // 委員一律在週期進入「資料齊備」後才看得到中心匯入;準備中按「開放委員檢視」僅先標記,屆時才對委員生效
+  const centerReleaseEffective = !prepCyclePhaseOpen(cycleStatus);
   const [busy, setBusy] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
@@ -323,7 +325,7 @@ export default function PrepBoard({
         body: JSON.stringify({ status: release ? 'CONFIRMED' : 'EMPTY' }),
       });
       if (res.ok) {
-        toast.success(release ? '已開放委員檢視' : '已收回(暫不開放委員)');
+        toast.success(release ? (centerReleaseEffective ? '已開放委員檢視' : '已標記開放(資料齊備階段後對委員生效)') : '已收回(暫不開放委員)');
         router.refresh();
       } else {
         const j = await res.json().catch(() => ({ error: '失敗' }));
@@ -367,7 +369,7 @@ export default function PrepBoard({
                     size="sm"
                     dot
                   >
-                    {status === 'CONFIRMED' ? '已開放委員檢視' : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
+                    {status === 'CONFIRMED' ? (centerReleaseEffective ? '已開放委員檢視' : '已開放,資料齊備後生效') : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
                   </Chip>
                 ) : (
                   <Chip tone={statusTone(status)} size="sm" dot>{PREP_STATUS_LABELS[status]}</Chip>
@@ -467,7 +469,7 @@ export default function PrepBoard({
                         無相關文件,敘述理由
                       </Button>
                     )}
-                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
 
@@ -482,7 +484,7 @@ export default function PrepBoard({
                       multiple
                       accept={ORG_UPLOAD_ACCEPT}
                     />
-                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
                 {/* 中心匯入區:開放委員檢視 / 收回(釋出前委員看不到、載不到) */}

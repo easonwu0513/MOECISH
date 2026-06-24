@@ -134,11 +134,11 @@ const CYCLE: SeedTemplate = {
     {
       stageKey: 'PREPARATION',
       title: '資料準備中',
-      summary: '機關上傳資料與填報自評；中心逐項審核齊備。',
+      summary: '機關上傳資料與填報自評（技術檢測與實地稽核）；中心可匯入補充資料；中心逐項確認齊備或退回補正。',
       items: [
         { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN', autoKey: 'prep_uploaded' },
         { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
-        { title: '確認資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
+        { title: '確認資料齊全後按「確定繳交」分別送交各類資料（技術檢測與實地稽核可分次繳交）', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
         { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN', autoKey: 'prep_confirmed' },
       ],
     },

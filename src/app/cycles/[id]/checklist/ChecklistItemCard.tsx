@@ -187,7 +187,7 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="簡述規範內容、執行方式、執行結果"
+            label="機關說明(規範內容、執行方式、執行結果)"
             value={description}
             onChange={(e) => { setTextDirty(true); setDescription(e.target.value); scheduleSave(e.target.value, recordDocs); }}
             onBlur={autoSaveOnBlur}
@@ -250,7 +250,7 @@ export default function ChecklistItemCard({
           )}
           {userRole === 'ORG_ADMIN' && unresolved > 0 && !canEdit && (
             <div className="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2 text-caption text-primary-800 leading-relaxed">
-              委員要求補正:可於下方填「機關補正回應」說明、並至本題「紀錄佐證」分頁補上佐證,完成後按上方「標記為已補正」。若需修改原作答(符合度/說明),請洽中心退回重填。
+              委員意見已提出:可於下方填「機關補正回應」說明、並至本題「紀錄佐證」分頁補上佐證,完成後按上方「標記為已補正」通知委員複核。若需修改原作答(符合度/說明),請洽中心申請退回重填。
             </div>
           )}
 
@@ -530,7 +530,7 @@ function EvidenceBlock({
       {canEdit && (
         <div>
           <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} accept={ORG_UPLOAD_ACCEPT} />
-          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等請先另存為 PDF。</p>
+          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
         </div>
       )}
     </div>

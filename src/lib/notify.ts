@@ -26,7 +26,7 @@ export async function notifyCycleOrgAdmins(opts: {
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies`;
   const yearROC = cycle.year - 1911;
-  const due = cycle.dueDate ? new Date(cycle.dueDate).toLocaleDateString('zh-TW') : '(實地稽核後另訂)';
+  const due = cycle.dueDate ? new Date(cycle.dueDate).toLocaleDateString('zh-TW') : '（實地稽核後另訂）';
 
   const results = await Promise.all(
     recipients.map((u) =>
@@ -83,10 +83,10 @@ export async function notifyAuditorsOnSubmit(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] ${orgName} 已送審矯正措施(第 ${def.itemNo} 項),請撥冗審查`,
+        subject: `[MOECISH] ${orgName} 已送審矯正措施（第 ${def.itemNo} 項），敬請審查`,
         body:
-          `${u.name} 委員您好,\n\n` +
-          `${cycle.organization.name} 於 ${yearROC} 年度稽核已送審 1 項矯正措施,\n` +
+          `${u.name} 委員您好，\n\n` +
+          `${cycle.organization.name} 於 ${yearROC} 年度稽核已送審 1 項矯正措施，\n` +
           `請登入系統檢視填報內容與佐證並進行審查:\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
@@ -126,10 +126,10 @@ export async function notifyOrgOnReturn(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] 矯正措施被退回補正(第 ${def.itemNo} 項),請儘速處理`,
+        subject: `[MOECISH] 矯正措施退回補正（第 ${def.itemNo} 項），敬請依意見重新提交`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${cycle.organization.name} ${yearROC} 年度稽核之第 ${def.itemNo} 項矯正措施經委員審查退回(第 ${opts.round} 輪)。\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} ${yearROC} 年度稽核之第 ${def.itemNo} 項矯正措施經委員審查退回（第 ${opts.round} 輪）。\n\n` +
           `退回理由:\n${opts.comment}\n\n` +
           `請依意見補正後重新送審:\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
@@ -176,9 +176,9 @@ export async function notifyChecklistSubmitted(opts: {
         toName: u.name,
         subject: `[MOECISH] ${orgName} 已完成 ${yearROC} 年度檢核表填報,請開始審閱`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 完成 ${yearROC} 年度資通安全檢核表填報並送出,內容已鎖定。\n` +
-          `請登入系統審閱填報內容(可逐題留意見;如需機關補正可退回重填):\n\n` +
+          `請登入系統審閱填報內容（可逐題留意見;退回與否由中心決定）:\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'checklist-submitted',
@@ -218,7 +218,7 @@ export async function notifyChecklistReviewDone(opts: {
         toName: u.name,
         subject: `[MOECISH] ${opts.auditorName} 已完成 ${orgName} ${yearROC} 年度檢核表審閱意見`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${opts.auditorName} 委員已完成 ${cycle.organization.name} ${yearROC} 年度資通安全檢核表的審閱意見填寫。\n` +
           `請登入檢視各題委員意見,並決定是否退回機關補正:\n\n` +
           `${link}\n\n` +
@@ -260,7 +260,7 @@ export async function notifyAuditScoreLocked(opts: {
         toName: u.name,
         subject: `[MOECISH] ${opts.auditorName} 已完成 ${orgName} ${yearROC} 年度實地稽核評分/發現填寫`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${opts.auditorName} 委員已按「確認填寫完畢」,鎖定 ${cycle.organization.name} ${yearROC} 年度的實地稽核評分與稽核發現。\n` +
           `可於彙整報告檢視該委員的評分與發現:\n\n` +
           `${link}\n\n` +
@@ -302,7 +302,7 @@ export async function notifyAuditScoreUnlocked(opts: {
         toName: u.name,
         subject: `[MOECISH] ${opts.auditorName} 已解除鎖定並修改 ${orgName} ${yearROC} 年度實地稽核評分/發現`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${opts.auditorName} 委員已將 ${cycle.organization.name} ${yearROC} 年度的實地稽核評分與發現「解除鎖定」以進行修改;\n` +
           `先前「確認填寫完畢」的內容可能已有異動,請留意並於需要時複核:\n\n` +
           `${link}\n\n` +
@@ -344,8 +344,8 @@ export async function notifyChecklistReopened(opts: {
         toName: u.name,
         subject: `[MOECISH] ${yearROC} 年度檢核表填報被退回,請補正後重新送出`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${cycle.organization.name} ${yearROC} 年度資通安全檢核表填報經 ${opts.reopenedByName} 退回重填。\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} ${yearROC} 年度資通安全檢核表填報,經 ${opts.reopenedByName} 確認後退回重填。\n\n` +
           `退回原因:\n${opts.reason}\n\n` +
           `請依意見補正後重新送出:\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
@@ -381,7 +381,7 @@ export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: st
         toName: u.name,
         subject: `[MOECISH] ${yearROC} 年度矯正措施全數通過,請列印改善報告用印回傳`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${cycle.organization.name} ${yearROC} 年度資通安全稽核之矯正措施已全數審查通過。\n` +
           `請至系統列印「資通安全稽核改善暨執行情形報告」,完成機關用印後將掃描檔上傳,以利結案:\n\n` +
           `${link}\n\n` +
@@ -423,7 +423,7 @@ export async function notifyPrepSubmitted(opts: {
         toName: u.name,
         subject: `[MOECISH] ${orgName} 已確定繳交 ${yearROC} 年度稽核前資料,請審核`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已由 ${opts.submittedByName} 完成 ${yearROC} 年度稽核前資料準備並「確定繳交」,內容已鎖定。\n` +
           `請登入系統逐項審核(確認齊備或退回補正):\n\n` +
           `${link}\n\n` +
@@ -465,7 +465,7 @@ export async function notifyPrepReturned(opts: {
         toName: u.name,
         subject: `[MOECISH] ${yearROC} 年度稽核前資料「${sub.requirement.title}」被退回補正`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${cycle.organization.name} ${yearROC} 年度稽核前資料之「${sub.requirement.title}」經中心審核退回補正。\n\n` +
           `退回說明:\n${opts.reviewNote}\n\n` +
           `請依說明補正後重新「確定繳交」:\n${link}\n\n` +
@@ -498,7 +498,7 @@ export async function notifyCycleStatusChange(opts: {
 
   const MAP: Record<string, { label: string; path: string; hint: string }> = {
     PREPARATION: { label: '資料準備', path: '/prep', hint: '請依清單上傳稽核前所需文件。' },
-    READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備,後續將安排實地稽核時程。' },
+    READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備，後續將安排實地稽核時程。' },
     ONSITE: { label: '實地稽核中', path: '', hint: '已進入實地稽核階段。' },
     REPORT_ISSUED: { label: '稽核報告已產出', path: '', hint: '稽核報告已產出,後續將開放缺失矯正。' },
     REMEDIATION: { label: '缺失矯正', path: '/deficiencies', hint: '缺失已開放,請填報矯正措施與佐證。' },
@@ -516,7 +516,7 @@ export async function notifyCycleStatusChange(opts: {
         toName: u.name,
         subject: `[MOECISH] ${yearROC} 年度稽核狀態更新:${m.label}`,
         body:
-          `${u.name} 您好,\n\n` +
+          `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核狀態已更新為「${m.label}」。\n` +
           `${m.hint}\n\n` +
           `請登入系統查看:\n${link}\n\n` +

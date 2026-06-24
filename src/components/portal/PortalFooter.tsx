@@ -33,7 +33,7 @@ export function PortalFooter() {
           <p className="text-label text-on-surface mb-4">聯絡資訊</p>
           <ul className="space-y-2.5 text-body-sm text-on-surface-variant">
             <li>主辦單位:教育部</li>
-            <li>維運:醫療領域資訊安全推動中心</li>
+            <li>維運:教育部轄下醫療領域資訊安全推動中心</li>
             <li>
               <a className="font-mono hover:text-primary-700 transition-colors" href="mailto:moecish@m365.ntu.edu.tw">
                 moecish@m365.ntu.edu.tw

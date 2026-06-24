@@ -519,7 +519,7 @@ export default function ActionForm({
               ) : evidences.length === 0 ? (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-surface-container-low/50 px-3.5 py-2.5 text-body-sm text-on-surface-variant">
                   <Paperclip size={15} className="shrink-0 opacity-70" />
-                  尚未上傳佐證{editable ? ',可由下方按鈕新增' : ''}
+                  尚未上傳佐證{editable ? '，可使用下方按鈕新增' : ''}
                 </div>
               ) : (
                 <ul className="mb-2 space-y-1">
@@ -560,7 +560,7 @@ export default function ActionForm({
                     accept={ORG_UPLOAD_ACCEPT}
                   />
                   <p className="mt-1.5 text-caption text-on-surface-variant">
-                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB
+                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
                   </p>
                 </>
               )}

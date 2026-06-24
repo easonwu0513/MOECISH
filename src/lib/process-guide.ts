@@ -177,7 +177,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 
   // AUDITOR
   if (st === 'DRAFT') return { text: '週期開立中' };
-  if (st === 'PREPARATION') return { text: '資料準備中(由中心審核齊備),待實地稽核', href: `${base}/prep`, cta: '查看' };
+  if (st === 'PREPARATION') return { text: '資料準備中(中心審核齊備中);待週期進入資料齊備階段後可檢視資料' };
   if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
   if (st === 'ONSITE') {
     if (f.checklistSubmitted) {
@@ -201,7 +201,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 /** 各角色在四個步驟分別要做的事(後台流程指引文案)。 */
 export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = {
   SUPER_ADMIN: [
-    '開立稽核週期、設定截止日並指派委員;機關確定繳交後,逐項確認資料齊備或退回補正。',
+    '開立稽核週期、設定截止日並指派委員;機關確定繳交後逐項確認齊備或退回補正,另可由中心匯入補充資料;全數齊備後使週期進入資料齊備階段。',
     '實地稽核當日留存查核紀錄;結束後彙整缺失內容。',
     '以表單或 Excel 發布稽核缺失;追蹤各機關填報進度、寄送追蹤信。',
     '委員全數審查通過後,確認機關用印報告並正式結案。',
@@ -213,7 +213,7 @@ export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = 
     '全數通過後列印改善報告,完成用印並上傳回傳中心。',
   ],
   AUDITOR: [
-    '資料準備由中心審核齊備;此階段可先熟悉受稽機關背景資料。',
+    '資料準備階段由中心逐項確認齊備;週期進入資料齊備階段後,委員可檢視已確認之資料並熟悉受稽機關背景。',
     '依排定日期到場實地查核。',
     '機關送審後逐項審查矯正措施,必要時退回補正(可多輪)。',
     '全數通過後,配合中心完成結案確認。',

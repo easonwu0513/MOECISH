@@ -207,7 +207,7 @@ export function ReportContent({
 
       {/* 貳、稽核發現 */}
       <h1 style={{ fontSize: '16pt', fontWeight: 'bold', textAlign: 'left', margin: '24pt 0 12pt 0' }}>貳、稽核發現</h1>
-      <p style={{ fontSize: '12pt', textIndent: '32pt', margin: '0 0 12pt 0' }}>本報告分別從策略面、管理面及技術面等 3 構面，提出法遵符合情形、待改善事項及建議事項。</p>
+      <p style={{ fontSize: '12pt', textIndent: '32pt', margin: '0 0 12pt 0' }}>本報告分別從策略面、管理面及技術面等三個構面，提出法遵符合情形、待改善事項及建議事項三類稽核發現。</p>
 
       {renderCategory('strategy', '一、策略面')}
       {renderCategory('management', '二、管理面')}

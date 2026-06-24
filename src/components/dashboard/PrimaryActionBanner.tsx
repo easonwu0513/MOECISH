@@ -11,7 +11,7 @@ export function PrimaryActionBanner({
   next,
   eyebrow = '建議的下一步',
   subtext,
-  doneText = '本週期已結案,全部流程完成。',
+  doneText = '目前沒有待辦事項,一切都在進度上。',
   className = '',
 }: {
   next: NextAction;

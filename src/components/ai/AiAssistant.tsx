@@ -102,7 +102,7 @@ export function AiAssistant() {
               </button>
               <span className="font-medium">👋 嗨,我是 AI 小幫手</span>
               <br />
-              平台操作、流程下一步,或幫你草擬文字,都可以問我!
+              平台操作、各角色下一步,或幫你草擬文字,都可以問我!
             </div>
           )}
           <button
@@ -191,7 +191,7 @@ export function AiAssistant() {
                 }
               }}
               rows={1}
-              placeholder="輸入問題…(Enter 送出)"
+              placeholder="輸入您的問題…(Enter 送出)"
               className="flex-1 resize-none max-h-28 rounded-md border border-outline bg-surface px-3 py-2 text-body-sm text-on-surface focus-ring"
             />
             <button

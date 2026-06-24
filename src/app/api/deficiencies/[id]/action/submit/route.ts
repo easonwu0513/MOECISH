@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       missing.push('實際完成日期');
     }
     if (exec === 'LATE_IN_PROGRESS' && !action.extendedDate) {
-      missing.push('預計完成日期（延長至）');
+      missing.push('預計完成日期延長至');
     }
     if ((exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS') && !action.delayReason?.trim()) {
       missing.push('逾期原因');

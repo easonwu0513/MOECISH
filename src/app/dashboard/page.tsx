@@ -167,9 +167,9 @@ export default async function HomePage() {
   const orgCount = new Set(cycles.map((c) => c.organizationId)).size;
   const scopeText =
     user.role === 'ORG_ADMIN'
-      ? user.organizationName ?? '機關承辦'
+      ? user.organizationName ?? '機關管理員'
       : user.role === 'AUDITOR'
-        ? `稽核委員 · 經指派 ${cycles.length} 個週期`
+        ? `稽核委員 · 受指派 ${cycles.length} 個週期`
         : `教育部稽核中心 · 監督 ${orgCount} 院`;
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
