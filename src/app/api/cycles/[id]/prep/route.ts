@@ -8,7 +8,7 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    const { user } = await assertCycleAccess(params.id);
+    const { user, cycle } = await assertCycleAccess(params.id);
     const items = await prisma.prepRequirement.findMany({
       where: { cycleId: params.id },
       include: { submission: true },
@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     if (user.role === 'AUDITOR') {
       const withFiles = new Set(files.map((f) => f.targetId));
       const visItems = items.filter(
-        (i) => i.submission && auditorCanSeePrep(i.submission.status, i.category, withFiles.has(i.submission.id)),
+        (i) => i.submission && auditorCanSeePrep(i.submission.status, i.category, withFiles.has(i.submission.id), cycle.status),
       );
       const visSubIds = new Set(visItems.map((i) => i.submission!.id));
       return NextResponse.json({ items: visItems, files: files.filter((f) => visSubIds.has(f.targetId)) });

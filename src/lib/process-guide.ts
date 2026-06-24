@@ -46,6 +46,12 @@ export type CycleFacts = {
   mechAllAddressed: boolean;  // 全部已上傳/敘明理由(非 EMPTY)
   mechAllSubmitted: boolean;  // 全部已確定繳交(SUBMITTED 或 CONFIRMED)
   mechAllConfirmed: boolean;  // 全部經中心確認齊備(CONFIRMED)
+  // 機關區逐狀態計數 — 機關的儀表板/標頭只算自己的項目(扣除中心匯入)
+  mechTotal: number;
+  mechConfirmed: number;
+  mechInsufficient: number;
+  mechDraft: number;
+  mechRemaining: number;
   signedUploaded: boolean;
   signedConfirmed: boolean;
   overdue: boolean;
@@ -91,6 +97,11 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const mechAllAddressed = mechStatuses.length > 0 && mechStatuses.every((s) => s !== 'EMPTY');
   const mechAllSubmitted = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'SUBMITTED' || s === 'CONFIRMED');
   const mechAllConfirmed = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'CONFIRMED');
+  const mechTotal = mechStatuses.length;
+  const mechConfirmed = mechStatuses.filter((s) => s === 'CONFIRMED').length;
+  const mechInsufficient = mechStatuses.filter((s) => s === 'INSUFFICIENT').length;
+  const mechDraft = mechStatuses.filter((s) => s === 'UPLOADED').length;
+  const mechRemaining = mechStatuses.filter((s) => s === 'EMPTY').length;
 
   const signedUploaded = c.signedReports.length > 0;
   const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
@@ -107,6 +118,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
     mechAllAddressed, mechAllSubmitted, mechAllConfirmed,
+    mechTotal, mechConfirmed, mechInsufficient, mechDraft, mechRemaining,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
     checklistTotal, checklistAnswered, checklistSubmitted, checklistOpenComments,

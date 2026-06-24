@@ -341,16 +341,17 @@ export default async function HomePage() {
               {user.role === 'ORG_ADMIN' &&
                 (() => {
                   const pc = enriched.find((e) => e.status === 'PREPARATION');
-                  if (!pc || (pc.prepTotal === 0 && pc.checklistTotal === 0)) return null;
+                  // 機關只看自己負責的機關區(技術檢測/實地稽核);中心匯入由中心經手,不計入機關讀數
+                  if (!pc || (pc.mechTotal === 0 && pc.checklistTotal === 0)) return null;
                   return (
                     <div className="grid gap-4 sm:grid-cols-2 mb-6">
-                      {pc.prepTotal > 0 && (
+                      {pc.mechTotal > 0 && (
                         <Link href={`/cycles/${pc.c.id}/prep`} className="block focus-ring rounded-lg">
                           <Card interactive className="flex items-center gap-4 h-full">
-                            <ProgressRing value={pc.prepConfirmed} max={pc.prepTotal} size={76} tone="primary" label={`${pc.prepConfirmed}/${pc.prepTotal}`} sublabel="已齊備" />
+                            <ProgressRing value={pc.mechConfirmed} max={pc.mechTotal} size={76} tone="primary" label={`${pc.mechConfirmed}/${pc.mechTotal}`} sublabel="已齊備" />
                             <div className="min-w-0 flex-1">
                               <p className="text-title-md text-on-surface">稽核前資料準備</p>
-                              <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.prepInsufficient} · 待繳 {pc.prepDraft} · 未處理 {pc.prepRemaining}</p>
+                              <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
                             </div>
                             <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
                           </Card>

@@ -145,11 +145,14 @@ export function isCenterCategory(c: string): boolean {
 }
 /**
  * 委員是否可檢視某資料準備項(單一真實來源,API 與畫面共用):
- * 一律須中心已「確認齊備 / 開放委員檢視」(status=CONFIRMED);中心匯入區(CENTER)另須有檔。
- * 中心匯入在中心按「開放委員檢視」前(status=EMPTY)委員不得看見/下載 —— 後端與畫面同此閘。
+ * - 中心匯入區(CENTER):中心按「開放委員檢視」(status=CONFIRMED)且有檔即開放,不受週期階段限制(中心刻意釋出)。
+ * - 機關區(TECH/ONSITE):委員僅在週期離開「資料準備中」、進入「資料齊備」階段後才檢視已確認齊備之資料
+ *   —— 與引導式精靈「資料齊備 → 委員檢視已確認齊備之資料」一致;資料準備中(逐項確認階段)委員不得提前檢視。
  */
-export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean): boolean {
-  return status === 'CONFIRMED' && (category !== 'CENTER' || hasFiles);
+export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean, cycleStatus: string): boolean {
+  if (category === 'CENTER') return status === 'CONFIRMED' && hasFiles;
+  if (prepCyclePhaseOpen(cycleStatus)) return false; // DRAFT / PREPARATION 期間機關區不開放委員
+  return status === 'CONFIRMED';
 }
 /** 該週期階段是否仍開放異動資料準備(機關編輯/上傳/刪檔僅限草稿與資料準備中;離開後一律凍結)。 */
 export function prepCyclePhaseOpen(cycleStatus: string): boolean {

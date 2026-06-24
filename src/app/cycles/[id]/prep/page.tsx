@@ -40,7 +40,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const isAuditor = user.role === 'AUDITOR';
   const visibleRequirements = isAuditor
     ? requirements.filter(
-        (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id)),
+        (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id), cycle.status),
       )
     : user.role === 'ORG_ADMIN'
       ? requirements.filter((r) => r.category !== 'CENTER') // 中心匯入區僅供委員審閱,機關不顯示

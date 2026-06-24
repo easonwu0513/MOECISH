@@ -149,7 +149,7 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
       select: { status: true, requirement: { select: { category: true } } },
     });
     const fileCount = await prisma.evidence.count({ where: { targetType: 'PREP_SUBMISSION', targetId } });
-    if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0)) {
+    if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0, cycle.status)) {
       throw new AuthError(403, '此資料尚未開放委員檢視');
     }
   }
