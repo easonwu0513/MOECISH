@@ -12,7 +12,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
 import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
-import { ClipboardCheck } from '@/components/icons';
+import { StatTopBar } from '@/components/ui/StatTopBar';
+import { ClipboardCheck, AlertTriangle, CheckCircle } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
@@ -83,6 +84,13 @@ export default async function AdminCyclesPage({
     return q ? `/admin/cycles?${q}` : '/admin/cycles';
   };
 
+  // 跨院 KPI strip(中心一眼掌握:在辦 / 落後 / 矯正完成率;隨年度篩選連動)
+  const activeCount = rows.filter((r) => r.activeStage).length;
+  const withDef = rows.filter((r) => r.total > 0);
+  const avgPass = withDef.length
+    ? Math.round((withDef.reduce((a, r) => a + r.passed / r.total, 0) / withDef.length) * 100)
+    : 0;
+
   const defaultYear = years[0] ?? new Date().getFullYear();
   const cycleOptions = cycles.map((c) => ({
     id: c.id,
@@ -119,6 +127,13 @@ export default async function AdminCyclesPage({
           </>
         }
       />
+
+      {/* 跨院 KPI:中心一眼掌握在辦 / 落後 / 矯正完成率 */}
+      <div className="grid gap-3 sm:grid-cols-3 mb-5">
+        <StatTopBar tone="primary" icon={<ClipboardCheck size={18} />} primary={String(activeCount)} label="進行中週期" sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
+        <StatTopBar tone="danger" muted={behindCount === 0} icon={<AlertTriangle size={18} />} primary={String(behindCount)} label="落後(逾期 / 停滯)" sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} />
+        <StatTopBar tone="success" icon={<CheckCircle size={18} />} primary={`${avgPass}%`} label="平均矯正完成率" sub={`${withDef.length} 個週期已發布缺失`} />
+      </div>
 
       {/* 年度篩選 */}
       {years.length > 1 && (
