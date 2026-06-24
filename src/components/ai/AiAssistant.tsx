@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/cn';
-import { Cpu, Send, X } from '@/components/icons';
+import { Sparkles, Send, X } from '@/components/icons';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -21,11 +21,29 @@ export function AiAssistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, open]);
+
+  // 首次造訪顯示一次招呼泡泡(讓人知道可以問它),關閉後不再出現
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem('moecish-ai-hint')) setShowHint(true);
+    } catch {
+      /* localStorage 不可用時略過 */
+    }
+  }, []);
+  function dismissHint() {
+    setShowHint(false);
+    try {
+      localStorage.setItem('moecish-ai-hint', '1');
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function send(text: string) {
     const q = text.trim();
@@ -71,22 +89,45 @@ export function AiAssistant() {
   return (
     <>
       {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="開啟 MOECISH 小幫手"
-          className="fixed bottom-5 right-5 z-50 inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-600 text-white shadow-elev-2 hover:bg-primary-700 transition-colors focus-ring print:hidden"
-        >
-          <Cpu size={22} aria-hidden />
-        </button>
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2 print:hidden">
+          {showHint && (
+            <div className="relative max-w-[230px] rounded-lg rounded-br-sm bg-surface border border-outline-variant shadow-elev-2 px-3.5 py-2.5 text-body-sm text-on-surface animate-in fade-in slide-in-from-bottom-1">
+              <button
+                type="button"
+                onClick={dismissHint}
+                aria-label="關閉提示"
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-surface-container border border-outline-variant inline-flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high focus-ring"
+              >
+                <X size={11} aria-hidden />
+              </button>
+              <span className="font-medium">👋 嗨,我是 AI 小幫手</span>
+              <br />
+              平台操作、流程下一步,或幫你草擬文字,都可以問我!
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(true);
+              dismissHint();
+            }}
+            aria-label="開啟 AI 小幫手"
+            className="inline-flex items-center gap-2 rounded-full bg-primary-600 text-white h-12 pl-3.5 pr-4 shadow-elev-2 hover:bg-primary-700 transition-colors focus-ring"
+          >
+            <Sparkles size={20} aria-hidden className="motion-safe:animate-pulse" />
+            <span className="text-label-lg font-medium">AI 小幫手</span>
+          </button>
+        </div>
       )}
 
       {open && (
         <div className="fixed bottom-5 right-5 z-50 w-[min(92vw,380px)] h-[min(78vh,560px)] flex flex-col rounded-lg border border-outline-variant bg-surface shadow-elev-3 overflow-hidden print:hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-outline-variant bg-primary-50/60">
-            <Cpu size={18} className="text-primary-700 shrink-0" aria-hidden />
+            <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-600 text-white">
+              <Sparkles size={16} aria-hidden />
+            </span>
             <div className="min-w-0 flex-1">
-              <p className="text-title-md text-on-surface leading-tight">MOECISH 小幫手</p>
+              <p className="text-title-md text-on-surface leading-tight">MOECISH AI 小幫手</p>
               <p className="text-label-sm text-on-surface-variant">AI 輔助草稿,內容請自行核對</p>
             </div>
             <button

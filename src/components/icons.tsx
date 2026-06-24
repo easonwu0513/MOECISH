@@ -44,6 +44,13 @@ export const X = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}><path d="M6 6l12 12M6 18l12-12" /></svg>
 );
 
+export const Sparkles = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+    <path d="M19 13l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z" />
+  </svg>
+);
+
 export const Mail = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <rect x="3" y="5" width="18" height="14" rx="2" />
