@@ -5,19 +5,23 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
-import { AlertTriangle, Info } from '@/components/icons';
+import { Timeline, type TimelineNode } from '@/components/ui/Timeline';
+import { AlertTriangle, Info, History } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
   ACTION_STATUS_LABELS,
+  EXEC_STATUS_LABELS,
   COMPLIANCE_LABELS,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
+  type ExecStatus,
   type ComplianceLevel,
   type CycleStatus,
 } from '@/lib/types';
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
+import { findRepeatDeficiencies } from '@/lib/deficiency-history';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
 import AdminDefActions from './AdminDefActions';
@@ -75,6 +79,59 @@ export default async function DeficiencyDetailPage({
         select: { compliance: true, description: true },
       })
     : null;
+
+  // 歷年同類缺失:同機關、往年、同檢核項(或同構面)曾發生的缺失,供根因/矯正參考(唯讀)。
+  // 租戶隔離由 organizationId 過濾保證;此處的 cycle 已通過上方存取控制。
+  const priorDeficiencies = await findRepeatDeficiencies({
+    organizationId: cycle.organizationId,
+    aspect: deficiency.aspect,
+    type: deficiency.type,
+    checklistRef: deficiency.checklistRef,
+    beforeYear: cycle.year,
+    excludeDeficiencyId: deficiency.id,
+  });
+  const historyNodes: TimelineNode[] = priorDeficiencies.map((h) => {
+    const st = (h.action?.status ?? 'PENDING') as ActionStatus;
+    const measures = [
+      h.action?.measureStrategy && `策略面:${h.action.measureStrategy}`,
+      h.action?.measureManagement && `管理面:${h.action.measureManagement}`,
+      h.action?.measureTechnical && `技術面:${h.action.measureTechnical}`,
+    ].filter(Boolean) as string[];
+    return {
+      id: h.deficiencyId,
+      tone: st === 'PASSED' ? 'success' : 'warning',
+      title: (
+        <Link
+          href={`/cycles/${h.cycleId}/deficiencies/${h.deficiencyId}`}
+          className="hover:underline focus-ring rounded-sm"
+        >
+          {h.yearROC} 年度 · {DEFICIENCY_TYPE_LABELS[h.type as DeficiencyType]} 第 {h.itemNo} 項
+        </Link>
+      ),
+      meta: (
+        <span className="inline-flex items-center gap-1.5 flex-wrap">
+          <Chip size="sm" tone={actionStatusTone(st)}>{ACTION_STATUS_LABELS[st]}</Chip>
+          {h.checklistRef && <span className="font-mono">檢核項 {h.checklistRef}</span>}
+          {h.action?.execStatus && (
+            <span>{EXEC_STATUS_LABELS[h.action.execStatus as ExecStatus] ?? h.action.execStatus}</span>
+          )}
+        </span>
+      ),
+      body:
+        h.action?.rootCause || measures.length ? (
+          <div className="space-y-1.5">
+            {h.action?.rootCause && (
+              <p className="leading-relaxed"><span className="text-on-surface-variant">當年根因:</span>{h.action.rootCause}</p>
+            )}
+            {measures.length > 0 && (
+              <p className="leading-relaxed"><span className="text-on-surface-variant">當年矯正:</span>{measures.join('；')}</p>
+            )}
+          </div>
+        ) : (
+          <span className="text-on-surface-variant">當年未留存根因/矯正紀錄</span>
+        ),
+    };
+  });
 
   const canFill =
     user.role === 'ORG_ADMIN' &&
@@ -196,6 +253,25 @@ export default async function DeficiencyDetailPage({
           <Link href={`/cycles/${cycle.id}/checklist`} className="mt-2 inline-block text-caption text-primary-700 hover:underline focus-ring rounded-sm">
             於檢核表查看 →
           </Link>
+        </Card>
+      )}
+
+      {/* 歷年同類缺失:同機關往年同檢核項(或同構面)曾發生的缺失,供根因與矯正參考 */}
+      {historyNodes.length > 0 && (
+        <Card className="mb-6" variant="outlined">
+          <CardTitle>
+            <span className="inline-flex items-center gap-2">
+              <History size={18} className="text-warning-600" />
+              歷年同類缺失
+              <Chip size="sm" tone="warning">{historyNodes.length}</Chip>
+            </span>
+          </CardTitle>
+          <p className="mt-2 mb-4 text-caption text-on-surface-variant leading-relaxed">
+            本機關於往年(近 3 年)曾在
+            {deficiency.checklistRef ? <> 同一檢核項 <span className="font-mono">{deficiency.checklistRef}</span></> : <> 同一構面</>}
+            發生過下列缺失,供根因分析與矯正措施參考。重複出現代表問題未根治,請從源頭改善。
+          </p>
+          <Timeline nodes={historyNodes} />
         </Card>
       )}
 

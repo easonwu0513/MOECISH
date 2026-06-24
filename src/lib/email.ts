@@ -69,6 +69,7 @@ export async function sendEmail(input: SendEmailInput) {
               subject: input.subject,
               body: input.body,
               kind,
+              status: 'skipped',
               context: JSON.stringify({
                 ...(input.context ?? {}),
                 dedupeKey: input.dedupeKey,
@@ -111,6 +112,7 @@ export async function sendEmail(input: SendEmailInput) {
       subject: input.subject,
       body: input.body,
       kind,
+      status: delivery,
       context: JSON.stringify({
         ...(input.context ?? {}),
         ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),

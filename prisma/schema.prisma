@@ -39,6 +39,12 @@ model User {
   lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
 
+  // 帳號生命週期 + 權責分立:停用須附理由與操作者(快照,無關聯;比照 JourneyProgress.doneById)
+  disabledAt     DateTime?
+  disabledById   String?   // 停用操作者 id 快照
+  disabledByName String?   // 停用操作者姓名快照
+  disableReason  String?   // 停用理由(權責分立稽核軌跡)
+
   // 資通系統防護基準(中級)— SECURITY_BASELINE 旗標啟用後生效
   failedLoginCount   Int       @default(0)   // 連續登入失敗次數(成功即歸零)
   lockedUntil        DateTime?                // 鎖定截止(失敗 5 次鎖 15 分鐘)
@@ -426,6 +432,11 @@ model EmailLog {
   body      String
   kind      String   // "invitation" | "cycle-notify" | "tracking" | "password-reset" | "other"
   context   String?  // JSON
+  // 投遞狀態(可查詢欄;與 context.delivery 同步,供死信補寄 timer 掃描):
+  // sent | failed | simulated | skipped | dead-letter(自動重試達上限)
+  status      String   @default("sent")
+  retryCount  Int      @default(0)   // 自動補寄已嘗試次數
+  lastRetryAt DateTime?               // 最近一次補寄時間(冷卻計算)
   templateKey         String?
   relatedInvitationId String?
   relatedCycleId      String?
@@ -434,6 +445,7 @@ model EmailLog {
   @@index([sentAt])
   @@index([toEmail])
   @@index([kind])
+  @@index([status])
 }
 
 // ════════════════════════════════════════════

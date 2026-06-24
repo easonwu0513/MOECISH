@@ -124,6 +124,13 @@ export default async function AdminCyclesPage({
             >
               下載彙整表(Excel)
             </Button>
+            <Button
+              size="sm"
+              variant="text"
+              href={yearFilter ? `/api/admin/export/repeat-offender?year=${yearFilter}` : '/api/admin/export/repeat-offender'}
+            >
+              下載歷年重複缺失(Excel)
+            </Button>
           </>
         }
       />

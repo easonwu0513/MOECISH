@@ -9,6 +9,7 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 const Body = z.object({
   isActive: z.boolean().optional(),
   role: z.enum(ROLES).optional(),
+  reason: z.string().trim().max(500).optional(), // 停用理由(權責分立:停用必填)
 });
 
 /**
@@ -44,9 +45,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: '此帳號未隸屬任何機關,不可改為機關管理員' }, { status: 400 });
     }
 
+    // 權責分立:停用帳號必須附理由(留存操作者與時間,供稽核軌跡)
+    const disabling = body.isActive === false && target.isActive === true;
+    const enabling = body.isActive === true && target.isActive === false;
+    if (disabling && !body.reason) {
+      return NextResponse.json({ error: '停用帳號須填寫理由(權責分立要求)' }, { status: 400 });
+    }
+
+    const lifecycle = disabling
+      ? {
+          disabledAt: new Date(),
+          disabledById: actor.id,
+          disabledByName: actor.name,
+          disableReason: body.reason ?? null,
+        }
+      : enabling
+      ? { disabledAt: null, disabledById: null, disabledByName: null, disableReason: null }
+      : {};
+
     const updated = await prisma.user.update({
       where: { id: target.id },
-      data: { isActive: body.isActive, role: body.role },
+      data: { isActive: body.isActive, role: body.role, ...lifecycle },
     });
 
     const meta = extractRequestMeta(req);
@@ -56,7 +75,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       entityType: 'User',
       entityId: target.id,
       before: { isActive: target.isActive, role: target.role },
-      after: { isActive: updated.isActive, role: updated.role },
+      after: {
+        isActive: updated.isActive,
+        role: updated.role,
+        ...(disabling ? { disableReason: body.reason } : {}),
+      },
       ...meta,
     });
 

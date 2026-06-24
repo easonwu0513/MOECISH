@@ -25,3 +25,14 @@ DATABASE_URL / NEXTAUTH_SECRET / NEXTAUTH_URL / STORAGE_DIR
 
 ## 更新部署
 git pull(或上傳 tar)→ npm install → prisma db push(如 schema 變)→ npm run build → systemctl restart moecish
+
+### 建議:用部署閘(pre-deploy gate)取代手動 restart
+`infra/redeploy-gate.sh` 會先 build,再以臨時實例(預設 :3999)跑跨機關隔離測試
+(`test:isolation`,26+ 斷言),**通過才切換正式服務**;失敗即拒絕上線並寄警報,
+避免授權/租戶隔離回歸被部署到正式環境。
+
+```
+sudo bash /srv/moecish/infra/redeploy-gate.sh
+```
+
+隔離測試會自建並自清夾具,可安全對正式 DB 執行。失敗時正式服務維持前一版。

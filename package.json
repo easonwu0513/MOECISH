@@ -14,6 +14,7 @@
     "import:checklist": "tsx src/scripts/import-checklist.ts",
     "graph:init": "tsx src/scripts/init-graph-auth.ts",
     "track:run": "tsx src/scripts/run-tracking.ts",
+    "email:retry": "tsx src/scripts/retry-failed-emails.ts",
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
     "journey:seed": "tsx src/scripts/seed-journey.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
