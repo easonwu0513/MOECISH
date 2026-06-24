@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import type { Dimension } from '@/lib/types';
 import ChecklistShell from './ChecklistShell';
 
@@ -118,6 +119,11 @@ export default async function ChecklistPage({ params }: { params: { id: string }
         { label: '檢核表填報' },
       ]}
     >
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="填報送出後,於工作台確認進度與下一步"
+      />
       <header className="mb-5">
         <h1 className="text-headline text-on-surface">資通安全檢核表填報</h1>
         <p className="text-body-sm text-on-surface-variant mt-1">

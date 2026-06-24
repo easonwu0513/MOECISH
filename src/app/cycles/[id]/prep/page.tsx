@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
 import { auditorCanSeePrep } from '@/lib/types';
 import { AppShell } from '@/components/shell/AppShell';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import PrepBoard from './PrepBoard';
 
@@ -61,6 +62,11 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         { label: '稽核前資料準備' },
       ]}
     >
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="繳交後於工作台確認齊備、查看下一步"
+      />
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
         <p className="mt-1 text-body-sm text-on-surface-variant">

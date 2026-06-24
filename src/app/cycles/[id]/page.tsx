@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
+import { toneClasses } from '@/lib/stage';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
@@ -427,11 +428,7 @@ function ModuleTile({
   // 降權改用「色彩弱化」而非整塊半透明:文字維持全對比(無障礙),非當前階段只把圖示轉中性、卡底略沉
   const iconBg = muted
     ? 'bg-surface-container-high text-on-surface-variant'
-    : {
-        primary: 'bg-primary-50 text-primary-700',
-        sage: 'bg-sage-50 text-sage-700',
-        neutral: 'bg-neutral-100 text-neutral-600',
-      }[tone];
+    : toneClasses(tone).iconBg;
 
   return (
     <Link href={href} className="block h-full focus-ring rounded-lg">
