@@ -17,6 +17,7 @@ export type JourneyClientItem = {
   doneByName: string | null;
   canToggle: boolean;
   href?: string | null; // 唯讀(CYCLE)項目的快捷跳轉目的地
+  informational?: boolean; // 純提醒(無系統訊號可判定)→ 不勾選、不計分、不跳轉
 };
 export type JourneyClientStage = {
   id: string;
@@ -107,8 +108,9 @@ export function JourneyChecklist({
   return (
     <div className="flex flex-col gap-3">
       {stages.map((s) => {
-        const total = s.items.length;
-        const done = s.items.filter((i) => i.done).length;
+        const countable = s.items.filter((i) => !i.informational); // 純提醒不計入 X/Y
+        const total = countable.length;
+        const done = countable.filter((i) => i.done).length;
         const allDone = total > 0 && done === total;
         const isOpen = open.has(s.stageKey);
         return (
@@ -145,31 +147,48 @@ export function JourneyChecklist({
                     );
                     const inner = (
                       <>
-                        <span
-                          className={cn(
-                            'mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors',
-                            it.done ? 'bg-primary-600 border-primary-600 text-white' : 'border-outline bg-surface',
-                            !it.canToggle && !it.done && 'opacity-60',
-                          )}
-                          aria-hidden
-                        >
-                          {it.done && <Check size={13} />}
-                        </span>
+                        {it.informational ? (
+                          // 純提醒:小圓點(非勾選框)——不可勾、不計分、不跳轉
+                          <span className="mt-[7px] shrink-0 w-1.5 h-1.5 rounded-full bg-outline-variant" aria-hidden />
+                        ) : (
+                          <span
+                            className={cn(
+                              'mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors',
+                              it.done ? 'bg-primary-600 border-primary-600 text-white' : 'border-outline bg-surface',
+                              !it.canToggle && !it.done && 'opacity-60',
+                            )}
+                            aria-hidden
+                          >
+                            {it.done && <Check size={13} />}
+                          </span>
+                        )}
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-2 flex-wrap">
-                            <span className={cn('text-body-sm', it.done ? 'text-on-surface-variant line-through' : 'text-on-surface')}>
+                            <span
+                              className={cn(
+                                'text-body-sm',
+                                it.informational
+                                  ? 'text-on-surface-variant'
+                                  : it.done
+                                    ? 'text-on-surface-variant line-through'
+                                    : 'text-on-surface',
+                              )}
+                            >
                               {it.title}
                             </span>
                             {showRoleChips && it.role && (
                               <Chip tone={ROLE_TONE[it.role]} size="sm">{ROLE_LABELS[it.role]}</Chip>
                             )}
+                            {it.informational && (
+                              <span className="text-label-sm text-on-surface-variant">提醒</span>
+                            )}
                           </span>
                           {it.hint && <span className="block mt-0.5 text-caption text-on-surface-variant">{it.hint}</span>}
-                          {it.done && it.doneByName && (
+                          {!it.informational && it.done && it.doneByName && (
                             <span className="block mt-0.5 text-label-sm text-success-700">已完成 · {it.doneByName}</span>
                           )}
                         </span>
-                        {it.href && (
+                        {it.href && !it.informational && (
                           <ChevronRight size={15} className="self-center shrink-0 text-on-surface-variant" aria-hidden />
                         )}
                       </>

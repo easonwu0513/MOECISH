@@ -15,11 +15,13 @@ export type JourneyItemView = {
   hint: string | null;
   role: Role | null;
   orderIndex: number;
+  /** CYCLE 無 autoKey 的「軟性」項(到場查核/逐題檢視…)= 純提醒:不勾選、不計分、不跳轉。 */
+  informational: boolean;
   done: boolean;
   doneAt: Date | null;
   doneByName: string | null;
   note: string | null;
-  href: string | null; // CYCLE:快捷跳轉到實際執行頁;PROGRAMME:null
+  href: string | null; // CYCLE:快捷跳轉到實際執行頁;PROGRAMME / 純提醒:null
 };
 
 export type JourneyStageView = {
@@ -87,17 +89,21 @@ export async function loadJourney(opts: {
       .map((it) => {
         // CYCLE:依系統實況自動判定(不靠手動勾選);PROGRAMME:沿用手動 JourneyProgress。
         if (scope === 'CYCLE') {
+          // 無 autoKey = 無系統訊號可判定的「軟性」任務(到場查核 / 逐題檢視 / 熟悉背景…)
+          // → 純提醒:不顯示勾選框、不計入進度、不做任務跳轉。
+          const informational = it.autoKey == null;
           return {
             id: it.id,
             title: it.title,
             hint: it.hint,
             role: (it.role as Role | null) ?? null,
             orderIndex: it.orderIndex,
-            done: autoCtx ? autoItemDone(st.stageKey, it.autoKey, autoCtx) : false,
+            informational,
+            done: !informational && !!autoCtx && autoItemDone(st.stageKey, it.autoKey, autoCtx),
             doneAt: null,
             doneByName: null,
             note: null,
-            href: cycleId ? `/cycles/${cycleId}${journeyItemHref(st.stageKey, it.autoKey)}` : null,
+            href: informational || !cycleId ? null : `/cycles/${cycleId}${journeyItemHref(st.stageKey, it.autoKey)}`,
           };
         }
         const p = it.progress[0];
@@ -107,6 +113,7 @@ export async function loadJourney(opts: {
           hint: it.hint,
           role: (it.role as Role | null) ?? null,
           orderIndex: it.orderIndex,
+          informational: false,
           done: !!p?.done,
           doneAt: p?.doneAt ?? null,
           doneByName: p?.doneByName ?? null,
@@ -114,9 +121,11 @@ export async function loadJourney(opts: {
           href: null,
         };
       });
-    const doneCount = items.filter((i) => i.done).length;
+    // 純提醒項不算「任務」,不計入 X/Y 進度
+    const countable = items.filter((i) => !i.informational);
+    const doneCount = countable.filter((i) => i.done).length;
     grandDone += doneCount;
-    grandTotal += items.length;
+    grandTotal += countable.length;
     return {
       id: st.id,
       stageKey: st.stageKey,
@@ -125,7 +134,7 @@ export async function loadJourney(opts: {
       orderIndex: st.orderIndex,
       items,
       doneCount,
-      total: items.length,
+      total: countable.length,
     };
   });
 
@@ -165,6 +174,7 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
       done: it.done,
       doneByName: it.doneByName,
       href: it.href,
+      informational: it.informational,
       // CYCLE 為系統自動判定 → 一律唯讀;PROGRAMME 維持依角色可手動勾選。
       canToggle: view.scope === 'CYCLE' ? false : canToggleJourneyItem(role, view.scope, it.role),
     })),
