@@ -48,6 +48,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
         { label: `${data.year - 1911} 年度 · ${data.organization.name}`, href: `/cycles/${data.id}` },
         { label: '彙整報告' },
       ]}
+      watermark
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>

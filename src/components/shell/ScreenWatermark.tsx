@@ -18,9 +18,11 @@ function escXml(s: string): string {
 
 export default function ScreenWatermark({ name, email }: { name: string; email: string }) {
   const text = `${name}・${email}・禁止外流`;
+  // 置中對齊(text-anchor=middle)+ 放大磚 + overflow visible:讓字串置中於磚內,
+  // 旋轉後首字不會頂到磚邊被裁(原本 x=12/y=120 左下角起點會切掉首字「魚」)。與檔案浮水印同思路。
   const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' width='380' height='190'>` +
-    `<text x='12' y='120' transform='rotate(-28 190 95)' font-family='sans-serif' font-size='13' fill='#334155' fill-opacity='0.085'>${escXml(text)}</text>` +
+    `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='240' overflow='visible'>` +
+    `<text text-anchor='middle' x='240' y='130' transform='rotate(-28 240 120)' font-family='sans-serif' font-size='13' fill='#334155' fill-opacity='0.085'>${escXml(text)}</text>` +
     `</svg>`;
   const backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
   return (

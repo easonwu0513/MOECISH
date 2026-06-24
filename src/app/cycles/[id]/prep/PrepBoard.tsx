@@ -77,7 +77,7 @@ export default function PrepBoard({
   const [returnNote, setReturnNote] = useState('');
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [reasonText, setReasonText] = useState('');
-  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitPending, setSubmitPending] = useState<PrepCategory | null>(null);
   const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
 
@@ -98,15 +98,22 @@ export default function PrepBoard({
   };
   // 確定繳交僅涵蓋機關區(技術檢測 / 實地稽核);中心匯入區由中心上傳
   const mechItems = initialItems.filter((it) => catOf(it) !== 'CENTER');
-  const requiredUnaddressed = mechItems.filter((it) => it.required && !addressedOf(it));
-  const draftCount = mechItems.filter((it) => {
-    const s = it.submission?.status;
-    return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
-  }).length;
-  const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
 
   const dueOf = (cat: PrepCategory): string | null =>
     cat === 'TECH' ? prepDueTechISO : cat === 'ONSITE' ? prepDueOnsiteISO : null;
+
+  // 分類繳交:技術檢測 / 實地稽核 截止日不同,可各自獨立繳交(取代原本整批 canSubmit/draftCount)
+  const orgCats: PrepCategory[] = ['TECH', 'ONSITE'];
+  const catState = (cat: PrepCategory) => {
+    const items = mechItems.filter((it) => catOf(it) === cat);
+    const requiredUnaddressed = items.filter((it) => it.required && !addressedOf(it));
+    const draftCount = items.filter((it) => {
+      const s = it.submission?.status;
+      return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
+    }).length;
+    const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
+    return { items, requiredUnaddressed, draftCount, canSubmit };
+  };
 
   async function applyStandard() {
     setBusy(true);
@@ -241,14 +248,18 @@ export default function PrepBoard({
     }
   }
 
-  async function submitAll() {
+  async function submitCat(cat: PrepCategory) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/cycles/${cycleId}/prep/submit`, { method: 'POST' });
+      const res = await fetch(`/api/cycles/${cycleId}/prep/submit`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ category: cat }),
+      });
       const j = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast.success('已確定繳交', `${j.submitted} 項已送交中心審核`);
-        setSubmitOpen(false);
+        toast.success('已確定繳交', `${PREP_CATEGORY_LABELS[cat]} ${j.submitted} 項已送交中心審核`);
+        setSubmitPending(null);
         router.refresh();
       } else {
         toast.error('繳交失敗', j.error);
@@ -302,6 +313,29 @@ export default function PrepBoard({
     }
   }
 
+  // 中心匯入區:中心「開放委員檢視 / 收回」(釋出前委員看不到/載不到)
+  async function releaseCenter(subId: string, release: boolean) {
+    setBusyItemId(subId);
+    try {
+      const res = await fetch(`/api/prep-submissions/${subId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: release ? 'CONFIRMED' : 'EMPTY' }),
+      });
+      if (res.ok) {
+        toast.success(release ? '已開放委員檢視' : '已收回(暫不開放委員)');
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('操作失敗', j.error);
+      }
+    } catch {
+      toast.error('操作失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
   function renderItem(item: Item, idx: number) {
     const sub = item.submission;
     const files = filesOf(sub?.id);
@@ -328,8 +362,12 @@ export default function PrepBoard({
                 <p className="text-title text-on-surface">{item.title}</p>
                 {!item.required && !isCenter && <Chip tone="neutral" size="sm">選附</Chip>}
                 {isCenter ? (
-                  <Chip tone={files.length > 0 ? 'primary' : 'neutral'} size="sm" dot>
-                    {files.length > 0 ? '已匯入' : '中心待匯入'}
+                  <Chip
+                    tone={status === 'CONFIRMED' ? 'success' : files.length > 0 ? 'warning' : 'neutral'}
+                    size="sm"
+                    dot
+                  >
+                    {status === 'CONFIRMED' ? '已開放委員檢視' : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
                   </Chip>
                 ) : (
                   <Chip tone={statusTone(status)} size="sm" dot>{PREP_STATUS_LABELS[status]}</Chip>
@@ -447,6 +485,18 @@ export default function PrepBoard({
                     <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB</span>
                   </>
                 )}
+                {/* 中心匯入區:開放委員檢視 / 收回(釋出前委員看不到、載不到) */}
+                {isCenter && isAdmin && adminCanImport && sub && files.length > 0 && (
+                  status === 'CONFIRMED' ? (
+                    <Button size="sm" variant="text" onClick={() => releaseCenter(sub.id, false)} loading={busyItemId === sub.id}>
+                      收回(暫不開放委員)
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => releaseCenter(sub.id, true)} loading={busyItemId === sub.id}>
+                      開放委員檢視
+                    </Button>
+                  )
+                )}
                 {isCenter && !adminCanImport && files.length === 0 && (
                   <span className="text-caption text-on-surface-variant">
                     {isAdmin ? '週期已結案,無法再匯入' : '由中心匯入,尚未上傳'}
@@ -492,23 +542,36 @@ export default function PrepBoard({
         </div>
       )}
 
-      {/* 機關:確定繳交(僅機關區) */}
+      {/* 機關:分別確定繳交(技術檢測 / 實地稽核 截止日不同,可各自獨立繳交) */}
       {isOrg && cycleStatus === 'PREPARATION' && mechItems.length > 0 && (
         <Card padded={false} variant="filled">
-          <div className="p-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="min-w-0">
-              <p className="text-title text-on-surface">確定繳交</p>
-              <p className="mt-0.5 text-body-sm text-on-surface-variant leading-relaxed">
-                {requiredUnaddressed.length > 0
-                  ? `尚有 ${requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
-                  : draftCount > 0
-                    ? `${draftCount} 項待繳交(技術檢測 / 實地稽核區)。確定繳交後文件即鎖定送交中心審核,需中心退回才能再修改。`
-                    : '機關區已全部繳交,等待中心審核。'}
-              </p>
-            </div>
-            <Button size="sm" onClick={() => setSubmitOpen(true)} disabled={!canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
-              確定繳交{draftCount > 0 ? `(${draftCount})` : ''}
-            </Button>
+          <div className="p-4 flex flex-col divide-y divide-outline-variant/50">
+            {orgCats
+              .filter((cat) => mechItems.some((it) => catOf(it) === cat))
+              .map((cat) => {
+                const st = catState(cat);
+                const due = dueOf(cat);
+                return (
+                  <div key={cat} className="flex items-center justify-between gap-4 flex-wrap py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="text-title text-on-surface">
+                        {PREP_CATEGORY_LABELS[cat]}・確定繳交
+                        {due && <span className="ml-2 text-caption text-on-surface-variant">截止 {fmtROC(due)}</span>}
+                      </p>
+                      <p className="mt-0.5 text-body-sm text-on-surface-variant leading-relaxed">
+                        {st.requiredUnaddressed.length > 0
+                          ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
+                          : st.draftCount > 0
+                            ? `${st.draftCount} 項待繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
+                            : '本區已全部繳交,等待中心審核。'}
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={() => setSubmitPending(cat)} disabled={!st.canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
+                      確定繳交{st.draftCount > 0 ? `(${st.draftCount})` : ''}
+                    </Button>
+                  </div>
+                );
+              })}
           </div>
         </Card>
       )}
@@ -605,14 +668,18 @@ export default function PrepBoard({
         loading={busyItemId !== null}
       />
 
-      {/* 確定繳交確認 */}
+      {/* 確定繳交確認(分類) */}
       <ConfirmDialog
-        open={submitOpen}
-        onOpenChange={(o) => !busy && !o && setSubmitOpen(false)}
+        open={submitPending !== null}
+        onOpenChange={(o) => !busy && !o && setSubmitPending(null)}
         title="確定繳交稽核前資料"
-        description={`將把機關區(技術檢測 / 實地稽核)${draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`}
+        description={
+          submitPending
+            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`
+            : ''
+        }
         confirmLabel="確定繳交"
-        onConfirm={submitAll}
+        onConfirm={() => { if (submitPending) return submitCat(submitPending); }}
         loading={busy}
       />
 

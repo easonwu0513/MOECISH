@@ -87,6 +87,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '實地稽核' },
       ]}
+      watermark
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>

@@ -49,8 +49,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return files > 0 || !!sub.noFileReason?.trim();
     };
 
+    // 分類繳交:技術檢測 / 實地稽核 截止日不同,可各自獨立繳交;帶 category 則僅繳該類,未帶則整批機關區。
+    const body = await req.json().catch(() => ({}));
+    const onlyCat = body?.category === 'TECH' || body?.category === 'ONSITE' ? body.category : null;
     // 「中心匯入」區由中心上傳、不走機關繳交流程 → 確定繳交僅涵蓋機關區(技術檢測 / 實地稽核)
-    const mechReqs = reqs.filter((r) => r.category !== 'CENTER');
+    const mechReqs = reqs.filter((r) => r.category !== 'CENTER' && (!onlyCat || r.category === onlyCat));
 
     // 必填項未處理 → 擋下並回清單
     const missing = mechReqs.filter((r) => r.required && !addressed(r)).map((r) => r.title);
