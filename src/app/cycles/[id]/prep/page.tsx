@@ -42,7 +42,9 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     ? requirements.filter(
         (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id)),
       )
-    : requirements;
+    : user.role === 'ORG_ADMIN'
+      ? requirements.filter((r) => r.category !== 'CENTER') // 中心匯入區僅供委員審閱,機關不顯示
+      : requirements;
   const visibleSubIds = new Set(visibleRequirements.map((r) => r.submission?.id).filter(Boolean));
   const files = allFiles.filter((f) => visibleSubIds.has(f.targetId));
 

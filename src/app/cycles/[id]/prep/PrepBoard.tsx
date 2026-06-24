@@ -442,9 +442,9 @@ export default function PrepBoard({
                       busy={busyItemId === sub.id}
                       onChange={(e) => upload(sub, e, true)}
                       multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                      accept={ORG_UPLOAD_ACCEPT}
                     />
-                    <span className="text-caption text-on-surface-variant">由中心上傳;上傳後委員即可審閱</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等請先另存為 PDF。單檔 ≤ 20MB</span>
                   </>
                 )}
                 {isCenter && !adminCanImport && files.length === 0 && (

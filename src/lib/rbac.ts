@@ -154,5 +154,16 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
     }
   }
 
+  // 中心匯入區(CENTER)僅供委員審閱,受稽機關不可讀取/下載(後端權威阻擋,非僅畫面過濾)
+  if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
+    const sub = await prisma.prepSubmission.findUnique({
+      where: { id: targetId },
+      select: { requirement: { select: { category: true } } },
+    });
+    if (sub?.requirement.category === 'CENTER') {
+      throw new AuthError(403, '中心匯入區資料僅供委員審閱,機關無法存取');
+    }
+  }
+
   return { user, cycle, cycleId };
 }

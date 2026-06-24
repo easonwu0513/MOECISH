@@ -74,9 +74,10 @@ export async function POST(req: Request) {
     let buf: Buffer = Buffer.from(await file.arrayBuffer());
     let mime = file.type || 'application/octet-stream';
 
-    // 機關上傳僅允許可加浮水印的格式(PDF/JPG/PNG);Word、Excel 等須先另存為 PDF 再上傳。
-    // 中心(SUPER_ADMIN)匯入區不受此限。
-    if (user.role === 'ORG_ADMIN') {
+    // 須加浮水印的上傳(機關佐證 + 中心匯入的稽核前資料,委員都會審閱)一律僅允許可加浮水印格式
+    // (PDF/JPG/PNG);Word、Excel 等須先另存為 PDF 再上傳。中心匯入(PREP_SUBMISSION)亦受此限。
+    const mustWatermark = user.role === 'ORG_ADMIN' || targetType === 'PREP_SUBMISSION';
+    if (mustWatermark) {
       // 友善前檢:副檔名與 Content-Type 皆明顯不符 → 直接擋,訊息清楚。
       if (!isOrgUploadAllowed(file.name, mime)) {
         return NextResponse.json(
@@ -96,9 +97,9 @@ export async function POST(req: Request) {
       mime = realMime;
     }
 
-    // 單位管理員上傳的 PDF/圖片自動加機關浮水印(防外流、可溯源);其餘類型/角色維持原檔
+    // 須加浮水印對象的 PDF/圖片自動加浮水印(機關佐證 + 中心匯入;防外流、可溯源);其餘維持原檔
     let watermarked = false;
-    if (user.role === 'ORG_ADMIN' && isWatermarkable(mime)) {
+    if (mustWatermark && isWatermarkable(mime)) {
       const org = await prisma.organization.findUnique({
         where: { id: cycle.organizationId },
         select: { name: true, shortName: true },
