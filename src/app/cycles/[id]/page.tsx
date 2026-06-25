@@ -19,6 +19,7 @@ import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
 import { auditorCanViewChecklistContent, type CycleStatus, type Role } from '@/lib/types';
+import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
@@ -334,8 +335,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         />
       </section>
 
-      {/* 用印報告(矯正執行中之後顯示;委員不參與用印掃描檔,不顯示):結案最後一哩 */}
-      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && user.role !== 'AUDITOR' && (
+      {/* 用印報告(矯正執行中之後顯示;委員不參與用印掃描檔):可見性由 access-policy 單一政策決定 */}
+      {canAccess('signedReport.section', user.role as Role, cycle.status) && (
         <section id="signed-report" className="mb-6 scroll-mt-20">
           <SignedReportPanel
             cycleId={cycle.id}

@@ -18,6 +18,7 @@
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
     "journey:seed": "tsx src/scripts/seed-journey.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
+    "test:access": "tsx src/scripts/test-access-matrix.ts",
     "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
     "graph:refresh": "tsx src/scripts/refresh-graph-token.ts"
   },
