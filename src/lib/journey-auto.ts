@@ -18,6 +18,9 @@ export type JourneyAutoCtx = {
 
 const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   always: () => true,
+  // 「設定文件繳交期限與稽核日期」:有設文件繳交截止 + 實地稽核日才算完成
+  // (取代原 always:一建立週期就被打勾的問題)。矯正填報截止不在此(實地稽核發文後才設)。
+  dates_set: (c) => !!c.facts.prepDueDate && !!c.facts.onsiteDate,
   prep_list_set: (c) => c.facts.prepTotal > 0,
   auditors_assigned: (c) => c.assignmentsCount > 0,
   // 機關區「上傳/繳交/確認」三項一律以「全部完成」判定(非「任一」):機關區=技術檢測+實地稽核。
@@ -53,8 +56,9 @@ export function journeyItemHref(stageKey: string, autoKey: string | null): strin
     case 'signed_confirmed': return ''; // 委員安排/用印確認在週期主頁
     case 'prep_list_set': return '/prep'; // 資料準備需求清單於 /prep 設定
     case 'auditors_assigned': return '#assign-auditors'; // 委員指派面板錨點
+    case 'dates_set': return '#setup'; // 設定文件繳交期限與稽核日期 → 跳頁首設定區(編輯日期)
     case 'always':
-      // 開立中(建立週期/設定截止日)→ 跳頁首設定區(編輯日期);其餘階段的 always 維持週期主頁
+      // 開立中(建立週期)→ 跳頁首設定區;其餘階段的 always 維持週期主頁
       return stageKey === 'DRAFT' ? '#setup' : '';
   }
   // 無對應動作鍵者,依階段給預設目的地

@@ -1,6 +1,5 @@
-import Link from 'next/link';
-import { ChevronRight } from '../icons';
 import type { NextAction } from '@/lib/process-guide';
+import { PrimaryActionCta } from './PrimaryActionCta';
 
 /**
  * 「建議的下一步」主行動橫幅。
@@ -39,13 +38,11 @@ export function PrimaryActionBanner({
           {subtext && <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{subtext}</p>}
         </div>
         {hasCta && (
-          <Link
+          <PrimaryActionCta
             href={next.href!}
+            label={next.cta!}
             className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary-600 px-5 min-h-11 text-label-lg font-medium text-white hover:bg-primary-700 transition-colors focus-ring"
-          >
-            {next.cta}
-            <ChevronRight size={18} />
-          </Link>
+          />
         )}
       </div>
     </section>

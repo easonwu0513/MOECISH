@@ -126,7 +126,7 @@ const CYCLE: SeedTemplate = {
       summary: '中心建立週期、設定截止日與指派委員。',
       items: [
         { title: '建立稽核週期', role: 'SUPER_ADMIN', autoKey: 'always' },
-        { title: '設定資料準備與矯正填報截止日', role: 'SUPER_ADMIN', autoKey: 'always' },
+        { title: '設定文件繳交期限與稽核日期', role: 'SUPER_ADMIN', autoKey: 'dates_set' },
         { title: '掛上資料準備需求清單', role: 'SUPER_ADMIN', autoKey: 'prep_list_set' },
         { title: '指派稽核委員', role: 'SUPER_ADMIN', autoKey: 'auditors_assigned' },
       ],
@@ -147,7 +147,7 @@ const CYCLE: SeedTemplate = {
       title: '資料齊備',
       summary: '中心安排實地稽核；委員熟悉受稽機關。',
       items: [
-        { title: '安排實地稽核日期', role: 'SUPER_ADMIN', autoKey: 'onsite_scheduled' },
+        // 「安排實地稽核日期」已併入開立中「設定文件繳交期限與稽核日期」,此階段不再重複
         { title: '檢視已確認齊備之資料、熟悉受稽機關背景', role: 'AUDITOR' },
       ],
     },
@@ -286,9 +286,49 @@ async function reconcileCycle() {
   else console.log('[reconcile] CYCLE 無需校正');
 }
 
+/**
+ * 一次性資料遷移(冪等):把既有 prod 的 CYCLE 範本對齊新結構。
+ *  - 開立中「設定資料準備與矯正填報截止日」(autoKey always,一建立就被打勾)
+ *    → 改名「設定文件繳交期限與稽核日期」+ autoKey 'dates_set'(真有設文件截止+稽核日才完成)
+ *  - 資料齊備「安排實地稽核日期」→ 刪除(已併入開立中該項,避免重複)
+ * 僅在偵測到舊資料時動作;不影響後台其他編輯。
+ */
+async function migrateCycleJourneyV2() {
+  const t = await prisma.journeyTemplate.findUnique({
+    where: { scope: 'CYCLE' },
+    include: { stages: { include: { items: true } } },
+  });
+  if (!t) return;
+  let renamed = 0;
+  let removed = 0;
+  for (const st of t.stages) {
+    if (st.stageKey === 'DRAFT') {
+      const old = st.items.find((i) => i.title === '設定資料準備與矯正填報截止日');
+      if (old) {
+        await prisma.journeyItem.update({
+          where: { id: old.id },
+          data: { title: '設定文件繳交期限與稽核日期', autoKey: 'dates_set' },
+        });
+        renamed++;
+      }
+    }
+    if (st.stageKey === 'READY') {
+      const moved = st.items.find((i) => i.title === '安排實地稽核日期');
+      if (moved) {
+        await prisma.journeyItem.delete({ where: { id: moved.id } });
+        removed++;
+      }
+    }
+  }
+  if (renamed || removed) {
+    console.log(`[migrate v2] 開立中日期項改名 ${renamed}、資料齊備移除安排實地稽核日期 ${removed}`);
+  }
+}
+
 async function main() {
   await seedTemplate(PROGRAMME);
   await seedTemplate(CYCLE);
+  await migrateCycleJourneyV2();
   await reconcileCycle();
   console.log('引導式精靈 seed 完成。');
 }
