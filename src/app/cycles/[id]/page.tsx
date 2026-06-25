@@ -18,7 +18,7 @@ import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import type { CycleStatus, Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, type CycleStatus, type Role } from '@/lib/types';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import TransitionButton from './TransitionButton';
@@ -295,6 +295,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/checklist`}
           badge={checklistBadge}
           muted={!modActive.checklist}
+          locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
+          lockedHint="資料齊備後開放委員檢視"
         />
         {user.role !== 'ORG_ADMIN' && (
           <ModuleTile
@@ -305,6 +307,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             href={`/cycles/${cycle.id}/audit`}
             badge={auditBadge}
             muted={!modActive.audit}
+            locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
+            lockedHint="資料齊備後開放"
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
@@ -315,6 +319,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
             href={`/cycles/${cycle.id}/review`}
             muted={!modActive.review}
+            locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
+            lockedHint="資料齊備後開放"
           />
         )}
         <ModuleTile
@@ -424,6 +430,8 @@ function ModuleTile({
   href,
   badge,
   muted,
+  locked,
+  lockedHint,
 }: {
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
@@ -434,28 +442,41 @@ function ModuleTile({
   badge?: React.ReactNode;
   /** 非當前階段的入口降權(淡化但仍可點),讓「現在該做的」那張最突出 */
   muted?: boolean;
+  /** 鎖定:不可點(如委員於資料齊備前不可看機關檢核表),改顯示提示而非連結 */
+  locked?: boolean;
+  lockedHint?: string;
 }) {
   // 降權改用「色彩弱化」而非整塊半透明:文字維持全對比(無障礙),非當前階段只把圖示轉中性、卡底略沉
-  const iconBg = muted
+  const iconBg = muted || locked
     ? 'bg-surface-container-high text-on-surface-variant'
     : toneClasses(tone).iconBg;
 
+  const inner = (
+    <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
+      <div className="flex items-start gap-4">
+        <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-title-md text-on-surface">{title}</div>
+            {badge && <div className="shrink-0">{badge}</div>}
+          </div>
+          <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
+          {locked && lockedHint && (
+            <p className="mt-1.5 text-caption text-on-surface-variant">🔒 {lockedHint}</p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+
+  if (locked) {
+    return <div className="block h-full cursor-not-allowed" aria-disabled>{inner}</div>;
+  }
   return (
     <Link href={href} className="block h-full focus-ring rounded-lg">
-      <Card interactive className={`h-full ${muted ? 'bg-surface-container-low' : ''}`}>
-        <div className="flex items-start gap-4">
-          <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
-            {icon}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="text-title-md text-on-surface">{title}</div>
-              {badge && <div className="shrink-0">{badge}</div>}
-            </div>
-            <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
-          </div>
-        </div>
-      </Card>
+      {inner}
     </Link>
   );
 }

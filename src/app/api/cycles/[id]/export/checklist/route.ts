@@ -8,7 +8,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { type ComplianceLevel, type Dimension } from '@/lib/types';
+import { auditorCanViewChecklistContent, type ComplianceLevel, type Dimension } from '@/lib/types';
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadCycle>>>;
 
@@ -26,7 +26,11 @@ async function loadCycle(id: string) {
 /** 檢核表匯出:?format=docx 出制式 Word(遞交格式),預設 Excel(工作底稿)。 */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { cycle } = await assertCycleAccess(params.id);
+    const { user, cycle } = await assertCycleAccess(params.id);
+    // 委員於「資料齊備」前不可匯出機關檢核表(避免資料準備中偷看)
+    if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
+      return NextResponse.json({ error: '資料準備階段尚未開放委員匯出檢核表' }, { status: 403 });
+    }
     const data = await loadCycle(cycle.id);
     if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
 

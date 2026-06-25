@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeHint,
@@ -45,6 +45,8 @@ export default async function Att17PrintPage({
 
   const isAssigned = cycle.assignments.some((a) => a.auditor.id === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
+  // 委員於「資料齊備」前不可列印(評分表含機關檢核結果統計)
+  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
 
   // 要印哪些委員
   let targets: { id: string; name: string }[];

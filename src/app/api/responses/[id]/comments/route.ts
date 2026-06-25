@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { errorResponse } from '@/lib/api';
+import { auditorCanViewChecklistContent } from '@/lib/types';
 
 const Body = z.object({ content: z.string().min(1) });
 
@@ -27,6 +28,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       !response.cycle.assignments.some((a) => a.auditorId === user.id)
     ) {
       return NextResponse.json({ error: '您未被指派此稽核週期' }, { status: 403 });
+    }
+    // 委員於「資料齊備」前不可留意見(資料準備中不開放委員審閱)
+    if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(response.cycle.status)) {
+      return NextResponse.json({ error: '資料準備階段尚未開放委員審閱留言' }, { status: 403 });
     }
 
     const nextRound = (response.comments[0]?.round ?? 0) + 1;

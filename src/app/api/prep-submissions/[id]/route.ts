@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireUser, AuthError } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { errorResponse } from '@/lib/api';
-import { prepReviewable, prepCyclePhaseOpen } from '@/lib/types';
+import { prepReviewable, prepCyclePhaseOpen, prepOrgCanEdit } from '@/lib/types';
 import { notifyPrepReturned } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
@@ -48,8 +48,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (sub.requirement.category === 'CENTER') {
       return NextResponse.json({ error: '中心匯入區由中心管理,機關無法操作' }, { status: 403 });
     }
-    if (!prepCyclePhaseOpen(cycle.status)) {
-      return NextResponse.json({ error: '資料準備階段已結束,不可再修改' }, { status: 400 });
+    if (!prepOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能修改(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
     }
     if (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED') {
       return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });

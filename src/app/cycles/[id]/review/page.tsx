@@ -8,7 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck, Paperclip } from '@/components/icons';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
@@ -47,6 +47,10 @@ export default async function ReviewPage({
     session.user.role === 'AUDITOR' &&
     !cycle.assignments.some((a) => a.auditorId === session.user.id)
   ) {
+    redirect('/dashboard');
+  }
+  // 委員一律於週期進入「資料齊備」後才可審閱機關檢核表(開立中/資料準備中不開放)
+  if (session.user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
   }
 

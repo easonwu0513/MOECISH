@@ -5,7 +5,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
-import { loadAuditReport, buildReportData, ScoreOverview } from './ReportBody';
+import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChanges, AuditorStateChangeLog } from './ReportBody';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
@@ -33,6 +33,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const report = buildReportData(data);
   const isAdmin = user.role === 'SUPER_ADMIN';
   const status = data.status;
+  // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
+  const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 
   return (
     <AppShell
@@ -115,6 +117,17 @@ export default async function AuditReportPage({ params }: { params: { id: string
         )}
         <div className="mt-4">
           <ScoreOverview data={data} />
+        </div>
+      </Card>
+
+      {/* 委員填寫狀態異動(系統內同步通知:委員確認填寫完畢/解除鎖定,免漏看 email) */}
+      <Card className="mb-6">
+        <CardTitle>委員填寫狀態異動</CardTitle>
+        <CardDescription>
+          委員「確認填寫完畢」或「解除鎖定(內容異動)」會即時記於此處;解除鎖定代表該委員可能已修改評分或發現,請複核。
+        </CardDescription>
+        <div className="mt-4">
+          <AuditorStateChangeLog events={stateChanges} />
         </div>
       </Card>
 

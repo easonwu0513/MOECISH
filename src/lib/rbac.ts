@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -152,6 +152,11 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
     if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0, cycle.status)) {
       throw new AuthError(403, '此資料尚未開放委員檢視');
     }
+  }
+
+  // 機關檢核表佐證:委員一律於週期進入「資料齊備」後才可列出/下載(與 prep 同分界;擋 PREPARATION 直打 API 偷看)
+  if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
+    throw new AuthError(403, '資料準備階段尚未開放委員檢視機關檢核表佐證');
   }
 
   // 中心匯入區(CENTER)僅供委員審閱,受稽機關不可讀取/下載(後端權威阻擋,非僅畫面過濾)

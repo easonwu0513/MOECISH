@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import type { Dimension } from '@/lib/types';
+import { auditorCanViewChecklistContent, type Dimension } from '@/lib/types';
 import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
@@ -34,6 +34,10 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     user.role === 'AUDITOR' &&
     !cycle.assignments.some((a) => a.auditorId === user.id)
   ) {
+    redirect('/dashboard');
+  }
+  // 委員一律於週期進入「資料齊備」後才可檢視機關檢核表內容(開立中/資料準備中不開放)
+  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
   }
 

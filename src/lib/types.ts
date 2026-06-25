@@ -154,9 +154,22 @@ export function auditorCanSeePrep(status: string, category: string, hasFiles: bo
   if (category === 'CENTER') return status === 'CONFIRMED' && hasFiles; // 資料齊備起:中心已開放且有檔
   return status === 'CONFIRMED'; // 資料齊備起:機關區已確認齊備
 }
-/** 該週期階段是否仍開放異動資料準備(機關編輯/上傳/刪檔僅限草稿與資料準備中;離開後一律凍結)。 */
+/** 該週期階段是否仍開放異動資料準備(離開資料準備中後一律凍結);亦為「委員尚不可見」的分界。
+ *  注意:此函式被 auditorCanSeePrep 用來判定「DRAFT/PREPARATION 委員一律不可見」,語意勿改。 */
 export function prepCyclePhaseOpen(cycleStatus: string): boolean {
   return cycleStatus === 'DRAFT' || cycleStatus === 'PREPARATION';
+}
+
+/** 機關是否可上傳/填說明/繳交資料準備:僅「資料準備中(PREPARATION)」;開立中(DRAFT)尚不可,避免階段混亂。
+ *  (與 prepCyclePhaseOpen 區分:後者含 DRAFT,是「凍結分界 + 委員不可見」;此處是「機關可編輯」窗口。) */
+export function prepOrgCanEdit(cycleStatus: string): boolean {
+  return cycleStatus === 'PREPARATION';
+}
+
+/** 委員是否可檢視機關「檢核表」內容(逐題答案/說明/佐證):與 auditorCanSeePrep 同分界 ——
+ *  一律在週期離開「資料準備中」、進入「資料齊備(READY)」之後才開放。API 與畫面共用此單一真實來源。 */
+export function auditorCanViewChecklistContent(cycleStatus: string): boolean {
+  return !prepCyclePhaseOpen(cycleStatus); // READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED
 }
 
 // ════════════════════════════════════════════

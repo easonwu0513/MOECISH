@@ -6,7 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { FileText } from '@/components/icons';
 import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
-import type { DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, type DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
 
 /**
@@ -35,6 +35,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
 
   const isAssigned = cycle.assignments.some((a) => a.auditorId === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
+  // 委員一律於週期進入「資料齊備」後才可進實地稽核頁(內含機關檢核結果統計);資料準備中不開放
+  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
 
   // 委員「確認填寫完畢」鎖定後唯讀;解除鎖定方可再編輯(會通知中心)
   const myAssignment = cycle.assignments.find((a) => a.auditorId === user.id);

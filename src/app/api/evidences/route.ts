@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
-import { prepCyclePhaseOpen, isOrgUploadAllowed } from '@/lib/types';
+import { prepOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -51,8 +51,8 @@ export async function POST(req: Request) {
 
     // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
     if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
-      if (!prepCyclePhaseOpen(cycle.status)) {
-        return NextResponse.json({ error: '資料準備階段已結束,不可再上傳' }, { status: 400 });
+      if (!prepOrgCanEdit(cycle.status)) {
+        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
       }
       const sub = await prisma.prepSubmission.findUnique({
         where: { id: targetId },

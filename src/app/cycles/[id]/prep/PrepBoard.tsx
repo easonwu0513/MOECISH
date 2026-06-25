@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, prepOrgCanEdit, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
@@ -104,7 +104,8 @@ export default function PrepBoard({
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
-  const orgCanEdit = isOrg && (cycleStatus === 'PREPARATION' || cycleStatus === 'DRAFT');
+  // 機關上傳/填說明僅限「資料準備中」;開立中(DRAFT)尚不可,避免階段混亂
+  const orgCanEdit = isOrg && prepOrgCanEdit(cycleStatus);
   const adminCanReview = isAdmin && cycleStatus === 'PREPARATION';
   const adminCanImport = isAdmin && cycleStatus !== 'CLOSED'; // 中心匯入區可上傳
 
