@@ -84,7 +84,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
       <Card className="mb-6">
         <CardTitle>評分總覽</CardTitle>
         <CardDescription>
-          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)
+          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)。
+          下表「符合/部分/不符/不適」為機關自評數量供參;各委員實地判定之檢核數量請見各自附件17 評分表。
         </CardDescription>
         {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
         {data.assignments.length > 0 && (

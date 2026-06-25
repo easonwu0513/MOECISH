@@ -41,8 +41,10 @@ export default async function CrossOrgScoresPage({
   const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
 
   // 每週期 × 構面:跨委員平均
-  const dimAvg = (scores: { dimension: string; score: number }[], dim: string): number | null => {
-    const vals = scores.filter((s) => s.dimension === dim).map((s) => s.score);
+  const dimAvg = (scores: { dimension: string; score: number | null }[], dim: string): number | null => {
+    const vals = scores
+      .filter((s) => s.dimension === dim && s.score !== null)
+      .map((s) => s.score as number);
     return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
   };
   const rows = cycles

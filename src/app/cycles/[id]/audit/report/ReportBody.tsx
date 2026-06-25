@@ -120,8 +120,8 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   const scoreOf = (auditorId: string, dim: Dimension): number | null =>
     data.auditScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
   const totalOf = (auditorId: string): number | null => {
-    const mine = data.auditScores.filter((s) => s.auditorId === auditorId);
-    return mine.length > 0 ? mine.reduce((a, s) => a + s.score, 0) : null;
+    const mine = data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null);
+    return mine.length > 0 ? mine.reduce((a, s) => a + (s.score ?? 0), 0) : null;
   };
   const avgOf = (dim: Dimension): number | null => {
     const vals = auditors.map((a) => scoreOf(a.id, dim)).filter((v): v is number => v !== null);
@@ -139,7 +139,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
   const TOTAL_DIMS = ASPECTS.reduce((n, a) => n + ASPECT_DIMENSIONS[a].length, 0);
   const filledOf = (auditorId: string): number =>
-    data.auditScores.filter((s) => s.auditorId === auditorId).length;
+    data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
 
   return (
     <div className="overflow-x-auto rounded-md border border-outline-variant/60">

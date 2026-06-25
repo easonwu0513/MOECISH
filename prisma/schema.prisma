@@ -166,7 +166,12 @@ model AuditScore {
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   dimension String   // Dimension(一~九,七配分 20 其餘 10)
-  score     Int
+  score     Int?     // 委員評分(null=尚未評;可僅填檢核數量)
+  // 委員手動判定之檢核結果數量(預設空白;彙整/列印依此呈現,不再自動帶機關自評)
+  cntComply    Int?  // 符合
+  cntPartial   Int?  // 部分符合
+  cntNonComply Int?  // 不符合
+  cntNa        Int?  // 不適用
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

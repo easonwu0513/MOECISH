@@ -19,6 +19,15 @@ import {
 } from '@/lib/audit-score';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
+/** 委員手填之檢核結果數量(符/部分/不符/不適用;null=空白) */
+export type DimCounts = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
+const EMPTY_COUNTS: DimCounts = { c1: null, c2: null, c3: null, c4: null };
+const COUNT_FIELDS: { key: keyof DimCounts; label: string }[] = [
+  { key: 'c1', label: '符合' },
+  { key: 'c2', label: '部分符合' },
+  { key: 'c3', label: '不符合' },
+  { key: 'c4', label: '不適用' },
+];
 export type DimIssue = { itemNo: string; content: string; level: string };
 export type MyFinding = {
   id: string;
@@ -30,6 +39,7 @@ export type MyFinding = {
 };
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
+const ALL_DIMS: Dimension[] = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
 const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
 // 構面(九)→ 缺失構面(三):從不符合題帶入發現時自動歸構面
 const DIM_TO_ASPECT: Record<string, DeficiencyAspect> = {};
@@ -59,6 +69,7 @@ export default function AuditPad({
   assignedLabels = [],
   focusAspects = [],
   initialScores,
+  initialCounts,
   initialFindings,
 }: {
   cycleId: string;
@@ -73,7 +84,8 @@ export default function AuditPad({
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
   focusAspects?: DeficiencyAspect[];
-  initialScores: Record<string, number>;
+  initialScores: Record<string, number | null>;
+  initialCounts: Record<string, DimCounts>;
   initialFindings: MyFinding[];
 }) {
   // 鎖定前需確認「稽核發現」沒有未儲存的編輯(兩個子元件不共享 state,以此 ref 橋接)。
@@ -93,7 +105,7 @@ export default function AuditPad({
           </span>
         </div>
       )}
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} unsavedFindingsRef={unsavedFindingsRef} />
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
       <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
@@ -102,7 +114,7 @@ export default function AuditPad({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, locked, stats, dimIssues, focusAspects = [], initialScores, unsavedFindingsRef,
+  cycleId, canEdit, locked, stats, dimIssues, focusAspects = [], initialScores, initialCounts, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
@@ -110,20 +122,30 @@ function ScoreSection({
   stats: Record<string, DimStat>;
   dimIssues: Record<string, DimIssue[]>;
   focusAspects?: DeficiencyAspect[];
-  initialScores: Record<string, number>;
+  initialScores: Record<string, number | null>;
+  initialCounts: Record<string, DimCounts>;
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const focusSet = new Set(focusAspects);
   const toast = useToast();
   const router = useRouter();
   const [scores, setScores] = useState<Record<string, number | null>>(initialScores);
+  const [counts, setCounts] = useState<Record<string, DimCounts>>(initialCounts);
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
-  // debounce 儲存讀「最新」評分,避免 setTimeout 捕捉到 setScore 當下的 stale 快照(連續改多格時漏存)
+  // debounce 儲存讀「最新」狀態,避免 setTimeout 捕捉到 stale 快照(連續改多格時漏存)
   const scoresRef = useRef(scores);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
+  const countsRef = useRef(counts);
+  useEffect(() => { countsRef.current = counts; }, [counts]);
+
+  function scheduleSave() {
+    setSaveState('dirty');
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void save(), 900);
+  }
 
   function setScore(dim: Dimension, raw: string) {
     const max = DIMENSION_MAX_SCORE[dim];
@@ -133,21 +155,34 @@ function ScoreSection({
       v = Math.max(0, Math.min(max, v));
     }
     setScores((prev) => ({ ...prev, [dim]: v }));
-    setSaveState('dirty');
-    if (timer.current) clearTimeout(timer.current);
-    // 讀 scoresRef(下次 render 後即為含本次變更的最新值),不捕捉 stale 的 scores 快照
-    timer.current = setTimeout(() => void save(scoresRef.current), 900);
+    scheduleSave();
   }
 
-  async function save(payload: Record<string, number | null>): Promise<boolean> {
+  function setCount(dim: Dimension, key: keyof DimCounts, raw: string) {
+    let v: number | null = raw === '' ? null : Math.floor(Number(raw));
+    if (v !== null) {
+      if (Number.isNaN(v)) return;
+      v = Math.max(0, Math.min(999, v));
+    }
+    setCounts((prev) => ({ ...prev, [dim]: { ...(prev[dim] ?? EMPTY_COUNTS), [key]: v } }));
+    scheduleSave();
+  }
+
+  // 送出全 9 構面的評分 + 委員手填數量(讀 ref 取最新值);後端依「有評分或有數量」決定保留/刪除。
+  async function save(): Promise<boolean> {
     setSaveState('saving');
+    const sc = scoresRef.current;
+    const cc = countsRef.current;
     const body = {
-      scores: Object.entries(payload).map(([dimension, score]) => ({
+      scores: ALL_DIMS.map((dimension) => ({
         dimension,
-        score: score ?? null,
+        score: sc[dimension] ?? null,
+        cntComply: cc[dimension]?.c1 ?? null,
+        cntPartial: cc[dimension]?.c2 ?? null,
+        cntNonComply: cc[dimension]?.c3 ?? null,
+        cntNa: cc[dimension]?.c4 ?? null,
       })),
     };
-    // 全部清空時送一筆 placeholder 仍會被後端 min(1) 擋;此處至少送出當前狀態
     const res = await fetch(`/api/cycles/${cycleId}/audit/scores`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -165,13 +200,13 @@ function ScoreSection({
 
   async function manualSave() {
     if (timer.current) clearTimeout(timer.current);
-    if (await save(scores)) toast.success('已暫存', '評分已儲存,可稍後再繼續。');
+    if (await save()) toast.success('已暫存', '評分與檢核數量已儲存,可稍後再繼續。');
   }
   // 確認填寫完畢 → 先存當前評分,再鎖定(rebuild 後整頁唯讀)
   async function doConfirmDone() {
     if (timer.current) clearTimeout(timer.current);
     setLockBusy(true);
-    if (!(await save(scores))) { setLockBusy(false); return; }
+    if (!(await save())) { setLockBusy(false); return; }
     const res = await fetch(`/api/cycles/${cycleId}/audit/lock`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ locked: true }),
@@ -214,7 +249,7 @@ function ScoreSection({
         <div>
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
           <p className="text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
-            九項合計滿分 100;檢核結果統計由機關檢核表自動帶入供參。<br />
+            九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
             可只評您負責的構面(未評的不計入您的小計);同一構面多位委員評分時,報告以各構面平均彙整。
           </p>
         </div>
@@ -297,13 +332,10 @@ function ScoreSection({
             {ASPECT_DIMENSIONS[aspect].map((dim) => {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const v = scores[dim] ?? null;
-              const answered = st.c1 + st.c2 + st.c3 + st.c4;
               const issues = dimIssues[dim] ?? [];
               return (
-                <div key={dim} className="border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest">
-                <div
-                  className="flex flex-col lg:flex-row lg:items-center gap-3 px-5 py-3.5"
-                >
+                <div key={dim} className="border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest px-5 py-3.5">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-body text-on-surface">
                       {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
@@ -311,16 +343,6 @@ function ScoreSection({
                       <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]} 分)</span>
                     </div>
                     <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap shrink-0 text-caption tabular-nums" aria-label="檢核結果統計:符合、部分符合、不符合、不適用題數">
-                    <Chip size="sm" tone="neutral">{st.total} 題</Chip>
-                    <Chip size="sm" tone="success">符 {st.c1}</Chip>
-                    <Chip size="sm" tone="warning">部 {st.c2}</Chip>
-                    <Chip size="sm" tone="danger">不 {st.c3}</Chip>
-                    <Chip size="sm" tone="neutral">適 {st.c4}</Chip>
-                    {answered < st.total && (
-                      <span className="text-on-surface-variant">(未答 {st.total - answered})</span>
-                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {/* 自繪 −/＋ 級進器:取代原生 number spinner(原生 spinner 點一下會卷動、無法連續按) */}
@@ -361,6 +383,28 @@ function ScoreSection({
                       )}
                     </span>
                   </div>
+                </div>
+                {/* 委員手填檢核結果數量(預設空白);機關自評僅供參考,不自動帶入 */}
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-caption text-on-surface-variant">委員判定數量:</span>
+                  {COUNT_FIELDS.map(({ key, label }) => (
+                    <label key={key} className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
+                      {label}
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={counts[dim]?.[key] ?? ''}
+                        onChange={(e) => setCount(dim, key, e.target.value)}
+                        disabled={!canEdit}
+                        aria-label={`${DIMENSION_LABELS[dim]} ${label} 題數`}
+                        className="w-12 h-9 rounded-md border border-outline-variant bg-surface px-1 text-body-sm text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                      />
+                    </label>
+                  ))}
+                  <span className="text-caption text-on-surface-variant/70">
+                    機關自評供參:{st.total} 題(符{st.c1}/部{st.c2}/不{st.c3}/適{st.c4})
+                  </span>
                 </div>
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">

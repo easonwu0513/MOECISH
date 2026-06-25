@@ -102,7 +102,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
             {cycle.organization.name} · {cycle.year - 1911} 年度 ·{' '}
             {user.role === 'AUDITOR'
               ? canEdit
-                ? '填寫您個人的評分與稽核發現;檢核統計由機關填報自動帶入'
+                ? '填寫您個人的評分、檢核結果數量與稽核發現;機關自評僅供參考'
                 : locked
                   ? '您已確認填寫完畢、目前鎖定中;如需修改請按「解除鎖定」'
                   : '已結案,唯讀'
@@ -131,6 +131,12 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           assignedLabels={assignedLabels}
           focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
+          initialCounts={Object.fromEntries(
+            myScores.map((s) => [
+              s.dimension,
+              { c1: s.cntComply, c2: s.cntPartial, c3: s.cntNonComply, c4: s.cntNa },
+            ]),
+          )}
           initialFindings={findings}
         />
       ) : (

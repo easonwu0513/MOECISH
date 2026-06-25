@@ -78,8 +78,13 @@ export default async function Att17PrintPage({
           stats={stats}
           scores={Object.fromEntries(
             cycle.auditScores
+              .filter((s) => s.auditorId === auditor.id && s.score !== null)
+              .map((s) => [s.dimension, s.score as number]),
+          )}
+          counts={Object.fromEntries(
+            cycle.auditScores
               .filter((s) => s.auditorId === auditor.id)
-              .map((s) => [s.dimension, s.score]),
+              .map((s) => [s.dimension, { c1: s.cntComply, c2: s.cntPartial, c3: s.cntNonComply, c4: s.cntNa }]),
           )}
           findings={cycle.auditFindings.filter((f) => f.auditorId === auditor.id)}
         />
@@ -91,8 +96,9 @@ export default async function Att17PrintPage({
 const FONT = "'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif";
 const B = '1px solid #000';
 
+type SheetCounts = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
 function Att17Sheet({
-  first, orgName, yearROC, onsiteDateROC, auditorName, stats, scores, findings,
+  first, orgName, yearROC, onsiteDateROC, auditorName, stats, counts, scores, findings,
 }: {
   first: boolean;
   orgName: string;
@@ -100,6 +106,8 @@ function Att17Sheet({
   onsiteDateROC: string | null;
   auditorName: string;
   stats: Record<string, DimStat>;
+  /** 委員手填之檢核結果數量(符/部/不符/不適);空白即留白 */
+  counts: Record<string, SheetCounts>;
   scores: Record<string, number>;
   findings: { id: string; aspect: string; kind: string; content: string; checklistRef: string | null }[];
 }) {
@@ -148,6 +156,7 @@ function Att17Sheet({
           {ASPECTS.flatMap((aspect) =>
             ASPECT_DIMENSIONS[aspect].map((dim: Dimension, i: number) => {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
+              const ct = counts[dim] ?? { c1: null, c2: null, c3: null, c4: null };
               const v = scores[dim];
               return (
                 <tr key={dim}>
@@ -162,10 +171,10 @@ function Att17Sheet({
                     <div style={{ fontSize: '9.5pt' }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c1 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c2 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c3 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c4 || ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c1 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c2 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c3 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c4 ?? ''}</td>
                   <td style={{ ...td, textAlign: 'center', fontSize: '12pt' }}>
                     {v ?? ''}
                   </td>
