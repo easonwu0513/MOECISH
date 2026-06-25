@@ -112,6 +112,7 @@ export function JourneyChecklist({
         const total = countable.length;
         const done = countable.filter((i) => i.done).length;
         const allDone = total > 0 && done === total;
+        const reminderCount = s.items.length - countable.length; // 純提醒項數(委員「到場查核」等軟性任務)
         const isOpen = open.has(s.stageKey);
         return (
           <div key={s.id} className="rounded-lg border border-outline-variant/70 bg-surface-container-low overflow-hidden">
@@ -130,14 +131,18 @@ export function JourneyChecklist({
                 <span className="text-title-md text-on-surface">{s.title}</span>
                 {s.summary && <span className="block mt-0.5 text-caption text-on-surface-variant">{s.summary}</span>}
               </span>
-              <Chip tone={allDone ? 'success' : 'neutral'} size="sm">
-                <span className="tabular-nums">{done}/{total}</span>
-              </Chip>
+              {total > 0 ? (
+                <Chip tone={allDone ? 'success' : 'neutral'} size="sm">
+                  <span className="tabular-nums">{done}/{total}</span>
+                </Chip>
+              ) : reminderCount > 0 ? (
+                <Chip tone="neutral" size="sm">{reminderCount} 項提醒</Chip>
+              ) : null}
             </button>
 
             {isOpen && (
               <ul className="border-t border-outline-variant/60 divide-y divide-outline-variant/40">
-                {total === 0 ? (
+                {s.items.length === 0 ? (
                   <li className="px-4 py-3 text-caption text-on-surface-variant">此階段尚無項目</li>
                 ) : (
                   s.items.map((it) => {
