@@ -7,7 +7,7 @@ import {
 } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  computeDimStats, gradeOf,
+  computeDimStats, gradeOf, compareChecklistRef,
 } from '@/lib/audit-score';
 import {
   makeDefaultReportData,
@@ -80,6 +80,12 @@ export function buildReportData(data: AuditReportData): ReportData {
       pageBreakBefore: false,
       duplicateAcknowledged: true,
     });
+  }
+  // 各類別/各區段內依「對應項次」自然排序,確保預覽與列印的項次順序一致(法遵/待改善/建議各自排序)
+  for (const cat of Object.keys(findings) as Category[]) {
+    for (const sec of Object.keys(findings[cat]) as SectionKey[]) {
+      findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
+    }
   }
 
   return {

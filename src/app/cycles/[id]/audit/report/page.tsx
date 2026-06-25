@@ -19,17 +19,12 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/report`);
   const user = session.user;
+  // 彙整報告為中心(最高管理員)專用的全體委員整合視圖;機關回週期、委員回自己的評分頁。
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
+  if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);
 
   const data = await loadAuditReport(params.id);
   if (!data) notFound();
-
-  if (
-    user.role === 'AUDITOR' &&
-    !data.assignments.some((a) => a.auditor.id === user.id)
-  ) {
-    redirect('/dashboard');
-  }
 
   const pendingCount = data.auditFindings.filter(
     (f) => !f.deficiencyId && (f.kind === 'IMPROVE' || f.kind === 'SUGGEST'),

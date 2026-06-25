@@ -106,14 +106,10 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         <div className="flex items-center gap-2">
           <Link href={`/cycles/${cycle.id}/audit/print`} target="_blank" rel="noopener">
             <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              {user.role === 'AUDITOR' ? '列印我的評分表(附件17)' : '列印各委員評分表'}
+              列印我的評分表(附件17)
             </Button>
           </Link>
-          <Link href={`/cycles/${cycle.id}/audit/report`}>
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              彙整報告
-            </Button>
-          </Link>
+          {/* 「彙整報告」為中心(最高管理員)用的全體委員整合視圖,委員端不顯示 */}
         </div>
       </header>
 

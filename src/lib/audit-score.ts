@@ -85,6 +85,28 @@ export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
   SUGGEST: '無法規要求但存有資安風險,建議改善',
 };
 
+/**
+ * 稽核發現「對應項次」排序鍵:把 "2.5"、"9.10" 解析為數字序列做自然排序
+ * (2.5 < 2.10 < 7.4);無項次或非數字者排最後。供發現清單與彙整報告/列印一致排序。
+ */
+export function checklistRefSortKey(ref: string | null | undefined): number[] {
+  const t = (ref ?? '').trim();
+  if (!t) return [Number.MAX_SAFE_INTEGER];
+  const parts = t.split('.').map((p) => parseInt(p, 10));
+  return parts.some((n) => Number.isNaN(n)) ? [Number.MAX_SAFE_INTEGER - 1] : parts;
+}
+
+export function compareChecklistRef(a: string | null | undefined, b: string | null | undefined): number {
+  const ka = checklistRefSortKey(a);
+  const kb = checklistRefSortKey(b);
+  const len = Math.max(ka.length, kb.length);
+  for (let i = 0; i < len; i++) {
+    const d = (ka[i] ?? -1) - (kb[i] ?? -1);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 
 /** 由檢核表題目+機關作答計算各構面統計(評分表「檢核結果數量統計」自動帶入)。 */

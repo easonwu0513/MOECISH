@@ -14,7 +14,7 @@ import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  gradeOf, gradeHint, GRADE_TONE,
+  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
 
@@ -512,6 +512,19 @@ function FindingSection({
     setFindings((all) => all.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
 
+  // 一鍵依「對應項次」排序(法遵符合/待改善/建議各自按項次;無項次者排最後)。
+  // 僅調整顯示順序;彙整報告與列印另於 buildReportData 一律排序,兩處一致。
+  function sortByRef() {
+    setFindings((all) =>
+      [...all].sort(
+        (a, b) =>
+          KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) ||
+          compareChecklistRef(a.checklistRef, b.checklistRef),
+      ),
+    );
+    toast.success('已依項次排序', '各類發現已依對應項次排列。');
+  }
+
   return (
     <section>
       <ConfirmDialog
@@ -525,7 +538,12 @@ function FindingSection({
         loading={busy === deleting?.id}
       />
 
-      <h2 className="text-title-lg text-on-surface mb-1">稽核發現</h2>
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+        <h2 className="text-title-lg text-on-surface">稽核發現</h2>
+        {findings.length > 1 && (
+          <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
+        )}
+      </div>
       <p className="text-body-sm text-on-surface-variant mb-4">
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
       </p>
@@ -602,6 +620,11 @@ function FindingSection({
                           disabled={!canEdit || f.locked}
                         />
                       </div>
+                      {canEdit && !f.locked && (f.checklistRef ?? '').trim() !== '' && (
+                        <Button size="sm" variant="text" onClick={() => mutate(f.id, { checklistRef: '' })}>
+                          清除項次
+                        </Button>
+                      )}
                       {f.locked && <Chip size="sm" tone="primary" dot>已轉入缺失管考</Chip>}
                       <div className="flex-1" />
                       {canEdit && !f.locked && (
@@ -648,6 +671,11 @@ function FindingSection({
                           onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: e.target.value } }))}
                         />
                       </div>
+                      {draft.checklistRef.trim() !== '' && (
+                        <Button size="sm" variant="text" onClick={() => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: '' } }))}>
+                          清除項次
+                        </Button>
+                      )}
                       <div className="flex-1" />
                       <Button
                         size="sm" variant="text"
