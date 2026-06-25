@@ -199,6 +199,9 @@ model AuditorAssignment {
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   role      String   @default("MEMBER") // LEAD / MEMBER
+  // 指派負責稽核構面(JSON 陣列;AssignAspect:STRATEGY/MANAGEMENT/MANAGEMENT_OT/TECHNICAL)。
+  // 純指派標籤,不更動附件17 的 9 項評分結構;null/空=未指定(視同全構面)。
+  dimensions String?
   reviewDoneAt DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
   // 委員按「確認填寫完畢」鎖定其評分與稽核發現的時間;鎖定後不可改,解除鎖定會通知最高管理員。
   scoreLockedAt DateTime?

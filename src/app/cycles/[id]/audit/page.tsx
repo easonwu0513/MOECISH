@@ -5,7 +5,8 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { FileText } from '@/components/icons';
-import { computeDimStats } from '@/lib/audit-score';
+import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
+import type { DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
 
 /**
@@ -38,6 +39,11 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
   // 委員「確認填寫完畢」鎖定後唯讀;解除鎖定方可再編輯(會通知中心)
   const myAssignment = cycle.assignments.find((a) => a.auditorId === user.id);
   const locked = Boolean(myAssignment?.scoreLockedAt);
+
+  // 指派負責構面(三構面四類):評分頁聚焦用。未指定 = 全構面。
+  const myDims = parseAssignDimensions(myAssignment?.dimensions);
+  const assignedLabels = myDims.map((d) => ASSIGN_ASPECT_LABELS[d]);
+  const focusAspects = Array.from(new Set(myDims.map((d) => ASSIGN_TO_ASPECT[d]))) as DeficiencyAspect[];
   const canEdit = user.role === 'AUDITOR' && isAssigned && cycle.status !== 'CLOSED' && !locked;
 
   // 各構面檢核統計(自動帶入評分表)
@@ -122,6 +128,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           itemRefs={cycle.checklistVersion.items.map((i) => i.itemNo)}
           itemContent={itemContent}
           dimIssues={dimIssues}
+          assignedLabels={assignedLabels}
+          focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
           initialFindings={findings}
         />

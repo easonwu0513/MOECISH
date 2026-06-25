@@ -56,6 +56,8 @@ export default function AuditPad({
   itemRefs,
   itemContent = {},
   dimIssues = {},
+  assignedLabels = [],
+  focusAspects = [],
   initialScores,
   initialFindings,
 }: {
@@ -67,6 +69,10 @@ export default function AuditPad({
   itemRefs: string[];
   itemContent?: Record<string, string>;
   dimIssues?: Record<string, DimIssue[]>;
+  /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
+  assignedLabels?: string[];
+  /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
+  focusAspects?: DeficiencyAspect[];
   initialScores: Record<string, number>;
   initialFindings: MyFinding[];
 }) {
@@ -78,7 +84,16 @@ export default function AuditPad({
       <datalist id="audit-item-refs">
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} initialScores={initialScores} unsavedFindingsRef={unsavedFindingsRef} />
+      {assignedLabels.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-4 py-3 text-body-sm text-primary-800">
+          <Check size={16} className="mt-0.5 shrink-0" />
+          <span>
+            您本次負責構面:<span className="font-medium">{assignedLabels.join('、')}</span>
+            。評分表已標示您負責的構面;其餘構面如非您職責可略過(未評的不計入您的小計)。
+          </span>
+        </div>
+      )}
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} unsavedFindingsRef={unsavedFindingsRef} />
       <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
@@ -87,16 +102,18 @@ export default function AuditPad({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, locked, stats, dimIssues, initialScores, unsavedFindingsRef,
+  cycleId, canEdit, locked, stats, dimIssues, focusAspects = [], initialScores, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
   locked: boolean;
   stats: Record<string, DimStat>;
   dimIssues: Record<string, DimIssue[]>;
+  focusAspects?: DeficiencyAspect[];
   initialScores: Record<string, number>;
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
+  const focusSet = new Set(focusAspects);
   const toast = useToast();
   const router = useRouter();
   const [scores, setScores] = useState<Record<string, number | null>>(initialScores);
@@ -269,10 +286,13 @@ function ScoreSection({
       </details>
 
       <div className="rounded-md border border-outline-variant/60 overflow-hidden">
-        {ASPECTS.map((aspect) => (
+        {ASPECTS.map((aspect) => {
+          const focused = focusSet.has(aspect);
+          return (
           <div key={aspect}>
-            <div className="bg-surface-container-low px-5 py-2 text-label text-on-surface-variant border-b border-outline-variant/40">
+            <div className={`px-5 py-2 text-label border-b border-outline-variant/40 flex items-center gap-2 ${focused ? 'bg-primary-50 text-primary-800' : 'bg-surface-container-low text-on-surface-variant'}`}>
               {DEFICIENCY_ASPECT_LABELS[aspect]}
+              {focused && <Chip size="sm" tone="primary">您負責</Chip>}
             </div>
             {ASPECT_DIMENSIONS[aspect].map((dim) => {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
@@ -361,7 +381,8 @@ function ScoreSection({
               );
             })}
           </div>
-        ))}
+          );
+        })}
         <div className="flex items-center justify-end gap-3 px-5 py-3 bg-surface-container-low">
           <span className="text-body-sm text-on-surface-variant">您的評分小計(已評 {filledCount} 項;週期彙整得分見報告頁,以各構面平均計算)</span>
           <span className="text-title-lg text-on-surface tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
