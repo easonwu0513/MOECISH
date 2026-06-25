@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { Dialog } from '@/components/ui/Dialog';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
 import { useToast } from '@/components/ui/Toast';
 import { Pencil } from '@/components/icons';
@@ -30,12 +30,27 @@ export default function EditCycleDialog({
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [due, setDue] = useState(toInput(dueDate));
   const [prepDue, setPrepDue] = useState(toInput(prepDueDate));
   const [prepTech, setPrepTech] = useState(toInput(prepDueTech));
   const [onsite, setOnsite] = useState(toInput(onsiteDate));
 
+  // 「硬日期」(實地稽核日/技術檢測截止/實地稽核資料截止)若是「修改既有值」(原本已設、現在不同),
+  // 會影響受稽機關的繳交安排 → 跳確認;首次設定或只改矯正填報截止則直接存。
+  const modifiedHardDates = [
+    onsite !== toInput(onsiteDate) && !!toInput(onsiteDate),
+    prepTech !== toInput(prepDueTech) && !!toInput(prepDueTech),
+    prepDue !== toInput(prepDueDate) && !!toInput(prepDueDate),
+  ].some(Boolean);
+
+  function attemptSave() {
+    if (modifiedHardDates) setConfirmOpen(true);
+    else void save();
+  }
+
   async function save() {
+    setConfirmOpen(false);
     setSaving(true);
     const res = await fetch(`/api/cycles/${cycleId}`, {
       method: 'PATCH',
@@ -71,7 +86,7 @@ export default function EditCycleDialog({
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
-            <Button onClick={save} loading={saving}>儲存</Button>
+            <Button onClick={attemptSave} loading={saving}>儲存</Button>
           </>
         }
       >
@@ -108,6 +123,17 @@ export default function EditCycleDialog({
           </p>
         </div>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => !saving && !o && setConfirmOpen(false)}
+        title="修改稽核相關日期?"
+        description="您正在修改實地稽核日 / 技術檢測截止 / 實地稽核資料截止,這些會影響受稽機關的資料繳交安排。請先確認已通知受稽機關,再儲存變更(異動會寫入稽核軌跡)。"
+        confirmLabel="已通知,確定修改"
+        tone="warning"
+        onConfirm={save}
+        loading={saving}
+      />
     </>
   );
 }

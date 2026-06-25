@@ -69,6 +69,25 @@ export default function PrepBoard({
   const centerReleaseEffective = !prepCyclePhaseOpen(cycleStatus);
   const [busy, setBusy] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
+
+  // 中心對受稽機關催繳該區應備資料(人工點擊;寄信給機關管理員)
+  async function remind(cat: PrepCategory) {
+    setReminding(cat);
+    const res = await fetch(`/api/cycles/${cycleId}/prep/remind`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category: cat }),
+    }).catch(() => null);
+    setReminding(null);
+    if (res && res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.success('已寄出催繳通知', j.sent ? `已通知 ${j.sent} 位機關管理員` : undefined);
+    } else {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+    }
+  }
 
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -604,6 +623,17 @@ export default function PrepBoard({
                   ) : due ? (
                     <span className="text-caption text-on-surface-variant">繳交截止 {fmtROC(due)}</span>
                   ) : null}
+                  {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
+                  {isAdmin && cat !== 'CENTER' && (
+                    <Button
+                      size="sm"
+                      variant="text"
+                      loading={reminding === cat}
+                      onClick={() => remind(cat)}
+                    >
+                      催繳
+                    </Button>
+                  )}
                 </div>
                 <div className="flex flex-col gap-3">
                   {groupItems.map((item, i) => renderItem(item, i))}
