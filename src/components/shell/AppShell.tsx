@@ -67,7 +67,7 @@ export function AppShell({
     <NavProvider>
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:fixed focus:z-[60] focus:top-3 focus:left-3 focus:rounded-md focus:bg-primary-600 focus:px-4 focus:py-2 focus:text-label-lg focus:font-medium focus:text-white focus:shadow-elev-2"
+      className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:z-[60] focus-visible:top-3 focus-visible:left-3 focus-visible:rounded-md focus-visible:bg-primary-600 focus-visible:px-4 focus-visible:py-2 focus-visible:text-label-lg focus-visible:font-medium focus-visible:text-white focus-visible:shadow-elev-2"
     >
       跳到主要內容
     </a>

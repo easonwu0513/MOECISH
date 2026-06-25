@@ -238,35 +238,58 @@ async function seedTemplate(t: SeedTemplate) {
 }
 
 /**
- * 對「已存在」的 CYCLE 範本補/校正 autoKey(seedTemplate 對已存在範本會略過建立,
- * 故既有 prod 資料需在此依 stageKey + title 比對更新)。冪等,不動 title/role/順序。
+ * 對「已存在」的 CYCLE 範本做**嚴格附加式**校正(seedTemplate 對已存在範本會略過建立,
+ * 故既有 prod 資料需在此依 stageKey + title 比對):
+ *  1. autoKey 與程式碼不符 → 更新(冪等)。
+ *  2. 程式碼有、DB 缺的項目 → **新增**(附加於該階段末尾)——這正是讓既有 prod
+ *     補上後來才加入的委員(AUDITOR)項目(資料齊備「檢視已確認齊備之資料」、
+ *     實地稽核三項)的途徑。
+ * 絕不刪除、不改既有 title/role/順序 → 不會覆寫後台 /admin/journey 的編輯。
  */
-async function reconcileCycleAutoKeys() {
+async function reconcileCycle() {
   const t = await prisma.journeyTemplate.findUnique({
     where: { scope: 'CYCLE' },
     include: { stages: { include: { items: true } } },
   });
   if (!t) return;
-  let n = 0;
+  let updated = 0;
+  let added = 0;
   for (const s of CYCLE.stages) {
     const stage = t.stages.find((x) => x.stageKey === s.stageKey);
     if (!stage) continue;
+    let maxOrder = stage.items.reduce((m, x) => Math.max(m, x.orderIndex), -1);
     for (const it of s.items) {
       const want = it.autoKey ?? null;
       const dbItem = stage.items.find((x) => x.title === it.title);
-      if (dbItem && dbItem.autoKey !== want) {
-        await prisma.journeyItem.update({ where: { id: dbItem.id }, data: { autoKey: want } });
-        n++;
+      if (dbItem) {
+        if (dbItem.autoKey !== want) {
+          await prisma.journeyItem.update({ where: { id: dbItem.id }, data: { autoKey: want } });
+          updated++;
+        }
+      } else {
+        // 程式碼有、DB 缺 → 附加(不動既有順序)
+        await prisma.journeyItem.create({
+          data: {
+            stageId: stage.id,
+            title: it.title,
+            hint: it.hint ?? null,
+            role: it.role ?? null,
+            autoKey: want,
+            orderIndex: ++maxOrder,
+          },
+        });
+        added++;
       }
     }
   }
-  if (n) console.log(`[reconcile] CYCLE autoKey 更新 ${n} 項`);
+  if (updated || added) console.log(`[reconcile] CYCLE 更新 autoKey ${updated} 項、補上缺漏 ${added} 項`);
+  else console.log('[reconcile] CYCLE 無需校正');
 }
 
 async function main() {
   await seedTemplate(PROGRAMME);
   await seedTemplate(CYCLE);
-  await reconcileCycleAutoKeys();
+  await reconcileCycle();
   console.log('引導式精靈 seed 完成。');
 }
 
