@@ -328,10 +328,14 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         />
       </section>
 
-      {/* 用印報告(矯正執行中之後顯示):結案最後一哩,移到動線前段並就近提供下載 */}
-      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
+      {/* 用印報告(矯正執行中之後顯示;委員不參與用印掃描檔,不顯示):結案最後一哩 */}
+      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && user.role !== 'AUDITOR' && (
         <section id="signed-report" className="mb-6 scroll-mt-20">
-          <SignedReportPanel cycleId={cycle.id} role={user.role} />
+          <SignedReportPanel
+            cycleId={cycle.id}
+            role={user.role}
+            locked={cycle.status === 'CLOSED' || cycle.signedReports.some((r) => r.confirmedAt)}
+          />
         </section>
       )}
 

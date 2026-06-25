@@ -27,11 +27,14 @@ export default function ReviewPanel({
   round,
   nextHref,
   remaining,
+  backHref,
 }: {
   deficiencyId: string;
   round: number;
   nextHref?: string | null;
   remaining?: number;
+  /** 無下一筆待審時審完跳回的「缺失與矯正」總覽 */
+  backHref?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -74,6 +77,10 @@ export default function ReviewPanel({
     setComment('');
     if (nextHref) {
       router.push(nextHref);
+      router.refresh();
+    } else if (backHref) {
+      // 已審完最後一筆 → 回缺失與矯正總覽,讓委員確知本週期已無待審
+      router.push(backHref);
       router.refresh();
     } else {
       router.refresh();

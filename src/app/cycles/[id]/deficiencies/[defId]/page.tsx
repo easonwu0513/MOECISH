@@ -310,6 +310,7 @@ export default async function DeficiencyDetailPage({
           round={action.round}
           nextHref={nextHref}
           remaining={remaining}
+          backHref={`/cycles/${cycle.id}/deficiencies`}
         />
       )}
 
@@ -319,6 +320,7 @@ export default async function DeficiencyDetailPage({
         editable={canFill}
         nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
         remaining={user.role === 'ORG_ADMIN' ? remaining : 0}
+        backHref={`/cycles/${cycle.id}/deficiencies`}
         action={
           action
             ? {

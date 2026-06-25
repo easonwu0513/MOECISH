@@ -20,9 +20,12 @@ type Item = {
 export default function SignedReportPanel({
   cycleId,
   role,
+  locked = false,
 }: {
   cycleId: string;
   role: string;
+  /** 已有確認之掃描檔或週期已結案 → 機關不可再上傳 */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -77,7 +80,8 @@ export default function SignedReportPanel({
     }
   }
 
-  const canUpload = role === 'ORG_ADMIN' || role === 'SUPER_ADMIN';
+  // 上傳僅限機關管理員(中心只檢視+確認);已確認或結案後鎖定不可再上傳
+  const canUpload = role === 'ORG_ADMIN' && !locked;
   const canConfirm = role === 'SUPER_ADMIN';
 
   return (
@@ -133,6 +137,11 @@ export default function SignedReportPanel({
         )}
         {canUpload && (
           <p className="text-caption text-on-surface-variant -mt-1">單檔 ≤ 20MB;限 PDF 或圖片(PNG/JPG)</p>
+        )}
+        {role === 'ORG_ADMIN' && locked && (
+          <p className="text-caption text-on-surface-variant -mt-1">
+            掃描檔已經中心確認(或週期已結案),不可再上傳;如需更換請聯繫中心。
+          </p>
         )}
       </div>
     </Card>

@@ -43,6 +43,16 @@ export default function ChecklistItemCard({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // router.refresh() 會重繪伺服器樹,若上方有其他展開卡片會造成捲動錨點上跳(逐題填答很擾民)。
+  // 存檔後保留當前捲動位置,於重繪後數個影格內回復,消除「按符合/儲存時頁面往上跳」。
+  function refreshKeepScroll() {
+    const y = window.scrollY;
+    router.refresh();
+    const restore = () => window.scrollTo(0, y);
+    requestAnimationFrame(restore);
+    setTimeout(restore, 80);
+    setTimeout(restore, 220);
+  }
   const [compliance, setCompliance] = useState<ComplianceLevel | null>(
     (response?.compliance ?? null) as ComplianceLevel | null,
   );
@@ -98,7 +108,7 @@ export default function ChecklistItemCard({
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
-      router.refresh();
+      refreshKeepScroll();
     });
   }
 

@@ -96,12 +96,15 @@ export default function ActionForm({
   editable,
   nextHref,
   remaining,
+  backHref,
 }: {
   deficiencyId: string;
   action: ActionData | null;
   editable: boolean;
   nextHref?: string | null;
   remaining?: number;
+  /** 無下一筆時送出後跳回的「缺失與矯正」總覽 */
+  backHref?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -261,6 +264,11 @@ export default function ActionForm({
     if (nextHref && remaining && remaining > 0) {
       toast.success(t.title, `還有 ${remaining} 筆待處理,已為你開啟下一筆。`);
       router.push(nextHref);
+      router.refresh();
+    } else if (backHref) {
+      // 已是最後一筆 → 回缺失與矯正總覽(不停在最後一張矯正單,讓使用者確知已填完)
+      toast.success(t.title, '已完成所有待處理的矯正單,已回到缺失與矯正總覽。');
+      router.push(backHref);
       router.refresh();
     } else {
       toast.success(t.title, t.description);

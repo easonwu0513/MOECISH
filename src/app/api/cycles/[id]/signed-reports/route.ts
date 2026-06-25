@@ -24,8 +24,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, cycle } = await assertCycleAccess(params.id);
-    if (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN') {
+    if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可上傳用印掃描檔' }, { status: 403 });
+    }
+    if (cycle.status === 'CLOSED') {
+      return NextResponse.json({ error: '週期已結案,不可再上傳用印掃描檔' }, { status: 409 });
+    }
+    const confirmedCount = await prisma.signedReport.count({
+      where: { cycleId: cycle.id, confirmedAt: { not: null } },
+    });
+    if (confirmedCount > 0) {
+      return NextResponse.json(
+        { error: '用印掃描檔已經中心確認,不可再上傳;如需更換請聯繫中心' },
+        { status: 409 },
+      );
     }
     const fd = await req.formData();
     const file = fd.get('file') as File | null;
