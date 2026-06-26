@@ -2,6 +2,7 @@
 
 import { IconButton } from '../ui/IconButton';
 import { Menu, Search, Command as CmdIcon } from '../icons';
+import { NotificationBell } from './NotificationBell';
 import { UserMenu } from './UserMenu';
 import { Logo } from '../brand/Logo';
 import { Breadcrumbs, type Crumb } from './Breadcrumbs';
@@ -55,6 +56,7 @@ export function TopStrip({
           onClick={onCommandOpen}
           className="md:hidden"
         />
+        <NotificationBell />
         <UserMenu
           name={user.name}
           email={user.email}

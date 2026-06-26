@@ -57,6 +57,23 @@ model User {
   auditFindings      AuditFinding[]
   cycleTransitions   CycleStateTransition[]
   auditLogs          AuditLog[]
+  notifications      Notification[]
+}
+
+// 站內通知(鈴鐺):每封寄給系統使用者的信同步建立一筆,避免委員/機關漏看 email。
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String                  // 對應 EmailKind
+  title     String                  // = 信件主旨(去 [MOECISH] 前綴)
+  body      String?                 // 摘要(信件主要內容段)
+  link      String?                 // 站內連結(多為 /cycles/...)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 model Invitation {

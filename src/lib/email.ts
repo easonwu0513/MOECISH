@@ -146,5 +146,33 @@ export async function sendEmail(input: SendEmailInput) {
     console.warn('[email] failed to write log file:', (e as Error).message);
   }
 
+  // 站內通知(鈴鐺):寄信對象若為系統使用者,同步建立站內通知,避免委員/機關漏看 email。
+  // (失敗不擋寄信流程;dedupe 跳過的信不會走到這裡,故不會重複通知)
+  try {
+    const u = await prisma.user.findUnique({ where: { email: input.to }, select: { id: true, isActive: true } });
+    if (u?.isActive) {
+      await prisma.notification.create({
+        data: {
+          userId: u.id,
+          kind,
+          title: input.subject.replace(/^\[MOECISH\]\s*/, ''),
+          body: notificationSummary(input.body),
+          link: input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn('[email] 站內通知建立失敗:', (e as Error).message);
+  }
+
   return log;
+}
+
+/** 從信件內文取「主要內容段」當站內通知摘要(略過稱呼、連結、署名),截斷至 160 字。 */
+function notificationSummary(body: string): string {
+  const paras = body.split('\n\n').map((p) => p.trim()).filter(Boolean);
+  const main = paras.find(
+    (p) => !/您好[,，]?$/.test(p) && !p.startsWith('http') && !p.startsWith('—'),
+  );
+  return (main ?? paras[0] ?? '').replace(/\s+/g, ' ').slice(0, 160);
 }
