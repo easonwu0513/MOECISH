@@ -97,6 +97,10 @@ export default async function HomePage() {
       // 機關只計自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區(CENTER);與下方準備讀數卡一致
       const techDue = fmtMD(c.prepDueTech);
       const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
+      // 開立中:讓機關在主橫幅就看到「今年將被稽核」的作業通知(不只埋在鈴鐺),但屬告知性、暫無需動作
+      if (st === 'DRAFT') {
+        todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核(開立中),請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
+      }
       if (st === 'PREPARATION' && e.mechInsufficient > 0) {
         todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.mechInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
       } else if (st === 'PREPARATION' && e.mechRemaining > 0) {
