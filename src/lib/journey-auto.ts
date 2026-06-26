@@ -14,6 +14,8 @@ import type { CycleFacts } from './process-guide';
 export type JourneyAutoCtx = {
   facts: CycleFacts;
   assignmentsCount: number;
+  /** 是否已寄發「稽核作業通知」給機關(開立中「通知機關」項自動完成判定)。 */
+  orgNotified: boolean;
 };
 
 const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
@@ -23,6 +25,8 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   dates_set: (c) => !!c.facts.prepDueDate && !!c.facts.onsiteDate,
   prep_list_set: (c) => c.facts.prepTotal > 0,
   auditors_assigned: (c) => c.assignmentsCount > 0,
+  // 「通知機關」:已寄發稽核作業通知(notify-open;需先設實地稽核日)才算完成
+  org_notified: (c) => c.orgNotified,
   // 機關區「上傳/繳交/確認」三項一律以「全部完成」判定(非「任一」):機關區=技術檢測+實地稽核。
   // 例:只傳了技術檢測、實地稽核未傳 → 不算「已上傳」;只確認了技術檢測 → 不算「已逐項確認」。
   prep_uploaded: (c) => c.facts.mechAllAddressed,
@@ -58,6 +62,7 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
     case 'prep_list_set': return '/prep'; // 資料準備需求清單於 /prep 設定
     case 'auditors_assigned': return '#assign-auditors'; // 委員指派面板錨點
     case 'dates_set': return '#setup'; // 設定文件繳交期限與稽核日期 → 跳頁首設定區(編輯日期)
+    case 'org_notified': return '#setup'; // 通知機關 → 跳頁首(「通知機關」按鈕在身分帶,與編輯日期同列)
     case 'always':
       // 開立中(建立週期)→ 跳頁首設定區;其餘階段的 always 維持週期主頁
       return stageKey === 'DRAFT' ? '#setup' : '';

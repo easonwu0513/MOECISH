@@ -129,6 +129,7 @@ const CYCLE: SeedTemplate = {
         { title: '設定文件繳交期限與稽核日期', role: 'SUPER_ADMIN', autoKey: 'dates_set' },
         { title: '掛上資料準備需求清單', role: 'SUPER_ADMIN', autoKey: 'prep_list_set' },
         { title: '指派稽核委員', role: 'SUPER_ADMIN', autoKey: 'auditors_assigned' },
+        { title: '通知機關填報人 / 主管', hint: '設定好日期後按「通知機關」寄發稽核作業通知;機關會收到 email 與站內通知,避免漏看。', role: 'SUPER_ADMIN', autoKey: 'org_notified' },
       ],
     },
     {

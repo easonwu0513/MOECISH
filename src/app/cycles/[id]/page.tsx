@@ -121,13 +121,18 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         : <Chip tone="warning" size="sm" dot>距截止剩 {daysToDue} 天</Chip>)
     : null;
 
+  // 是否已寄發「稽核作業通知」給機關(精靈開立中「通知機關」項自動完成判定;notify-open 留下的 EmailLog)
+  const orgNotified = (await prisma.emailLog.count({
+    where: { relatedCycleId: cycle.id, kind: 'cycle-notify', context: { contains: '"phase":"cycle-opened"' } },
+  })) > 0;
+
   // 引導式精靈(本週期各階段 checklist):中心看全部(含角色標籤)、機關/委員看自己角色 + 全體項。
   const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
   const journeyView = await loadJourney({
     scope: 'CYCLE',
     cycleId: cycle.id,
     role: journeyRole,
-    autoCtx: { facts, assignmentsCount: cycle.assignments.length },
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length, orgNotified },
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
 

@@ -159,11 +159,16 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'PREPARATION') {
       // 機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;截止日分技術檢測與實地稽核兩條列出
       const techDue = fmtMD(f.prepDueTech);
-      const dueText = [techDue && `技術檢測截止 ${techDue}`, prepDue && `實地稽核截止 ${prepDue}`].filter(Boolean).join('・');
+      const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
       if (f.mechInsufficient > 0) return { text: `${f.mechInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
-      // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出
-      if (f.checklistTotal > 0 && !f.checklistSubmitted) return { text: `填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' };
-      if (f.mechRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.mechRemaining}/${f.mechTotal} 項)${dueText ? `,${dueText}` : ''}`, href: `${base}/prep`, cta: '去處理' };
+      // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出;
+      // 並一併帶出尚未處理的稽核前資料(機關區),讓機關一眼看到兩項平行任務(檢核表 + 應上傳資料)。
+      if (f.checklistTotal > 0 && !f.checklistSubmitted) {
+        const parts = [`填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`];
+        if (f.mechRemaining > 0) parts.push(`上傳稽核前資料(尚有 ${f.mechRemaining} 項)`);
+        return { text: parts.join('、'), href: `${base}/checklist`, cta: '去填報' };
+      }
+      if (f.mechRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.mechRemaining} 項)${dueText ? `,${dueText}` : ''}`, href: `${base}/prep`, cta: '去處理' };
       if (f.mechDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
       if (f.mechAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
       return { text: '資料已繳交,等待中心確認', href: `${base}/prep`, cta: '查看' };

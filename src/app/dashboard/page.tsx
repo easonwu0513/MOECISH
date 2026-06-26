@@ -96,11 +96,11 @@ export default async function HomePage() {
     if (user.role === 'ORG_ADMIN') {
       // 機關只計自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區(CENTER);與下方準備讀數卡一致
       const techDue = fmtMD(c.prepDueTech);
-      const dueText = [techDue && `技術檢測截止 ${techDue}`, prepDue && `實地稽核截止 ${prepDue}`].filter(Boolean).join('・');
+      const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
       if (st === 'PREPARATION' && e.mechInsufficient > 0) {
         todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.mechInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
       } else if (st === 'PREPARATION' && e.mechRemaining > 0) {
-        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining}/${e.mechTotal} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
+        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
       } else if (st === 'PREPARATION' && e.mechDraft > 0) {
         todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
       }
@@ -357,7 +357,7 @@ export default async function HomePage() {
                               <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
                               {(pc.c.prepDueTech || pc.c.prepDueDate) && (
                                 <p className="mt-0.5 text-caption text-on-surface-variant">
-                                  {[pc.c.prepDueTech && `技術檢測截止 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核截止 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
+                                  {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
                                 </p>
                               )}
                             </div>
