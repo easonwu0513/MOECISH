@@ -58,6 +58,11 @@ export default function ChecklistItemCard({
   );
   const [description, setDescription] = useState(response?.description ?? '');
   const [recordDocs, setRecordDocs] = useState(response?.recordDocs ?? '');
+  // 樂觀並行版號:以本地 state 追蹤,每次存檔成功即用伺服器回傳值更新。
+  // (原本固定讀 response?.version prop,存第二次時 prop 尚未經 router.refresh 更新 → 仍送舊版號 →
+  //  單一使用者也誤判「資料已被他人更新」409。改本地追蹤後連續存檔版號正確遞增。)
+  const [version, setVersion] = useState<number>(response?.version ?? 0);
+  useEffect(() => { setVersion((v) => Math.max(v, response?.version ?? 0)); }, [response?.version]);
   const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
   const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;
@@ -96,7 +101,7 @@ export default function ChecklistItemCard({
           compliance: nextCompliance,
           description: nextDescription || null,
           recordDocs: nextRecordDocs || null,
-          version: response?.version ?? 0,
+          version,
         }),
       });
       if (!res.ok) {
@@ -104,6 +109,9 @@ export default function ChecklistItemCard({
         toast.error('儲存失敗', j.error);
         return;
       }
+      // 以伺服器回傳的新版號更新本地,確保下一次存檔送出正確版號(避免連續存檔誤判 409)
+      const saved = await res.json().catch(() => null);
+      if (saved && typeof saved.version === 'number') setVersion(saved.version);
       setTextDirty(false);
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -320,7 +328,8 @@ export default function ChecklistItemCard({
           currentCompliance={compliance}
           currentDescription={description}
           currentRecordDocs={recordDocs}
-          currentVersion={response?.version ?? 0}
+          currentVersion={version}
+          onSaved={(v) => setVersion((cur) => Math.max(cur, v))}
           canEdit={canEdit || (userRole === 'ORG_ADMIN' && unresolved > 0)}
           expectedEvidence={item.expectedEvidence}
         />
@@ -430,6 +439,7 @@ function EvidenceBlock({
   currentDescription,
   currentRecordDocs,
   currentVersion,
+  onSaved,
   canEdit,
   expectedEvidence,
 }: {
@@ -440,6 +450,7 @@ function EvidenceBlock({
   currentDescription: string;
   currentRecordDocs: string;
   currentVersion: number;
+  onSaved?: (version: number) => void;
   canEdit: boolean;
   expectedEvidence: string | null;
 }) {
@@ -476,6 +487,7 @@ function EvidenceBlock({
     }
     const saved = await res.json();
     setResponseId(saved.id);
+    if (typeof saved.version === 'number') onSaved?.(saved.version); // 同步版號回卡片,避免後續存檔 409
     return saved.id as string;
   }
 

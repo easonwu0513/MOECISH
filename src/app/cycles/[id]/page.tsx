@@ -216,8 +216,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </section>
       )}
 
-      {/* 本階段進度讀數(資料準備中):把「還剩什麼」量化成讀數 */}
-      {cycle.status === 'PREPARATION' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (
+      {/* 本階段進度讀數(資料準備中):機關/中心關心的「還剩什麼」;委員此階段尚不可見機關資料,不顯示(避免退補/待繳/未處理誤導委員) */}
+      {cycle.status === 'PREPARATION' && user.role !== 'AUDITOR' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (
         <section className="mb-8 grid gap-4 sm:grid-cols-2">
           {facts.prepTotal > 0 && (
             <Card className="flex items-center gap-4">
@@ -300,6 +300,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/prep`}
           badge={prepBadge}
           muted={!modActive.prep}
+          locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
+          lockedHint="資料齊備後開放委員檢視"
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}

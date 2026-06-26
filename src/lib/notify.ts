@@ -194,7 +194,9 @@ export async function notifyOrgOnReturn(opts: {
   return { recipientCount: recipients.length };
 }
 
-/** 機關完成檢核表填報送出 → 通知受指派委員(無委員時通知最高管理員)。 */
+/** 機關完成檢核表填報送出 → 通知最高管理員(中心)審核。
+ *  委員於「資料齊備」後才看得到機關檢核表,故送出時不通知委員;
+ *  改在中心推進至資料齊備時,由提示觸發 notifyCommitteeReview 通知委員審閱。 */
 export async function notifyChecklistSubmitted(opts: {
   cycleId: string;
   submittedByName: string;
@@ -202,19 +204,14 @@ export async function notifyChecklistSubmitted(opts: {
 }) {
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: opts.cycleId },
-    include: { organization: true, assignments: true },
+    include: { organization: true },
   });
   if (!cycle) return { recipientCount: 0 };
 
-  let recipients = await prisma.user.findMany({
-    where: { id: { in: cycle.assignments.map((a) => a.auditorId) }, isActive: true },
+  // 機關送出檢核表 → 通知最高管理員(中心)審核;委員於「資料齊備」後才看得到,屆時由中心另發 notifyCommitteeReview。
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
   });
-  // 尚未指派委員時改通知最高管理員,避免送出後沒人知道
-  if (recipients.length === 0) {
-    recipients = await prisma.user.findMany({
-      where: { role: 'SUPER_ADMIN', isActive: true },
-    });
-  }
   if (recipients.length === 0) return { recipientCount: 0 };
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/review`;
@@ -226,16 +223,54 @@ export async function notifyChecklistSubmitted(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] ${orgName} 已完成 ${yearROC} 年度檢核表填報，請開始審閱`,
+        subject: `[MOECISH] ${orgName} 已完成 ${yearROC} 年度檢核表填報，請審核`,
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 完成 ${yearROC} 年度資通安全檢核表填報並送出，內容已鎖定。\n` +
-          `請登入系統審閱填報內容（可逐題留意見；退回與否由中心決定）：\n\n` +
+          `請登入系統審閱填報內容;待稽核前資料一併確認齊備後，推進週期至「資料齊備」並通知委員審閱：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'checklist-submitted',
         relatedCycleId: cycle.id,
         context: { submittedBy: opts.submittedByName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 中心於「資料齊備」後,主動寄信通知受指派委員開始審閱檢核表(由週期推進至資料齊備時的提示觸發)。 */
+export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl: string }) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, assignments: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { id: { in: cycle.assignments.map((a) => a.auditorId) }, isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/review`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} ${yearROC} 年度資料已齊備，請開始審閱檢核表`,
+        body:
+          `${u.name} 委員您好，\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核資料已確認齊備，現已開放委員檢視。\n` +
+          `請登入系統逐題檢視機關自評檢核表並留審閱註記，並準備後續實地稽核：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'committee-review',
+        relatedCycleId: cycle.id,
+        context: {},
       }),
     ),
   );

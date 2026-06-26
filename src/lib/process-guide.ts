@@ -13,6 +13,7 @@ export type CycleFactsInput = {
   status: string;
   dueDate: Date | null;
   prepDueDate: Date | null;
+  prepDueTech: Date | null;
   onsiteDate: Date | null;
   deficiencies: { action: { status: string } | null }[];
   prepRequirements: { category: string; submission: { status: string } | null }[];
@@ -28,6 +29,7 @@ export type CycleFacts = {
   status: CycleStatus;
   dueDate: Date | null;
   prepDueDate: Date | null;
+  prepDueTech: Date | null;
   onsiteDate: Date | null;
   returned: number;
   submitted: number;
@@ -114,7 +116,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const checklistOpenComments = (c.responses ?? []).filter((r) => (r.comments?.length ?? 0) > 0).length;
 
   return {
-    id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, onsiteDate: c.onsiteDate,
+    id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, prepDueTech: c.prepDueTech, onsiteDate: c.onsiteDate,
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
     mechAllAddressed, mechAllSubmitted, mechAllConfirmed,
@@ -155,12 +157,15 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (role === 'ORG_ADMIN') {
     if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
     if (st === 'PREPARATION') {
-      if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
+      // 機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;截止日分技術檢測與實地稽核兩條列出
+      const techDue = fmtMD(f.prepDueTech);
+      const dueText = [techDue && `技術檢測截止 ${techDue}`, prepDue && `實地稽核截止 ${prepDue}`].filter(Boolean).join('・');
+      if (f.mechInsufficient > 0) return { text: `${f.mechInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
       // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出
       if (f.checklistTotal > 0 && !f.checklistSubmitted) return { text: `填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' };
-      if (f.prepRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 項)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去處理' };
-      if (f.prepDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
-      if (f.prepAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
+      if (f.mechRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.mechRemaining}/${f.mechTotal} 項)${dueText ? `,${dueText}` : ''}`, href: `${base}/prep`, cta: '去處理' };
+      if (f.mechDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
+      if (f.mechAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
       return { text: '資料已繳交,等待中心確認', href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };

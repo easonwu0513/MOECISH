@@ -12,7 +12,8 @@ export type EmailKind =
   | 'review-request'   // 機關送審 → 通知委員
   | 'action-returned'  // 委員退回 → 通知機關
   | 'all-passed'       // 全數通過 → 通知機關用印
-  | 'checklist-submitted' // 檢核表填報送出 → 通知委員
+  | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
+  | 'committee-review'    // 資料齊備 → 通知委員開始審閱
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
   | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
   | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
