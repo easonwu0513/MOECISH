@@ -141,6 +141,7 @@ const CYCLE: SeedTemplate = {
         { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
         { title: '確認資料齊全後按「確定繳交」分別送交各類資料（技術檢測與實地稽核可分次繳交）', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
         { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN', autoKey: 'prep_confirmed' },
+        { title: '上傳中心匯入區資料並開放委員檢視', hint: '中心自行匯入的補充資料(如技檢報告);上傳後按「開放委員檢視」,委員於資料齊備後可看。', role: 'SUPER_ADMIN', autoKey: 'center_data_released' },
       ],
     },
     {

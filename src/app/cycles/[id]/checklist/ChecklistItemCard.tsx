@@ -63,6 +63,11 @@ export default function ChecklistItemCard({
   //  單一使用者也誤判「資料已被他人更新」409。改本地追蹤後連續存檔版號正確遞增。)
   const [version, setVersion] = useState<number>(response?.version ?? 0);
   useEffect(() => { setVersion((v) => Math.max(v, response?.version ?? 0)); }, [response?.version]);
+  // 批次標記(全標符合/未答全標不適用)或退回/他處刷新後,伺服器端符合度變動 → 同步本地顯示,
+  // 免使用者重新整理才看到結果(符合度由按鈕即時存檔,此同步不會吞掉編輯中的文字)。
+  useEffect(() => {
+    setCompliance((response?.compliance ?? null) as ComplianceLevel | null);
+  }, [response?.compliance]);
   const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
   const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;

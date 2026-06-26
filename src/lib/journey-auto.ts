@@ -16,6 +16,8 @@ export type JourneyAutoCtx = {
   assignmentsCount: number;
   /** 是否已寄發「稽核作業通知」給機關(開立中「通知機關」項自動完成判定)。 */
   orgNotified: boolean;
+  /** 中心匯入區資料是否皆已上傳並「開放委員檢視」(CONFIRMED);無中心匯入項則視為已完成。 */
+  centerDataReleased: boolean;
 };
 
 const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
@@ -27,6 +29,8 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   auditors_assigned: (c) => c.assignmentsCount > 0,
   // 「通知機關」:已寄發稽核作業通知(notify-open;需先設實地稽核日)才算完成
   org_notified: (c) => c.orgNotified,
+  // 「上傳並開放中心匯入區資料」:中心匯入區皆已上傳並按「開放委員檢視」(CONFIRMED)才算完成
+  center_data_released: (c) => c.centerDataReleased,
   // 機關區「上傳/繳交/確認」三項一律以「全部完成」判定(非「任一」):機關區=技術檢測+實地稽核。
   // 例:只傳了技術檢測、實地稽核未傳 → 不算「已上傳」;只確認了技術檢測 → 不算「已逐項確認」。
   prep_uploaded: (c) => c.facts.mechAllAddressed,
@@ -52,7 +56,8 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
     case 'checklist_filled': return '/checklist';
     case 'prep_uploaded':
     case 'prep_submitted':
-    case 'prep_confirmed': return '/prep';
+    case 'prep_confirmed':
+    case 'center_data_released': return '/prep';
     case 'deficiencies_published':
     case 'remediation_submitted':
     case 'remediation_reviewed': return '/deficiencies';

@@ -100,7 +100,7 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                         {orgName}
                       </p>
                       <p className="text-caption text-on-surface-variant mt-1">
-                        矯正截止 {fmtROC(c.dueDate)}
+                        {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">

@@ -131,6 +131,10 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const orgNotified = (await prisma.emailLog.count({
     where: { relatedCycleId: cycle.id, kind: 'cycle-notify', context: { contains: '"phase":"cycle-opened"' } },
   })) > 0;
+  // 中心匯入區資料是否皆已上傳並「開放委員檢視」(CONFIRMED);無中心匯入項則視為完成(精靈「上傳中心匯入區資料」項判定)
+  const centerDataReleased = cycle.prepRequirements
+    .filter((r) => r.category === 'CENTER')
+    .every((r) => r.submission?.status === 'CONFIRMED');
 
   // 引導式精靈(本週期各階段 checklist):中心看全部(含角色標籤)、機關/委員看自己角色 + 全體項。
   const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
@@ -138,7 +142,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     scope: 'CYCLE',
     cycleId: cycle.id,
     role: journeyRole,
-    autoCtx: { facts, assignmentsCount: cycle.assignments.length, orgNotified },
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length, orgNotified, centerDataReleased },
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
 
