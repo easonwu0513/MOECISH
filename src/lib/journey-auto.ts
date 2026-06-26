@@ -79,6 +79,15 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
   }
 }
 
+/** 週期是否已「到達」某階段(目前階段 index >= 該階段 index)。
+ *  用於精靈快捷跳轉:僅已到達之階段才連結到實際頁面;未到達者點擊改提示「尚未開放」,
+ *  避免委員/機關點未來階段提醒被導回週期頁、誤以為功能壞掉。 */
+export function cycleStageReached(stageKey: string, cycleStatus: string): boolean {
+  const cur = CYCLE_STATUSES.indexOf(cycleStatus as CycleStatus);
+  const st = CYCLE_STATUSES.indexOf(stageKey as CycleStatus);
+  return cur >= 0 && st >= 0 && st <= cur;
+}
+
 /** 依週期實況判定某 CYCLE 精靈項目是否已完成。 */
 export function autoItemDone(stageKey: string, autoKey: string | null, ctx: JourneyAutoCtx): boolean {
   const curIdx = CYCLE_STATUSES.indexOf(ctx.facts.status);

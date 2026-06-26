@@ -1,7 +1,7 @@
 import type { Role, JourneyScope } from './types';
 import type { JourneyClientStage } from '@/components/journey/JourneyChecklist';
 import { prisma } from './db';
-import { autoItemDone, journeyItemHref, type JourneyAutoCtx } from './journey-auto';
+import { autoItemDone, journeyItemHref, cycleStageReached, type JourneyAutoCtx } from './journey-auto';
 
 /**
  * 引導式精靈（Guided Journey）資料層 SoT。
@@ -21,7 +21,9 @@ export type JourneyItemView = {
   doneAt: Date | null;
   doneByName: string | null;
   note: string | null;
-  href: string | null; // CYCLE:快捷跳轉到實際執行頁;PROGRAMME / 純提醒:null
+  href: string | null; // CYCLE:快捷跳轉到實際執行頁;PROGRAMME / 純提醒 / 未到階段:null
+  /** CYCLE:該階段尚未到達時帶階段標題(點擊改提示「尚未開放」而非跳轉);已到達為 null。 */
+  lockedStageTitle: string | null;
 };
 
 export type JourneyStageView = {
@@ -93,6 +95,11 @@ export async function loadJourney(opts: {
           // → 純提醒:不顯示勾選框、不計入進度。但仍給快捷跳轉(有對應子頁時),方便委員一點即達。
           const informational = it.autoKey == null;
           const sub = cycleId ? journeyItemHref(st.stageKey, it.autoKey, it.title) : null;
+          const status = autoCtx?.facts.status;
+          // 已到達該階段才連結到實際頁面;未到達者不連結,點擊改提示「尚未開放」(避免被導回週期頁誤解為壞掉)
+          const reached = status ? cycleStageReached(st.stageKey, status) : true;
+          // 純提醒:僅在有具體子頁(非週期主頁)時才連,避免連回本頁無動作;一般任務維持原行為。
+          const linkable = reached && !!cycleId && (informational ? !!sub : true);
           return {
             id: it.id,
             title: it.title,
@@ -104,13 +111,8 @@ export async function loadJourney(opts: {
             doneAt: null,
             doneByName: null,
             note: null,
-            // 純提醒:僅在有具體子頁(非週期主頁)時才連,避免連回本頁無動作;一般任務維持原行為。
-            href:
-              sub == null
-                ? null
-                : informational
-                  ? (sub ? `/cycles/${cycleId}${sub}` : null)
-                  : `/cycles/${cycleId}${sub}`,
+            href: linkable ? `/cycles/${cycleId}${sub ?? ''}` : null,
+            lockedStageTitle: reached ? null : st.title,
           };
         }
         const p = it.progress[0];
@@ -126,6 +128,7 @@ export async function loadJourney(opts: {
           doneByName: p?.doneByName ?? null,
           note: p?.note ?? null,
           href: null,
+          lockedStageTitle: null,
         };
       });
     // 純提醒項不算「任務」,不計入 X/Y 進度
@@ -182,6 +185,7 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
       doneByName: it.doneByName,
       href: it.href,
       informational: it.informational,
+      lockedStageTitle: it.lockedStageTitle,
       // CYCLE 為系統自動判定 → 一律唯讀;PROGRAMME 維持依角色可手動勾選。
       canToggle: view.scope === 'CYCLE' ? false : canToggleJourneyItem(role, view.scope, it.role),
     })),

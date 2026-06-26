@@ -18,6 +18,7 @@ export type JourneyClientItem = {
   canToggle: boolean;
   href?: string | null; // 唯讀(CYCLE)項目的快捷跳轉目的地(純提醒項亦可有,方便一點即達)
   informational?: boolean; // 純提醒(無系統訊號可判定)→ 不勾選、不計分;但可點擊跳轉
+  lockedStageTitle?: string | null; // CYCLE:該階段尚未到達 → 點擊提示「尚未開放」而非跳轉
 };
 export type JourneyClientStage = {
   id: string;
@@ -148,7 +149,7 @@ export function JourneyChecklist({
                   s.items.map((it) => {
                     const rowClass = cn(
                       'w-full flex items-start gap-3 px-4 py-2.5 text-left min-h-11',
-                      it.canToggle || it.href ? 'hover:bg-surface-container focus-ring cursor-pointer' : 'cursor-default',
+                      it.canToggle || it.href || it.lockedStageTitle ? 'hover:bg-surface-container focus-ring cursor-pointer' : 'cursor-default',
                     );
                     const inner = (
                       <>
@@ -193,9 +194,11 @@ export function JourneyChecklist({
                             <span className="block mt-0.5 text-label-sm text-success-700">已完成 · {it.doneByName}</span>
                           )}
                         </span>
-                        {it.href && (
+                        {it.lockedStageTitle ? (
+                          <span className="self-center shrink-0 text-label-sm text-on-surface-variant">尚未開放</span>
+                        ) : it.href ? (
                           <ChevronRight size={15} className="self-center shrink-0 text-on-surface-variant" aria-hidden />
-                        )}
+                        ) : null}
                       </>
                     );
                     return (
@@ -206,6 +209,15 @@ export function JourneyChecklist({
                           </button>
                         ) : it.href ? (
                           <Link href={it.href} className={rowClass}>{inner}</Link>
+                        ) : it.lockedStageTitle ? (
+                          // 未到該階段:點擊提示「尚未開放」而非跳轉(避免被導回週期頁誤以為功能壞掉)
+                          <button
+                            type="button"
+                            onClick={() => toast.info('此階段尚未開放', `目前尚未進入「${it.lockedStageTitle}」階段,該功能屆時才會開放。`)}
+                            className={rowClass}
+                          >
+                            {inner}
+                          </button>
                         ) : (
                           <div className={rowClass}>{inner}</div>
                         )}
