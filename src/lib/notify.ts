@@ -589,7 +589,8 @@ export async function notifyCycleStatusChange(opts: {
   const MAP: Record<string, { label: string; path: string; hint: string }> = {
     PREPARATION: { label: '資料準備', path: '/prep', hint: '請依清單上傳稽核前所需文件。' },
     READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備，後續將安排實地稽核時程。' },
-    ONSITE: { label: '實地稽核中', path: '', hint: '已進入實地稽核階段。' },
+    // ONSITE(實地稽核中)刻意不通知機關:此階段機關於系統內無可操作項目(稽核日期已於開立通知告知),
+    // 寄信請其登入查看反而擾民。委員端於資料齊備(READY)即已收到審閱通知。
     REPORT_ISSUED: { label: '稽核報告已產出', path: '', hint: '稽核報告已產出，後續將開放缺失矯正。' },
     REMEDIATION: { label: '缺失矯正', path: '/deficiencies', hint: '缺失已開放，請填報矯正措施與佐證。' },
     CLOSED: { label: '已結案', path: '', hint: '本年度稽核已結案，感謝配合。' },

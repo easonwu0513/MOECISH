@@ -341,6 +341,8 @@ function ScoreSection({
                       {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
                       {DIMENSION_LABELS[dim]}
                       <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]} 分)</span>
+                      {/* 以項目數量評分,於標題標示本構面共幾項,方便委員判定數量 */}
+                      {st.total > 0 && <span className="text-on-surface-variant">・共 {st.total} 項</span>}
                     </div>
                     <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
                   </div>
@@ -408,9 +410,12 @@ function ScoreSection({
                 </div>
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">
-                    <summary className="cursor-pointer text-caption text-danger-700 hover:underline select-none">
-                      查看扣分依據({issues.length} 項部分符合/不符合)
+                    <summary className="cursor-pointer text-caption text-on-surface-variant hover:underline select-none">
+                      參考—查看審閱意見({issues.length} 項部分符合/不符合)
                     </summary>
+                    <p className="mt-2 text-caption text-on-surface-variant/80 leading-relaxed">
+                      以下為實地稽核前之審閱筆記,僅供參考;經現場稽核後可能有異動,委員判定數量請依現場結果填寫,不受此限。
+                    </p>
                     <ul className="mt-2 space-y-1.5">
                       {issues.map((it) => (
                         <li key={it.itemNo} className="flex gap-2 text-caption text-on-surface-variant">
