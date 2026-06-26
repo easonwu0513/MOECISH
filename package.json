@@ -19,6 +19,7 @@
     "journey:seed": "tsx src/scripts/seed-journey.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
     "test:access": "tsx src/scripts/test-access-matrix.ts",
+    "test:notify": "tsx src/scripts/test-notify-matrix.ts",
     "reset:hospitals": "tsx src/scripts/reset-hospitals.ts",
     "reset:cycles": "tsx src/scripts/reset-cycles.ts",
     "seed:test-accounts": "tsx src/scripts/seed-test-accounts.ts",

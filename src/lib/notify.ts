@@ -1,6 +1,21 @@
 import { prisma } from './db';
 import { sendEmail } from './email';
 import { fmtROC } from './date';
+import { cycleTransitionNotify } from './notify-policy';
+import type { CycleStatus } from './types';
+
+/**
+ * 週期狀態 → 通知機關的訊息內容(僅 org 通知政策為 true 的狀態才有條目)。
+ * 是否要寄(對象)由 notify-policy 的 cycleTransitionNotify 決定;此處只放文案。
+ * test:notify 會驗「有訊息的狀態」與「政策 org=true 的狀態」一致,防止漂移。
+ */
+export const CYCLE_STATUS_MESSAGES: Partial<Record<CycleStatus, { label: string; path: string; hint: string }>> = {
+  PREPARATION: { label: '資料準備', path: '/prep', hint: '請依清單上傳稽核前所需文件。' },
+  READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備，後續將安排實地稽核時程。' },
+  REPORT_ISSUED: { label: '稽核報告已產出', path: '', hint: '稽核報告已產出，後續將開放缺失矯正。' },
+  REMEDIATION: { label: '缺失矯正', path: '/deficiencies', hint: '缺失已開放，請填報矯正措施與佐證。' },
+  CLOSED: { label: '已結案', path: '', hint: '本年度稽核已結案，感謝配合。' },
+};
 
 /**
  * 中心建立週期、設定好日期後,正式通知機關:貴機關今年度將進行資通安全稽核(附已確定之重要時程)。
@@ -581,22 +596,15 @@ export async function notifyCycleStatusChange(opts: {
   });
   if (!cycle) return { recipientCount: 0 };
 
+  // 是否通知機關由 notify-policy SoT 決定(ONSITE 等無機關動作的階段 → 不寄;見 test:notify)
+  if (!cycleTransitionNotify(opts.status as CycleStatus).org) return { recipientCount: 0 };
+  const m = CYCLE_STATUS_MESSAGES[opts.status as CycleStatus];
+  if (!m) return { recipientCount: 0 };
+
   const recipients = await prisma.user.findMany({
     where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
   });
   if (recipients.length === 0) return { recipientCount: 0 };
-
-  const MAP: Record<string, { label: string; path: string; hint: string }> = {
-    PREPARATION: { label: '資料準備', path: '/prep', hint: '請依清單上傳稽核前所需文件。' },
-    READY: { label: '資料齊備、待實地稽核', path: '', hint: '資料已確認齊備，後續將安排實地稽核時程。' },
-    // ONSITE(實地稽核中)刻意不通知機關:此階段機關於系統內無可操作項目(稽核日期已於開立通知告知),
-    // 寄信請其登入查看反而擾民。委員端於資料齊備(READY)即已收到審閱通知。
-    REPORT_ISSUED: { label: '稽核報告已產出', path: '', hint: '稽核報告已產出，後續將開放缺失矯正。' },
-    REMEDIATION: { label: '缺失矯正', path: '/deficiencies', hint: '缺失已開放，請填報矯正措施與佐證。' },
-    CLOSED: { label: '已結案', path: '', hint: '本年度稽核已結案，感謝配合。' },
-  };
-  const m = MAP[opts.status];
-  if (!m) return { recipientCount: 0 };
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}${m.path}`;
   const yearROC = cycle.year - 1911;
