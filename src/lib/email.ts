@@ -52,7 +52,8 @@ export async function sendEmail(input: SendEmailInput) {
   // 只加到對外送信與 EmailLog/.txt 紀錄;站內通知摘要仍取原始 input.body(notificationSummary),footer 不會污染鈴鐺。
   const FOOTER =
     '\n\n──────────\n此封信為系統自動寄發,請勿直接回信。如有疑問請登入平台,或洽教育部轄下醫療領域資訊安全推動中心。';
-  const outboundBody = `${input.body}${FOOTER}`;
+  // 冪等:body 若已含 footer(如後台重寄讀 EmailLog.body 再進 sendEmail)不重複附加,避免雙重 footer。
+  const outboundBody = input.body.includes('此封信為系統自動寄發') ? input.body : `${input.body}${FOOTER}`;
 
   // 通知節流:重複觸發(例:連續點送出、排程重跑)不重複轟炸收件人
   if (input.dedupeKey) {

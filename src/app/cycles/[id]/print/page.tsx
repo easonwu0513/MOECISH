@@ -5,6 +5,7 @@ import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
   EXEC_STATUS_LABELS,
+  auditorCanSeeCycle,
   type DeficiencyAspect,
   type DeficiencyType,
   type ExecStatus,
@@ -40,7 +41,8 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
 
   const user = session.user;
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員:未指派或週期仍開立中(DRAFT) → 導回(對齊 access-policy 'cycle.access';補上列印頁漏網閘)
+  if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 
