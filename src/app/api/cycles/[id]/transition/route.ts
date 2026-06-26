@@ -7,7 +7,7 @@ import { canTransition, canRollback } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ensureStandardPrepItems } from '@/lib/prep-standard';
-import { notifyCycleStatusChange } from '@/lib/notify';
+import { notifyCycleStatusChange, notifyCommitteeReview } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({ target: z.string(), reason: z.string().optional() });
@@ -102,6 +102,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await notifyCycleStatusChange({ cycleId: cycle.id, status: to, appBaseUrl: appBaseUrl(req) });
       } catch (e) {
         console.error('[transition] 通知機關失敗:', (e as Error).message);
+      }
+    }
+
+    // 進入「資料齊備」(READY)時,自動同時通知受指派委員開始審閱(站內通知 + email;
+    // 不依賴中心手動點按,確保資料齊備即必然通知委員。dedupe 防重複,失敗不影響轉換本身)
+    if (forward && to === 'READY') {
+      try {
+        await notifyCommitteeReview({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
+      } catch (e) {
+        console.error('[transition] 通知委員審閱失敗:', (e as Error).message);
       }
     }
 

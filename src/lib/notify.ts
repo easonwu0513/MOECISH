@@ -271,6 +271,8 @@ export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl:
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'committee-review',
         relatedCycleId: cycle.id,
+        // 同一週期對同一委員 24h 內只寄一次(轉換重試/回退再進入不重複轟炸;不同週期各自獨立)
+        dedupeKey: `committee-review-${cycle.id}`,
         context: {},
       }),
     ),

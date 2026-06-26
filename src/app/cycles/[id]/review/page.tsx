@@ -6,7 +6,8 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ClipboardCheck, Paperclip } from '@/components/icons';
+import { ClipboardCheck } from '@/components/icons';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
@@ -250,16 +251,12 @@ export default async function ReviewPage({
                             <ul className="space-y-1">
                               {evidenceByResponse.get(r.id)!.map((e) => (
                                 <li key={e.id}>
-                                  <a
-                                    href={`/api/evidences/${e.id}/download?inline=1`}
-                                    target="_blank"
-                                    rel="noopener"
-                                    className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm"
-                                  >
-                                    <Paperclip size={14} className="shrink-0" />
-                                    <span className="truncate">{e.originalName}</span>
-                                    <span className="text-caption text-on-surface-variant tabular-nums shrink-0">({Math.max(1, Math.round(e.sizeBytes / 1024))} KB)</span>
-                                  </a>
+                                  <ProtectedFileLink
+                                    fileId={e.id}
+                                    name={e.originalName}
+                                    sizeKB={Math.max(1, Math.round(e.sizeBytes / 1024))}
+                                    viewOnly={session.user.role === 'AUDITOR'}
+                                  />
                                 </li>
                               ))}
                             </ul>

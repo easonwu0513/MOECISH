@@ -150,7 +150,8 @@ const CYCLE: SeedTemplate = {
       summary: '中心安排實地稽核；委員熟悉受稽機關。',
       items: [
         // 「安排實地稽核日期」已併入開立中「設定文件繳交期限與稽核日期」,此階段不再重複
-        { title: '檢視已確認齊備之資料、熟悉受稽機關背景', role: 'AUDITOR' },
+        { title: '檢視已確認齊備之資料', role: 'AUDITOR' },
+        { title: '檢視資通安全檢核表', role: 'AUDITOR' },
       ],
     },
     {
@@ -320,10 +321,16 @@ async function migrateCycleJourneyV2() {
         await prisma.journeyItem.delete({ where: { id: moved.id } });
         removed++;
       }
+      // 資料齊備「檢視已確認齊備之資料、熟悉受稽機關背景」→ 縮短為「檢視已確認齊備之資料」
+      const longTitle = st.items.find((i) => i.title === '檢視已確認齊備之資料、熟悉受稽機關背景');
+      if (longTitle) {
+        await prisma.journeyItem.update({ where: { id: longTitle.id }, data: { title: '檢視已確認齊備之資料' } });
+        renamed++;
+      }
     }
   }
   if (renamed || removed) {
-    console.log(`[migrate v2] 開立中日期項改名 ${renamed}、資料齊備移除安排實地稽核日期 ${removed}`);
+    console.log(`[migrate v2] 改名 ${renamed} 項、移除 ${removed} 項`);
   }
 }
 

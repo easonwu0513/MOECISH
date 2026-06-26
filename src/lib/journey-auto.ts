@@ -72,11 +72,12 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
       // 開立中(建立週期)→ 跳頁首設定區;其餘階段的 always 維持週期主頁
       return stageKey === 'DRAFT' ? '#setup' : '';
   }
-  // 無對應動作鍵(純提醒):實地稽核階段依標題分流委員「審閱檢核表」與「評分/發現」兩頁
+  // 無對應動作鍵(純提醒):委員相關階段依標題分流——「審閱」→審閱頁、「評分/發現」→實地稽核頁、「檢核表」→檢核表頁
   const t = title ?? '';
-  if (stageKey === 'ONSITE') {
-    if (t.includes('審閱') || t.includes('檢核表')) return '/review';
+  if (stageKey === 'ONSITE' || stageKey === 'READY') {
+    if (t.includes('審閱')) return '/review';
     if (t.includes('評分') || t.includes('發現')) return '/audit';
+    if (t.includes('檢核表')) return '/checklist';
   }
   // 其餘依階段給預設目的地
   switch (stageKey) {

@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Segmented } from '@/components/ui/Segmented';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
+import { Plus, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, prepOrgCanEdit, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
@@ -450,16 +451,12 @@ export default function PrepBoard({
                 <ul className="mt-3 space-y-1">
                   {files.map((f) => (
                     <li key={f.id} className="flex items-center gap-2">
-                      <a
-                        className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                        href={`/api/evidences/${f.id}/download?inline=1`}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        <Paperclip size={14} />
-                        {f.originalName}
-                        <span className="text-caption text-on-surface-variant">({Math.round(f.sizeBytes / 1024)} KB)</span>
-                      </a>
+                      <ProtectedFileLink
+                        fileId={f.id}
+                        name={f.originalName}
+                        sizeKB={Math.round(f.sizeBytes / 1024)}
+                        viewOnly={role === 'AUDITOR'}
+                      />
                       {((orgItemEditable) || (isCenter && adminCanImport)) && (
                         <button
                           type="button"

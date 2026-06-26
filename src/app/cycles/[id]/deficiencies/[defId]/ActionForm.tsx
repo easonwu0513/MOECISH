@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { Check, AlertTriangle, Paperclip, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, ORG_UPLOAD_ACCEPT, type ActionStatus, type ExecStatus } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { TOAST } from '@/lib/copy';
@@ -94,6 +95,7 @@ export default function ActionForm({
   deficiencyId,
   action,
   editable,
+  viewOnly,
   nextHref,
   remaining,
   backHref,
@@ -101,6 +103,8 @@ export default function ActionForm({
   deficiencyId: string;
   action: ActionData | null;
   editable: boolean;
+  /** 委員檢視機關佐證:view-only(禁右鍵/拖曳/下載) */
+  viewOnly: boolean;
   nextHref?: string | null;
   remaining?: number;
   /** 無下一筆時送出後跳回的「缺失與矯正」總覽 */
@@ -533,16 +537,7 @@ export default function ActionForm({
                 <ul className="mb-2 space-y-1">
                   {evidences.map((f) => (
                     <li key={f.id} className="flex items-center gap-2">
-                      <a
-                        className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                        href={`/api/evidences/${f.id}/download?inline=1`}
-                        target="_blank"
-                        rel="noopener"
-                        title="圖片與 PDF 會在新分頁開啟預覽,其他格式直接下載"
-                      >
-                        <Paperclip size={14} />
-                        {f.originalName}
-                      </a>
+                      <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={viewOnly} />
                       {editable && (
                         <button
                           type="button"

@@ -318,6 +318,7 @@ export default async function DeficiencyDetailPage({
       <ActionForm
         deficiencyId={deficiency.id}
         editable={canFill}
+        viewOnly={user.role === 'AUDITOR'}
         nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
         remaining={user.role === 'ORG_ADMIN' ? remaining : 0}
         backHref={`/cycles/${cycle.id}/deficiencies`}

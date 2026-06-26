@@ -29,9 +29,6 @@ export default function TransitionButton({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
-  // 推進至「資料齊備(READY)」後跳出提示,讓中心一鍵寄信通知委員開始審閱(委員此時才看得到機關資料)
-  const [notifyOpen, setNotifyOpen] = useState(false);
-  const [notifyLoading, setNotifyLoading] = useState(false);
 
   async function run() {
     if (rollback && reason.trim().length < 5) {
@@ -55,22 +52,10 @@ export default function TransitionButton({
     setOpen(false);
     setReason('');
     router.refresh();
-    // 進入資料齊備:委員此時起可檢視機關資料 → 提示中心同步寄信通知委員審閱
-    if (!rollback && target === 'READY') setNotifyOpen(true);
-  }
-
-  async function notifyCommittee() {
-    setNotifyLoading(true);
-    const res = await fetch(`/api/cycles/${cycleId}/notify-review`, { method: 'POST' });
-    setNotifyLoading(false);
-    setNotifyOpen(false);
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '通知失敗' }));
-      toast.error('通知委員失敗', j.error);
-      return;
+    // 進入資料齊備:轉換 API 已自動寄信並於站內通知受指派委員開始審閱(委員此時起可檢視機關資料)
+    if (!rollback && target === 'READY') {
+      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員,委員現在起可檢視機關檢核表與已齊備之資料');
     }
-    const j = await res.json().catch(() => ({ recipientCount: 0 }));
-    toast.success('已通知委員審閱', j.recipientCount ? `共 ${j.recipientCount} 位受指派委員` : '目前尚無受指派委員');
   }
 
   if (rollback) {
@@ -131,18 +116,6 @@ export default function TransitionButton({
         confirmLabel="確定推進"
         onConfirm={run}
         loading={loading}
-      />
-      {/* 進入資料齊備後的後續提示:寄信通知委員開始審閱 */}
-      <ConfirmDialog
-        open={notifyOpen}
-        onOpenChange={(o) => !notifyLoading && setNotifyOpen(o)}
-        title="通知委員開始審閱?"
-        description="週期已進入「資料齊備」,受指派委員現在起可檢視機關檢核表與已確認齊備之資料。是否立即寄信通知委員開始審閱?(稍後仍可於缺失/實地稽核等流程另行聯繫)"
-        confirmLabel="寄信通知委員"
-        cancelLabel="稍後再說"
-        tone="primary"
-        onConfirm={notifyCommittee}
-        loading={notifyLoading}
       />
     </>
   );
