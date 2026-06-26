@@ -304,8 +304,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/prep`}
           badge={prepBadge}
           muted={!modActive.prep}
-          locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
-          lockedHint="資料齊備後開放委員檢視"
+          locked={
+            (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+            (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
+          }
+          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
