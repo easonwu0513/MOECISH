@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
-import { prepOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
+import { prepOrgCanEdit, checklistOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -48,6 +48,11 @@ export async function POST(req: Request) {
     }
     // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
     const { user, cycle } = await assertEvidenceAccess(targetType, targetId);
+
+    // 檢核表佐證:機關僅「資料準備中」可上傳(開立中尚未開放;送出鎖定後 checklistSubmittedAt 另擋)
+    if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'ORG_ADMIN' && !checklistOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證(開立中尚未開放)' }, { status: 400 });
+    }
 
     // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
     if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {

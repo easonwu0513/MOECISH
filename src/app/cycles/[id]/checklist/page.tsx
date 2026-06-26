@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { auditorCanViewChecklistContent, type Dimension } from '@/lib/types';
+import { auditorCanViewChecklistContent, checklistOrgCanEdit, type Dimension } from '@/lib/types';
 import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
@@ -42,13 +42,11 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   }
 
   const submitted = Boolean(cycle.checklistSubmittedAt);
-  const canEdit =
-    user.role === 'ORG_ADMIN' &&
-    (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') &&
-    !submitted;
-  const canSubmit =
-    user.role === 'ORG_ADMIN' &&
-    (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION');
+  // 機關填報/送出僅限「資料準備中」;開立中(DRAFT)中心尚在設定,機關不可填(唯讀)
+  const canEdit = user.role === 'ORG_ADMIN' && checklistOrgCanEdit(cycle.status) && !submitted;
+  const canSubmit = user.role === 'ORG_ADMIN' && checklistOrgCanEdit(cycle.status);
+  // 開立中:機關尚不可填,顯示「尚未開放」提示(唯讀)
+  const orgPhaseNotOpen = user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT';
   // 退回重填改由中心(最高管理員)單一決定;委員逐題留意見並按「意見填寫完成」
   const canReopen = user.role === 'SUPER_ADMIN';
 
@@ -139,6 +137,12 @@ export default async function ChecklistPage({ params }: { params: { id: string }
               : '目前狀態為唯讀'}
         </p>
       </header>
+
+      {orgPhaseNotOpen && (
+        <div className="mb-5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          此階段(開立中)尚未開放檢核表填報。待中心將週期推進至「資料準備中」後,即可逐題填寫符合度、說明並上傳佐證。目前僅供檢視。
+        </div>
+      )}
 
       <ChecklistShell
         cycleId={cycle.id}

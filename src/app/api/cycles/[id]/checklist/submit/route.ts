@@ -4,6 +4,7 @@ import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyChecklistSubmitted } from '@/lib/notify';
+import { checklistOrgCanEdit } from '@/lib/types';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 /**
@@ -21,8 +22,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (cycle.checklistSubmittedAt) {
       return NextResponse.json({ error: '已送出,無需重複操作' }, { status: 409 });
     }
-    if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
-      return NextResponse.json({ error: '目前週期狀態不開放填報送出' }, { status: 409 });
+    if (!checklistOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '目前週期狀態不開放填報送出(僅「資料準備中」可送出)' }, { status: 409 });
     }
 
     const [totalItems, answered] = await Promise.all([

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { checklistOrgCanEdit } from '@/lib/types';
 
 /**
  * 一鍵將「未作答」項目全部標記(預設「不適用」,亦可指定「符合」)。
@@ -16,8 +17,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可操作' }, { status: 403 });
     }
-    if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
-      return NextResponse.json({ error: '目前狀態不可編輯' }, { status: 400 });
+    if (!checklistOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能填報(開立中尚未開放)' }, { status: 400 });
     }
     if (cycle.checklistSubmittedAt) {
       return NextResponse.json(

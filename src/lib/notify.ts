@@ -1,5 +1,57 @@
 import { prisma } from './db';
 import { sendEmail } from './email';
+import { fmtROC } from './date';
+
+/**
+ * 中心建立週期、設定好日期後,正式通知機關:貴機關今年度將進行資通安全稽核(附已確定之重要時程)。
+ * 與 notifyCycleOrgAdmins(缺失已發布)不同——此為稽核「啟動前」之作業通知,內容不得提及缺失/矯正。
+ * 由週期頁「通知機關」按鈕觸發(中心確認時程後再發),不在建立週期當下自動發送。
+ */
+export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: string }) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
+  const yearROC = cycle.year - 1911;
+  const scheduleLines = [
+    cycle.onsiteDate && `・實地稽核日:${fmtROC(cycle.onsiteDate)}`,
+    cycle.prepDueTech && `・技術檢測資料繳交截止:${fmtROC(cycle.prepDueTech)}`,
+    cycle.prepDueDate && `・實地稽核資料繳交截止:${fmtROC(cycle.prepDueDate)}`,
+    cycle.dueDate && `・矯正填報截止:${fmtROC(cycle.dueDate)}`,
+  ].filter(Boolean) as string[];
+  const scheduleBlock = scheduleLines.length
+    ? `重要時程如下:\n${scheduleLines.join('\n')}\n\n`
+    : '相關時程確定後將另行通知。\n\n';
+
+  const results = await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 貴機關 ${yearROC} 年度資通安全稽核作業通知`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立,貴機關今年度將接受資通安全稽核。\n\n` +
+          scheduleBlock +
+          `待中心開放「資料準備」後,請登入平台依清單填寫資通安全檢核表並上傳應備文件:\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'cycle-notify',
+        relatedCycleId: cycle.id,
+        context: { phase: 'cycle-opened' },
+      }),
+    ),
+  );
+
+  return { cycleId: cycle.id, recipientCount: recipients.length, emailIds: results.map((r) => r.id) };
+}
 
 /**
  * 通知稽核週期所屬機關的機關管理員（ORG_ADMIN）。

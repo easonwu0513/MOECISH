@@ -168,6 +168,13 @@ export function prepOrgCanEdit(cycleStatus: string): boolean {
   return canAccess('prep.orgEdit', 'ORG_ADMIN', cycleStatus);
 }
 
+/** 機關是否可填寫/送出檢核表(逐題符合度、說明、批次標記、佐證):僅「資料準備中(PREPARATION)」。
+ *  開立中(DRAFT)中心尚在設定,機關不可填;送出後另由 checklistSubmittedAt 鎖定。
+ *  邏輯收斂於 access-policy 的 canAccess('checklist.orgEdit') 單一真實來源(此為向後相容包裝)。 */
+export function checklistOrgCanEdit(cycleStatus: string): boolean {
+  return canAccess('checklist.orgEdit', 'ORG_ADMIN', cycleStatus);
+}
+
 /** 委員是否可檢視機關「檢核表」內容(逐題答案/說明/佐證):進入「資料齊備(READY)」後才開放。
  *  邏輯收斂於 access-policy 的 canAccess('checklist.view') 單一真實來源(此為向後相容包裝)。 */
 export function auditorCanViewChecklistContent(cycleStatus: string): boolean {

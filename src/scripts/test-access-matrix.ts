@@ -22,6 +22,12 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     ORG_ADMIN: ALL,
     AUDITOR: ['READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
   },
+  // 機關填寫/送出檢核表僅限資料準備中;開立中尚不可(避免中心尚未開放就被填報)
+  'checklist.orgEdit': {
+    SUPER_ADMIN: NONE,
+    ORG_ADMIN: ['PREPARATION'],
+    AUDITOR: NONE,
+  },
   // 機關上傳/填說明僅限資料準備中;開立中尚不可
   'prep.orgEdit': {
     SUPER_ADMIN: NONE,

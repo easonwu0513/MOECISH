@@ -27,6 +27,7 @@ function inPrepPhase(cycleStatus: string): boolean {
 /** 受「角色 × 階段」管制的介面(頁面/API/動作/入口磚)。 */
 export type Surface =
   | 'checklist.view' // 委員檢視機關檢核表內容(檢核表頁/審閱頁/匯出/佐證 list+download/留言)
+  | 'checklist.orgEdit' // 機關填寫/送出檢核表(逐題符合度、說明、批次標記、佐證)
   | 'prep.orgEdit' // 機關上傳/填無相關文件說明/確定繳交 資料準備
   | 'signedReport.section' // 「用印掃描檔」整段可見
   | 'signedReport.upload' // 上傳用印掃描檔
@@ -40,6 +41,10 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
     case 'checklist.view':
       // 委員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;機關看自家、中心全程(細粒度租戶/指派另管)
       return role === 'AUDITOR' ? !inPrepPhase(cycleStatus) : true;
+
+    case 'checklist.orgEdit':
+      // 機關填寫/送出檢核表僅限「資料準備中」;開立中(DRAFT)中心尚在設定,機關尚不可填(送出後另由項目狀態 checklistSubmittedAt 鎖定)
+      return role === 'ORG_ADMIN' && cycleStatus === 'PREPARATION';
 
     case 'prep.orgEdit':
       // 機關上傳/填說明僅限「資料準備中」;開立中(DRAFT)尚未開放,離開資料準備後凍結(中心匯入區另由中心處理)

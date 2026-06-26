@@ -22,6 +22,7 @@ import { auditorCanViewChecklistContent, type CycleStatus, type Role } from '@/l
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
+import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
@@ -147,7 +148,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         subtitle={
           <>
             {cycle.organization.name}
-            {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>} · 矯正截止 {fmtROC(cycle.dueDate)}
+            {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
+            {' · '}
+            {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日期尚未設定'}
           </>
         }
         roleChip={
@@ -157,13 +160,23 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         }
         right={
           user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' ? (
-            <EditCycleDialog
-              cycleId={cycle.id}
-              dueDate={cycle.dueDate?.toISOString() ?? ''}
-              prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
-              prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
-              onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
-            />
+            <div className="flex items-center gap-1">
+              {/* 通知機關:開立中 / 資料準備中,中心設定好日期、確認時程後正式通知填報人 */}
+              {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
+                <NotifyOrgButton
+                  cycleId={cycle.id}
+                  orgName={cycle.organization.shortName ?? cycle.organization.name}
+                  hasDates={Boolean(cycle.onsiteDate || cycle.prepDueTech || cycle.prepDueDate || cycle.dueDate)}
+                />
+              )}
+              <EditCycleDialog
+                cycleId={cycle.id}
+                dueDate={cycle.dueDate?.toISOString() ?? ''}
+                prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+                prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+              />
+            </div>
           ) : undefined
         }
         className="mb-4"
@@ -296,8 +309,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/checklist`}
           badge={checklistBadge}
           muted={!modActive.checklist}
-          locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
-          lockedHint="資料齊備後開放委員檢視"
+          locked={
+            (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+            (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
+          }
+          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
         {user.role !== 'ORG_ADMIN' && (
           <ModuleTile
