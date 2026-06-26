@@ -34,6 +34,18 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     ORG_ADMIN: ['PREPARATION'],
     AUDITOR: NONE,
   },
+  // 委員實地稽核評分與發現:進入「實地稽核」階段才開放(資料齊備僅供熟悉背景)
+  'audit.score': {
+    SUPER_ADMIN: NONE,
+    ORG_ADMIN: NONE,
+    AUDITOR: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+  },
+  // 缺失與矯正管考:中心/機關全程;委員須待缺失發布(實地稽核結束)後
+  'deficiencies.view': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: ALL,
+    AUDITOR: ['REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+  },
   // 用印掃描檔整段:機關/中心於矯正執行中之後可見;委員不參與
   'signedReport.section': {
     SUPER_ADMIN: ['REMEDIATION', 'CLOSED'],

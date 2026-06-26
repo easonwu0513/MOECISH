@@ -90,8 +90,9 @@ export async function loadJourney(opts: {
         // CYCLE:依系統實況自動判定(不靠手動勾選);PROGRAMME:沿用手動 JourneyProgress。
         if (scope === 'CYCLE') {
           // 無 autoKey = 無系統訊號可判定的「軟性」任務(到場查核 / 逐題檢視 / 熟悉背景…)
-          // → 純提醒:不顯示勾選框、不計入進度、不做任務跳轉。
+          // → 純提醒:不顯示勾選框、不計入進度。但仍給快捷跳轉(有對應子頁時),方便委員一點即達。
           const informational = it.autoKey == null;
+          const sub = cycleId ? journeyItemHref(st.stageKey, it.autoKey, it.title) : null;
           return {
             id: it.id,
             title: it.title,
@@ -103,7 +104,13 @@ export async function loadJourney(opts: {
             doneAt: null,
             doneByName: null,
             note: null,
-            href: informational || !cycleId ? null : `/cycles/${cycleId}${journeyItemHref(st.stageKey, it.autoKey)}`,
+            // 純提醒:僅在有具體子頁(非週期主頁)時才連,避免連回本頁無動作;一般任務維持原行為。
+            href:
+              sub == null
+                ? null
+                : informational
+                  ? (sub ? `/cycles/${cycleId}${sub}` : null)
+                  : `/cycles/${cycleId}${sub}`,
           };
         }
         const p = it.progress[0];

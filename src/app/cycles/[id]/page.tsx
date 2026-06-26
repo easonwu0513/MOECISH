@@ -18,7 +18,7 @@ import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import { auditorCanViewChecklistContent, type CycleStatus, type Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeDeficiencies, type CycleStatus, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -324,8 +324,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             href={`/cycles/${cycle.id}/audit`}
             badge={auditBadge}
             muted={!modActive.audit}
-            locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
-            lockedHint="資料齊備後開放"
+            locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
+            lockedHint="實地稽核階段開放"
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
@@ -348,6 +348,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/deficiencies`}
           badge={defBadge}
           muted={!modActive.deficiencies}
+          locked={user.role === 'AUDITOR' && !auditorCanSeeDeficiencies(cycle.status)}
+          lockedHint="缺失發布後開放"
         />
       </section>
 

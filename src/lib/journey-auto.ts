@@ -40,9 +40,10 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
 
 /**
  * CYCLE 精靈項目的「快捷跳轉」目的地(相對週期的子路徑;'' = 週期主頁)。
- * 讓各角色點任務即可跳到實際執行頁面(機關→/prep、/checklist;委員→/audit;矯正→/deficiencies…)。
+ * 讓各角色點任務即可跳到實際執行頁面(機關→/prep、/checklist;委員→/review、/audit;矯正→/deficiencies…)。
+ * 純提醒項(無 autoKey)亦給目的地:先依標題關鍵字精準對應,否則用階段預設(方便委員一點即達)。
  */
-export function journeyItemHref(stageKey: string, autoKey: string | null): string {
+export function journeyItemHref(stageKey: string, autoKey: string | null, title?: string): string {
   switch (autoKey) {
     case 'checklist_filled': return '/checklist';
     case 'prep_uploaded':
@@ -61,7 +62,13 @@ export function journeyItemHref(stageKey: string, autoKey: string | null): strin
       // 開立中(建立週期)→ 跳頁首設定區;其餘階段的 always 維持週期主頁
       return stageKey === 'DRAFT' ? '#setup' : '';
   }
-  // 無對應動作鍵者,依階段給預設目的地
+  // 無對應動作鍵(純提醒):實地稽核階段依標題分流委員「審閱檢核表」與「評分/發現」兩頁
+  const t = title ?? '';
+  if (stageKey === 'ONSITE') {
+    if (t.includes('審閱') || t.includes('檢核表')) return '/review';
+    if (t.includes('評分') || t.includes('發現')) return '/audit';
+  }
+  // 其餘依階段給預設目的地
   switch (stageKey) {
     case 'PREPARATION':
     case 'READY': return '/prep';

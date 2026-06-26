@@ -2,9 +2,8 @@ import type { ActionStatus, CycleStatus, Role } from './types';
 
 // ════════════════════════════════════════════
 // 稽核週期狀態機（2.0）
-// DRAFT → (PREPARATION → READY → ONSITE →) REPORT_ISSUED → REMEDIATION → CLOSED
-// P1 實用路徑：DRAFT → REPORT_ISSUED → REMEDIATION → CLOSED
-// P2 啟用資料準備後走完整路徑
+// DRAFT → PREPARATION → READY → ONSITE → REPORT_ISSUED → REMEDIATION → CLOSED
+// 一律走完整路徑(逐階段推進);不提供 DRAFT 直跳缺失發布的捷徑(避免開立中誤推進)。
 // ════════════════════════════════════════════
 
 type CycleTransition = { from: CycleStatus; to: CycleStatus; allowedRoles: Role[] };
@@ -15,8 +14,6 @@ export const CYCLE_TRANSITIONS: CycleTransition[] = [
   { from: 'PREPARATION',   to: 'READY',         allowedRoles: ['SUPER_ADMIN', 'AUDITOR'] },
   { from: 'READY',         to: 'ONSITE',        allowedRoles: ['SUPER_ADMIN'] },
   { from: 'ONSITE',        to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
-  // P1 快速路徑（跳過資料準備）
-  { from: 'DRAFT',         to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
   // 缺失發布完成 → 開放機關填報
   { from: 'REPORT_ISSUED', to: 'REMEDIATION',   allowedRoles: ['SUPER_ADMIN'] },
   // 全數通過 + 用印掃描上傳 → 結案（API 層另行檢查前置條件）

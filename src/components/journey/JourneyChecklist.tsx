@@ -16,8 +16,8 @@ export type JourneyClientItem = {
   done: boolean;
   doneByName: string | null;
   canToggle: boolean;
-  href?: string | null; // 唯讀(CYCLE)項目的快捷跳轉目的地
-  informational?: boolean; // 純提醒(無系統訊號可判定)→ 不勾選、不計分、不跳轉
+  href?: string | null; // 唯讀(CYCLE)項目的快捷跳轉目的地(純提醒項亦可有,方便一點即達)
+  informational?: boolean; // 純提醒(無系統訊號可判定)→ 不勾選、不計分;但可點擊跳轉
 };
 export type JourneyClientStage = {
   id: string;
@@ -193,7 +193,7 @@ export function JourneyChecklist({
                             <span className="block mt-0.5 text-label-sm text-success-700">已完成 · {it.doneByName}</span>
                           )}
                         </span>
-                        {it.href && !it.informational && (
+                        {it.href && (
                           <ChevronRight size={15} className="self-center shrink-0 text-on-surface-variant" aria-hidden />
                         )}
                       </>

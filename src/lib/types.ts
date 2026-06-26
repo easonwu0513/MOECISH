@@ -181,6 +181,18 @@ export function auditorCanViewChecklistContent(cycleStatus: string): boolean {
   return canAccess('checklist.view', 'AUDITOR', cycleStatus);
 }
 
+/** 委員是否可進入「實地稽核評分與發現」:進入「實地稽核(ONSITE)」階段後才開放(資料齊備僅供熟悉背景)。
+ *  邏輯收斂於 access-policy 的 canAccess('audit.score')。 */
+export function auditorCanScore(cycleStatus: string): boolean {
+  return canAccess('audit.score', 'AUDITOR', cycleStatus);
+}
+
+/** 委員是否可檢視「缺失與矯正管考」:缺失發布(REPORT_ISSUED,實地稽核結束)後才開放。
+ *  邏輯收斂於 access-policy 的 canAccess('deficiencies.view')。 */
+export function auditorCanSeeDeficiencies(cycleStatus: string): boolean {
+  return canAccess('deficiencies.view', 'AUDITOR', cycleStatus);
+}
+
 // ════════════════════════════════════════════
 // 前台公告（P3）
 // ════════════════════════════════════════════

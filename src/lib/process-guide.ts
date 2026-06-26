@@ -136,7 +136,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (st === 'CLOSED') return null;
 
   if (role === 'SUPER_ADMIN') {
-    if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: `${base}#setup`, cta: '去設定' };
+    if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: `${base}#assign-auditors`, cta: '去設定' };
     if (st === 'PREPARATION') {
       if (f.prepAllConfirmed) return { text: '資料全數確認齊備,可安排實地稽核', href: base, cta: '去安排' };
       if (f.prepToConfirm > 0) return { text: `機關已繳交,待審核確認 ${f.prepToConfirm} 項`, href: `${base}/prep`, cta: '去審核' };

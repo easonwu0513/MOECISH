@@ -14,6 +14,7 @@ import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
   ACTION_STATUS_LABELS,
+  auditorCanSeeDeficiencies,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
@@ -61,6 +62,8 @@ export default async function DeficienciesPage({
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員須待缺失發布(REPORT_ISSUED,實地稽核結束)後才可進缺失與矯正管考頁;在此之前尚無缺失
+  if (user.role === 'AUDITOR' && !auditorCanSeeDeficiencies(cycle.status)) redirect('/dashboard');
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];

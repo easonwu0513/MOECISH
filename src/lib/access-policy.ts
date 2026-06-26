@@ -24,11 +24,19 @@ function inPrepPhase(cycleStatus: string): boolean {
   return cycleStatus === 'DRAFT' || cycleStatus === 'PREPARATION';
 }
 
+/** cycleStatus 是否已到達(或晚於)某階段(以 CYCLE_PHASE_ORDER 排序;非標準階段視為未到達)。 */
+function atOrAfter(cycleStatus: string, phase: CyclePhase): boolean {
+  const cur = (CYCLE_PHASE_ORDER as readonly string[]).indexOf(cycleStatus);
+  return cur >= 0 && cur >= CYCLE_PHASE_ORDER.indexOf(phase);
+}
+
 /** 受「角色 × 階段」管制的介面(頁面/API/動作/入口磚)。 */
 export type Surface =
   | 'checklist.view' // 委員檢視機關檢核表內容(檢核表頁/審閱頁/匯出/佐證 list+download/留言)
   | 'checklist.orgEdit' // 機關填寫/送出檢核表(逐題符合度、說明、批次標記、佐證)
   | 'prep.orgEdit' // 機關上傳/填無相關文件說明/確定繳交 資料準備
+  | 'audit.score' // 委員進入「實地稽核評分與發現」模組(評分頁/入口磚)
+  | 'deficiencies.view' // 檢視「缺失與矯正管考」模組(委員須待缺失發布後)
   | 'signedReport.section' // 「用印掃描檔」整段可見
   | 'signedReport.upload' // 上傳用印掃描檔
   | 'auditReport.view'; // 彙整報告(全體委員整合;中心專用)
@@ -49,6 +57,15 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
     case 'prep.orgEdit':
       // 機關上傳/填說明僅限「資料準備中」;開立中(DRAFT)尚未開放,離開資料準備後凍結(中心匯入區另由中心處理)
       return role === 'ORG_ADMIN' && cycleStatus === 'PREPARATION';
+
+    case 'audit.score':
+      // 委員「實地稽核評分與發現」於進入「實地稽核(ONSITE)」階段才開放(資料齊備僅供熟悉背景,尚不評分);
+      // 中心改看彙整報告、機關不涉入。頁面(redirect)+ 入口磚以此把關(委員為受指派信任角色,評分 API 另以未結案+未鎖定把關)。
+      return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE');
+
+    case 'deficiencies.view':
+      // 缺失與矯正管考:中心/機關全程可見(機關於矯正執行中填報);委員須待「缺失發布中(REPORT_ISSUED)」後才開放(實地稽核結束、缺失產出)。
+      return role === 'AUDITOR' ? atOrAfter(cycleStatus, 'REPORT_ISSUED') : true;
 
     case 'signedReport.section':
       // 用印掃描檔屬機關用印 + 中心確認之收尾(矯正執行中之後才出現);委員不參與

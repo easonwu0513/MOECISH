@@ -415,15 +415,15 @@ export default function PrepBoard({
                 </p>
               )}
 
-              {/* 無相關文件理由(僅機關區) */}
+              {/* 其他說明(僅機關區;不限「無相關文件」,任何補充說明皆可填) */}
               {!isCenter && sub && reasonFor === sub.id ? (
                 <div className="mt-3 flex flex-col gap-2">
                   <Textarea
-                    label="無相關文件說明"
+                    label="其他說明"
                     value={reasonText}
                     onChange={(e) => setReasonText(e.target.value)}
                     rows={2}
-                    placeholder="例:本機關無委外服務,故無委外管理相關文件…"
+                    placeholder="例:無相關文件說明(本機關無委外服務,故無委外管理相關文件…)"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" loading={busyItemId === sub.id} onClick={() => saveReason(sub.id, reasonText)}>儲存說明</Button>
@@ -433,7 +433,7 @@ export default function PrepBoard({
               ) : !isCenter && sub?.noFileReason ? (
                 <div className="mt-2 flex items-start gap-2 rounded-sm bg-surface-container text-on-surface-variant px-3 py-2 text-body-sm">
                   <FileText size={16} className="mt-0.5 shrink-0" />
-                  <span className="flex-1">無相關文件說明:{sub.noFileReason}</span>
+                  <span className="flex-1">其他說明:{sub.noFileReason}</span>
                   {orgItemEditable && (
                     <button
                       type="button"
@@ -490,7 +490,7 @@ export default function PrepBoard({
                     />
                     {!sub.noFileReason && reasonFor !== sub.id && (
                       <Button size="sm" variant="text" onClick={() => { setReasonFor(sub.id); setReasonText(''); }}>
-                        無相關文件,敘述理由
+                        其他說明
                       </Button>
                     )}
                     <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
