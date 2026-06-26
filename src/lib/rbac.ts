@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -39,6 +39,11 @@ export async function assertCycleAccess(cycleId: string) {
     case 'AUDITOR': {
       const assigned = cycle.assignments.some((a) => a.auditorId === user.id);
       if (!assigned) throw new AuthError(403, '您未被指派此稽核週期');
+      // 開立中(DRAFT)委員尚不可存取(中心仍在調整委員名單);PREPARATION 起才開放。
+      // 中心指派/抽換委員不經此閘(assignments API 為 SUPER_ADMIN-only、無階段限制)。
+      if (!auditorCanSeeCycle(cycle.status)) {
+        throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放委員存取');
+      }
       break;
     }
     case 'ORG_ADMIN':

@@ -16,6 +16,12 @@ const NONE: CyclePhase[] = [];
 
 // 預期真值表(規格;與 canAccess 實作彼此獨立,兩者相符才算對)。每格 = 該 surface×role「允許」的階段。
 const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
+  // 委員只在離開「開立中(DRAFT)」後才可見/可進入週期;機關/中心全程
+  'cycle.access': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: ALL,
+    AUDITOR: ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+  },
   // 委員一律「資料齊備(READY)」後才可見機關檢核表;機關看自家、中心全程(租戶/指派另由 rbac 管)
   'checklist.view': {
     SUPER_ADMIN: ALL,

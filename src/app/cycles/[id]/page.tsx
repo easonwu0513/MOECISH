@@ -18,7 +18,7 @@ import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import { auditorCanViewChecklistContent, auditorCanScore, type CycleStatus, type Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, type CycleStatus, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -48,7 +48,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   if (!cycle) notFound();
 
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員:未指派 → 導回;開立中(DRAFT)亦不可見(中心仍在調整名單,PREPARATION 起才開放)
+  if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
   // 委員視角:本人於此週期的九構面評分進度(磚上徽章)
   const myScoreCount = user.role === 'AUDITOR'
@@ -96,6 +97,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const prepConfirmed = user.role === 'ORG_ADMIN'
     ? facts.mechConfirmed
     : cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 進度讀數(退補/待繳/未處理)同樣 role-aware:機關只看機關區(mech*),中心看全部(prep*)。
+  // 週期頁大讀數卡與模組徽章共用同一組,避免機關看到含中心匯入的虛高數字(使用者反覆回報之點)。
+  const prepInsufficient = user.role === 'ORG_ADMIN' ? facts.mechInsufficient : facts.prepInsufficient;
+  const prepDraft = user.role === 'ORG_ADMIN' ? facts.mechDraft : facts.prepDraft;
+  const prepRemaining = user.role === 'ORG_ADMIN' ? facts.mechRemaining : facts.prepRemaining;
   const prepBadge = prepTotal > 0
     ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
     : undefined;
@@ -226,22 +232,22 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       )}
 
       {/* 本階段進度讀數(資料準備中):機關/中心關心的「還剩什麼」;委員此階段尚不可見機關資料,不顯示(避免退補/待繳/未處理誤導委員) */}
-      {cycle.status === 'PREPARATION' && user.role !== 'AUDITOR' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (
+      {cycle.status === 'PREPARATION' && user.role !== 'AUDITOR' && (prepTotal > 0 || facts.checklistTotal > 0) && (
         <section className="mb-8 grid gap-4 sm:grid-cols-2">
-          {facts.prepTotal > 0 && (
+          {prepTotal > 0 && (
             <Card className="flex items-center gap-4">
               <ProgressRing
-                value={facts.prepConfirmed}
-                max={facts.prepTotal}
+                value={prepConfirmed}
+                max={prepTotal}
                 size={76}
                 tone="primary"
-                label={`${facts.prepConfirmed}/${facts.prepTotal}`}
+                label={`${prepConfirmed}/${prepTotal}`}
                 sublabel="已齊備"
               />
               <div className="min-w-0">
                 <p className="text-title-md text-on-surface">稽核前資料準備</p>
                 <p className="mt-1 text-body-sm text-on-surface-variant">
-                  退補 {facts.prepInsufficient} · 待繳 {facts.prepDraft} · 未處理 {facts.prepRemaining}
+                  退補 {prepInsufficient} · 待繳 {prepDraft} · 未處理 {prepRemaining}
                 </p>
               </div>
             </Card>

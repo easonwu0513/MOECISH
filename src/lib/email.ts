@@ -48,6 +48,12 @@ const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export async function sendEmail(input: SendEmailInput) {
   const kind: EmailKind = input.kind ?? 'other';
 
+  // 系統信一律附「請勿直接回信」footer(避免委員/機關直接回覆系統信箱)。
+  // 只加到對外送信與 EmailLog/.txt 紀錄;站內通知摘要仍取原始 input.body(notificationSummary),footer 不會污染鈴鐺。
+  const FOOTER =
+    '\n\n──────────\n此封信為系統自動寄發,請勿直接回信。如有疑問請登入平台,或洽教育部轄下醫療領域資訊安全推動中心。';
+  const outboundBody = `${input.body}${FOOTER}`;
+
   // 通知節流:重複觸發(例:連續點送出、排程重跑)不重複轟炸收件人
   if (input.dedupeKey) {
     const dup = await prisma.emailLog.findFirst({
@@ -68,7 +74,7 @@ export async function sendEmail(input: SendEmailInput) {
               toEmail: input.to,
               toName: input.toName ?? null,
               subject: input.subject,
-              body: input.body,
+              body: outboundBody,
               kind,
               status: 'skipped',
               context: JSON.stringify({
@@ -96,7 +102,7 @@ export async function sendEmail(input: SendEmailInput) {
         to: input.to,
         toName: input.toName,
         subject: input.subject,
-        bodyText: input.body,
+        bodyText: outboundBody,
       });
       delivery = 'sent';
     } catch (e) {
@@ -111,7 +117,7 @@ export async function sendEmail(input: SendEmailInput) {
       toEmail: input.to,
       toName: input.toName ?? null,
       subject: input.subject,
-      body: input.body,
+      body: outboundBody,
       kind,
       status: delivery,
       context: JSON.stringify({
@@ -140,7 +146,7 @@ export async function sendEmail(input: SendEmailInput) {
       `Subject: ${input.subject}\n` +
       `${input.relatedInvitationId ? `Invitation: ${input.relatedInvitationId}\n` : ''}` +
       `${input.relatedCycleId ? `Cycle: ${input.relatedCycleId}\n` : ''}` +
-      `\n${input.body}\n`;
+      `\n${outboundBody}\n`;
     await writeFile(path.join(dir, fileName), content, 'utf-8');
   } catch (e) {
     console.warn('[email] failed to write log file:', (e as Error).message);

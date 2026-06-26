@@ -435,7 +435,7 @@ export async function notifyChecklistReopened(opts: {
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} ${yearROC} 年度資通安全檢核表填報，經 ${opts.reopenedByName} 確認後退回重填。\n\n` +
           `退回原因：\n${opts.reason}\n\n` +
-          `請依意見補正後重新送出：\n${link}\n\n` +
+          `請依上述退回原因補正後重新送出：\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'checklist-reopened',
         relatedCycleId: cycle.id,

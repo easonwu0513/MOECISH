@@ -181,6 +181,12 @@ export function auditorCanViewChecklistContent(cycleStatus: string): boolean {
   return canAccess('checklist.view', 'AUDITOR', cycleStatus);
 }
 
+/** 委員是否可見/可進入此週期:開立中(DRAFT)尚不可見(中心仍在調整委員名單),PREPARATION 起開放。
+ *  邏輯收斂於 access-policy 的 canAccess('cycle.access')。 */
+export function auditorCanSeeCycle(cycleStatus: string): boolean {
+  return canAccess('cycle.access', 'AUDITOR', cycleStatus);
+}
+
 /** 委員是否可進入「實地稽核評分與發現」:進入「實地稽核(ONSITE)」階段後才開放(資料齊備僅供熟悉背景)。
  *  邏輯收斂於 access-policy 的 canAccess('audit.score')。 */
 export function auditorCanScore(cycleStatus: string): boolean {

@@ -52,7 +52,8 @@ export default async function HomePage() {
     user.role === 'ORG_ADMIN'
       ? { organizationId: user.organizationId ?? '__none__' }
       : user.role === 'AUDITOR'
-      ? { assignments: { some: { auditorId: user.id } } }
+      // 委員不顯示開立中(DRAFT)週期 — 中心仍在調整委員名單,PREPARATION 起才可見(對齊 access-policy 'cycle.access')
+      ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
       : {};
 
   const cycles = await prisma.auditCycle.findMany({

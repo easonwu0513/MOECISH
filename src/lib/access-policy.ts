@@ -32,6 +32,7 @@ function atOrAfter(cycleStatus: string, phase: CyclePhase): boolean {
 
 /** 受「角色 × 階段」管制的介面(頁面/API/動作/入口磚)。 */
 export type Surface =
+  | 'cycle.access' // 委員是否可見/可進入此週期(開立中名單調整期,委員尚不可見;PREPARATION 起開放)
   | 'checklist.view' // 委員檢視機關檢核表內容(檢核表頁/審閱頁/匯出/佐證 list+download/留言)
   | 'checklist.orgEdit' // 機關填寫/送出檢核表(逐題符合度、說明、批次標記、佐證)
   | 'prep.orgEdit' // 機關上傳/填無相關文件說明/確定繳交 資料準備
@@ -46,6 +47,11 @@ export type Surface =
  */
 export function canAccess(surface: Surface, role: Role, cycleStatus: string): boolean {
   switch (surface) {
+    case 'cycle.access':
+      // 委員只在週期離開「開立中(DRAFT)」後才看得到/能進入(開立中中心仍在頻繁調整委員名單);
+      // 中心/機關全程(細粒度租戶/指派另由 rbac 管)。中心指派/抽換委員不受此閘影響(assignments API 為 SUPER_ADMIN-only、無階段限制)。
+      return role === 'AUDITOR' ? cycleStatus !== 'DRAFT' : true;
+
     case 'checklist.view':
       // 委員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;機關看自家、中心全程(細粒度租戶/指派另管)
       return role === 'AUDITOR' ? !inPrepPhase(cycleStatus) : true;

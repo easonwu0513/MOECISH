@@ -27,7 +27,8 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     user.role === 'ORG_ADMIN'
       ? { organizationId: user.organizationId ?? '__none__' }
       : user.role === 'AUDITOR'
-      ? { assignments: { some: { auditorId: user.id } } }
+      // 委員不顯示開立中(DRAFT)週期(對齊 access-policy 'cycle.access';dashboard 同步)
+      ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
       : {};
 
   const cycles = await prisma.auditCycle.findMany({

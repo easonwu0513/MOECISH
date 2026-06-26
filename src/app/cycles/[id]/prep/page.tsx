@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle } from '@/lib/types';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -19,7 +19,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   });
   if (!cycle) notFound();
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員:未指派或週期仍開立中(DRAFT) → 導回(對齊 access-policy 'cycle.access')
+  if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
   const requirements = await prisma.prepRequirement.findMany({
     where: { cycleId: cycle.id },

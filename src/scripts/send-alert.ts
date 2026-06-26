@@ -19,7 +19,8 @@ async function main() {
     to: process.env.ALERT_TO ?? 'moecish@m365.ntu.edu.tw',
     toName: 'MOECISH 維運',
     subject,
-    bodyText: body ?? '(無內容)',
+    // 此路徑刻意不經 lib/email(獨立於 app/DB);footer 於此就地附加,與 sendEmail 一致
+    bodyText: `${body ?? '(無內容)'}\n\n──────────\n此封信為系統自動寄發,請勿直接回信。`,
   });
   console.log('[alert] sent');
 }
