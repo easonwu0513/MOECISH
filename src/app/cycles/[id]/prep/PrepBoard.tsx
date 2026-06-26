@@ -106,8 +106,9 @@ export default function PrepBoard({
   const isOrg = role === 'ORG_ADMIN';
   // 機關上傳/填說明僅限「資料準備中」;開立中(DRAFT)尚不可,避免階段混亂
   const orgCanEdit = isOrg && prepOrgCanEdit(cycleStatus);
-  // 開立中:機關此階段尚未開放(中心仍在設定),狀態徽章與提示需明示「尚未開放」而非「尚未處理」
-  const orgPhaseNotOpen = isOrg && cycleStatus === 'DRAFT';
+  // 開立中(DRAFT):資料準備尚未對機關開放(中心仍在設定需求/匯入);機關區項目的狀態徽章與提示
+  // 需明示「尚未開放此階段」而非「尚未處理」——機關與中心兩端皆然(中心此時也尚不能審核機關繳交)。
+  const phaseNotOpen = cycleStatus === 'DRAFT';
   const adminCanReview = isAdmin && cycleStatus === 'PREPARATION';
   const adminCanImport = isAdmin && cycleStatus !== 'CLOSED'; // 中心匯入區可上傳
 
@@ -394,8 +395,8 @@ export default function PrepBoard({
                     {status === 'CONFIRMED' ? (centerReleaseEffective ? '已開放委員檢視' : '已開放,資料齊備後生效') : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
                   </Chip>
                 ) : (
-                  <Chip tone={orgPhaseNotOpen && status === 'EMPTY' ? 'neutral' : statusTone(status)} size="sm" dot>
-                    {orgPhaseNotOpen && status === 'EMPTY' ? '尚未開放此階段' : PREP_STATUS_LABELS[status]}
+                  <Chip tone={phaseNotOpen && status === 'EMPTY' ? 'neutral' : statusTone(status)} size="sm" dot>
+                    {phaseNotOpen && status === 'EMPTY' ? '尚未開放此階段' : PREP_STATUS_LABELS[status]}
                   </Chip>
                 )}
               </div>
@@ -561,10 +562,16 @@ export default function PrepBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      {orgPhaseNotOpen && (
+      {phaseNotOpen && isOrg && (
         <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
           <span>此階段(開立中)尚未開放資料準備。待中心將週期推進至「資料準備中」後,即可上傳文件或敘明無相關文件並「確定繳交」。目前各項僅供檢視。</span>
+        </div>
+      )}
+      {phaseNotOpen && isAdmin && (
+        <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
+          <span>此階段(開立中)資料準備尚未對機關開放。您可先設定需求清單、匯入中心資料;待推進至「資料準備中」後,機關才能上傳並繳交、您才能逐項審核確認齊備。</span>
         </div>
       )}
 

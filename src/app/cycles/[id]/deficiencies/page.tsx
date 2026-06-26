@@ -14,11 +14,12 @@ import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
   ACTION_STATUS_LABELS,
-  auditorCanSeeDeficiencies,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
+  type Role,
 } from '@/lib/types';
+import { canAccess } from '@/lib/access-policy';
 import { actionStatusTone } from '@/lib/state-machine';
 import { toneClasses } from '@/lib/stage';
 import { EMPTY } from '@/lib/copy';
@@ -62,8 +63,8 @@ export default async function DeficienciesPage({
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
-  // 委員須待缺失發布(REPORT_ISSUED,實地稽核結束)後才可進缺失與矯正管考頁;在此之前尚無缺失
-  if (user.role === 'AUDITOR' && !auditorCanSeeDeficiencies(cycle.status)) redirect('/dashboard');
+  // 缺失與矯正管考開放時機:委員待缺失發布(REPORT_ISSUED)、機關待矯正執行(REMEDIATION);中心全程。在此之前導回。
+  if (user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)) redirect('/dashboard');
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];

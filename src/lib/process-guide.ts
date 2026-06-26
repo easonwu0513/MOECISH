@@ -170,7 +170,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     }
     if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
     if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
-    if (st === 'REPORT_ISSUED') return { text: '缺失發布中,可先檢視內容', href: `${base}/deficiencies`, cta: '去檢視' };
+    if (st === 'REPORT_ISSUED') return { text: '缺失發布中,待中心通知後即可填報矯正措施' };
     // REMEDIATION
     if (f.returned > 0) return { text: `優先補正 ${f.returned} 項被退回的矯正措施`, href: `${base}/deficiencies?status=returned`, cta: '去補正' };
     if (f.toFill > 0) return { text: `填報 ${f.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '去填報' };

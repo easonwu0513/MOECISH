@@ -18,7 +18,7 @@ import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeDeficiencies, type CycleStatus, type Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, type CycleStatus, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -91,8 +91,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       : next;
 
   // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
-  const prepTotal = cycle.prepRequirements.length;
-  const prepConfirmed = cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;中心/委員看全部
+  const prepTotal = user.role === 'ORG_ADMIN' ? facts.mechTotal : cycle.prepRequirements.length;
+  const prepConfirmed = user.role === 'ORG_ADMIN'
+    ? facts.mechConfirmed
+    : cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
   const prepBadge = prepTotal > 0
     ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
     : undefined;
@@ -351,8 +354,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/deficiencies`}
           badge={defBadge}
           muted={!modActive.deficiencies}
-          locked={user.role === 'AUDITOR' && !auditorCanSeeDeficiencies(cycle.status)}
-          lockedHint="缺失發布後開放"
+          locked={user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)}
+          lockedHint={user.role === 'ORG_ADMIN' ? '矯正執行階段開放填報' : '缺失發布後開放'}
         />
       </section>
 

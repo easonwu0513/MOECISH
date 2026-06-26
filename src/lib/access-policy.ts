@@ -64,8 +64,11 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
       return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE');
 
     case 'deficiencies.view':
-      // 缺失與矯正管考:中心/機關全程可見(機關於矯正執行中填報);委員須待「缺失發布中(REPORT_ISSUED)」後才開放(實地稽核結束、缺失產出)。
-      return role === 'AUDITOR' ? atOrAfter(cycleStatus, 'REPORT_ISSUED') : true;
+      // 缺失與矯正管考:中心全程;委員待「缺失發布中(REPORT_ISSUED)」後可審;
+      // 機關待「矯正執行中(REMEDIATION)」後才開放填報矯正(缺失發布中為中心發布期,機關尚不填)。
+      if (role === 'AUDITOR') return atOrAfter(cycleStatus, 'REPORT_ISSUED');
+      if (role === 'ORG_ADMIN') return atOrAfter(cycleStatus, 'REMEDIATION');
+      return true; // SUPER_ADMIN 全程
 
     case 'signedReport.section':
       // 用印掃描檔屬機關用印 + 中心確認之收尾(矯正執行中之後才出現);委員不參與
