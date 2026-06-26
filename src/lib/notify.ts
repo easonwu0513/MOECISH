@@ -22,6 +22,7 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
   const yearROC = cycle.year - 1911;
   const scheduleLines = [
+    cycle.techCheckDate && `・技術檢測日:${fmtROC(cycle.techCheckDate)}`,
     cycle.onsiteDate && `・實地稽核日:${fmtROC(cycle.onsiteDate)}`,
     cycle.prepDueTech && `・技術檢測資料繳交截止:${fmtROC(cycle.prepDueTech)}`,
     cycle.prepDueDate && `・實地稽核資料繳交截止:${fmtROC(cycle.prepDueDate)}`,

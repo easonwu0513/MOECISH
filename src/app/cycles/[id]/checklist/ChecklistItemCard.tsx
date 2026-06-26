@@ -183,7 +183,7 @@ export default function ChecklistItemCard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, canEdit, focused, description, recordDocs]);
 
-  const tabs: Tab[] = [
+  const allTabs: Tab[] = [
     {
       id: 'answer',
       label: '填答',
@@ -336,6 +336,8 @@ export default function ChecklistItemCard({
       ),
     },
   ];
+  // 委員審閱意見為委員私人註記,不開放受稽機關檢視 → 機關端隱藏「委員意見」分頁
+  const tabs = allTabs.filter((t) => !(t.id === 'comments' && userRole === 'ORG_ADMIN'));
 
   return (
     <div

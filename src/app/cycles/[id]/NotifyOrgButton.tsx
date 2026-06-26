@@ -13,11 +13,12 @@ import { Megaphone } from '@/components/icons';
 export default function NotifyOrgButton({
   cycleId,
   orgName,
-  hasDates,
+  datesConfirmed,
 }: {
   cycleId: string;
   orgName: string;
-  hasDates: boolean;
+  /** 是否已設定實地稽核日(時程已確定)。未確定前不開放寄送,避免寄出無時程的通知擾民。 */
+  datesConfirmed: boolean;
 }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -39,21 +40,25 @@ export default function NotifyOrgButton({
 
   return (
     <>
-      <Button size="sm" variant="text" leadingIcon={<Megaphone size={14} />} onClick={() => setOpen(true)}>
-        通知機關
-      </Button>
+      {/* 未設實地稽核日前鎖定:時程未確定不開放寄信(避免寄出無時程通知被視為擾民) */}
+      <span title={datesConfirmed ? undefined : '請先於「編輯日期」設定實地稽核日,確定時程後才能通知機關'}>
+        <Button
+          size="sm"
+          variant="text"
+          leadingIcon={<Megaphone size={14} />}
+          onClick={() => setOpen(true)}
+          disabled={!datesConfirmed}
+        >
+          通知機關
+        </Button>
+      </span>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
         title="通知機關填報人 / 主管"
         description={
           <span className="block leading-relaxed">
-            將以 email 通知「{orgName}」的機關管理員:貴機關今年度將接受資通安全稽核,並附上目前已設定的重要時程(實地稽核日 / 各區資料繳交截止 / 矯正填報截止)。
-            {!hasDates && (
-              <span className="mt-2 block text-warning-700">
-                目前尚未設定任何日期,建議先按「編輯日期」設定時程後再通知,以免通知內容不完整。
-              </span>
-            )}
+            將以 email 通知「{orgName}」的機關管理員:貴機關今年度將接受資通安全稽核,並附上已設定的重要時程(技術檢測日 / 實地稽核日 / 各區資料繳交截止 / 矯正填報截止)。
             <span className="mt-2 block">將記錄於 Email 紀錄供查核。確定寄送?</span>
           </span>
         }

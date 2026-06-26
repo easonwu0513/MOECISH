@@ -166,7 +166,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
                 <NotifyOrgButton
                   cycleId={cycle.id}
                   orgName={cycle.organization.shortName ?? cycle.organization.name}
-                  hasDates={Boolean(cycle.onsiteDate || cycle.prepDueTech || cycle.prepDueDate || cycle.dueDate)}
+                  datesConfirmed={Boolean(cycle.onsiteDate)}
                 />
               )}
               <EditCycleDialog
@@ -174,6 +174,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
                 dueDate={cycle.dueDate?.toISOString() ?? ''}
                 prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
                 prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
                 onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
               />
             </div>
@@ -394,7 +395,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
             </span>
           )}
-          {cycle.checklistSubmittedAt ? (
+          {/* 委員不下載機關檢核表(審閱於系統內逐題進行;螢幕浮水印防外流);機關下載自家遞交版、中心下載工作底稿 */}
+          {user.role !== 'AUDITOR' && (cycle.checklistSubmittedAt ? (
             <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
               <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
             </a>
@@ -402,9 +404,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             <span title="檢核表送出後才能匯出遞交版">
               <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
             </span>
-          )}
-          {/* 工作底稿為稽核方內部用,機關端不顯示(避免「這顆是不是給我按的」猶豫) */}
-          {user.role !== 'ORG_ADMIN' && (
+          ))}
+          {/* 工作底稿僅中心(稽核方內部)使用;委員不下載、機關不顯示 */}
+          {user.role === 'SUPER_ADMIN' && (
             <a href={`/api/cycles/${cycle.id}/export/checklist`}>
               <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
             </a>

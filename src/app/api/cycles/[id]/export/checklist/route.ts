@@ -8,7 +8,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { auditorCanViewChecklistContent, type ComplianceLevel, type Dimension } from '@/lib/types';
+import { type ComplianceLevel, type Dimension } from '@/lib/types';
 
 type Loaded = NonNullable<Awaited<ReturnType<typeof loadCycle>>>;
 
@@ -27,9 +27,10 @@ async function loadCycle(id: string) {
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, cycle } = await assertCycleAccess(params.id);
-    // 委員於「資料齊備」前不可匯出機關檢核表(避免資料準備中偷看)
-    if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
-      return NextResponse.json({ error: '資料準備階段尚未開放委員匯出檢核表' }, { status: 403 });
+    // 委員一律不可下載機關檢核表:委員之審閱定位為系統內逐題註記(/review),不另提供下載
+    // (螢幕浮水印防外流;下載將繞過該保護)。機關下載自家遞交版、中心下載工作底稿。
+    if (user.role === 'AUDITOR') {
+      return NextResponse.json({ error: '委員請於系統內逐題檢視與留審閱意見,不提供檢核表下載' }, { status: 403 });
     }
     const data = await loadCycle(cycle.id);
     if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });

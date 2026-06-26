@@ -127,6 +127,7 @@ model AuditCycle {
   dueDate            DateTime?             // 矯正填報截止(實地稽核/發文後再設;可不填)
   prepDueDate        DateTime?             // 資料準備(實地稽核區)繳交截止
   prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
+  techCheckDate      DateTime?             // 技術檢測日(執行技術檢測之日期;通常早於實地稽核日)
   onsiteDate         DateTime?
   closedAt           DateTime?
   version            Int @default(0)

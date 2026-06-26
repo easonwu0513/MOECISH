@@ -18,12 +18,14 @@ export default function EditCycleDialog({
   dueDate,
   prepDueDate,
   prepDueTech,
+  techCheckDate,
   onsiteDate,
 }: {
   cycleId: string;
   dueDate: string;
   prepDueDate: string | null;
   prepDueTech: string | null;
+  techCheckDate: string | null;
   onsiteDate: string | null;
 }) {
   const router = useRouter();
@@ -34,11 +36,13 @@ export default function EditCycleDialog({
   const [due, setDue] = useState(toInput(dueDate));
   const [prepDue, setPrepDue] = useState(toInput(prepDueDate));
   const [prepTech, setPrepTech] = useState(toInput(prepDueTech));
+  const [techDate, setTechDate] = useState(toInput(techCheckDate));
   const [onsite, setOnsite] = useState(toInput(onsiteDate));
 
-  // 「硬日期」(實地稽核日/技術檢測截止/實地稽核資料截止)若是「修改既有值」(原本已設、現在不同),
+  // 「硬日期」(技術檢測日/實地稽核日/技術檢測截止/實地稽核資料截止)若是「修改既有值」(原本已設、現在不同),
   // 會影響受稽機關的繳交安排 → 跳確認;首次設定或只改矯正填報截止則直接存。
   const modifiedHardDates = [
+    techDate !== toInput(techCheckDate) && !!toInput(techCheckDate),
     onsite !== toInput(onsiteDate) && !!toInput(onsiteDate),
     prepTech !== toInput(prepDueTech) && !!toInput(prepDueTech),
     prepDue !== toInput(prepDueDate) && !!toInput(prepDueDate),
@@ -59,6 +63,7 @@ export default function EditCycleDialog({
         dueDate: due || null,
         prepDueDate: prepDue || null,
         prepDueTech: prepTech || null,
+        techCheckDate: techDate || null,
         onsiteDate: onsite || null,
       }),
     });
@@ -91,6 +96,12 @@ export default function EditCycleDialog({
         }
       >
         <div className="flex flex-col gap-4 pt-2">
+          <TextField
+            label="技術檢測日(選填)"
+            type="date"
+            value={techDate}
+            onChange={(e) => setTechDate(e.target.value)}
+          />
           <TextField
             label="實地稽核日(選填)"
             type="date"

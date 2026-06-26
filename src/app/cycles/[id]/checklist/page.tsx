@@ -77,6 +77,9 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     if (n > 0) evidenceCountByItem[r.checklistItemId] = n;
   }
 
+  // 委員的檢核表審閱意見定位為「委員資料齊備後先行審閱的私人註記/筆記」,不開放受稽機關檢視;
+  // 對機關的正式回饋以實地稽核當天開立之「稽核發現/缺失」為準。故機關端一律不下發委員意見。
+  const hideAuditorComments = user.role === 'ORG_ADMIN';
   // 委員意見作者:僅委員/中心可見具名;受稽機關端不顯示作者(避免針對個別委員)
   const showAuthors = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
   const commentAuthorIds = showAuthors
@@ -96,14 +99,17 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     recordDocs: r.recordDocs,
     orgRevisionNote: r.orgRevisionNote,
     version: r.version,
-    comments: r.comments.map((c) => ({
-      id: c.id,
-      content: c.content,
-      round: c.round,
-      resolvedAt: c.resolvedAt,
-      createdAt: c.createdAt,
-      authorName: showAuthors ? (authorNameById[c.auditorId] ?? '委員') : null,
-    })),
+    // 機關端不下發委員審閱意見(私人註記);委員/中心可見
+    comments: hideAuditorComments
+      ? []
+      : r.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          round: c.round,
+          resolvedAt: c.resolvedAt,
+          createdAt: c.createdAt,
+          authorName: showAuthors ? (authorNameById[c.auditorId] ?? '委員') : null,
+        })),
   }));
 
   return (
