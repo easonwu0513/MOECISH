@@ -52,7 +52,8 @@ export default async function HomePage() {
     user.role === 'ORG_ADMIN'
       ? { organizationId: user.organizationId ?? '__none__' }
       : user.role === 'AUDITOR'
-      ? { assignments: { some: { auditorId: user.id } } }
+      // 委員不顯示開立中(DRAFT)週期 — 中心仍在調整委員名單,PREPARATION 起才可見(對齊 access-policy 'cycle.access')
+      ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
       : {};
 
   const cycles = await prisma.auditCycle.findMany({
@@ -94,11 +95,18 @@ export default async function HomePage() {
     const st = c.status as CycleStatus;
 
     if (user.role === 'ORG_ADMIN') {
-      if (st === 'PREPARATION' && e.prepInsufficient > 0) {
-        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.prepInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
-      } else if (st === 'PREPARATION' && e.prepRemaining > 0) {
-        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.prepRemaining}/${e.prepTotal} 項未處理${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '去處理' });
-      } else if (st === 'PREPARATION' && e.prepDraft > 0) {
+      // 機關只計自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區(CENTER);與下方準備讀數卡一致
+      const techDue = fmtMD(c.prepDueTech);
+      const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
+      // 開立中:讓機關在主橫幅就看到「今年將被稽核」的作業通知(不只埋在鈴鐺),但屬告知性、暫無需動作
+      if (st === 'DRAFT') {
+        todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核(開立中),請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
+      }
+      if (st === 'PREPARATION' && e.mechInsufficient > 0) {
+        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.mechInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
+      } else if (st === 'PREPARATION' && e.mechRemaining > 0) {
+        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
+      } else if (st === 'PREPARATION' && e.mechDraft > 0) {
         todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
       }
       // 檢核表為與資料準備平行的任務(先前不在導引中)→ 獨立提示,未送出即顯示
@@ -167,9 +175,9 @@ export default async function HomePage() {
   const orgCount = new Set(cycles.map((c) => c.organizationId)).size;
   const scopeText =
     user.role === 'ORG_ADMIN'
-      ? user.organizationName ?? '機關承辦'
+      ? user.organizationName ?? '機關管理員'
       : user.role === 'AUDITOR'
-        ? `稽核委員 · 經指派 ${cycles.length} 個週期`
+        ? `稽核委員 · 受指派 ${cycles.length} 個週期`
         : `教育部稽核中心 · 監督 ${orgCount} 院`;
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
@@ -233,12 +241,8 @@ export default async function HomePage() {
           {isSuper && (
             <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院健康度 · {cycles.length} 個週期</p>
-                <div className="flex gap-3 text-caption text-on-surface-variant">
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger-500" aria-hidden />落後</span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning-400" aria-hidden />待留意</span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success-500" aria-hidden />正常</span>
-                </div>
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院週期總覽 · {cycles.length} 個週期</p>
+                <span className="text-caption text-on-surface-variant">左色條 = 階段;逾期以紅標示</span>
               </div>
               <ul className="divide-y divide-outline-variant/50">
                 {[...enriched]
@@ -246,21 +250,26 @@ export default async function HomePage() {
                   .slice(0, 8)
                   .map((e) => {
                     const n = nextActionForRole('SUPER_ADMIN', e);
-                    const waiting = e.prepToConfirm > 0 || (e.allPassed && e.signedUploaded && !e.signedConfirmed);
-                    const dot = e.overdue ? 'bg-danger-500' : waiting ? 'bg-warning-400' : 'bg-success-500';
-                    const health = e.overdue ? '落後' : waiting ? '待留意' : '正常';
+                    const tone = cycleStatusTone(e.status);
                     return (
-                      <li key={e.c.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3', e.overdue && 'bg-danger-50/40')}>
-                        <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} aria-hidden />
-                        <span className="sr-only">健康度{health};</span>
+                      <li
+                        key={e.c.id}
+                        className={cn(
+                          'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-4 px-4 py-3',
+                          toneClasses(tone).border,
+                          e.overdue && 'bg-danger-50/50',
+                        )}
+                      >
+                        {e.overdue && <span className="sr-only">已逾期;</span>}
                         <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
                           <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
                           <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
                         </Link>
-                        <Chip tone={cycleStatusTone(e.status)} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
+                        {e.overdue && <Chip tone="danger" size="sm">逾期</Chip>}
+                        <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
-                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
+                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 min-h-11 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
                             {n.cta}
                             <ChevronRight size={14} />
                           </Link>
@@ -274,14 +283,14 @@ export default async function HomePage() {
               {(overdueCount > 0 || enriched.length > 8) && (
                 <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-outline-variant/60">
                   {overdueCount > 0 ? (
-                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="text-caption text-danger-700 hover:underline">
+                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="inline-flex items-center min-h-11 -my-1 text-caption text-danger-700 hover:underline focus-ring rounded">
                       ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
                     </Link>
                   ) : (
                     <span />
                   )}
                   {enriched.length > 8 && (
-                    <Link href="/admin/cycles" className="text-caption text-primary-700 hover:underline">查看全部 {enriched.length} 個週期 →</Link>
+                    <Link href="/admin/cycles" className="inline-flex items-center min-h-11 -my-1 text-caption text-primary-700 hover:underline focus-ring rounded">查看全部 {enriched.length} 個週期 →</Link>
                   )}
                 </div>
               )}
@@ -315,7 +324,7 @@ export default async function HomePage() {
               sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'}
             />
             <StatTopBar
-              tone="sage"
+              tone="primary"
               muted={remediationCount === 0}
               icon={<ShieldCheck size={20} />}
               primary={`${remediationCount}`}
@@ -340,33 +349,47 @@ export default async function HomePage() {
               {user.role === 'ORG_ADMIN' &&
                 (() => {
                   const pc = enriched.find((e) => e.status === 'PREPARATION');
-                  if (!pc || (pc.prepTotal === 0 && pc.checklistTotal === 0)) return null;
+                  // 機關只看自己負責的機關區(技術檢測/實地稽核);中心匯入由中心經手,不計入機關讀數
+                  if (!pc || (pc.mechTotal === 0 && pc.checklistTotal === 0)) return null;
                   return (
                     <div className="grid gap-4 sm:grid-cols-2 mb-6">
-                      {pc.prepTotal > 0 && (
-                        <Card className="flex items-center gap-4">
-                          <ProgressRing value={pc.prepConfirmed} max={pc.prepTotal} size={76} tone="primary" label={`${pc.prepConfirmed}/${pc.prepTotal}`} sublabel="已齊備" />
-                          <div className="min-w-0">
-                            <p className="text-title text-on-surface">稽核前資料準備</p>
-                            <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.prepInsufficient} · 待繳 {pc.prepDraft} · 未處理 {pc.prepRemaining}</p>
-                          </div>
-                        </Card>
+                      {pc.mechTotal > 0 && (
+                        <Link href={`/cycles/${pc.c.id}/prep`} className="block focus-ring rounded-lg">
+                          <Card interactive className="flex items-center gap-4 h-full">
+                            <ProgressRing value={pc.mechConfirmed} max={pc.mechTotal} size={76} tone="primary" label={`${pc.mechConfirmed}/${pc.mechTotal}`} sublabel="已齊備" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-title-md text-on-surface">稽核前資料準備</p>
+                              <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
+                              {(pc.c.prepDueTech || pc.c.prepDueDate) && (
+                                <p className="mt-0.5 text-caption text-on-surface-variant">
+                                  {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
+                                </p>
+                              )}
+                            </div>
+                            <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
+                          </Card>
+                        </Link>
                       )}
                       {pc.checklistTotal > 0 && (
-                        <Card>
-                          <p className="text-title text-on-surface">資安自評檢核表</p>
-                          <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
-                            {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
-                          </p>
-                          <StackedBar
-                            height={10}
-                            legend
-                            segments={[
-                              { value: pc.checklistAnswered, tone: 'success', label: '已填' },
-                              { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
-                            ]}
-                          />
-                        </Card>
+                        <Link href={`/cycles/${pc.c.id}/checklist`} className="block focus-ring rounded-lg">
+                          <Card interactive className="h-full">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-title-md text-on-surface">資安自評檢核表</p>
+                              <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
+                            </div>
+                            <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
+                              {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
+                            </p>
+                            <StackedBar
+                              height={10}
+                              legend
+                              segments={[
+                                { value: pc.checklistAnswered, tone: 'success', label: '已填' },
+                                { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
+                              ]}
+                            />
+                          </Card>
+                        </Link>
                       )}
                     </div>
                   );

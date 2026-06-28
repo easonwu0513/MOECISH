@@ -22,11 +22,11 @@ export function Wordmark({ className, onDark }: { className?: string; onDark?: b
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <Logo size={30} />
-      <span className="flex flex-col leading-none gap-[3px]">
-        <span className={cn('text-[0.9375rem] font-semibold tracking-tight', onDark ? 'text-white' : 'text-neutral-900')}>
+      <span className="flex flex-col leading-none gap-0.5">
+        <span className={cn('text-body font-semibold tracking-tight', onDark ? 'text-white' : 'text-neutral-900')}>
           MOECISH
         </span>
-        <span className={cn('text-[0.6875rem] tracking-[0.02em]', onDark ? 'text-white/75' : 'text-neutral-500')}>
+        <span className={cn('text-label-sm tracking-[0.02em]', onDark ? 'text-white/75' : 'text-neutral-500')}>
           資通安全稽核管考平台
         </span>
       </span>

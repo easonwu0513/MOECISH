@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const existingDeficiencies = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
     if (pendingFindings === 0 && existingDeficiencies === 0) {
       return NextResponse.json(
-        { error: '沒有任何缺失可發布:請先請委員於「實地稽核」輸入待改善/建議事項' },
+        { error: '沒有任何缺失可發布:請先請委員於「實地稽核」輸入待改善事項與建議事項' },
         { status: 400 },
       );
     }

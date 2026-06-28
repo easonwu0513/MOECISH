@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
 import IdleLogout from './IdleLogout';
 import ScreenWatermark from './ScreenWatermark';
+import { AiAssistant } from '@/components/ai/AiAssistant';
 import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
@@ -64,6 +65,12 @@ export function AppShell({
 
   return (
     <NavProvider>
+    <a
+      href="#main-content"
+      className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:z-[60] focus-visible:top-3 focus-visible:left-3 focus-visible:rounded-md focus-visible:bg-primary-600 focus-visible:px-4 focus-visible:py-2 focus-visible:text-label-lg focus-visible:font-medium focus-visible:text-white focus-visible:shadow-elev-2"
+    >
+      跳到主要內容
+    </a>
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex shrink-0">
@@ -102,6 +109,8 @@ export function AppShell({
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
       {/* 浮水印只在機關上傳資料的檢視頁套用(資料準備/檢核表審閱/缺失矯正),非全站 */}
       {watermark && <ScreenWatermark name={user.name} email={user.email} />}
+      {/* AI 小幫手:NEXT_PUBLIC_AI_ASSISTANT=1 才掛載;未接 LLM 時後端回 503,旗標關則整個隱藏 */}
+      {process.env.NEXT_PUBLIC_AI_ASSISTANT === '1' && <AiAssistant />}
       <IdleLogout />
     </div>
     </NavProvider>

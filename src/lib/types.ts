@@ -1,3 +1,5 @@
+import { canAccess } from './access-policy';
+
 // ════════════════════════════════════════════
 // 角色（2.0：四角色簡化為三角色）
 // ════════════════════════════════════════════
@@ -32,6 +34,20 @@ export const CYCLE_STATUSES = [
   'CLOSED',         // 結案
 ] as const;
 export type CycleStatus = (typeof CYCLE_STATUSES)[number];
+
+// ════════════════════════════════════════════
+// 引導式精靈（Guided Journey）
+// ════════════════════════════════════════════
+
+// CYCLE：每家醫院一個週期，依 7 狀態階段、分角色逐項。
+// PROGRAMME：中心年度計畫執行 SOP（跨院、一次性），依年度綁定進度。
+export const JOURNEY_SCOPES = ['CYCLE', 'PROGRAMME'] as const;
+export type JourneyScope = (typeof JOURNEY_SCOPES)[number];
+
+export const JOURNEY_SCOPE_LABELS: Record<JourneyScope, string> = {
+  CYCLE: '週期各階段',
+  PROGRAMME: '中心年度計畫執行',
+};
 
 // ════════════════════════════════════════════
 // 模組 C：缺失與矯正（對齊教育部範本）
@@ -131,14 +147,56 @@ export function isCenterCategory(c: string): boolean {
 }
 /**
  * 委員是否可檢視某資料準備項(單一真實來源,API 與畫面共用):
- * 機關區(TECH/ONSITE)僅看中心已「確認齊備」者;中心匯入區(CENTER)看已有檔案者。
+ * 委員一律在週期離開「資料準備中」、進入「資料齊備」階段後才檢視 —— 機關區(TECH/ONSITE)與中心匯入(CENTER)
+ * 都同步於「資料齊備」一起開放;即使中心在「資料準備中」已按「開放委員檢視」(CENTER 設為 CONFIRMED),
+ * 效果也延到「資料齊備」才對委員生效。與引導式精靈「資料齊備 → 委員檢視已確認齊備之資料」一致。
  */
-export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean): boolean {
-  return status === 'CONFIRMED' || (category === 'CENTER' && hasFiles);
+export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean, cycleStatus: string): boolean {
+  if (prepCyclePhaseOpen(cycleStatus)) return false; // DRAFT / PREPARATION 期間一律不開放委員(含中心匯入)
+  if (category === 'CENTER') return status === 'CONFIRMED' && hasFiles; // 資料齊備起:中心已開放且有檔
+  return status === 'CONFIRMED'; // 資料齊備起:機關區已確認齊備
 }
-/** 該週期階段是否仍開放異動資料準備(機關編輯/上傳/刪檔僅限草稿與資料準備中;離開後一律凍結)。 */
+/** 該週期階段是否仍開放異動資料準備(離開資料準備中後一律凍結);亦為「委員尚不可見」的分界。
+ *  注意:此函式被 auditorCanSeePrep 用來判定「DRAFT/PREPARATION 委員一律不可見」,語意勿改。 */
 export function prepCyclePhaseOpen(cycleStatus: string): boolean {
   return cycleStatus === 'DRAFT' || cycleStatus === 'PREPARATION';
+}
+
+/** 機關是否可上傳/填說明/繳交資料準備:僅「資料準備中(PREPARATION)」。
+ *  邏輯收斂於 access-policy 的 canAccess('prep.orgEdit') 單一真實來源(此為向後相容包裝)。 */
+export function prepOrgCanEdit(cycleStatus: string): boolean {
+  return canAccess('prep.orgEdit', 'ORG_ADMIN', cycleStatus);
+}
+
+/** 機關是否可填寫/送出檢核表(逐題符合度、說明、批次標記、佐證):僅「資料準備中(PREPARATION)」。
+ *  開立中(DRAFT)中心尚在設定,機關不可填;送出後另由 checklistSubmittedAt 鎖定。
+ *  邏輯收斂於 access-policy 的 canAccess('checklist.orgEdit') 單一真實來源(此為向後相容包裝)。 */
+export function checklistOrgCanEdit(cycleStatus: string): boolean {
+  return canAccess('checklist.orgEdit', 'ORG_ADMIN', cycleStatus);
+}
+
+/** 委員是否可檢視機關「檢核表」內容(逐題答案/說明/佐證):進入「資料齊備(READY)」後才開放。
+ *  邏輯收斂於 access-policy 的 canAccess('checklist.view') 單一真實來源(此為向後相容包裝)。 */
+export function auditorCanViewChecklistContent(cycleStatus: string): boolean {
+  return canAccess('checklist.view', 'AUDITOR', cycleStatus);
+}
+
+/** 委員是否可見/可進入此週期:開立中(DRAFT)尚不可見(中心仍在調整委員名單),PREPARATION 起開放。
+ *  邏輯收斂於 access-policy 的 canAccess('cycle.access')。 */
+export function auditorCanSeeCycle(cycleStatus: string): boolean {
+  return canAccess('cycle.access', 'AUDITOR', cycleStatus);
+}
+
+/** 委員是否可進入「實地稽核評分與發現」:進入「實地稽核(ONSITE)」階段後才開放(資料齊備僅供熟悉背景)。
+ *  邏輯收斂於 access-policy 的 canAccess('audit.score')。 */
+export function auditorCanScore(cycleStatus: string): boolean {
+  return canAccess('audit.score', 'AUDITOR', cycleStatus);
+}
+
+/** 委員是否可檢視「缺失與矯正管考」:缺失發布(REPORT_ISSUED,實地稽核結束)後才開放。
+ *  邏輯收斂於 access-policy 的 canAccess('deficiencies.view')。 */
+export function auditorCanSeeDeficiencies(cycleStatus: string): boolean {
+  return canAccess('deficiencies.view', 'AUDITOR', cycleStatus);
 }
 
 // ════════════════════════════════════════════
@@ -169,6 +227,15 @@ export const EVIDENCE_TARGET_TYPES = [
   'AUDIT_CYCLE',
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
+
+// 機關上傳格式限制:浮水印僅能套用於 PDF / JPG / PNG;Word、Excel 等可編輯檔須先另存為這些格式再上傳,
+// 否則委員審閱到的資料無法加浮水印(防外流失效)。供前端 <input accept> 與後端驗證共用。
+export const ORG_UPLOAD_ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
+const ORG_UPLOAD_MIMES = ['application/pdf', 'image/jpeg', 'image/png'];
+/** 機關上傳是否為允許格式(副檔名或 MIME 任一符合即可;Word/Excel/zip 等一律擋下)。 */
+export function isOrgUploadAllowed(fileName: string, mime: string): boolean {
+  return /\.(pdf|jpe?g|png)$/i.test(fileName) || ORG_UPLOAD_MIMES.includes(mime);
+}
 
 // ════════════════════════════════════════════
 // 檢核表模組（保留為選用功能）

@@ -53,7 +53,7 @@ export default function FinishButton({
         onOpenChange={(o) => !busy && setOpen(o)}
         title="完成年度稽核"
         description={
-          `將自動執行三件事:① 把全體委員的待改善/建議事項(${pendingCount} 條未轉)建立為完整稽核缺失表;` +
+          `將自動執行三件事:① 把全體委員的待改善與建議事項(共 ${pendingCount} 條尚未轉入)建立為完整稽核缺失表;` +
           `② 週期狀態推進至「矯正執行中」;③ 寄通知請機關管理員開始填報矯正措施。` +
           `法遵符合情形不會轉為缺失。確定執行?`
         }

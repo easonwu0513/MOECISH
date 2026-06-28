@@ -2,9 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeHint,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind, type DimStat,
 } from '@/lib/audit-score';
@@ -45,6 +45,8 @@ export default async function Att17PrintPage({
 
   const isAssigned = cycle.assignments.some((a) => a.auditor.id === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
+  // 委員於「資料齊備」前不可列印(評分表含機關檢核結果統計)
+  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
 
   // 要印哪些委員
   let targets: { id: string; name: string }[];
@@ -78,8 +80,13 @@ export default async function Att17PrintPage({
           stats={stats}
           scores={Object.fromEntries(
             cycle.auditScores
+              .filter((s) => s.auditorId === auditor.id && s.score !== null)
+              .map((s) => [s.dimension, s.score as number]),
+          )}
+          counts={Object.fromEntries(
+            cycle.auditScores
               .filter((s) => s.auditorId === auditor.id)
-              .map((s) => [s.dimension, s.score]),
+              .map((s) => [s.dimension, { c1: s.cntComply, c2: s.cntPartial, c3: s.cntNonComply, c4: s.cntNa }]),
           )}
           findings={cycle.auditFindings.filter((f) => f.auditorId === auditor.id)}
         />
@@ -91,8 +98,9 @@ export default async function Att17PrintPage({
 const FONT = "'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif";
 const B = '1px solid #000';
 
+type SheetCounts = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
 function Att17Sheet({
-  first, orgName, yearROC, onsiteDateROC, auditorName, stats, scores, findings,
+  first, orgName, yearROC, onsiteDateROC, auditorName, stats, counts, scores, findings,
 }: {
   first: boolean;
   orgName: string;
@@ -100,6 +108,8 @@ function Att17Sheet({
   onsiteDateROC: string | null;
   auditorName: string;
   stats: Record<string, DimStat>;
+  /** 委員手填之檢核結果數量(符/部/不符/不適);空白即留白 */
+  counts: Record<string, SheetCounts>;
   scores: Record<string, number>;
   findings: { id: string; aspect: string; kind: string; content: string; checklistRef: string | null }[];
 }) {
@@ -148,6 +158,7 @@ function Att17Sheet({
           {ASPECTS.flatMap((aspect) =>
             ASPECT_DIMENSIONS[aspect].map((dim: Dimension, i: number) => {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
+              const ct = counts[dim] ?? { c1: null, c2: null, c3: null, c4: null };
               const v = scores[dim];
               return (
                 <tr key={dim}>
@@ -157,14 +168,15 @@ function Att17Sheet({
                     </td>
                   )}
                   <td style={td}>
-                    {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
+                    {/* DIMENSION_LABELS 已含「一、」前綴 */}
+                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
                     <div style={{ fontSize: '9.5pt' }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c1 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c2 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c3 || ''}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>{st.c4 || ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c1 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c2 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c3 ?? ''}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>{ct.c4 ?? ''}</td>
                   <td style={{ ...td, textAlign: 'center', fontSize: '12pt' }}>
                     {v ?? ''}
                   </td>
@@ -222,9 +234,9 @@ function Att17Sheet({
       <div style={{ fontSize: '12pt', marginTop: '18pt', lineHeight: 2 }}>
         <div>稽核日期:{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
         <div>受稽機關:{orgName}</div>
-        <div style={{ marginTop: '14pt', display: 'flex', gap: '48pt', flexWrap: 'wrap' }}>
+        {/* 服務機關／職稱欄移除:部分委員不願公布(依使用者回饋) */}
+        <div style={{ marginTop: '14pt' }}>
           <span>委員簽名:{auditorName ? `${auditorName}　` : ''}________________</span>
-          <span>服務機關／職稱:________________</span>
         </div>
       </div>
     </div>

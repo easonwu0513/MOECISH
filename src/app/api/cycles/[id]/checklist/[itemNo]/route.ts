@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess, requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { COMPLIANCE_LEVELS } from '@/lib/types';
+import { COMPLIANCE_LEVELS, checklistOrgCanEdit } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 const Body = z.object({
@@ -22,8 +22,8 @@ export async function PUT(
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可編輯' }, { status: 403 });
     }
-    if (cycle.status !== 'DRAFT' && cycle.status !== 'PREPARATION') {
-      return NextResponse.json({ error: `目前狀態不可編輯（${cycle.status}）` }, { status: 400 });
+    if (!checklistOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能填報(開立中尚未開放、資料準備結束後鎖定)' }, { status: 400 });
     }
     if (cycle.checklistSubmittedAt) {
       return NextResponse.json(

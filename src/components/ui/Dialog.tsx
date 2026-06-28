@@ -26,6 +26,7 @@ export function Dialog({
   icon?: ReactNode;
 }) {
   const titleId = useId();
+  const descId = useId();
   const panelRef = useDialogA11y(open, () => onOpenChange(false));
   const { mounted, leaving } = usePresence(open, 200);
 
@@ -42,6 +43,7 @@ export function Dialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
+      aria-describedby={description ? descId : undefined}
     >
       <div
         className="absolute inset-0 scrim"
@@ -66,7 +68,7 @@ export function Dialog({
             )}
             {title && <h2 id={titleId} className="text-title-lg text-on-surface">{title}</h2>}
             {description && (
-              <p className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</p>
+              <p id={descId} className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</p>
             )}
           </div>
         )}

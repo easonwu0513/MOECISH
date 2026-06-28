@@ -4,7 +4,9 @@ import type { CycleStatus } from './types';
  * 稽核週期「階段」單一真實來源(SoT)。
  * 把原本散在 state-machine.ts(7 態 label/tone)與 process-guide.ts(4 步流程)的定義集中於此一處;
  * 兩處改為自本檔 re-export,杜絕「Chip 說缺失發布中、Stepper 畫在步驟3」的同畫面雙重語彙。
- * 值與原定義逐字相同 → 對既有畫面為等價(行為不變),只是收斂定義點。
+ * CYCLE_STATUS_LABELS 與原 state-machine 定義逐字相同;cycleStatusTone 為此處新 SoT,
+ * 並「刻意」把進行中態 ONSITE / REMEDIATION 統一為 primary(輕盈版設計;原為 sage / warning),
+ * 其餘狀態色不變 — 這是有意的視覺調整,非單純等價收斂。
  */
 
 export type StageTone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger';
@@ -28,7 +30,7 @@ export function cycleStatusTone(status: CycleStatus): StageTone {
     case 'READY':         return 'sage';
     case 'ONSITE':        return 'primary';
     case 'REPORT_ISSUED': return 'warning';
-    case 'REMEDIATION':   return 'danger';
+    case 'REMEDIATION':   return 'primary';
     case 'CLOSED':        return 'success';
   }
 }

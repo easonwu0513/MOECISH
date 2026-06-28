@@ -12,11 +12,14 @@ export type EmailKind =
   | 'review-request'   // 機關送審 → 通知委員
   | 'action-returned'  // 委員退回 → 通知機關
   | 'all-passed'       // 全數通過 → 通知機關用印
-  | 'checklist-submitted' // 檢核表填報送出 → 通知委員
+  | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
+  | 'committee-review'    // 資料齊備 → 通知委員開始審閱
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
   | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
   | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
   | 'checklist-review-done' // 委員完成檢核表審閱意見 → 通知中心
+  | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
+  | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 
@@ -45,6 +48,13 @@ const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export async function sendEmail(input: SendEmailInput) {
   const kind: EmailKind = input.kind ?? 'other';
 
+  // 系統信一律附「請勿直接回信」footer(避免委員/機關直接回覆系統信箱)。
+  // 只加到對外送信與 EmailLog/.txt 紀錄;站內通知摘要仍取原始 input.body(notificationSummary),footer 不會污染鈴鐺。
+  const FOOTER =
+    '\n\n──────────\n此封信為系統自動寄發,請勿直接回信。如有疑問請登入平台,或洽教育部轄下醫療領域資訊安全推動中心。';
+  // 冪等:body 若已含 footer(如後台重寄讀 EmailLog.body 再進 sendEmail)不重複附加,避免雙重 footer。
+  const outboundBody = input.body.includes('此封信為系統自動寄發') ? input.body : `${input.body}${FOOTER}`;
+
   // 通知節流:重複觸發(例:連續點送出、排程重跑)不重複轟炸收件人
   if (input.dedupeKey) {
     const dup = await prisma.emailLog.findFirst({
@@ -65,8 +75,9 @@ export async function sendEmail(input: SendEmailInput) {
               toEmail: input.to,
               toName: input.toName ?? null,
               subject: input.subject,
-              body: input.body,
+              body: outboundBody,
               kind,
+              status: 'skipped',
               context: JSON.stringify({
                 ...(input.context ?? {}),
                 dedupeKey: input.dedupeKey,
@@ -92,7 +103,7 @@ export async function sendEmail(input: SendEmailInput) {
         to: input.to,
         toName: input.toName,
         subject: input.subject,
-        bodyText: input.body,
+        bodyText: outboundBody,
       });
       delivery = 'sent';
     } catch (e) {
@@ -107,8 +118,9 @@ export async function sendEmail(input: SendEmailInput) {
       toEmail: input.to,
       toName: input.toName ?? null,
       subject: input.subject,
-      body: input.body,
+      body: outboundBody,
       kind,
+      status: delivery,
       context: JSON.stringify({
         ...(input.context ?? {}),
         ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
@@ -135,11 +147,39 @@ export async function sendEmail(input: SendEmailInput) {
       `Subject: ${input.subject}\n` +
       `${input.relatedInvitationId ? `Invitation: ${input.relatedInvitationId}\n` : ''}` +
       `${input.relatedCycleId ? `Cycle: ${input.relatedCycleId}\n` : ''}` +
-      `\n${input.body}\n`;
+      `\n${outboundBody}\n`;
     await writeFile(path.join(dir, fileName), content, 'utf-8');
   } catch (e) {
     console.warn('[email] failed to write log file:', (e as Error).message);
   }
 
+  // 站內通知(鈴鐺):寄信對象若為系統使用者,同步建立站內通知,避免委員/機關漏看 email。
+  // (失敗不擋寄信流程;dedupe 跳過的信不會走到這裡,故不會重複通知)
+  try {
+    const u = await prisma.user.findUnique({ where: { email: input.to }, select: { id: true, isActive: true } });
+    if (u?.isActive) {
+      await prisma.notification.create({
+        data: {
+          userId: u.id,
+          kind,
+          title: input.subject.replace(/^\[MOECISH\]\s*/, ''),
+          body: notificationSummary(input.body),
+          link: input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn('[email] 站內通知建立失敗:', (e as Error).message);
+  }
+
   return log;
+}
+
+/** 從信件內文取「主要內容段」當站內通知摘要(略過稱呼、連結、署名),截斷至 160 字。 */
+function notificationSummary(body: string): string {
+  const paras = body.split('\n\n').map((p) => p.trim()).filter(Boolean);
+  const main = paras.find(
+    (p) => !/您好[,，]?$/.test(p) && !p.startsWith('http') && !p.startsWith('—'),
+  );
+  return (main ?? paras[0] ?? '').replace(/\s+/g, ' ').slice(0, 160);
 }

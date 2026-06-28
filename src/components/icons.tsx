@@ -44,6 +44,13 @@ export const X = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}><path d="M6 6l12 12M6 18l12-12" /></svg>
 );
 
+export const Sparkles = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+    <path d="M19 13l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z" />
+  </svg>
+);
+
 export const Mail = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -71,6 +78,13 @@ export const Search = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />
+  </svg>
+);
+
+export const Bell = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
   </svg>
 );
 

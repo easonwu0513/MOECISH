@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
@@ -16,23 +17,17 @@ import {
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
+  type Role,
 } from '@/lib/types';
+import { canAccess } from '@/lib/access-policy';
 import { actionStatusTone } from '@/lib/state-machine';
+import { toneClasses } from '@/lib/stage';
 import { EMPTY } from '@/lib/copy';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
-// 列卡左緣狀態色條:tone → 實心色(沿用 dashboard 待辦語彙)
-const RAIL_BG: Record<'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger', string> = {
-  neutral: 'bg-outline-variant',
-  primary: 'bg-primary-500',
-  sage: 'bg-sage-500',
-  success: 'bg-success-500',
-  warning: 'bg-warning-500',
-  danger: 'bg-danger-500',
-};
-
+// 列卡左緣狀態色條沿用 stage.ts toneClasses().dot(單一真實來源,與矩陣/任務卡同語彙)
 const FILTERS = [
   { key: 'all', label: '全部', match: () => true },
   { key: 'todo', label: '待填報', match: (s: ActionStatus) => s === 'PENDING' || s === 'DRAFT' },
@@ -68,6 +63,8 @@ export default async function DeficienciesPage({
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 缺失與矯正管考開放時機:委員待缺失發布(REPORT_ISSUED)、機關待矯正執行(REMEDIATION);中心全程。在此之前導回。
+  if (user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)) redirect('/dashboard');
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
@@ -101,6 +98,11 @@ export default async function DeficienciesPage({
         { label: '缺失與矯正' },
       ]}
     >
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="填報送審後,於工作台追蹤審查進度"
+      />
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-headline text-on-surface">缺失與矯正管考</h1>
@@ -199,7 +201,7 @@ export default async function DeficienciesPage({
                                   <div className="flex">
                                     {/* 左緣狀態色條(顏色非唯一訊號,右側仍有 Chip+dot+文字) */}
                                     <div
-                                      className={`w-1.5 self-stretch shrink-0 ${RAIL_BG[actionStatusTone(status)]}`}
+                                      className={`w-1.5 self-stretch shrink-0 ${toneClasses(actionStatusTone(status)).dot}`}
                                       aria-hidden
                                     />
                                     <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">

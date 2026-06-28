@@ -4,8 +4,8 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
-import { FileText, Settings, Check } from '@/components/icons';
-import { loadAuditReport, buildReportData, ScoreOverview } from './ReportBody';
+import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
+import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChanges, AuditorStateChangeLog } from './ReportBody';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
@@ -19,17 +19,12 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/report`);
   const user = session.user;
+  // 彙整報告為中心(最高管理員)專用的全體委員整合視圖;機關回週期、委員回自己的評分頁。
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
+  if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);
 
   const data = await loadAuditReport(params.id);
   if (!data) notFound();
-
-  if (
-    user.role === 'AUDITOR' &&
-    !data.assignments.some((a) => a.auditor.id === user.id)
-  ) {
-    redirect('/dashboard');
-  }
 
   const pendingCount = data.auditFindings.filter(
     (f) => !f.deficiencyId && (f.kind === 'IMPROVE' || f.kind === 'SUGGEST'),
@@ -38,6 +33,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const report = buildReportData(data);
   const isAdmin = user.role === 'SUPER_ADMIN';
   const status = data.status;
+  // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
+  const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 
   return (
     <AppShell
@@ -48,9 +45,17 @@ export default async function AuditReportPage({ params }: { params: { id: string
         { label: `${data.year - 1911} 年度 · ${data.organization.name}`, href: `/cycles/${data.id}` },
         { label: '彙整報告' },
       ]}
+      watermark
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
+          <Link
+            href={isAdmin ? `/cycles/${data.id}` : `/cycles/${data.id}/audit`}
+            className="inline-flex items-center gap-1 min-h-9 -ml-1 mb-1 text-label-lg text-primary-700 hover:underline focus-ring rounded"
+          >
+            <ChevronLeft size={16} aria-hidden />
+            {isAdmin ? '返回週期' : '返回評分與發現'}
+          </Link>
           <h1 className="text-headline text-on-surface">實地稽核彙整報告</h1>
           <p className="text-body-sm text-on-surface-variant mt-1">
             {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名
@@ -81,7 +86,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
       <Card className="mb-6">
         <CardTitle>評分總覽</CardTitle>
         <CardDescription>
-          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)
+          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)。
+          下表「符合/部分/不符/不適」為機關自評數量供參;各委員實地判定之檢核數量請見各自附件17 評分表。
         </CardDescription>
         {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
         {data.assignments.length > 0 && (
@@ -89,17 +95,21 @@ export default async function AuditReportPage({ params }: { params: { id: string
             {data.assignments.map((a) => {
               const sc = data.auditScores.filter((s) => s.auditorId === a.auditor.id).length;
               const fc = data.auditFindings.filter((f) => f.auditorId === a.auditor.id).length;
-              const done = sc >= 9;
+              const locked = !!a.scoreLockedAt; // 委員已按「確認填寫完畢」鎖定 = 已定稿
               return (
                 <span
                   key={a.auditor.id}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-caption tabular-nums ${
-                    done ? 'border-success-200 bg-success-50 text-success-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
+                    locked ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
                   }`}
                 >
                   <span className="font-medium text-on-surface">{a.auditor.name}</span>
                   評分 {sc}/9 · 發現 {fc} 條
-                  {done && <Check size={13} className="text-success-600" />}
+                  {locked && (
+                    <span className="inline-flex items-center gap-1 font-medium text-primary-700">
+                      <Check size={13} />已定稿
+                    </span>
+                  )}
                 </span>
               );
             })}
@@ -107,6 +117,17 @@ export default async function AuditReportPage({ params }: { params: { id: string
         )}
         <div className="mt-4">
           <ScoreOverview data={data} />
+        </div>
+      </Card>
+
+      {/* 委員填寫狀態異動(系統內同步通知:委員確認填寫完畢/解除鎖定,免漏看 email) */}
+      <Card className="mb-6">
+        <CardTitle>委員填寫狀態異動</CardTitle>
+        <CardDescription>
+          委員「確認填寫完畢」或「解除鎖定(內容異動)」會即時記於此處;解除鎖定代表該委員可能已修改評分或發現,請複核。
+        </CardDescription>
+        <div className="mt-4">
+          <AuditorStateChangeLog events={stateChanges} />
         </div>
       </Card>
 

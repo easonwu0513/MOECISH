@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireUser, AuthError } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { errorResponse } from '@/lib/api';
-import { prepReviewable, prepCyclePhaseOpen } from '@/lib/types';
+import { prepReviewable, prepCyclePhaseOpen, prepOrgCanEdit } from '@/lib/types';
 import { notifyPrepReturned } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
@@ -48,8 +48,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (sub.requirement.category === 'CENTER') {
       return NextResponse.json({ error: '中心匯入區由中心管理,機關無法操作' }, { status: 403 });
     }
-    if (!prepCyclePhaseOpen(cycle.status)) {
-      return NextResponse.json({ error: '資料準備階段已結束,不可再修改' }, { status: 400 });
+    if (!prepOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能修改(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
     }
     if (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED') {
       return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
@@ -106,7 +106,32 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅最高管理員可審核資料準備' }, { status: 403 });
     }
     if (sub.requirement.category === 'CENTER') {
-      return NextResponse.json({ error: '中心匯入區無需審核(中心直接上傳供委員審閱)' }, { status: 400 });
+      // 中心匯入區:中心「開放委員檢視 / 收回」。CENTER 無機關繳交流程,由中心直接釋出(CONFIRMED)或收回(EMPTY);
+      // 釋出前(EMPTY)委員不得檢視/下載(見 auditorCanSeePrep)。釋出須至少有一個檔。
+      if (cycle.status === 'CLOSED') {
+        return NextResponse.json({ error: '週期已結案,不可變更中心匯入開放狀態' }, { status: 400 });
+      }
+      const cbody = z.object({ status: z.enum(['CONFIRMED', 'EMPTY']) }).parse(await req.json());
+      if (cbody.status === 'CONFIRMED') {
+        const fileCount = await prisma.evidence.count({
+          where: { targetType: 'PREP_SUBMISSION', targetId: sub.id },
+        });
+        if (fileCount === 0) {
+          return NextResponse.json({ error: '尚未上傳檔案,無法開放委員檢視' }, { status: 400 });
+        }
+      }
+      const released = await prisma.prepSubmission.update({
+        where: { id: sub.id },
+        data: { status: cbody.status, reviewedById: user.id, reviewedAt: new Date() },
+      });
+      const cmeta = extractRequestMeta(req);
+      await writeAuditLog({
+        actorId: user.id,
+        action: cbody.status === 'CONFIRMED' ? 'PREP_CENTER_RELEASE' : 'PREP_CENTER_UNRELEASE',
+        entityType: 'PrepSubmission', entityId: sub.id,
+        after: { status: released.status }, ...cmeta,
+      });
+      return NextResponse.json({ item: released });
     }
     if (cycle.status !== 'PREPARATION') {
       return NextResponse.json({ error: '此週期已離開資料準備階段,不可審核資料準備' }, { status: 400 });

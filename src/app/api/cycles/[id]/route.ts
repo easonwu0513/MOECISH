@@ -10,9 +10,10 @@ const DateStr = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式須為 YYYY-MM-DD');
 
 const PatchBody = z.object({
-  dueDate: DateStr.optional(),
+  dueDate: DateStr.nullable().optional(),
   prepDueDate: DateStr.nullable().optional(),
   prepDueTech: DateStr.nullable().optional(),
+  techCheckDate: DateStr.nullable().optional(),
   onsiteDate: DateStr.nullable().optional(),
 });
 
@@ -32,11 +33,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const updated = await prisma.auditCycle.update({
       where: { id: cycle.id },
       data: {
-        dueDate: body.dueDate ? toDate(body.dueDate) : undefined,
+        dueDate: body.dueDate === undefined ? undefined : body.dueDate ? toDate(body.dueDate) : null,
         prepDueDate:
           body.prepDueDate === undefined ? undefined : body.prepDueDate ? toDate(body.prepDueDate) : null,
         prepDueTech:
           body.prepDueTech === undefined ? undefined : body.prepDueTech ? toDate(body.prepDueTech) : null,
+        techCheckDate:
+          body.techCheckDate === undefined ? undefined : body.techCheckDate ? toDate(body.techCheckDate) : null,
         onsiteDate:
           body.onsiteDate === undefined ? undefined : body.onsiteDate ? toDate(body.onsiteDate) : null,
       },

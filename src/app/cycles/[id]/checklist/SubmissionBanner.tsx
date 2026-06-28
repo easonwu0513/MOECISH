@@ -65,7 +65,7 @@ export default function SubmissionBanner({
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
               {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需機關補正,可退回重填。' : ';如需修改請洽中心退回。'}
+              {canReopen ? ';如需請機關補正,可在下方退回重填。' : ';如需修改請洽中心退回。'}
             </div>
           </div>
           {canReopen && (
@@ -87,11 +87,11 @@ export default function SubmissionBanner({
           }
         >
           <Textarea
-            label="退回原因(選填,機關會看到;留空則以各題委員意見為準)"
+            label="退回原因(機關會看到;留空將以系統預設說明通知機關)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="可留空。委員逐題意見即為補正依據;此處可補充整體說明。"
+            placeholder="請說明需要機關補正的事項或方向(機關僅能看到此退回原因,看不到委員逐題意見)。"
           />
         </Dialog>
       </>

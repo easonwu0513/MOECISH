@@ -39,6 +39,12 @@ model User {
   lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
 
+  // 帳號生命週期 + 權責分立:停用須附理由與操作者(快照,無關聯;比照 JourneyProgress.doneById)
+  disabledAt     DateTime?
+  disabledById   String?   // 停用操作者 id 快照
+  disabledByName String?   // 停用操作者姓名快照
+  disableReason  String?   // 停用理由(權責分立稽核軌跡)
+
   // 資通系統防護基準(中級)— SECURITY_BASELINE 旗標啟用後生效
   failedLoginCount   Int       @default(0)   // 連續登入失敗次數(成功即歸零)
   lockedUntil        DateTime?                // 鎖定截止(失敗 5 次鎖 15 分鐘)
@@ -51,6 +57,23 @@ model User {
   auditFindings      AuditFinding[]
   cycleTransitions   CycleStateTransition[]
   auditLogs          AuditLog[]
+  notifications      Notification[]
+}
+
+// 站內通知(鈴鐺):每封寄給系統使用者的信同步建立一筆,避免委員/機關漏看 email。
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String                  // 對應 EmailKind
+  title     String                  // = 信件主旨(去 [MOECISH] 前綴)
+  body      String?                 // 摘要(信件主要內容段)
+  link      String?                 // 站內連結(多為 /cycles/...)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 model Invitation {
@@ -118,9 +141,10 @@ model AuditCycle {
   checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
   status             String   @default("DRAFT") // CycleStatus 2.0
   startDate          DateTime
-  dueDate            DateTime              // 矯正填報截止
+  dueDate            DateTime?             // 矯正填報截止(實地稽核/發文後再設;可不填)
   prepDueDate        DateTime?             // 資料準備(實地稽核區)繳交截止
   prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
+  techCheckDate      DateTime?             // 技術檢測日(執行技術檢測之日期;通常早於實地稽核日)
   onsiteDate         DateTime?
   closedAt           DateTime?
   version            Int @default(0)
@@ -141,6 +165,7 @@ model AuditCycle {
   assignments      AuditorAssignment[]
   auditScores      AuditScore[]
   auditFindings    AuditFinding[]
+  journeyProgress  JourneyProgress[]
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -159,7 +184,12 @@ model AuditScore {
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   dimension String   // Dimension(一~九,七配分 20 其餘 10)
-  score     Int
+  score     Int?     // 委員評分(null=尚未評;可僅填檢核數量)
+  // 委員手動判定之檢核結果數量(預設空白;彙整/列印依此呈現,不再自動帶機關自評)
+  cntComply    Int?  // 符合
+  cntPartial   Int?  // 部分符合
+  cntNonComply Int?  // 不符合
+  cntNa        Int?  // 不適用
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -192,7 +222,12 @@ model AuditorAssignment {
   auditorId String
   auditor   User @relation(fields: [auditorId], references: [id])
   role      String   @default("MEMBER") // LEAD / MEMBER
+  // 指派負責稽核構面(JSON 陣列;AssignAspect:STRATEGY/MANAGEMENT/MANAGEMENT_OT/TECHNICAL)。
+  // 純指派標籤,不更動附件17 的 9 項評分結構;null/空=未指定(視同全構面)。
+  dimensions String?
   reviewDoneAt DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
+  // 委員按「確認填寫完畢」鎖定其評分與稽核發現的時間;鎖定後不可改,解除鎖定會通知最高管理員。
+  scoreLockedAt DateTime?
   createdAt DateTime @default(now())
 
   @@unique([cycleId, auditorId])
@@ -423,6 +458,11 @@ model EmailLog {
   body      String
   kind      String   // "invitation" | "cycle-notify" | "tracking" | "password-reset" | "other"
   context   String?  // JSON
+  // 投遞狀態(可查詢欄;與 context.delivery 同步,供死信補寄 timer 掃描):
+  // sent | failed | simulated | skipped | dead-letter(自動重試達上限)
+  status      String   @default("sent")
+  retryCount  Int      @default(0)   // 自動補寄已嘗試次數
+  lastRetryAt DateTime?               // 最近一次補寄時間(冷卻計算)
   templateKey         String?
   relatedInvitationId String?
   relatedCycleId      String?
@@ -431,6 +471,73 @@ model EmailLog {
   @@index([sentAt])
   @@index([toEmail])
   @@index([kind])
+  @@index([status])
+}
+
+// ════════════════════════════════════════════
+// 引導式精靈（Guided Journey）：各階段可勾選的 SOP / checklist
+//   範本（Template→Stage→Item）可在後台編輯；進度（Progress）可勾選、存檔。
+//   scope = CYCLE（每家醫院一個週期，依 7 狀態階段、分角色） | PROGRAMME（中心年度計畫執行，依年度綁定）。
+//   結構對齊既有 PrepTemplate→PrepRequirement→PrepSubmission（範本→實例→狀態）。
+// ════════════════════════════════════════════
+
+model JourneyTemplate {
+  id        String   @id @default(cuid())
+  scope     String   @unique // JourneyScope: CYCLE | PROGRAMME（每 scope 單一啟用範本）
+  title     String
+  stages    JourneyStage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JourneyStage {
+  id         String  @id @default(cuid())
+  templateId String
+  template   JourneyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  stageKey   String  // CYCLE：CycleStatus（DRAFT..CLOSED）；PROGRAMME：自訂 key
+  title      String
+  summary    String?
+  orderIndex Int
+  items      JourneyItem[]
+
+  @@unique([templateId, stageKey]) // 同範本內 stageKey 不重複（防雙開/重複計數）
+  @@index([templateId])
+}
+
+model JourneyItem {
+  id         String  @id @default(cuid())
+  stageId    String
+  stage      JourneyStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  title      String
+  hint       String?  // 附註 / 文件位置 / 提示
+  role       String?  // CYCLE：限定角色（null = 全體）；PROGRAMME：null
+  // CYCLE 專用:此項對應的「系統動作」鍵 → 由 lib/journey-auto.ts 規則依週期實況自動判定完成,
+  // 不靠手動勾選(null = 無對應動作,於當前階段顯示為進行中、階段過了才視為完成)。PROGRAMME 不用。
+  autoKey    String?
+  orderIndex Int
+  progress   JourneyProgress[]
+
+  @@index([stageId])
+}
+
+model JourneyProgress {
+  id            String   @id @default(cuid())
+  itemId        String
+  item          JourneyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  cycleId       String?     // CYCLE scope 綁定
+  cycle         AuditCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  programmeYear Int?        // PROGRAMME scope 綁定（一律存民國年 ROC，例 115；由 API 驗證 101–199）
+  done          Boolean  @default(false)
+  doneAt        DateTime?
+  doneById      String?  // 勾選者 id（快照，無關聯）
+  doneByName    String?  // 勾選者姓名快照
+  note          String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([itemId, cycleId])
+  @@unique([itemId, programmeYear])
+  @@index([cycleId])
+  @@index([programmeYear])
 }
 
 // ════════════════════════════════════════════

@@ -3,9 +3,20 @@ import { prisma } from '@/lib/db';
 import { assertEvidenceAccess } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
-import { prepCyclePhaseOpen } from '@/lib/types';
+import { prepOrgCanEdit, checklistOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+
+/**
+ * 以檔案開頭 magic bytes 判定真實型別(僅認可加浮水印的三種),不信任副檔名 / Content-Type。
+ * 杜絕「.docx 改名 .pdf + 偽造 Content-Type」繞過浮水印的情形。
+ */
+function sniffWatermarkableType(buf: Buffer): 'application/pdf' | 'image/png' | 'image/jpeg' | null {
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'application/pdf'; // %PDF
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png'; // PNG
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'; // JPEG
+  return null;
+}
 
 export async function GET(req: Request) {
   try {
@@ -38,10 +49,15 @@ export async function POST(req: Request) {
     // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
     const { user, cycle } = await assertEvidenceAccess(targetType, targetId);
 
+    // 檢核表佐證:機關僅「資料準備中」可上傳(開立中尚未開放;送出鎖定後 checklistSubmittedAt 另擋)
+    if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'ORG_ADMIN' && !checklistOrgCanEdit(cycle.status)) {
+      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證(開立中尚未開放)' }, { status: 400 });
+    }
+
     // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
     if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
-      if (!prepCyclePhaseOpen(cycle.status)) {
-        return NextResponse.json({ error: '資料準備階段已結束,不可再上傳' }, { status: 400 });
+      if (!prepOrgCanEdit(cycle.status)) {
+        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
       }
       const sub = await prisma.prepSubmission.findUnique({
         where: { id: targetId },
@@ -61,11 +77,34 @@ export async function POST(req: Request) {
     }
 
     let buf: Buffer = Buffer.from(await file.arrayBuffer());
-    const mime = file.type || 'application/octet-stream';
+    let mime = file.type || 'application/octet-stream';
 
-    // 單位管理員上傳的 PDF/圖片自動加機關浮水印(防外流、可溯源);其餘類型/角色維持原檔
+    // 須加浮水印的上傳(機關佐證 + 中心匯入的稽核前資料,委員都會審閱)一律僅允許可加浮水印格式
+    // (PDF/JPG/PNG);Word、Excel 等須先另存為 PDF 再上傳。中心匯入(PREP_SUBMISSION)亦受此限。
+    const mustWatermark = user.role === 'ORG_ADMIN' || targetType === 'PREP_SUBMISSION';
+    if (mustWatermark) {
+      // 友善前檢:副檔名與 Content-Type 皆明顯不符 → 直接擋,訊息清楚。
+      if (!isOrgUploadAllowed(file.name, mime)) {
+        return NextResponse.json(
+          { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
+          { status: 400 },
+        );
+      }
+      // 權威檢查:以實際內容判定真實型別(不信任副檔名/Content-Type),確保檔案一定可加浮水印,
+      // 並以真實型別作為浮水印與 DB mimeType 依據。
+      const realMime = sniffWatermarkableType(buf);
+      if (!realMime) {
+        return NextResponse.json(
+          { error: '檔案內容不是有效的 PDF / JPG / PNG(可能是改了副檔名的 Word/Excel 等);請以原程式「另存為 PDF」後再上傳。' },
+          { status: 400 },
+        );
+      }
+      mime = realMime;
+    }
+
+    // 須加浮水印對象的 PDF/圖片自動加浮水印(機關佐證 + 中心匯入;防外流、可溯源);其餘維持原檔
     let watermarked = false;
-    if (user.role === 'ORG_ADMIN' && isWatermarkable(mime)) {
+    if (mustWatermark && isWatermarkable(mime)) {
       const org = await prisma.organization.findUnique({
         where: { id: cycle.organizationId },
         select: { name: true, shortName: true },

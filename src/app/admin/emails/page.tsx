@@ -26,21 +26,21 @@ const kindLabel: Record<string, { label: string; tone: 'primary' | 'sage' | 'neu
   other:                 { label: '其他',         tone: 'neutral' },
 };
 
-type DeliveryKey = 'sent' | 'failed' | 'simulated' | 'skipped';
+type DeliveryKey = 'sent' | 'failed' | 'simulated' | 'skipped' | 'dead-letter';
+
+const STATUS_KEYS = ['sent', 'failed', 'simulated', 'skipped', 'dead-letter'] as const;
 
 const deliveryMeta: Record<DeliveryKey, { label: string; tone: 'success' | 'neutral' | 'danger' | 'warning' }> = {
-  sent:      { label: '已寄出',   tone: 'success' },
-  failed:    { label: '寄送失敗', tone: 'danger' },
-  simulated: { label: '模擬',     tone: 'neutral' },
-  skipped:   { label: '已去重',   tone: 'warning' },
+  sent:          { label: '已寄出',       tone: 'success' },
+  failed:        { label: '寄送失敗',     tone: 'danger' },
+  simulated:     { label: '模擬',         tone: 'neutral' },
+  skipped:       { label: '已去重',       tone: 'warning' },
+  'dead-letter': { label: '死信(待人工)', tone: 'danger' },
 };
 
-function deliveryOf(context: string | null): DeliveryKey {
-  try {
-    const c = context ? JSON.parse(context) : {};
-    if (c.delivery === 'sent' || c.delivery === 'failed' || c.delivery === 'skipped') return c.delivery;
-  } catch {}
-  return 'simulated';
+/** 以可查詢的 status 欄為準(死信補寄 timer 與寄信時皆同步寫入);未知值退回已寄出。 */
+function statusOf(l: { status: string }): DeliveryKey {
+  return (STATUS_KEYS as readonly string[]).includes(l.status) ? (l.status as DeliveryKey) : 'sent';
 }
 
 export default async function EmailLogPage({
@@ -52,16 +52,14 @@ export default async function EmailLogPage({
   const user = session!.user;
 
   const kind = searchParams.kind && kindLabel[searchParams.kind] ? searchParams.kind : null;
-  const status = (['sent', 'failed', 'simulated', 'skipped'] as const).includes(
-    searchParams.status as DeliveryKey,
-  )
+  const status = (STATUS_KEYS as readonly string[]).includes(searchParams.status ?? '')
     ? (searchParams.status as DeliveryKey)
     : null;
   const q = (searchParams.q ?? '').trim();
 
   const where = {
     ...(kind ? { kind } : {}),
-    ...(status ? { context: { contains: `"delivery":"${status}"` } } : {}),
+    ...(status ? { status } : {}),
     ...(q
       ? {
           OR: [
@@ -76,13 +74,9 @@ export default async function EmailLogPage({
   const [logs, orgs, totals] = await Promise.all([
     prisma.emailLog.findMany({ where, orderBy: { sentAt: 'desc' }, take: 200 }),
     prisma.organization.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    Promise.all(
-      (['sent', 'failed', 'simulated', 'skipped'] as const).map((s) =>
-        prisma.emailLog.count({ where: { context: { contains: `"delivery":"${s}"` } } }),
-      ),
-    ),
+    Promise.all(STATUS_KEYS.map((s) => prisma.emailLog.count({ where: { status: s } }))),
   ]);
-  const [sentCount, failedCount, simulatedCount, skippedCount] = totals;
+  const [sentCount, failedCount, simulatedCount, skippedCount, deadCount] = totals;
 
   const qs = (over: Record<string, string | null>) => {
     const p = new URLSearchParams();
@@ -101,7 +95,7 @@ export default async function EmailLogPage({
         <h1 className="text-headline text-on-surface">Email</h1>
         <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
           寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
-          失敗的信可在下方逐封重寄。
+          寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
         </p>
       </header>
 
@@ -125,6 +119,11 @@ export default async function EmailLogPage({
           {skippedCount > 0 && (
             <FilterChipLink href={qs({ status: 'skipped' })} selected={status === 'skipped'}>
               已去重 <FilterChipCount selected={status === 'skipped'}>{skippedCount}</FilterChipCount>
+            </FilterChipLink>
+          )}
+          {deadCount > 0 && (
+            <FilterChipLink href={qs({ status: 'dead-letter' })} selected={status === 'dead-letter'}>
+              死信 <FilterChipCount selected={status === 'dead-letter'}>{deadCount}</FilterChipCount>
             </FilterChipLink>
           )}
         </div>
@@ -175,7 +174,8 @@ export default async function EmailLogPage({
             <tbody>
               {logs.map((l) => {
                 const k = kindLabel[l.kind] ?? kindLabel.other;
-                const d = deliveryMeta[deliveryOf(l.context)];
+                const s = statusOf(l);
+                const d = deliveryMeta[s];
                 return (
                   <Tr key={l.id} hover={false} className="align-top">
                     <Td className="text-caption text-on-surface-variant tabular-nums whitespace-nowrap">
@@ -185,7 +185,12 @@ export default async function EmailLogPage({
                       <Chip size="sm" tone={k.tone}>{k.label}</Chip>
                     </Td>
                     <Td>
-                      <Chip size="sm" tone={d.tone} dot>{d.label}</Chip>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Chip size="sm" tone={d.tone} dot>{d.label}</Chip>
+                        {l.retryCount > 0 && (
+                          <span className="text-caption text-on-surface-variant tabular-nums">已重試 {l.retryCount} 次</span>
+                        )}
+                      </div>
                     </Td>
                     <Td>
                       <div className="font-medium">{l.toName ?? '—'}</div>
@@ -199,7 +204,7 @@ export default async function EmailLogPage({
                       </details>
                     </Td>
                     <Td className="text-right">
-                      {deliveryOf(l.context) === 'failed' && <ResendButton logId={l.id} />}
+                      {(s === 'failed' || s === 'dead-letter') && <ResendButton logId={l.id} />}
                     </Td>
                   </Tr>
                 );

@@ -6,9 +6,10 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ClipboardCheck, Paperclip } from '@/components/icons';
+import { ClipboardCheck } from '@/components/icons';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
@@ -47,6 +48,10 @@ export default async function ReviewPage({
     session.user.role === 'AUDITOR' &&
     !cycle.assignments.some((a) => a.auditorId === session.user.id)
   ) {
+    redirect('/dashboard');
+  }
+  // 委員一律於週期進入「資料齊備」後才可審閱機關檢核表(開立中/資料準備中不開放)
+  if (session.user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
   }
 
@@ -129,7 +134,7 @@ export default async function ReviewPage({
       <header className="mb-5">
         <h1 className="text-headline text-on-surface">委員審閱</h1>
         <p className="text-body-sm text-on-surface-variant mt-1 leading-relaxed">
-          逐題檢視機關說明與佐證,於每題下方留意見;完成後可退回補正或維持送審。
+          逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心(是否退回重填由中心決定)。
         </p>
         <p className="text-body-sm text-on-surface-variant mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -188,7 +193,7 @@ export default async function ReviewPage({
           <EmptyState
             icon={<ClipboardCheck size={28} />}
             title="機關尚未開始填答"
-            description="等受稽機關至少完成一題後，才能在此留下委員意見。"
+            description="等機關至少完成一題後，才能在此留下委員意見。"
           />
         </Card>
       ) : (
@@ -246,16 +251,12 @@ export default async function ReviewPage({
                             <ul className="space-y-1">
                               {evidenceByResponse.get(r.id)!.map((e) => (
                                 <li key={e.id}>
-                                  <a
-                                    href={`/api/evidences/${e.id}/download?inline=1`}
-                                    target="_blank"
-                                    rel="noopener"
-                                    className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm"
-                                  >
-                                    <Paperclip size={14} className="shrink-0" />
-                                    <span className="truncate">{e.originalName}</span>
-                                    <span className="text-caption text-on-surface-variant tabular-nums shrink-0">({Math.max(1, Math.round(e.sizeBytes / 1024))} KB)</span>
-                                  </a>
+                                  <ProtectedFileLink
+                                    fileId={e.id}
+                                    name={e.originalName}
+                                    sizeKB={Math.max(1, Math.round(e.sizeBytes / 1024))}
+                                    viewOnly={session.user.role === 'AUDITOR'}
+                                  />
                                 </li>
                               ))}
                             </ul>
@@ -266,7 +267,7 @@ export default async function ReviewPage({
                         {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
                           <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                              法規對照(稽核依據・稽核重點・佐證資料)
+                              法規對照(稽核依據・稽核重點・應備文件)
                             </summary>
                             <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
                               <LawPanel

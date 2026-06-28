@@ -13,7 +13,7 @@ import { Send } from '@/components/icons';
 type Org = { id: string; name: string };
 
 const DEFAULT_SUBJECT = '[MOECISH] 資通安全稽核改善情形追蹤提醒';
-const DEFAULT_BODY = `{{orgName}} 資安窗口您好，
+const DEFAULT_BODY = `{{orgName}} 機關管理員您好，
 
 提醒貴機關之資通安全稽核矯正措施尚有未完成項目，
 請於期限內登入系統完成填報與佐證上傳：

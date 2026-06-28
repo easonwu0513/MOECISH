@@ -1,13 +1,15 @@
 import { prisma } from '@/lib/db';
 import { DIMENSION_LABELS } from '@/lib/dimension';
+import { fmtROCDateTime } from '@/lib/date';
+import { Check, AlertTriangle } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   type DeficiencyAspect,
   type Dimension,
 } from '@/lib/types';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
-  computeDimStats, gradeOf,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
+  computeDimStats, gradeOf, compareChecklistRef,
 } from '@/lib/audit-score';
 import {
   makeDefaultReportData,
@@ -81,6 +83,12 @@ export function buildReportData(data: AuditReportData): ReportData {
       duplicateAcknowledged: true,
     });
   }
+  // 各類別/各區段內依「對應項次」自然排序,確保預覽與列印的項次順序一致(法遵/待改善/建議各自排序)
+  for (const cat of Object.keys(findings) as Category[]) {
+    for (const sec of Object.keys(findings[cat]) as SectionKey[]) {
+      findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
+    }
+  }
 
   return {
     ...base,
@@ -114,8 +122,8 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   const scoreOf = (auditorId: string, dim: Dimension): number | null =>
     data.auditScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
   const totalOf = (auditorId: string): number | null => {
-    const mine = data.auditScores.filter((s) => s.auditorId === auditorId);
-    return mine.length > 0 ? mine.reduce((a, s) => a + s.score, 0) : null;
+    const mine = data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null);
+    return mine.length > 0 ? mine.reduce((a, s) => a + (s.score ?? 0), 0) : null;
   };
   const avgOf = (dim: Dimension): number | null => {
     const vals = auditors.map((a) => scoreOf(a.id, dim)).filter((v): v is number => v !== null);
@@ -133,7 +141,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
   const TOTAL_DIMS = ASPECTS.reduce((n, a) => n + ASPECT_DIMENSIONS[a].length, 0);
   const filledOf = (auditorId: string): number =>
-    data.auditScores.filter((s) => s.auditorId === auditorId).length;
+    data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
 
   return (
     <div className="overflow-x-auto rounded-md border border-outline-variant/60">
@@ -168,7 +176,8 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
                     </td>
                   )}
                   <td className="px-3 py-2.5 text-on-surface">
-                    {DIMENSION_NUM[dim]}、{DIMENSION_LABELS[dim]}
+                    {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
+                    {DIMENSION_LABELS[dim]}
                     <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]})</span>
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.total}</td>
@@ -213,5 +222,54 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * 委員「確認填寫完畢/解除鎖定」事件(讀稽核軌跡)。供中心在彙整報告同步看到狀態異動,
+ * 不必依賴 email(避免漏看)。以本週期 assignment ids 過濾。
+ */
+export async function loadAuditorStateChanges(assignmentIds: string[]) {
+  if (assignmentIds.length === 0) return [];
+  return prisma.auditLog.findMany({
+    where: {
+      entityType: 'AuditorAssignment',
+      entityId: { in: assignmentIds },
+      action: { in: ['audit.score.lock', 'audit.score.unlock'] },
+    },
+    include: { actor: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  });
+}
+
+type StateChange = Awaited<ReturnType<typeof loadAuditorStateChanges>>[number];
+
+export function AuditorStateChangeLog({ events }: { events: StateChange[] }) {
+  if (events.length === 0) {
+    return <p className="text-body-sm text-on-surface-variant">尚無委員「確認填寫完畢 / 解除鎖定」紀錄。</p>;
+  }
+  return (
+    <ul className="space-y-2">
+      {events.map((e) => {
+        let locked = false;
+        try { locked = JSON.parse(e.afterJson ?? '{}').locked === true; } catch { /* 容錯 */ }
+        return (
+          <li
+            key={e.id}
+            className={`flex items-start gap-2.5 rounded-md border px-3 py-2 text-body-sm ${
+              locked ? 'border-primary-200 bg-primary-50 text-primary-800' : 'border-warning-200 bg-warning-50 text-warning-800'
+            }`}
+          >
+            <span className="mt-0.5 shrink-0">{locked ? <Check size={15} /> : <AlertTriangle size={15} />}</span>
+            <div className="min-w-0">
+              <span className="font-medium text-on-surface">{e.actor?.name ?? '稽核委員'}</span>
+              {locked ? ' 已確認填寫完畢(評分與發現定稿)' : ' 解除鎖定 — 內容可能已異動,請複核'}
+              <span className="block text-caption text-on-surface-variant tabular-nums">{fmtROCDateTime(e.createdAt)}</span>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

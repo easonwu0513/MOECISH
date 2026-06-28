@@ -2,8 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle } from '@/lib/types';
 import { AppShell } from '@/components/shell/AppShell';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import PrepBoard from './PrepBoard';
 
@@ -18,7 +19,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   });
   if (!cycle) notFound();
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員:未指派或週期仍開立中(DRAFT) → 導回(對齊 access-policy 'cycle.access')
+  if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
   const requirements = await prisma.prepRequirement.findMany({
     where: { cycleId: cycle.id },
@@ -39,15 +41,19 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const isAuditor = user.role === 'AUDITOR';
   const visibleRequirements = isAuditor
     ? requirements.filter(
-        (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id)),
+        (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id), cycle.status),
       )
-    : requirements;
+    : user.role === 'ORG_ADMIN'
+      ? requirements.filter((r) => r.category !== 'CENTER') // 中心匯入區僅供委員審閱,機關不顯示
+      : requirements;
   const visibleSubIds = new Set(visibleRequirements.map((r) => r.submission?.id).filter(Boolean));
   const files = allFiles.filter((f) => visibleSubIds.has(f.targetId));
 
   const yearROC = cycle.year - 1911;
-  const total = requirements.length;
-  const confirmed = requirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 機關管理員只負責機關區(技術檢測 / 實地稽核);中心匯入由中心經手,不計入機關的「已確認齊備 X/Y」分母。
+  const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
+  const total = countReqs.length;
+  const confirmed = countReqs.filter((r) => r.submission?.status === 'CONFIRMED').length;
 
   return (
     <AppShell
@@ -61,6 +67,11 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         { label: '稽核前資料準備' },
       ]}
     >
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="繳交後於工作台確認齊備、查看下一步"
+      />
       <header className="mb-6">
         <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
         <p className="mt-1 text-body-sm text-on-surface-variant">
@@ -70,7 +81,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         {isAuditor
           ? total > 0 && (
               <p className="mt-3 text-caption text-on-surface-variant">
-                僅顯示中心已確認齊備、開放委員檢視之資料(目前 {confirmed} / {total} 項已確認)。
+                僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
               </p>
             )
           : total > 0 && (
@@ -85,7 +96,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
       {isAuditor && visibleRequirements.length === 0 ? (
         <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
-          中心尚未確認齊備任何資料,暫無可檢視項目。待中心逐項確認齊備後即會開放於此。
+          目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
         </div>
       ) : (
       <PrepBoard

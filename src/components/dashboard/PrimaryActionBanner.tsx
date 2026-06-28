@@ -1,17 +1,16 @@
-import Link from 'next/link';
-import { ChevronRight } from '../icons';
 import type { NextAction } from '@/lib/process-guide';
+import { PrimaryActionCta } from './PrimaryActionCta';
 
 /**
- * 「你現在唯一該做的事」主行動橫幅。
+ * 「建議的下一步」主行動橫幅。
  * 輕盈版(減法):淺藍底白卡 + 深色動作大字 + 單一 primary 按鈕,以「唯一填色 CTA + 眉標 + 位置」鎖定焦點,
  * 不用整塊飽和深藍(避免色調過重),保留舒適呼吸感。直取 process-guide 的 nextActionForRole 輸出。
  */
 export function PrimaryActionBanner({
   next,
-  eyebrow = '你現在唯一該做的事',
+  eyebrow = '建議的下一步',
   subtext,
-  doneText = '本週期已結案,全部流程完成。',
+  doneText = '目前沒有待辦事項,一切都在進度上。',
   className = '',
 }: {
   next: NextAction;
@@ -39,13 +38,11 @@ export function PrimaryActionBanner({
           {subtext && <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{subtext}</p>}
         </div>
         {hasCta && (
-          <Link
+          <PrimaryActionCta
             href={next.href!}
+            label={next.cta!}
             className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-primary-600 px-5 min-h-11 text-label-lg font-medium text-white hover:bg-primary-700 transition-colors focus-ring"
-          >
-            {next.cta}
-            <ChevronRight size={18} />
-          </Link>
+          />
         )}
       </div>
     </section>

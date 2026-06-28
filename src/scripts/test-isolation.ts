@@ -213,7 +213,7 @@ async function main() {
   console.log('\n── 陽性對照(測試方法有效性)──');
   await expectAllowed('A管理員 匯出自家檢核表', jarA, 'GET', `/api/cycles/${cycleA.id}/export/checklist`);
   await expectAllowed('A管理員 填自家檢核表', jarA, 'PUT', itemPath(cycleA.id), putBody);
-  await expectAllowed('指派委員Y 匯出A檢核表', jarY, 'GET', `/api/cycles/${cycleA.id}/export/checklist`);
+  // 委員於資料準備中(PREPARATION)不可見機關檢核表 → 改至下方「委員階段可見性閘」驗證
 
   console.log('\n── 跨機關隔離(B 帳號 → A 資源)──');
   await expectStatus('B管理員 填A檢核表', jarB, 'PUT', itemPath(cycleA.id), [403], putBody);
@@ -268,9 +268,15 @@ async function main() {
 
   console.log('\n── 委員意見跨機關隔離 ──');
   const cmtBody = { content: '隔離測試委員意見內容' };
-  await expectAllowed('指派委員Y 對A回應留言', jarY, 'POST', `/api/responses/${respA.id}/comments`, cmtBody);
+  // cycleA 為資料準備中(PREPARATION):委員此階段一律不可審閱機關檢核表/留言(見下方階段閘)
+  await expectStatus('指派委員Y 對A回應留言(資料準備中未開放)', jarY, 'POST', `/api/responses/${respA.id}/comments`, [403], cmtBody);
   await expectStatus('未指派委員X 對A回應留言', jarX, 'POST', `/api/responses/${respA.id}/comments`, [403], cmtBody);
   await expectStatus('B管理員 對A回應留言(非委員)', jarB, 'POST', `/api/responses/${respA.id}/comments`, [403], cmtBody);
+
+  console.log('\n── 委員階段可見性閘(資料準備中不可見機關檢核表)──');
+  await expectStatus('指派委員Y 資料準備中匯出A檢核表', jarY, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [403]);
+  await expectStatus('指派委員Y 資料準備中開A檢核表頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/checklist`, REDIRECTED);
+  await expectStatus('指派委員Y 資料準備中開A審閱頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/review`, REDIRECTED);
 
   console.log('\n[isolation] 清理夾具…');
   await cleanup();

@@ -4,16 +4,13 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { notifyCycleOrgAdmins } from '@/lib/notify';
-import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({
   organizationId: z.string().min(1),
   year: z.number().int().min(1900).max(9999),
   checklistVersionId: z.string().min(1),
-  dueDate: z.string().min(1),
+  dueDate: z.string().optional(), // 矯正填報截止:可不填,實地稽核/發文後再設
   startDate: z.string().optional(),
-  notify: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -38,7 +35,7 @@ export async function POST(req: Request) {
         year: body.year,
         checklistVersionId: body.checklistVersionId,
         startDate: body.startDate ? new Date(body.startDate) : new Date(),
-        dueDate: new Date(body.dueDate),
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         status: 'DRAFT',
       },
     });
@@ -53,14 +50,7 @@ export async function POST(req: Request) {
       ...meta,
     });
 
-    if (body.notify) {
-      await notifyCycleOrgAdmins({
-        cycleId: cycle.id,
-        triggeredById: user.id,
-        appBaseUrl: appBaseUrl(req),
-      });
-    }
-
+    // 通知機關已移至週期頁「通知機關」按鈕(中心設定好日期、確認時程後再正式通知)。
     return NextResponse.json(cycle);
   } catch (e) {
     return errorResponse(e);

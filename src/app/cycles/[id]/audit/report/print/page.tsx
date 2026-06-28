@@ -12,16 +12,12 @@ export default async function AuditReportPrintPage({ params }: { params: { id: s
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/report/print`);
   const user = session.user;
+  // 彙整報告為中心(最高管理員)專用;機關回週期、委員回自己的評分頁(與 report 頁一致)
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
+  if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);
 
   const data = await loadAuditReport(params.id);
   if (!data) notFound();
-  if (
-    user.role === 'AUDITOR' &&
-    !data.assignments.some((a) => a.auditor.id === user.id)
-  ) {
-    redirect('/dashboard');
-  }
 
   const report = buildReportData(data);
 

@@ -11,7 +11,7 @@ import { TOAST } from '@/lib/copy';
 
 /** 退回理由常用片語(點擊附加到意見欄) */
 const RETURN_PHRASES = [
-  '佐證文件不足,請補附執行紀錄或畫面截圖',
+  '佐證文件不足，請補附執行紀錄或畫面截圖',
   '根因分析未對應缺失內容,請重新檢視',
   '改善時程過長,請重新評估並說明理由',
 ];
@@ -27,11 +27,14 @@ export default function ReviewPanel({
   round,
   nextHref,
   remaining,
+  backHref,
 }: {
   deficiencyId: string;
   round: number;
   nextHref?: string | null;
   remaining?: number;
+  /** 無下一筆待審時審完跳回的「缺失與矯正」總覽 */
+  backHref?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -74,6 +77,10 @@ export default function ReviewPanel({
     setComment('');
     if (nextHref) {
       router.push(nextHref);
+      router.refresh();
+    } else if (backHref) {
+      // 已審完最後一筆 → 回缺失與矯正總覽,讓委員確知本週期已無待審
+      router.push(backHref);
       router.refresh();
     } else {
       router.refresh();

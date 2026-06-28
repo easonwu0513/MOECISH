@@ -5,7 +5,8 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { Button } from '@/components/ui/Button';
 import { FileText } from '@/components/icons';
-import { computeDimStats } from '@/lib/audit-score';
+import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
+import { auditorCanScore, type DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
 
 /**
@@ -34,8 +35,18 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
 
   const isAssigned = cycle.assignments.some((a) => a.auditorId === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
+  // 委員「實地稽核評分與發現」於進入「實地稽核(ONSITE)」階段後才開放;資料準備/齊備階段尚不評分
+  if (user.role === 'AUDITOR' && !auditorCanScore(cycle.status)) redirect('/dashboard');
 
-  const canEdit = user.role === 'AUDITOR' && isAssigned && cycle.status !== 'CLOSED';
+  // 委員「確認填寫完畢」鎖定後唯讀;解除鎖定方可再編輯(會通知中心)
+  const myAssignment = cycle.assignments.find((a) => a.auditorId === user.id);
+  const locked = Boolean(myAssignment?.scoreLockedAt);
+
+  // 指派負責構面(三構面四類):評分頁聚焦用。未指定 = 全構面。
+  const myDims = parseAssignDimensions(myAssignment?.dimensions);
+  const assignedLabels = myDims.map((d) => ASSIGN_ASPECT_LABELS[d]);
+  const focusAspects = Array.from(new Set(myDims.map((d) => ASSIGN_TO_ASPECT[d]))) as DeficiencyAspect[];
+  const canEdit = user.role === 'AUDITOR' && isAssigned && cycle.status !== 'CLOSED' && !locked;
 
   // 各構面檢核統計(自動帶入評分表)
   const stats = computeDimStats(cycle.checklistVersion.items, cycle.responses);
@@ -84,6 +95,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
         { label: '實地稽核' },
       ]}
+      watermark
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -92,22 +104,20 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
             {cycle.organization.name} · {cycle.year - 1911} 年度 ·{' '}
             {user.role === 'AUDITOR'
               ? canEdit
-                ? '填寫您個人的評分與稽核發現;檢核統計由機關填報自動帶入'
-                : '已結案,唯讀'
+                ? '填寫您個人的評分、檢核結果數量與稽核發現;機關自評僅供參考'
+                : locked
+                  ? '您已確認填寫完畢、目前鎖定中;如需修改請按「解除鎖定」'
+                  : '已結案,唯讀'
               : '管理員檢視(評分與發現由各委員填寫)'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/cycles/${cycle.id}/audit/print`} target="_blank" rel="noopener">
             <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              {user.role === 'AUDITOR' ? '列印我的評分表(附件17)' : '列印各委員評分表'}
+              列印我的評分表(附件17)
             </Button>
           </Link>
-          <Link href={`/cycles/${cycle.id}/audit/report`}>
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              彙整報告
-            </Button>
-          </Link>
+          {/* 「彙整報告」為中心(最高管理員)用的全體委員整合視圖,委員端不顯示 */}
         </div>
       </header>
 
@@ -115,18 +125,27 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         <AuditPad
           cycleId={cycle.id}
           canEdit={canEdit}
+          locked={locked}
           stats={stats}
           itemRefs={cycle.checklistVersion.items.map((i) => i.itemNo)}
           itemContent={itemContent}
           dimIssues={dimIssues}
+          assignedLabels={assignedLabels}
+          focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
+          initialCounts={Object.fromEntries(
+            myScores.map((s) => [
+              s.dimension,
+              { c1: s.cntComply, c2: s.cntPartial, c3: s.cntNonComply, c4: s.cntNa },
+            ]),
+          )}
           initialFindings={findings}
         />
       ) : (
         <div className="rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-5">
           <p className="text-body-sm text-on-surface-variant leading-relaxed">
             評分與發現由受指派之稽核委員登入填寫;請用右上角「彙整報告」即時檢視全體委員的整合結果、列印,
-            並一鍵將待改善/建議事項轉入缺失管考。
+            並一鍵將待改善事項與建議事項轉入缺失管考。
           </p>
         </div>
       )}

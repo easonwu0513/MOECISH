@@ -11,9 +11,10 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Segmented } from '@/components/ui/Segmented';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Paperclip, Check, AlertCircle, FileText, X } from '@/components/icons';
+import { Plus, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, prepOrgCanEdit, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
@@ -65,8 +66,29 @@ export default function PrepBoard({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // 委員一律在週期進入「資料齊備」後才看得到中心匯入;準備中按「開放委員檢視」僅先標記,屆時才對委員生效
+  const centerReleaseEffective = !prepCyclePhaseOpen(cycleStatus);
   const [busy, setBusy] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
+
+  // 中心對受稽機關催繳該區應備資料(人工點擊;寄信給機關管理員)
+  async function remind(cat: PrepCategory) {
+    setReminding(cat);
+    const res = await fetch(`/api/cycles/${cycleId}/prep/remind`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category: cat }),
+    }).catch(() => null);
+    setReminding(null);
+    if (res && res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.success('已寄出催繳通知', j.sent ? `已通知 ${j.sent} 位機關管理員` : undefined);
+    } else {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+    }
+  }
 
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -77,13 +99,17 @@ export default function PrepBoard({
   const [returnNote, setReturnNote] = useState('');
   const [reasonFor, setReasonFor] = useState<string | null>(null);
   const [reasonText, setReasonText] = useState('');
-  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitPending, setSubmitPending] = useState<PrepCategory | null>(null);
   const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
-  const orgCanEdit = isOrg && (cycleStatus === 'PREPARATION' || cycleStatus === 'DRAFT');
+  // 機關上傳/填說明僅限「資料準備中」;開立中(DRAFT)尚不可,避免階段混亂
+  const orgCanEdit = isOrg && prepOrgCanEdit(cycleStatus);
+  // 開立中(DRAFT):資料準備尚未對機關開放(中心仍在設定需求/匯入);機關區項目的狀態徽章與提示
+  // 需明示「尚未開放此階段」而非「尚未處理」——機關與中心兩端皆然(中心此時也尚不能審核機關繳交)。
+  const phaseNotOpen = cycleStatus === 'DRAFT';
   const adminCanReview = isAdmin && cycleStatus === 'PREPARATION';
   const adminCanImport = isAdmin && cycleStatus !== 'CLOSED'; // 中心匯入區可上傳
 
@@ -98,15 +124,22 @@ export default function PrepBoard({
   };
   // 確定繳交僅涵蓋機關區(技術檢測 / 實地稽核);中心匯入區由中心上傳
   const mechItems = initialItems.filter((it) => catOf(it) !== 'CENTER');
-  const requiredUnaddressed = mechItems.filter((it) => it.required && !addressedOf(it));
-  const draftCount = mechItems.filter((it) => {
-    const s = it.submission?.status;
-    return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
-  }).length;
-  const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
 
   const dueOf = (cat: PrepCategory): string | null =>
     cat === 'TECH' ? prepDueTechISO : cat === 'ONSITE' ? prepDueOnsiteISO : null;
+
+  // 分類繳交:技術檢測 / 實地稽核 截止日不同,可各自獨立繳交(取代原本整批 canSubmit/draftCount)
+  const orgCats: PrepCategory[] = ['TECH', 'ONSITE'];
+  const catState = (cat: PrepCategory) => {
+    const items = mechItems.filter((it) => catOf(it) === cat);
+    const requiredUnaddressed = items.filter((it) => it.required && !addressedOf(it));
+    const draftCount = items.filter((it) => {
+      const s = it.submission?.status;
+      return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
+    }).length;
+    const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
+    return { items, requiredUnaddressed, draftCount, canSubmit };
+  };
 
   async function applyStandard() {
     setBusy(true);
@@ -241,14 +274,18 @@ export default function PrepBoard({
     }
   }
 
-  async function submitAll() {
+  async function submitCat(cat: PrepCategory) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/cycles/${cycleId}/prep/submit`, { method: 'POST' });
+      const res = await fetch(`/api/cycles/${cycleId}/prep/submit`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ category: cat }),
+      });
       const j = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast.success('已確定繳交', `${j.submitted} 項已送交中心審核`);
-        setSubmitOpen(false);
+        toast.success('已確定繳交', `${PREP_CATEGORY_LABELS[cat]} ${j.submitted} 項已送交中心審核`);
+        setSubmitPending(null);
         router.refresh();
       } else {
         toast.error('繳交失敗', j.error);
@@ -302,6 +339,29 @@ export default function PrepBoard({
     }
   }
 
+  // 中心匯入區:中心「開放委員檢視 / 收回」(釋出前委員看不到/載不到)
+  async function releaseCenter(subId: string, release: boolean) {
+    setBusyItemId(subId);
+    try {
+      const res = await fetch(`/api/prep-submissions/${subId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: release ? 'CONFIRMED' : 'EMPTY' }),
+      });
+      if (res.ok) {
+        toast.success(release ? (centerReleaseEffective ? '已開放委員檢視' : '已標記開放(資料齊備階段後對委員生效)') : '已收回(暫不開放委員)');
+        router.refresh();
+      } else {
+        const j = await res.json().catch(() => ({ error: '失敗' }));
+        toast.error('操作失敗', j.error);
+      }
+    } catch {
+      toast.error('操作失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
   function renderItem(item: Item, idx: number) {
     const sub = item.submission;
     const files = filesOf(sub?.id);
@@ -328,11 +388,17 @@ export default function PrepBoard({
                 <p className="text-title text-on-surface">{item.title}</p>
                 {!item.required && !isCenter && <Chip tone="neutral" size="sm">選附</Chip>}
                 {isCenter ? (
-                  <Chip tone={files.length > 0 ? 'primary' : 'neutral'} size="sm" dot>
-                    {files.length > 0 ? '已匯入' : '中心待匯入'}
+                  <Chip
+                    tone={status === 'CONFIRMED' ? 'success' : files.length > 0 ? 'warning' : 'neutral'}
+                    size="sm"
+                    dot
+                  >
+                    {status === 'CONFIRMED' ? (centerReleaseEffective ? '已開放委員檢視' : '已開放,資料齊備後生效') : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
                   </Chip>
                 ) : (
-                  <Chip tone={statusTone(status)} size="sm" dot>{PREP_STATUS_LABELS[status]}</Chip>
+                  <Chip tone={phaseNotOpen && status === 'EMPTY' ? 'neutral' : statusTone(status)} size="sm" dot>
+                    {phaseNotOpen && status === 'EMPTY' ? '尚未開放此階段' : PREP_STATUS_LABELS[status]}
+                  </Chip>
                 )}
               </div>
               {item.description && (
@@ -351,15 +417,15 @@ export default function PrepBoard({
                 </p>
               )}
 
-              {/* 無相關文件理由(僅機關區) */}
+              {/* 其他說明(僅機關區;不限「無相關文件」,任何補充說明皆可填) */}
               {!isCenter && sub && reasonFor === sub.id ? (
                 <div className="mt-3 flex flex-col gap-2">
                   <Textarea
-                    label="無相關文件說明"
+                    label="其他說明"
                     value={reasonText}
                     onChange={(e) => setReasonText(e.target.value)}
                     rows={2}
-                    placeholder="例:本機關無委外服務,故無委外管理相關文件…"
+                    placeholder="例:無相關文件說明(本機關無委外服務,故無委外管理相關文件…)"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" loading={busyItemId === sub.id} onClick={() => saveReason(sub.id, reasonText)}>儲存說明</Button>
@@ -369,7 +435,7 @@ export default function PrepBoard({
               ) : !isCenter && sub?.noFileReason ? (
                 <div className="mt-2 flex items-start gap-2 rounded-sm bg-surface-container text-on-surface-variant px-3 py-2 text-body-sm">
                   <FileText size={16} className="mt-0.5 shrink-0" />
-                  <span className="flex-1">無相關文件說明:{sub.noFileReason}</span>
+                  <span className="flex-1">其他說明:{sub.noFileReason}</span>
                   {orgItemEditable && (
                     <button
                       type="button"
@@ -385,16 +451,12 @@ export default function PrepBoard({
                 <ul className="mt-3 space-y-1">
                   {files.map((f) => (
                     <li key={f.id} className="flex items-center gap-2">
-                      <a
-                        className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                        href={`/api/evidences/${f.id}/download?inline=1`}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        <Paperclip size={14} />
-                        {f.originalName}
-                        <span className="text-caption text-on-surface-variant">({Math.round(f.sizeBytes / 1024)} KB)</span>
-                      </a>
+                      <ProtectedFileLink
+                        fileId={f.id}
+                        name={f.originalName}
+                        sizeKB={Math.round(f.sizeBytes / 1024)}
+                        viewOnly={role === 'AUDITOR'}
+                      />
                       {((orgItemEditable) || (isCenter && adminCanImport)) && (
                         <button
                           type="button"
@@ -422,14 +484,14 @@ export default function PrepBoard({
                       busy={busyItemId === sub.id}
                       onChange={(e) => upload(sub, e)}
                       multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                      accept={ORG_UPLOAD_ACCEPT}
                     />
                     {!sub.noFileReason && reasonFor !== sub.id && (
                       <Button size="sm" variant="text" onClick={() => { setReasonFor(sub.id); setReasonText(''); }}>
-                        無相關文件,敘述理由
+                        其他說明
                       </Button>
                     )}
-                    <span className="text-caption text-on-surface-variant">單檔 ≤ 20MB;PDF / 圖片上傳後會自動加機關浮水印</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
 
@@ -442,10 +504,22 @@ export default function PrepBoard({
                       busy={busyItemId === sub.id}
                       onChange={(e) => upload(sub, e, true)}
                       multiple
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                      accept={ORG_UPLOAD_ACCEPT}
                     />
-                    <span className="text-caption text-on-surface-variant">由中心上傳;上傳後委員即可審閱</span>
+                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
+                )}
+                {/* 中心匯入區:開放委員檢視 / 收回(釋出前委員看不到、載不到) */}
+                {isCenter && isAdmin && adminCanImport && sub && files.length > 0 && (
+                  status === 'CONFIRMED' ? (
+                    <Button size="sm" variant="text" onClick={() => releaseCenter(sub.id, false)} loading={busyItemId === sub.id}>
+                      收回(暫不開放委員)
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => releaseCenter(sub.id, true)} loading={busyItemId === sub.id}>
+                      開放委員檢視
+                    </Button>
+                  )
                 )}
                 {isCenter && !adminCanImport && files.length === 0 && (
                   <span className="text-caption text-on-surface-variant">
@@ -485,6 +559,19 @@ export default function PrepBoard({
 
   return (
     <div className="flex flex-col gap-4">
+      {phaseNotOpen && isOrg && (
+        <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
+          <span>此階段(開立中)尚未開放資料準備。待中心將週期推進至「資料準備中」後,即可上傳文件或敘明無相關文件並「確定繳交」。目前各項僅供檢視。</span>
+        </div>
+      )}
+      {phaseNotOpen && isAdmin && (
+        <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
+          <span>此階段(開立中)資料準備尚未對機關開放。您可先設定需求清單、匯入中心資料;待推進至「資料準備中」後,機關才能上傳並繳交、您才能逐項審核確認齊備。</span>
+        </div>
+      )}
+
       {isAdmin && (
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setAddOpen(true)} leadingIcon={<Plus size={15} />}>新增需求項</Button>
@@ -492,23 +579,36 @@ export default function PrepBoard({
         </div>
       )}
 
-      {/* 機關:確定繳交(僅機關區) */}
+      {/* 機關:分別確定繳交(技術檢測 / 實地稽核 截止日不同,可各自獨立繳交) */}
       {isOrg && cycleStatus === 'PREPARATION' && mechItems.length > 0 && (
         <Card padded={false} variant="filled">
-          <div className="p-4 flex items-center justify-between gap-4 flex-wrap">
-            <div className="min-w-0">
-              <p className="text-title text-on-surface">確定繳交</p>
-              <p className="mt-0.5 text-body-sm text-on-surface-variant leading-relaxed">
-                {requiredUnaddressed.length > 0
-                  ? `尚有 ${requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
-                  : draftCount > 0
-                    ? `${draftCount} 項待繳交(技術檢測 / 實地稽核區)。確定繳交後文件即鎖定送交中心審核,需中心退回才能再修改。`
-                    : '機關區已全部繳交,等待中心審核。'}
-              </p>
-            </div>
-            <Button size="sm" onClick={() => setSubmitOpen(true)} disabled={!canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
-              確定繳交{draftCount > 0 ? `(${draftCount})` : ''}
-            </Button>
+          <div className="p-4 flex flex-col divide-y divide-outline-variant/50">
+            {orgCats
+              .filter((cat) => mechItems.some((it) => catOf(it) === cat))
+              .map((cat) => {
+                const st = catState(cat);
+                const due = dueOf(cat);
+                return (
+                  <div key={cat} className="flex items-center justify-between gap-4 flex-wrap py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="text-title text-on-surface">
+                        {PREP_CATEGORY_LABELS[cat]}・確定繳交
+                        {due && <span className="ml-2 text-caption text-on-surface-variant">截止 {fmtROC(due)}</span>}
+                      </p>
+                      <p className="mt-0.5 text-body-sm text-on-surface-variant leading-relaxed">
+                        {st.requiredUnaddressed.length > 0
+                          ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
+                          : st.draftCount > 0
+                            ? `${st.draftCount} 項待繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
+                            : '本區已全部繳交,等待中心審核。'}
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={() => setSubmitPending(cat)} disabled={!st.canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
+                      確定繳交{st.draftCount > 0 ? `(${st.draftCount})` : ''}
+                    </Button>
+                  </div>
+                );
+              })}
           </div>
         </Card>
       )}
@@ -539,6 +639,17 @@ export default function PrepBoard({
                   ) : due ? (
                     <span className="text-caption text-on-surface-variant">繳交截止 {fmtROC(due)}</span>
                   ) : null}
+                  {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
+                  {isAdmin && cat !== 'CENTER' && (
+                    <Button
+                      size="sm"
+                      variant="text"
+                      loading={reminding === cat}
+                      onClick={() => remind(cat)}
+                    >
+                      催繳
+                    </Button>
+                  )}
                 </div>
                 <div className="flex flex-col gap-3">
                   {groupItems.map((item, i) => renderItem(item, i))}
@@ -605,14 +716,18 @@ export default function PrepBoard({
         loading={busyItemId !== null}
       />
 
-      {/* 確定繳交確認 */}
+      {/* 確定繳交確認(分類) */}
       <ConfirmDialog
-        open={submitOpen}
-        onOpenChange={(o) => !busy && !o && setSubmitOpen(false)}
+        open={submitPending !== null}
+        onOpenChange={(o) => !busy && !o && setSubmitPending(null)}
         title="確定繳交稽核前資料"
-        description={`將把機關區(技術檢測 / 實地稽核)${draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`}
+        description={
+          submitPending
+            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`
+            : ''
+        }
         confirmLabel="確定繳交"
-        onConfirm={submitAll}
+        onConfirm={() => { if (submitPending) return submitCat(submitPending); }}
         loading={busy}
       />
 

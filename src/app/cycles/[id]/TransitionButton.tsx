@@ -52,6 +52,10 @@ export default function TransitionButton({
     setOpen(false);
     setReason('');
     router.refresh();
+    // 進入資料齊備:轉換 API 已自動寄信並於站內通知受指派委員開始審閱(委員此時起可檢視機關資料)
+    if (!rollback && target === 'READY') {
+      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員,委員現在起可檢視機關檢核表與已齊備之資料');
+    }
   }
 
   if (rollback) {

@@ -75,8 +75,8 @@ export default function ReviewReopenBar({
             {reviewDone
               ? '中心已收到你完成審閱的通知。如需補充意見,可取消後再留言。'
               : openComments > 0
-                ? `已留 ${openComments} 題意見。逐題意見留妥後,按「意見填寫完成」通知中心彙整(退回重填由中心決定)。`
-                : '逐題意見留妥後,按「意見填寫完成」通知中心彙整(退回重填由中心決定)。'}
+                ? `已留 ${openComments} 題意見。逐題意見留妥後,按「意見填寫完成」通知中心;中心將審視意見並決定是否退回重填。`
+                : '逐題意見留妥後,按「意見填寫完成」通知中心;中心將審視意見並決定是否退回重填。'}
           </p>
         </div>
         {reviewDone ? (
@@ -95,7 +95,7 @@ export default function ReviewReopenBar({
         <div>
           <p className="text-title-md text-on-surface">退回重填</p>
           <p className="text-body-sm text-on-surface-variant mt-0.5">
-            委員意見彙整後,可整批退回請機關依各題意見補正重填(原因選填,委員各題意見即補正依據)。
+            彙整委員意見後,可退回請機關補正重填。退回原因會呈現給機關(機關看不到委員逐題意見),請於原因中載明需補正之處。
           </p>
         </div>
         <Button variant="warning" onClick={() => setOpen(true)} className="shrink-0">退回重填給機關</Button>
@@ -104,7 +104,7 @@ export default function ReviewReopenBar({
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
         title="退回重填給機關"
-        description="退回後機關即可再次編輯;委員各題意見會一併呈現給機關補正。"
+        description="退回後機關即可再次編輯;機關僅會看到下方填寫的退回原因(看不到委員逐題意見),請於原因載明補正方向。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
@@ -113,11 +113,11 @@ export default function ReviewReopenBar({
         }
       >
         <Textarea
-          label="退回原因(選填,機關會看到)"
+          label="退回原因(機關會看到;留空將以系統預設說明通知機關)"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={4}
-          placeholder="可留空。委員逐題意見即為補正依據;此處可補充整體說明。"
+          placeholder="請說明需要機關補正的事項或方向(機關僅能看到此退回原因,看不到委員逐題意見)。"
         />
       </Dialog>
     </>

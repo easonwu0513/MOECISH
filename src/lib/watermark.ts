@@ -82,19 +82,26 @@ async function watermarkPdf(buf: Buffer, wm: WatermarkText, font: Buffer): Promi
       ctx.save();
       ctx.translate(cw / 2, ch / 2);
       ctx.rotate((-30 * Math.PI) / 180);
+      ctx.textAlign = 'center'; // 以短語中心對齊格點,避免起首文字被畫布邊緣切掉
       const tw = ctx.measureText(wm.tile).width + tileFs * 4;
       const th = tileFs * 5.5;
-      const reach = Math.max(cw, ch);
-      for (let y = -reach; y < reach; y += th) {
-        for (let x = -reach; x < reach; x += tw) ctx.fillText(wm.tile, x, y);
+      // 涵蓋旋轉後完整外接框(+一格邊距使邊緣短語整段溢出),確保可見區一律是完整短語、無起首被裁
+      const rad = (30 * Math.PI) / 180;
+      const halfX = (cw * Math.cos(rad) + ch * Math.sin(rad)) / 2 + tw;
+      const halfY = (cw * Math.sin(rad) + ch * Math.cos(rad)) / 2 + th;
+      let row = 0;
+      for (let y = -halfY; y < halfY; y += th, row++) {
+        const offset = (row % 2) * (tw / 2); // 交錯半步,避免同一直行重複裁切同一處
+        for (let x = -halfX + offset; x < halfX; x += tw) ctx.fillText(wm.tile, x, y);
       }
       ctx.restore();
-      // 頁尾完整資訊
+      // 頁尾完整資訊(maxWidth 防長機關名溢出右緣)
       const footFs = Math.round(9 * scale);
       ctx.font = `${footFs}px MOECISHWM`;
       ctx.fillStyle = 'rgba(70,70,80,0.7)';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(wm.footer, 12 * scale, ch - 10 * scale);
+      ctx.textAlign = 'left';
+      ctx.fillText(wm.footer, 12 * scale, ch - 10 * scale, cw - 24 * scale);
       img = await pdf.embedPng(await c.encode('png'));
       cache.set(key, img);
     }
@@ -124,22 +131,28 @@ async function watermarkImage(buf: Buffer, mime: string, wm: WatermarkText, font
   ctx.save();
   ctx.translate(w / 2, h / 2);
   ctx.rotate((-30 * Math.PI) / 180);
+  ctx.textAlign = 'center'; // 中心對齊,避免起首文字被邊緣切掉
   const tw = ctx.measureText(wm.tile).width + tileFs * 3;
   const th = tileFs * 4.5;
-  const reach = Math.max(w, h);
-  for (let y = -reach; y < reach; y += th) {
-    for (let x = -reach; x < reach; x += tw) {
+  const rad = (30 * Math.PI) / 180;
+  const halfX = (w * Math.cos(rad) + h * Math.sin(rad)) / 2 + tw;
+  const halfY = (w * Math.sin(rad) + h * Math.cos(rad)) / 2 + th;
+  let row = 0;
+  for (let y = -halfY; y < halfY; y += th, row++) {
+    const offset = (row % 2) * (tw / 2);
+    for (let x = -halfX + offset; x < halfX; x += tw) {
       ctx.fillText(wm.tile, x, y);
     }
   }
   ctx.restore();
 
-  // 底部完整資訊(水平、清楚)
+  // 底部完整資訊(水平、清楚;maxWidth 防長機關名溢出)
   const footFs = Math.max(12, Math.round(Math.min(w, h) / 45));
   ctx.font = `${footFs}px MOECISHWM`;
   ctx.fillStyle = 'rgba(55,55,65,0.72)';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(wm.footer, 10, h - 8);
+  ctx.textAlign = 'left';
+  ctx.fillText(wm.footer, 10, h - 8, w - 20);
 
   if (mime === 'image/png') return Buffer.from(await c.encode('png'));
   if (mime === 'image/webp') return Buffer.from(await c.encode('webp', 90));

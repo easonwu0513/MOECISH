@@ -3,7 +3,8 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import type { Dimension } from '@/lib/types';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
+import { auditorCanViewChecklistContent, checklistOrgCanEdit, type Dimension } from '@/lib/types';
 import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
@@ -35,15 +36,17 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   ) {
     redirect('/dashboard');
   }
+  // 委員一律於週期進入「資料齊備」後才可檢視機關檢核表內容(開立中/資料準備中不開放)
+  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
+    redirect('/dashboard');
+  }
 
   const submitted = Boolean(cycle.checklistSubmittedAt);
-  const canEdit =
-    user.role === 'ORG_ADMIN' &&
-    (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') &&
-    !submitted;
-  const canSubmit =
-    user.role === 'ORG_ADMIN' &&
-    (cycle.status === 'DRAFT' || cycle.status === 'PREPARATION');
+  // 機關填報/送出僅限「資料準備中」;開立中(DRAFT)中心尚在設定,機關不可填(唯讀)
+  const canEdit = user.role === 'ORG_ADMIN' && checklistOrgCanEdit(cycle.status) && !submitted;
+  const canSubmit = user.role === 'ORG_ADMIN' && checklistOrgCanEdit(cycle.status);
+  // 開立中:機關尚不可填,顯示「尚未開放」提示(唯讀)
+  const orgPhaseNotOpen = user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT';
   // 退回重填改由中心(最高管理員)單一決定;委員逐題留意見並按「意見填寫完成」
   const canReopen = user.role === 'SUPER_ADMIN';
 
@@ -74,6 +77,9 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     if (n > 0) evidenceCountByItem[r.checklistItemId] = n;
   }
 
+  // 委員的檢核表審閱意見定位為「委員資料齊備後先行審閱的私人註記/筆記」,不開放受稽機關檢視;
+  // 對機關的正式回饋以實地稽核當天開立之「稽核發現/缺失」為準。故機關端一律不下發委員意見。
+  const hideAuditorComments = user.role === 'ORG_ADMIN';
   // 委員意見作者:僅委員/中心可見具名;受稽機關端不顯示作者(避免針對個別委員)
   const showAuthors = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
   const commentAuthorIds = showAuthors
@@ -93,14 +99,17 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     recordDocs: r.recordDocs,
     orgRevisionNote: r.orgRevisionNote,
     version: r.version,
-    comments: r.comments.map((c) => ({
-      id: c.id,
-      content: c.content,
-      round: c.round,
-      resolvedAt: c.resolvedAt,
-      createdAt: c.createdAt,
-      authorName: showAuthors ? (authorNameById[c.auditorId] ?? '委員') : null,
-    })),
+    // 機關端不下發委員審閱意見(私人註記);委員/中心可見
+    comments: hideAuditorComments
+      ? []
+      : r.comments.map((c) => ({
+          id: c.id,
+          content: c.content,
+          round: c.round,
+          resolvedAt: c.resolvedAt,
+          createdAt: c.createdAt,
+          authorName: showAuthors ? (authorNameById[c.auditorId] ?? '委員') : null,
+        })),
   }));
 
   return (
@@ -112,12 +121,18 @@ export default async function ChecklistPage({ params }: { params: { id: string }
         organizationName: user.organizationName,
       }}
       cycleId={cycle.id}
+      watermark
       crumbs={[
         { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
         { label: '檢核表填報' },
       ]}
     >
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="填報送出後,於工作台確認進度與下一步"
+      />
       <header className="mb-5">
         <h1 className="text-headline text-on-surface">資通安全檢核表填報</h1>
         <p className="text-body-sm text-on-surface-variant mt-1">
@@ -129,6 +144,12 @@ export default async function ChecklistPage({ params }: { params: { id: string }
               : '目前狀態為唯讀'}
         </p>
       </header>
+
+      {orgPhaseNotOpen && (
+        <div className="mb-5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          此階段(開立中)尚未開放檢核表填報。待中心將週期推進至「資料準備中」後,即可逐題填寫符合度、說明並上傳佐證。目前僅供檢視。
+        </div>
+      )}
 
       <ChecklistShell
         cycleId={cycle.id}

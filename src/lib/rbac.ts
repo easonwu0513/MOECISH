@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -39,6 +39,11 @@ export async function assertCycleAccess(cycleId: string) {
     case 'AUDITOR': {
       const assigned = cycle.assignments.some((a) => a.auditorId === user.id);
       if (!assigned) throw new AuthError(403, '您未被指派此稽核週期');
+      // 開立中(DRAFT)委員尚不可存取(中心仍在調整委員名單);PREPARATION 起才開放。
+      // 中心指派/抽換委員不經此閘(assignments API 為 SUPER_ADMIN-only、無階段限制)。
+      if (!auditorCanSeeCycle(cycle.status)) {
+        throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放委員存取');
+      }
       break;
     }
     case 'ORG_ADMIN':
@@ -48,6 +53,20 @@ export async function assertCycleAccess(cycleId: string) {
       break;
   }
   return { user, cycle };
+}
+
+/**
+ * 委員「確認填寫完畢」鎖定後,其評分/發現編輯一律擋下(防繞過 UI 直打 API)。
+ * SUPER_ADMIN 不受此限(管理員可覆核);僅對委員本人的鎖定生效。
+ */
+export async function assertAuditorScoreUnlocked(cycleId: string, auditorId: string) {
+  const a = await prisma.auditorAssignment.findUnique({
+    where: { cycleId_auditorId: { cycleId, auditorId } },
+    select: { scoreLockedAt: true },
+  });
+  if (a?.scoreLockedAt) {
+    throw new AuthError(409, '已確認填寫完畢,如需修改請先解除鎖定');
+  }
 }
 
 /**
@@ -135,8 +154,24 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
       select: { status: true, requirement: { select: { category: true } } },
     });
     const fileCount = await prisma.evidence.count({ where: { targetType: 'PREP_SUBMISSION', targetId } });
-    if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0)) {
+    if (!sub || !auditorCanSeePrep(sub.status, sub.requirement.category, fileCount > 0, cycle.status)) {
       throw new AuthError(403, '此資料尚未開放委員檢視');
+    }
+  }
+
+  // 機關檢核表佐證:委員一律於週期進入「資料齊備」後才可列出/下載(與 prep 同分界;擋 PREPARATION 直打 API 偷看)
+  if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
+    throw new AuthError(403, '資料準備階段尚未開放委員檢視機關檢核表佐證');
+  }
+
+  // 中心匯入區(CENTER)僅供委員審閱,受稽機關不可讀取/下載(後端權威阻擋,非僅畫面過濾)
+  if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
+    const sub = await prisma.prepSubmission.findUnique({
+      where: { id: targetId },
+      select: { requirement: { select: { category: true } } },
+    });
+    if (sub?.requirement.category === 'CENTER') {
+      throw new AuthError(403, '中心匯入區資料僅供委員審閱,機關無法存取');
     }
   }
 

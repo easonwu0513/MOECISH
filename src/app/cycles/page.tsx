@@ -12,12 +12,13 @@ import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
 import { fmtROC } from '@/lib/date';
+import { cn } from '@/lib/cn';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 
 // 委員/機關清單依登入者即時查詢(含新指派的週期),不可被靜態快取
 export const dynamic = 'force-dynamic';
 
-export default async function CyclesPage() {
+export default async function CyclesPage({ searchParams }: { searchParams: { year?: string } }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/cycles');
   const user = session.user;
@@ -26,7 +27,8 @@ export default async function CyclesPage() {
     user.role === 'ORG_ADMIN'
       ? { organizationId: user.organizationId ?? '__none__' }
       : user.role === 'AUDITOR'
-      ? { assignments: { some: { auditorId: user.id } } }
+      // 委員不顯示開立中(DRAFT)週期(對齊 access-policy 'cycle.access';dashboard 同步)
+      ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
       : {};
 
   const cycles = await prisma.auditCycle.findMany({
@@ -38,17 +40,42 @@ export default async function CyclesPage() {
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
 
+  // 年度做成頁籤分類(取代標題上的年度);民國年呈現
+  const years = [...new Set(cycles.map((c) => c.year))].sort((a, b) => b - a);
+  const selYear = searchParams.year && years.includes(Number(searchParams.year)) ? Number(searchParams.year) : null;
+  const shown = selYear ? cycles.filter((c) => c.year === selYear) : cycles;
+
+  const yearTab = (active: boolean) =>
+    cn(
+      'inline-flex items-center min-h-9 px-3.5 rounded-full text-label-lg focus-ring transition-colors tabular-nums',
+      active ? 'bg-primary-container text-on-primary-container font-medium' : 'text-on-surface-variant hover:bg-surface-container',
+    );
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '稽核週期' }]}
     >
-      <header className="mb-6 flex items-baseline justify-between">
+      <header className="mb-4 flex items-baseline justify-between">
         <h1 className="text-headline text-on-surface">稽核週期</h1>
-        <span className="text-caption text-on-surface-variant">共 {cycles.length} 筆</span>
+        <span className="text-caption text-on-surface-variant">共 {shown.length} 筆</span>
       </header>
 
-      {cycles.length === 0 ? (
+      {years.length > 0 && (
+        <div className="mb-6 flex items-center gap-2 flex-wrap">
+          <span className="text-caption text-on-surface-variant mr-0.5">年度</span>
+          <Link href="/cycles" aria-current={selYear === null ? 'page' : undefined} className={yearTab(selYear === null)}>
+            全部
+          </Link>
+          {years.map((y) => (
+            <Link key={y} href={`/cycles?year=${y}`} aria-current={selYear === y ? 'page' : undefined} className={yearTab(selYear === y)}>
+              {y - 1911}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {shown.length === 0 ? (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
             <EmptyState
@@ -60,19 +87,20 @@ export default async function CyclesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {cycles.map((c) => {
+          {shown.map((c) => {
             const total = c.deficiencies.length;
             const passed = c.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
+            const orgName = c.organization.shortName?.trim() || c.organization.name;
             return (
               <Link key={c.id} href={`/cycles/${c.id}`}>
                 <Card interactive variant="elevated">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div className="min-w-0">
-                      <p className="text-title text-on-surface truncate">
-                        {c.year - 1911} 年度 · {c.organization.name}
+                      <p className="text-title text-on-surface truncate" title={c.organization.name}>
+                        {orgName}
                       </p>
                       <p className="text-caption text-on-surface-variant mt-1">
-                        矯正截止 {fmtROC(c.dueDate)}
+                        {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">

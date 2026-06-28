@@ -96,10 +96,10 @@ async function refreshAccessToken(cache: TokenCache): Promise<TokenCache> {
   return next;
 }
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(forceRefresh = false): Promise<string> {
   let cache = await loadCache();
   if (!cache) throw new Error('Graph token 未初始化（請於伺服器執行 npm run graph:init）');
-  if (Date.now() >= cache.expires_at) {
+  if (forceRefresh || Date.now() >= cache.expires_at) {
     cache = await refreshAccessToken(cache);
   }
   return cache.access_token;
@@ -116,35 +116,58 @@ export async function keepAliveToken(): Promise<{ upn: string; expiresAt: number
   return { upn: next.upn ?? 'moecish@m365.ntu.edu.tw', expiresAt: next.expires_at };
 }
 
-/** 以登入帳號（moecish@）身分寄信。失敗丟出例外,由呼叫端決定降級策略。 */
+/** HTTP 層暫時性失敗的重試上限(含首次共 4 次);永久性 4xx(如 400 內容錯誤)不重試。 */
+const SEND_MAX_ATTEMPTS = 4;
+
+/**
+ * 以登入帳號（moecish@）身分寄信。
+ * 韌性:除既有網路層 fetchWithRetry 外,再對 HTTP 暫時性失敗退避重試 ——
+ *  - 401:token 在效期內被撤銷/提前失效 → 強制以 refresh_token 換新後重試(常見漏信主因);
+ *  - 429 / 5xx:節流或服務暫時不穩 → 尊重 Retry-After,否則指數退避 1s→2s→4s;
+ *  - 其他 4xx:永久性錯誤,立即丟出不重試。
+ * 全部嘗試仍失敗才丟例外,由呼叫端(sendEmail)記為 failed。
+ */
 export async function sendGraphMail(input: {
   to: string;
   toName?: string;
   subject: string;
   bodyText: string;
 }): Promise<void> {
-  const token = await getAccessToken();
-  const res = await fetchWithRetry('https://graph.microsoft.com/v1.0/me/sendMail', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
+  const payload = JSON.stringify({
+    message: {
+      subject: input.subject,
+      body: { contentType: 'Text', content: input.bodyText },
+      toRecipients: [
+        { emailAddress: { address: input.to, name: input.toName ?? undefined } },
+      ],
     },
-    body: JSON.stringify({
-      message: {
-        subject: input.subject,
-        body: { contentType: 'Text', content: input.bodyText },
-        toRecipients: [
-          { emailAddress: { address: input.to, name: input.toName ?? undefined } },
-        ],
-      },
-      saveToSentItems: true,
-    }),
+    saveToSentItems: true,
   });
-  if (!res.ok && res.status !== 202) {
+
+  let lastError = 'Graph sendMail failed';
+  let force401Refresh = false;
+  for (let attempt = 0; attempt < SEND_MAX_ATTEMPTS; attempt++) {
+    const token = await getAccessToken(force401Refresh);
+    const res = await fetchWithRetry('https://graph.microsoft.com/v1.0/me/sendMail', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: payload,
+    });
+    if (res.ok || res.status === 202) return; // 寄出成功
+
+    const status = res.status;
     const body = await res.text().catch(() => '');
-    throw new Error(`Graph sendMail failed (${res.status}): ${body.slice(0, 300)}`);
+    lastError = `Graph sendMail failed (${status}): ${body.slice(0, 300)}`;
+
+    const transient = status === 401 || status === 429 || status >= 500;
+    if (!transient || attempt === SEND_MAX_ATTEMPTS - 1) throw new Error(lastError);
+
+    force401Refresh = status === 401; // 下一輪強制換 token
+    const retryAfter = Number(res.headers.get('retry-after'));
+    const backoffMs = retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt;
+    await new Promise((r) => setTimeout(r, backoffMs));
   }
+  throw new Error(lastError);
 }
 
 export const graphMeta = { TENANT_ID, CLIENT_ID, TOKEN_FILE, SCOPE, TOKEN_ENDPOINT };

@@ -1,17 +1,23 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertCycleAccess } from '@/lib/rbac';
+import { assertCycleAccess, assertAuditorScoreUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DIMENSIONS } from '@/lib/types';
 import { DIMENSION_MAX_SCORE } from '@/lib/audit-score';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
+const cnt = z.number().int().min(0).max(999).nullable().optional();
 const Body = z.object({
   scores: z.array(
     z.object({
       dimension: z.enum(DIMENSIONS),
       score: z.number().int().min(0).nullable(),
+      // 委員手填之檢核結果數量(預設空白;不再自動帶機關自評)
+      cntComply: cnt,
+      cntPartial: cnt,
+      cntNonComply: cnt,
+      cntNa: cnt,
     }),
   ).min(1),
 });
@@ -26,6 +32,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '已結案的週期不可再評分' }, { status: 409 });
     }
+    await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下
 
     const body = Body.parse(await req.json());
     for (const s of body.scores) {
@@ -39,7 +46,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     for (const s of body.scores) {
-      if (s.score === null) {
+      const counts = {
+        cntComply: s.cntComply ?? null,
+        cntPartial: s.cntPartial ?? null,
+        cntNonComply: s.cntNonComply ?? null,
+        cntNa: s.cntNa ?? null,
+      };
+      // 該構面有評分或有任一檢核數量 → 保留;全空 → 刪除該列
+      const hasAny =
+        s.score !== null ||
+        counts.cntComply !== null || counts.cntPartial !== null ||
+        counts.cntNonComply !== null || counts.cntNa !== null;
+      if (!hasAny) {
         await prisma.auditScore.deleteMany({
           where: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension },
         });
@@ -50,8 +68,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
               cycleId: cycle.id, auditorId: user.id, dimension: s.dimension,
             },
           },
-          create: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension, score: s.score },
-          update: { score: s.score },
+          create: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension, score: s.score, ...counts },
+          update: { score: s.score, ...counts },
         });
       }
     }

@@ -24,6 +24,40 @@ export const ASPECT_DIMENSIONS: Record<DeficiencyAspect, Dimension[]> = {
   TECHNICAL: ['PROTECTION_CONTROL', 'SYSTEM_DEV', 'INCIDENT_RESPONSE'],
 };
 
+/**
+ * 委員指派負責構面(三構面四類):純指派標籤,用於指派時標記 + 評分頁聚焦,
+ * 不更動附件17 的 9 項評分結構。管理面(OT)併入管理面群組做聚焦。
+ */
+export const ASSIGN_ASPECTS = ['STRATEGY', 'MANAGEMENT', 'MANAGEMENT_OT', 'TECHNICAL'] as const;
+export type AssignAspect = (typeof ASSIGN_ASPECTS)[number];
+
+export const ASSIGN_ASPECT_LABELS: Record<AssignAspect, string> = {
+  STRATEGY: '策略面',
+  MANAGEMENT: '管理面',
+  MANAGEMENT_OT: '管理面(OT)',
+  TECHNICAL: '技術面',
+};
+
+/** 指派構面(4 類)→ 評分構面(3 aspect):OT 併入管理面,供評分頁聚焦對應 9 項群組 */
+export const ASSIGN_TO_ASPECT: Record<AssignAspect, DeficiencyAspect> = {
+  STRATEGY: 'STRATEGY',
+  MANAGEMENT: 'MANAGEMENT',
+  MANAGEMENT_OT: 'MANAGEMENT',
+  TECHNICAL: 'TECHNICAL',
+};
+
+/** 解析 AuditorAssignment.dimensions(JSON 字串)為有效的 AssignAspect 陣列 */
+export function parseAssignDimensions(raw: string | null | undefined): AssignAspect[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((x): x is AssignAspect => (ASSIGN_ASPECTS as readonly string[]).includes(x));
+  } catch {
+    return [];
+  }
+}
+
 export const DIMENSION_NUM: Record<Dimension, string> = {
   CORE_BUSINESS: '一',
   POLICY_ORG: '二',
@@ -80,10 +114,32 @@ export const FINDING_KIND_LABELS: Record<FindingKind, string> = {
 };
 
 export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
-  COMPLIANCE: '開立情境:優於法規要求',
-  IMPROVE: '開立情境:未辦理或未有效執行法規要求事項',
-  SUGGEST: '開立情境:無法規要求但存有資安風險疑慮',
+  COMPLIANCE: '符合且優於法規要求的良好實踐',
+  IMPROVE: '未辦理或未有效執行法規要求事項,需改善',
+  SUGGEST: '無法規要求但存有資安風險,建議改善',
 };
+
+/**
+ * 稽核發現「對應項次」排序鍵:把 "2.5"、"9.10" 解析為數字序列做自然排序
+ * (2.5 < 2.10 < 7.4);無項次或非數字者排最後。供發現清單與彙整報告/列印一致排序。
+ */
+export function checklistRefSortKey(ref: string | null | undefined): number[] {
+  const t = (ref ?? '').trim();
+  if (!t) return [Number.MAX_SAFE_INTEGER];
+  const parts = t.split('.').map((p) => parseInt(p, 10));
+  return parts.some((n) => Number.isNaN(n)) ? [Number.MAX_SAFE_INTEGER - 1] : parts;
+}
+
+export function compareChecklistRef(a: string | null | undefined, b: string | null | undefined): number {
+  const ka = checklistRefSortKey(a);
+  const kb = checklistRefSortKey(b);
+  const len = Math.max(ka.length, kb.length);
+  for (let i = 0; i < len; i++) {
+    const d = (ka[i] ?? -1) - (kb[i] ?? -1);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 

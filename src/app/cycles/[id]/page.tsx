@@ -8,16 +8,21 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
+import { toneClasses } from '@/lib/stage';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { fmtROC } from '@/lib/date';
 import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
+import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
+import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import type { CycleStatus, Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, type CycleStatus, type Role } from '@/lib/types';
+import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
+import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
@@ -43,7 +48,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   if (!cycle) notFound();
 
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
-  if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員:未指派 → 導回;開立中(DRAFT)亦不可見(中心仍在調整名單,PREPARATION 起才開放)
+  if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
   // 委員視角:本人於此週期的九構面評分進度(磚上徽章)
   const myScoreCount = user.role === 'AUDITOR'
@@ -86,8 +92,16 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       : next;
 
   // 模組卡狀態徽章(進度一目了然;僅用已查到的資料,不額外加查詢)
-  const prepTotal = cycle.prepRequirements.length;
-  const prepConfirmed = cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;中心/委員看全部
+  const prepTotal = user.role === 'ORG_ADMIN' ? facts.mechTotal : cycle.prepRequirements.length;
+  const prepConfirmed = user.role === 'ORG_ADMIN'
+    ? facts.mechConfirmed
+    : cycle.prepRequirements.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  // 進度讀數(退補/待繳/未處理)同樣 role-aware:機關只看機關區(mech*),中心看全部(prep*)。
+  // 週期頁大讀數卡與模組徽章共用同一組,避免機關看到含中心匯入的虛高數字(使用者反覆回報之點)。
+  const prepInsufficient = user.role === 'ORG_ADMIN' ? facts.mechInsufficient : facts.prepInsufficient;
+  const prepDraft = user.role === 'ORG_ADMIN' ? facts.mechDraft : facts.prepDraft;
+  const prepRemaining = user.role === 'ORG_ADMIN' ? facts.mechRemaining : facts.prepRemaining;
   const prepBadge = prepTotal > 0
     ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
     : undefined;
@@ -102,15 +116,35 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     : undefined;
 
   // 矯正截止壓力提示(僅矯正執行中且未全通過時;以本地日界計天數,與追蹤信一致)
-  const dueDay = new Date(cycle.dueDate); dueDay.setHours(0, 0, 0, 0);
+  const dueDay = cycle.dueDate ? new Date(cycle.dueDate) : null;
+  dueDay?.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const daysToDue = Math.round((dueDay.getTime() - today.getTime()) / 86400000);
-  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed;
+  const daysToDue = dueDay ? Math.round((dueDay.getTime() - today.getTime()) / 86400000) : 0;
+  const showDeadlineChip = cycle.status === 'REMEDIATION' && !facts.allPassed && !!cycle.dueDate;
   const deadlineChip = showDeadlineChip
     ? (facts.overdue
         ? <Chip tone="danger" size="sm" dot>已逾期 {Math.abs(daysToDue)} 天</Chip>
         : <Chip tone="warning" size="sm" dot>距截止剩 {daysToDue} 天</Chip>)
     : null;
+
+  // 是否已寄發「稽核作業通知」給機關(精靈開立中「通知機關」項自動完成判定;notify-open 留下的 EmailLog)
+  const orgNotified = (await prisma.emailLog.count({
+    where: { relatedCycleId: cycle.id, kind: 'cycle-notify', context: { contains: '"phase":"cycle-opened"' } },
+  })) > 0;
+  // 中心匯入區資料是否皆已上傳並「開放委員檢視」(CONFIRMED);無中心匯入項則視為完成(精靈「上傳中心匯入區資料」項判定)
+  const centerDataReleased = cycle.prepRequirements
+    .filter((r) => r.category === 'CENTER')
+    .every((r) => r.submission?.status === 'CONFIRMED');
+
+  // 引導式精靈(本週期各階段 checklist):中心看全部(含角色標籤)、機關/委員看自己角色 + 全體項。
+  const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
+  const journeyView = await loadJourney({
+    scope: 'CYCLE',
+    cycleId: cycle.id,
+    role: journeyRole,
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length, orgNotified, centerDataReleased },
+  });
+  const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
 
   return (
     <AppShell
@@ -124,13 +158,17 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     >
       {/* 身分帶(與儀表板同骨架,統一工作台頂部;大標降一級,讓主行動橫幅為唯一最大焦點) */}
       <h1 className="sr-only">{yearROC} 年度資通安全稽核 · {cycle.organization.name}</h1>
+      {/* 開立中設定的快捷錨點:精靈「建立/設定截止日」項目與「去設定」CTA 跳轉至此(編輯日期在身分帶) */}
+      <div id="setup" className="scroll-mt-24" aria-hidden />
       <IdentityBand
         avatar={cycle.organization.name.slice(0, 1)}
         title={`${yearROC} 年度資通安全稽核`}
         subtitle={
           <>
             {cycle.organization.name}
-            {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>} · 矯正截止 {fmtROC(cycle.dueDate)}
+            {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
+            {' · '}
+            {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日期尚未設定'}
           </>
         }
         roleChip={
@@ -140,19 +178,31 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         }
         right={
           user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' ? (
-            <EditCycleDialog
-              cycleId={cycle.id}
-              dueDate={cycle.dueDate.toISOString()}
-              prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
-              onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
-            />
+            <div className="flex items-center gap-1">
+              {/* 通知機關:開立中 / 資料準備中,中心設定好日期、確認時程後正式通知填報人 */}
+              {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
+                <NotifyOrgButton
+                  cycleId={cycle.id}
+                  orgName={cycle.organization.shortName ?? cycle.organization.name}
+                  datesConfirmed={Boolean(cycle.onsiteDate)}
+                />
+              )}
+              <EditCycleDialog
+                cycleId={cycle.id}
+                dueDate={cycle.dueDate?.toISOString() ?? ''}
+                prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+                prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
+                onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+              />
+            </div>
           ) : undefined
         }
         className="mb-4"
       />
       {deadlineChip && <div className="mb-5">{deadlineChip}</div>}
 
-      {/* 主行動橫幅:你現在唯一該做的事(③ 招牌元件,取代原本細條下一步) */}
+      {/* 主行動橫幅:建議的下一步(③ 招牌元件,取代原本細條下一步) */}
       <PrimaryActionBanner next={bannerNext} subtext={`${cycle.organization.name} · ${yearROC} 年度`} className="mb-5" />
 
       {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
@@ -161,30 +211,54 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         <StageFlowRail status={cycle.status as CycleStatus} />
       </section>
 
-      {/* 本階段進度讀數(資料準備中):把「還剩什麼」量化成讀數 */}
-      {cycle.status === 'PREPARATION' && (facts.prepTotal > 0 || facts.checklistTotal > 0) && (
+      {/* 引導式精靈:各階段該做什麼(可勾選、存檔;預設展開目前階段) */}
+      {journeyStages.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
+              引導式精靈 · 各階段任務
+              <span className="ml-2 normal-case tracking-normal text-on-surface-variant/80">依系統進度自動更新</span>
+            </p>
+            {journeyView && journeyView.total > 0 && (
+              <span className="text-caption text-on-surface-variant tabular-nums">
+                已完成 {journeyView.doneCount}/{journeyView.total}
+              </span>
+            )}
+          </div>
+          <JourneyChecklist
+            scope="CYCLE"
+            binding={{ cycleId: cycle.id }}
+            stages={journeyStages}
+            defaultOpenStageKey={cycle.status}
+            showRoleChips={user.role === 'SUPER_ADMIN'}
+          />
+        </section>
+      )}
+
+      {/* 本階段進度讀數(資料準備中):機關/中心關心的「還剩什麼」;委員此階段尚不可見機關資料,不顯示(避免退補/待繳/未處理誤導委員) */}
+      {cycle.status === 'PREPARATION' && user.role !== 'AUDITOR' && (prepTotal > 0 || facts.checklistTotal > 0) && (
         <section className="mb-8 grid gap-4 sm:grid-cols-2">
-          {facts.prepTotal > 0 && (
+          {prepTotal > 0 && (
             <Card className="flex items-center gap-4">
               <ProgressRing
-                value={facts.prepConfirmed}
-                max={facts.prepTotal}
+                value={prepConfirmed}
+                max={prepTotal}
                 size={76}
                 tone="primary"
-                label={`${facts.prepConfirmed}/${facts.prepTotal}`}
+                label={`${prepConfirmed}/${prepTotal}`}
                 sublabel="已齊備"
               />
               <div className="min-w-0">
-                <p className="text-title text-on-surface">稽核前資料準備</p>
+                <p className="text-title-md text-on-surface">稽核前資料準備</p>
                 <p className="mt-1 text-body-sm text-on-surface-variant">
-                  退補 {facts.prepInsufficient} · 待繳 {facts.prepDraft} · 未處理 {facts.prepRemaining}
+                  退補 {prepInsufficient} · 待繳 {prepDraft} · 未處理 {prepRemaining}
                 </p>
               </div>
             </Card>
           )}
           {facts.checklistTotal > 0 && (
             <Card>
-              <p className="text-title text-on-surface">資安自評檢核表</p>
+              <p className="text-title-md text-on-surface">資安自評檢核表</p>
               <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
                 {facts.checklistAnswered} / {facts.checklistTotal} 題已填{facts.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
               </p>
@@ -245,6 +319,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/prep`}
           badge={prepBadge}
           muted={!modActive.prep}
+          locked={
+            (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+            (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
+          }
+          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
         <ModuleTile
           icon={<ClipboardCheck size={22} />}
@@ -254,6 +333,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/checklist`}
           badge={checklistBadge}
           muted={!modActive.checklist}
+          locked={
+            (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+            (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
+          }
+          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
         {user.role !== 'ORG_ADMIN' && (
           <ModuleTile
@@ -264,6 +348,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             href={`/cycles/${cycle.id}/audit`}
             badge={auditBadge}
             muted={!modActive.audit}
+            locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
+            lockedHint="實地稽核階段開放"
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
@@ -274,6 +360,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
             href={`/cycles/${cycle.id}/review`}
             muted={!modActive.review}
+            locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
+            lockedHint="資料齊備後開放"
           />
         )}
         <ModuleTile
@@ -284,13 +372,19 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           href={`/cycles/${cycle.id}/deficiencies`}
           badge={defBadge}
           muted={!modActive.deficiencies}
+          locked={user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)}
+          lockedHint={user.role === 'ORG_ADMIN' ? '矯正執行階段開放填報' : '缺失發布後開放'}
         />
       </section>
 
-      {/* 用印報告(矯正執行中之後顯示):結案最後一哩,移到動線前段並就近提供下載 */}
-      {(cycle.status === 'REMEDIATION' || cycle.status === 'CLOSED') && (
+      {/* 用印報告(矯正執行中之後顯示;委員不參與用印掃描檔):可見性由 access-policy 單一政策決定 */}
+      {canAccess('signedReport.section', user.role as Role, cycle.status) && (
         <section id="signed-report" className="mb-6 scroll-mt-20">
-          <SignedReportPanel cycleId={cycle.id} role={user.role} />
+          <SignedReportPanel
+            cycleId={cycle.id}
+            role={user.role}
+            locked={cycle.status === 'CLOSED' || cycle.signedReports.some((r) => r.confirmedAt)}
+          />
         </section>
       )}
 
@@ -322,7 +416,8 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
               <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
             </span>
           )}
-          {cycle.checklistSubmittedAt ? (
+          {/* 委員不下載機關檢核表(審閱於系統內逐題進行;螢幕浮水印防外流);機關下載自家遞交版、中心下載工作底稿 */}
+          {user.role !== 'AUDITOR' && (cycle.checklistSubmittedAt ? (
             <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
               <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
             </a>
@@ -330,9 +425,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             <span title="檢核表送出後才能匯出遞交版">
               <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
             </span>
-          )}
-          {/* 工作底稿為稽核方內部用,機關端不顯示(避免「這顆是不是給我按的」猶豫) */}
-          {user.role !== 'ORG_ADMIN' && (
+          ))}
+          {/* 工作底稿僅中心(稽核方內部)使用;委員不下載、機關不顯示 */}
+          {user.role === 'SUPER_ADMIN' && (
             <a href={`/api/cycles/${cycle.id}/export/checklist`}>
               <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
             </a>
@@ -340,8 +435,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </div>
       </Card>
 
-      {/* SUPER_ADMIN:委員指派 */}
-      {user.role === 'SUPER_ADMIN' && <AssignAuditorsPanel cycleId={cycle.id} />}
+      {/* SUPER_ADMIN:委員指派(精靈「指派稽核委員」項目的跳轉錨點) */}
+      {user.role === 'SUPER_ADMIN' && (
+        <div id="assign-auditors" className="scroll-mt-24">
+          <AssignAuditorsPanel cycleId={cycle.id} />
+        </div>
+      )}
 
       {/* SUPER_ADMIN:管理動作(主行動橫幅的 #management 錨點目標) */}
       {user.role === 'SUPER_ADMIN' && (
@@ -375,6 +474,8 @@ function ModuleTile({
   href,
   badge,
   muted,
+  locked,
+  lockedHint,
 }: {
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
@@ -385,32 +486,41 @@ function ModuleTile({
   badge?: React.ReactNode;
   /** 非當前階段的入口降權(淡化但仍可點),讓「現在該做的」那張最突出 */
   muted?: boolean;
+  /** 鎖定:不可點(如委員於資料齊備前不可看機關檢核表),改顯示提示而非連結 */
+  locked?: boolean;
+  lockedHint?: string;
 }) {
   // 降權改用「色彩弱化」而非整塊半透明:文字維持全對比(無障礙),非當前階段只把圖示轉中性、卡底略沉
-  const iconBg = muted
+  const iconBg = muted || locked
     ? 'bg-surface-container-high text-on-surface-variant'
-    : {
-        primary: 'bg-primary-50 text-primary-700',
-        sage: 'bg-sage-50 text-sage-700',
-        neutral: 'bg-neutral-100 text-neutral-600',
-      }[tone];
+    : toneClasses(tone).iconBg;
 
+  const inner = (
+    <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
+      <div className="flex items-start gap-4">
+        <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-title-md text-on-surface">{title}</div>
+            {badge && <div className="shrink-0">{badge}</div>}
+          </div>
+          <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
+          {locked && lockedHint && (
+            <p className="mt-1.5 text-caption text-on-surface-variant">🔒 {lockedHint}</p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+
+  if (locked) {
+    return <div className="block h-full cursor-not-allowed" aria-disabled>{inner}</div>;
+  }
   return (
     <Link href={href} className="block h-full focus-ring rounded-lg">
-      <Card interactive className={`h-full ${muted ? 'bg-surface-container-low' : ''}`}>
-        <div className="flex items-start gap-4">
-          <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
-            {icon}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="text-title text-on-surface">{title}</div>
-              {badge && <div className="shrink-0">{badge}</div>}
-            </div>
-            <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
-          </div>
-        </div>
-      </Card>
+      {inner}
     </Link>
   );
 }

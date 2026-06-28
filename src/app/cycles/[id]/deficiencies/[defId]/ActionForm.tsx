@@ -13,7 +13,8 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { Check, AlertTriangle, Paperclip, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, type ActionStatus, type ExecStatus } from '@/lib/types';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
+import { EXEC_STATUSES, EXEC_STATUS_LABELS, ACTION_STATUS_LABELS, ORG_UPLOAD_ACCEPT, type ActionStatus, type ExecStatus } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { TOAST } from '@/lib/copy';
 
@@ -94,14 +95,20 @@ export default function ActionForm({
   deficiencyId,
   action,
   editable,
+  viewOnly,
   nextHref,
   remaining,
+  backHref,
 }: {
   deficiencyId: string;
   action: ActionData | null;
   editable: boolean;
+  /** 委員檢視機關佐證:view-only(禁右鍵/拖曳/下載) */
+  viewOnly: boolean;
   nextHref?: string | null;
   remaining?: number;
+  /** 無下一筆時送出後跳回的「缺失與矯正」總覽 */
+  backHref?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -261,6 +268,11 @@ export default function ActionForm({
     if (nextHref && remaining && remaining > 0) {
       toast.success(t.title, `還有 ${remaining} 筆待處理,已為你開啟下一筆。`);
       router.push(nextHref);
+      router.refresh();
+    } else if (backHref) {
+      // 已是最後一筆 → 回缺失與矯正總覽(不停在最後一張矯正單,讓使用者確知已填完)
+      toast.success(t.title, '已完成所有待處理的矯正單,已回到缺失與矯正總覽。');
+      router.push(backHref);
       router.refresh();
     } else {
       toast.success(t.title, t.description);
@@ -519,22 +531,13 @@ export default function ActionForm({
               ) : evidences.length === 0 ? (
                 <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-surface-container-low/50 px-3.5 py-2.5 text-body-sm text-on-surface-variant">
                   <Paperclip size={15} className="shrink-0 opacity-70" />
-                  尚未上傳佐證{editable ? ',可由下方按鈕新增' : ''}
+                  尚未上傳佐證{editable ? '，可使用下方按鈕新增' : ''}
                 </div>
               ) : (
                 <ul className="mb-2 space-y-1">
                   {evidences.map((f) => (
                     <li key={f.id} className="flex items-center gap-2">
-                      <a
-                        className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                        href={`/api/evidences/${f.id}/download?inline=1`}
-                        target="_blank"
-                        rel="noopener"
-                        title="圖片與 PDF 會在新分頁開啟預覽,其他格式直接下載"
-                      >
-                        <Paperclip size={14} />
-                        {f.originalName}
-                      </a>
+                      <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={viewOnly} />
                       {editable && (
                         <button
                           type="button"
@@ -557,10 +560,10 @@ export default function ActionForm({
                     busy={uploading}
                     onChange={upload}
                     multiple
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.png,.jpg,.jpeg,.gif,.webp,.zip"
+                    accept={ORG_UPLOAD_ACCEPT}
                   />
                   <p className="mt-1.5 text-caption text-on-surface-variant">
-                    單檔 ≤ 20MB;支援 PDF、Word/Excel/PPT、圖片、ZIP
+                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
                   </p>
                 </>
               )}

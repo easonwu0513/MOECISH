@@ -23,20 +23,16 @@ export default function CreateCycleButton({
   const [open, setOpen] = useState(false);
   const [versionId, setVersionId] = useState(versions[0]?.id ?? '');
   const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [dueDate, setDueDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 2);
-    return d.toISOString().slice(0, 10);
-  });
-  const [notify, setNotify] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function submit() {
-    if (!versionId || !year || !dueDate) {
+    if (!versionId || !year) {
       toast.error('請完整填寫');
       return;
     }
     setSaving(true);
+    // 各項日期不在建立時填(與「編輯週期日期」重複且不完整);建立後於週期頁設定。
+    // 通知機關亦移至週期頁(設定好日期後再按「通知機關」),避免在日期未定時就發出通知。
     const res = await fetch('/api/admin/cycles', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -44,8 +40,6 @@ export default function CreateCycleButton({
         organizationId: orgId,
         year: Number(year),
         checklistVersionId: versionId,
-        dueDate,
-        notify,
       }),
     });
     setSaving(false);
@@ -68,7 +62,7 @@ export default function CreateCycleButton({
         open={open}
         onOpenChange={(v) => !saving && setOpen(v)}
         title="建立稽核週期"
-        description={`為 ${orgName} 建立一份年度稽核週期。建立後可選擇是否立刻通知填報人。`}
+        description={`為 ${orgName} 建立一份年度稽核週期(狀態為開立中)。各項日期(文件繳交期限、實地稽核日、矯正填報截止)請於週期頁「編輯日期」設定;日期確認後,再於週期頁按「通知機關」正式通知填報人 / 主管。`}
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
@@ -90,21 +84,9 @@ export default function CreateCycleButton({
             value={year}
             onChange={(e) => setYear(e.target.value)}
           />
-          <TextField
-            label="填報截止日"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-          />
-          <label className="inline-flex items-center gap-2 text-body-sm text-on-surface cursor-pointer">
-            <input
-              type="checkbox"
-              checked={notify}
-              onChange={(e) => setNotify(e.target.checked)}
-              className="accent-primary-600"
-            />
-            建立後立刻通知該機關填報人 / 主管
-          </label>
+          <p className="text-caption text-on-surface-variant leading-relaxed">
+            建立後請至週期頁設定各項日期,確認時程後再按「通知機關」正式通知填報人 / 主管。
+          </p>
         </div>
       </Dialog>
     </>

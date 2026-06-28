@@ -14,17 +14,9 @@ import { EMPTY } from '@/lib/copy';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { DIMENSION_NUM, DIMENSION_MAX_SCORE, gradeOf, GRADE_TONE } from '@/lib/audit-score';
 import type { Dimension } from '@/lib/types';
+import { toneClasses } from '@/lib/stage';
 
 export const dynamic = 'force-dynamic';
-
-const TONE_BG: Record<string, string> = {
-  success: 'bg-success-50 text-success-700',
-  sage: 'bg-sage-50 text-sage-700',
-  warning: 'bg-warning-50 text-warning-700',
-  danger: 'bg-danger-50 text-danger-700',
-  neutral: 'text-on-surface-variant',
-  primary: 'bg-primary-50 text-primary-700',
-};
 
 /** 跨院/跨年度九構面評分比較(SUPER_ADMIN 唯讀):一眼看哪院、哪構面最弱。 */
 export default async function CrossOrgScoresPage({
@@ -49,8 +41,10 @@ export default async function CrossOrgScoresPage({
   const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
 
   // 每週期 × 構面:跨委員平均
-  const dimAvg = (scores: { dimension: string; score: number }[], dim: string): number | null => {
-    const vals = scores.filter((s) => s.dimension === dim).map((s) => s.score);
+  const dimAvg = (scores: { dimension: string; score: number | null }[], dim: string): number | null => {
+    const vals = scores
+      .filter((s) => s.dimension === dim && s.score !== null)
+      .map((s) => s.score as number);
     return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
   };
   const rows = cycles
@@ -131,7 +125,7 @@ export default async function CrossOrgScoresPage({
                       const dim = DIMENSION_ORDER[i] as Dimension;
                       const tone = v !== null ? GRADE_TONE[gradeOf(dim, Math.round(v))] : 'neutral';
                       return (
-                        <td key={dim} className={`px-2 py-2.5 text-center tabular-nums font-medium ${TONE_BG[tone] ?? ''}`}>
+                        <td key={dim} className={`px-2 py-2.5 text-center tabular-nums font-medium ${tone === 'neutral' ? 'text-on-surface-variant' : toneClasses(tone).iconBg}`}>
                           {v ?? '—'}
                         </td>
                       );

@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { useToast } from '@/components/ui/Toast';
 import { Paperclip, ChevronDown } from '@/components/icons';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, type ComplianceLevel } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
@@ -43,18 +44,35 @@ export default function ChecklistItemCard({
 }) {
   const router = useRouter();
   const toast = useToast();
+  // router.refresh() 會重繪伺服器樹,若上方有其他展開卡片會造成捲動錨點上跳(逐題填答很擾民)。
+  // 存檔後保留當前捲動位置,於重繪後數個影格內回復,消除「按符合/儲存時頁面往上跳」。
+  function refreshKeepScroll() {
+    const y = window.scrollY;
+    router.refresh();
+    const restore = () => window.scrollTo(0, y);
+    requestAnimationFrame(restore);
+    setTimeout(restore, 80);
+    setTimeout(restore, 220);
+  }
   const [compliance, setCompliance] = useState<ComplianceLevel | null>(
     (response?.compliance ?? null) as ComplianceLevel | null,
   );
   const [description, setDescription] = useState(response?.description ?? '');
   const [recordDocs, setRecordDocs] = useState(response?.recordDocs ?? '');
+  // 樂觀並行版號:以本地 state 追蹤,每次存檔成功即用伺服器回傳值更新。
+  // (原本固定讀 response?.version prop,存第二次時 prop 尚未經 router.refresh 更新 → 仍送舊版號 →
+  //  單一使用者也誤判「資料已被他人更新」409。改本地追蹤後連續存檔版號正確遞增。)
+  const [version, setVersion] = useState<number>(response?.version ?? 0);
+  useEffect(() => { setVersion((v) => Math.max(v, response?.version ?? 0)); }, [response?.version]);
+  // 批次標記(全標符合/未答全標不適用)或退回/他處刷新後,伺服器端符合度變動 → 同步本地顯示,
+  // 免使用者重新整理才看到結果(符合度由按鈕即時存檔,此同步不會吞掉編輯中的文字)。
+  useEffect(() => {
+    setCompliance((response?.compliance ?? null) as ComplianceLevel | null);
+  }, [response?.compliance]);
   const [textDirty, setTextDirty] = useState(false);
   const [saving, startSaving] = useTransition();
-  const unresolved = (response?.comments ?? []).filter((c) => !c.resolvedAt).length;
-  // 機關補正回應(針對委員意見的文字回應,與原填答區隔)
-  const [revText, setRevText] = useState(response?.orgRevisionNote ?? '');
-  const [revOpen, setRevOpen] = useState(false);
-  const [revSaving, setRevSaving] = useState(false);
+  // 委員意見為委員私人審閱筆記(機關端不可見、不於此回應);此計數供卡頭 Chip 顯示
+  const commentCount = (response?.comments ?? []).length;
 
   // Handle inline saved checkmark flash
   const [justSaved, setJustSaved] = useState(false);
@@ -86,7 +104,7 @@ export default function ChecklistItemCard({
           compliance: nextCompliance,
           description: nextDescription || null,
           recordDocs: nextRecordDocs || null,
-          version: response?.version ?? 0,
+          version,
         }),
       });
       if (!res.ok) {
@@ -94,11 +112,14 @@ export default function ChecklistItemCard({
         toast.error('儲存失敗', j.error);
         return;
       }
+      // 以伺服器回傳的新版號更新本地,確保下一次存檔送出正確版號(避免連續存檔誤判 409)
+      const saved = await res.json().catch(() => null);
+      if (saved && typeof saved.version === 'number') setVersion(saved.version);
       setTextDirty(false);
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
-      router.refresh();
+      refreshKeepScroll();
     });
   }
 
@@ -127,25 +148,6 @@ export default function ChecklistItemCard({
     }
   }
 
-  async function saveRevision() {
-    if (!response) return;
-    setRevSaving(true);
-    const res = await fetch(`/api/responses/${response.id}/revision`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ note: revText }),
-    });
-    setRevSaving(false);
-    if (res.ok) {
-      toast.success(revText.trim() ? '已儲存補正回應' : '已清除補正回應');
-      setRevOpen(false);
-      router.refresh();
-    } else {
-      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-      toast.error('儲存失敗', j.error);
-    }
-  }
-
   // keyboard 1/2/3/4:只作用在「聚焦中」的展開卡片
   // (原本只看 expanded — 多卡同時展開時按一次會全部一起改)
   useEffect(() => {
@@ -165,7 +167,7 @@ export default function ChecklistItemCard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, canEdit, focused, description, recordDocs]);
 
-  const tabs: Tab[] = [
+  const allTabs: Tab[] = [
     {
       id: 'answer',
       label: '填答',
@@ -187,7 +189,7 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="簡述規範內容、執行方式、執行結果"
+            label="機關說明(規範內容、執行方式、執行結果)"
             value={description}
             onChange={(e) => { setTextDirty(true); setDescription(e.target.value); scheduleSave(e.target.value, recordDocs); }}
             onBlur={autoSaveOnBlur}
@@ -234,7 +236,7 @@ export default function ChecklistItemCard({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-caption text-on-surface-variant">
-                    {c.authorName ? `${c.authorName} · ` : ''}第 {c.round} 輪 · {fmtROCDateTime(c.createdAt)}
+                    {c.authorName ? `${c.authorName} · ` : ''}{fmtROCDateTime(c.createdAt)}
                   </span>
                   {c.resolvedAt ? (
                     <Chip tone="success" size="sm">已補正</Chip>
@@ -248,46 +250,7 @@ export default function ChecklistItemCard({
               </div>
             ))
           )}
-          {userRole === 'ORG_ADMIN' && unresolved > 0 && !canEdit && (
-            <div className="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2 text-caption text-primary-800 leading-relaxed">
-              委員要求補正:可於下方填「機關補正回應」說明、並至本題「紀錄佐證」分頁補上佐證,完成後按上方「標記為已補正」。若需修改原作答(符合度/說明),請洽中心退回重填。
-            </div>
-          )}
-
-          {/* 機關補正回應(針對委員意見,與原填答區隔);有委員意見才出現 */}
-          {response && response.comments.length > 0 && (
-            <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-3">
-              {revOpen ? (
-                <div className="space-y-2">
-                  <Textarea
-                    label="機關補正回應(針對委員意見,與原填答區隔)"
-                    value={revText}
-                    onChange={(e) => setRevText(e.target.value)}
-                    rows={3}
-                    placeholder="說明已如何補正,或對委員意見的回應…"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" loading={revSaving} onClick={saveRevision}>儲存回應</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setRevOpen(false); setRevText(response.orgRevisionNote ?? ''); }}>取消</Button>
-                  </div>
-                </div>
-              ) : response.orgRevisionNote ? (
-                <div>
-                  <p className="text-caption font-medium text-primary-800 mb-1">機關補正回應</p>
-                  <p className="text-body-sm text-primary-900 whitespace-pre-wrap leading-relaxed">{response.orgRevisionNote}</p>
-                  {userRole === 'ORG_ADMIN' && (
-                    <button type="button" onClick={() => setRevOpen(true)} className="mt-1.5 text-caption text-primary-700 hover:underline focus-ring rounded-sm px-1">修改回應</button>
-                  )}
-                </div>
-              ) : userRole === 'ORG_ADMIN' ? (
-                <button type="button" onClick={() => setRevOpen(true)} className="text-body-sm text-primary-700 hover:underline focus-ring rounded-sm px-1">＋ 新增機關補正回應(文字)</button>
-              ) : (
-                <p className="text-caption text-on-surface-variant">機關尚未填寫補正回應。</p>
-              )}
-            </div>
-          )}
-
-          {/* 委員/中心可在此逐輪留意見(已補正後仍可續提,第 N 輪);需機關已作答(有 response) */}
+          {/* 委員/中心可在此留審閱意見(委員私人審閱筆記,機關端不可見);需機關已作答(有 response) */}
           {(userRole === 'AUDITOR' || userRole === 'SUPER_ADMIN') &&
             (response ? (
               <div className="pt-1">
@@ -310,13 +273,17 @@ export default function ChecklistItemCard({
           currentCompliance={compliance}
           currentDescription={description}
           currentRecordDocs={recordDocs}
-          currentVersion={response?.version ?? 0}
-          canEdit={canEdit || (userRole === 'ORG_ADMIN' && unresolved > 0)}
+          currentVersion={version}
+          onSaved={(v) => setVersion((cur) => Math.max(cur, v))}
+          canEdit={canEdit}
+          viewOnly={userRole === 'AUDITOR'}
           expectedEvidence={item.expectedEvidence}
         />
       ),
     },
   ];
+  // 委員審閱意見為委員私人註記,不開放受稽機關檢視 → 機關端隱藏「委員意見」分頁
+  const tabs = allTabs.filter((t) => !(t.id === 'comments' && userRole === 'ORG_ADMIN'));
 
   return (
     <div
@@ -356,8 +323,8 @@ export default function ChecklistItemCard({
             ) : (
               <Chip tone="neutral" size="sm">未作答</Chip>
             )}
-            {unresolved > 0 && (
-              <Chip tone="warning" size="sm">意見待補 {unresolved}</Chip>
+            {commentCount > 0 && (
+              <Chip tone="neutral" size="sm">委員意見 {commentCount}</Chip>
             )}
             {evidenceCount > 0 && (
               <span className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
@@ -420,7 +387,9 @@ function EvidenceBlock({
   currentDescription,
   currentRecordDocs,
   currentVersion,
+  onSaved,
   canEdit,
+  viewOnly,
   expectedEvidence,
 }: {
   cycleId: string;
@@ -430,7 +399,9 @@ function EvidenceBlock({
   currentDescription: string;
   currentRecordDocs: string;
   currentVersion: number;
+  onSaved?: (version: number) => void;
   canEdit: boolean;
+  viewOnly: boolean;
   expectedEvidence: string | null;
 }) {
   const toast = useToast();
@@ -466,6 +437,7 @@ function EvidenceBlock({
     }
     const saved = await res.json();
     setResponseId(saved.id);
+    if (typeof saved.version === 'number') onSaved?.(saved.version); // 同步版號回卡片,避免後續存檔 409
     return saved.id as string;
   }
 
@@ -516,19 +488,16 @@ function EvidenceBlock({
         <ul className="mb-3 space-y-1">
           {files.map((f) => (
             <li key={f.id}>
-              <a
-                className="inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline"
-                href={`/api/evidences/${f.id}/download`}
-              >
-                <Paperclip size={14} />
-                {f.originalName}
-              </a>
+              <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={viewOnly} />
             </li>
           ))}
         </ul>
       )}
       {canEdit && (
-        <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} />
+        <div>
+          <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} accept={ORG_UPLOAD_ACCEPT} />
+          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
+        </div>
       )}
     </div>
   );

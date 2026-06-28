@@ -9,7 +9,7 @@ import { appBaseUrl } from '@/lib/baseUrl';
 /**
  * 退回檢核表重填:由最高管理員(中心)操作。
  * 委員逐題留意見後按「意見填寫完成」通知中心;中心彙整後決定是否退回。
- * 退回原因「選填」(委員逐題意見即為理由);填了會寄給機關並顯示於填報頁。
+ * 退回原因「選填」(留空用系統預設說明);會寄給機關並顯示於填報頁 —— 機關看不到委員逐題意見,故補正方向須由此退回原因載明。
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -23,8 +23,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const body = await req.json().catch(() => ({}));
     const reason = String(body.reason ?? '').trim();
-    // 原因選填:留空時用預設句,DB 與通知信一致(避免信中出現空白「退回原因:」)
-    const note = reason || '請依各題委員意見補正後重新送出。';
+    // 原因選填:留空時用中性預設句(機關看不到委員意見,故不指涉「委員意見」),DB 與通知信一致
+    const note = reason || '請就檢核表填報內容重新檢視、補正後重新送出。';
 
     await prisma.auditCycle.update({
       where: { id: cycle.id },

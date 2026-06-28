@@ -26,7 +26,12 @@ async function loadCycle(id: string) {
 /** 檢核表匯出:?format=docx 出制式 Word(遞交格式),預設 Excel(工作底稿)。 */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { cycle } = await assertCycleAccess(params.id);
+    const { user, cycle } = await assertCycleAccess(params.id);
+    // 委員一律不可下載機關檢核表:委員之審閱定位為系統內逐題註記(/review),不另提供下載
+    // (螢幕浮水印防外流;下載將繞過該保護)。機關下載自家遞交版、中心下載工作底稿。
+    if (user.role === 'AUDITOR') {
+      return NextResponse.json({ error: '委員請於系統內逐題檢視與留審閱意見,不提供檢核表下載' }, { status: 403 });
+    }
     const data = await loadCycle(cycle.id);
     if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
 

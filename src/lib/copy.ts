@@ -21,7 +21,7 @@ export function greetingByHour(hour: number): string {
 export const EMPTY = {
   noCycles: {
     title: '目前還沒有稽核週期',
-    description: '等最高管理員開立稽核週期後，這裡就會顯示您的待辦。',
+    description: '待最高管理員開立稽核週期後，這裡就會顯示您的待辦。',
   },
   // 最高管理員視角:有開立權限者不應被叫「等別人」,給主動引導
   noCyclesAdmin: {

@@ -7,7 +7,6 @@ import { TextField } from '@/components/ui/TextField';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Tooltip } from '@/components/ui/Tooltip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
@@ -117,7 +116,7 @@ export default function ChecklistShell({
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('填報已送出', '稽核委員將收到通知信,內容已鎖定。');
+    toast.success('填報已送出', '已通知中心審核;內容已鎖定,如需修改請洽中心退回。');
     router.refresh();
   }
 
@@ -254,7 +253,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定、稽核委員會收到通知開始審閱;如需再修改,須由中心退回重填。確定送出?`}
+        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定;中心會收到通知進行審核,稽核委員待資料齊備後才檢視(不會立即收到通知)。如需再修改,須由中心退回重填。確定送出?`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}
@@ -313,9 +312,11 @@ export default function ChecklistShell({
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters（機關管理員不顯示「有意見待補」:填報階段不會事先有委員審核意見） */}
         <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="篩選題目">
-          {filterOptions.map((f) => (
+          {filterOptions
+            .filter((f) => !(f.key === 'comments' && userRole === 'ORG_ADMIN'))
+            .map((f) => (
             <FilterChipButton key={f.key} selected={filter === f.key} onClick={() => setFilter(f.key)}>
               {f.label}
             </FilterChipButton>
@@ -339,9 +340,6 @@ export default function ChecklistShell({
               完成送出
             </Button>
           )}
-          <Tooltip content="快捷鍵：j/k 移動聚焦 · Enter 展開 · 1-4 對聚焦題選符合度">
-            <span className="kbd">?</span>
-          </Tooltip>
         </div>
       </div>
 

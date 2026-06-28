@@ -11,11 +11,12 @@ export { PROCESS_STEPS, cycleStepIndex } from './stage';
 export type CycleFactsInput = {
   id: string;
   status: string;
-  dueDate: Date;
+  dueDate: Date | null;
   prepDueDate: Date | null;
+  prepDueTech: Date | null;
   onsiteDate: Date | null;
   deficiencies: { action: { status: string } | null }[];
-  prepRequirements: { submission: { status: string } | null }[];
+  prepRequirements: { category: string; submission: { status: string } | null }[];
   signedReports: { confirmedAt: Date | null }[];
   // 檢核表(87 題自評)— 選填;傳入才會納入「下一步」導引(救出原本隱形的填報死路)
   checklistSubmittedAt?: Date | null;
@@ -26,8 +27,9 @@ export type CycleFactsInput = {
 export type CycleFacts = {
   id: string;
   status: CycleStatus;
-  dueDate: Date;
+  dueDate: Date | null;
   prepDueDate: Date | null;
+  prepDueTech: Date | null;
   onsiteDate: Date | null;
   returned: number;
   submitted: number;
@@ -42,6 +44,16 @@ export type CycleFacts = {
   prepInsufficient: number; // 中心退回補正(INSUFFICIENT)
   prepRemaining: number; // 尚未處理(EMPTY / 未建)
   prepAllConfirmed: boolean;
+  // 機關區(技術檢測 / 實地稽核,非中心匯入)整體進度 — 精靈「全部完成」判定用(非「任一」)
+  mechAllAddressed: boolean;  // 全部已上傳/敘明理由(非 EMPTY)
+  mechAllSubmitted: boolean;  // 全部已確定繳交(SUBMITTED 或 CONFIRMED)
+  mechAllConfirmed: boolean;  // 全部經中心確認齊備(CONFIRMED)
+  // 機關區逐狀態計數 — 機關的儀表板/標頭只算自己的項目(扣除中心匯入)
+  mechTotal: number;
+  mechConfirmed: number;
+  mechInsufficient: number;
+  mechDraft: number;
+  mechRemaining: number;
   signedUploaded: boolean;
   signedConfirmed: boolean;
   overdue: boolean;
@@ -80,11 +92,23 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const prepInsufficient = prepStatus('INSUFFICIENT'); // 中心退回補正
   const prepRemaining = prepTotal - prepConfirmed - prepToConfirm - prepDraft - prepInsufficient; // EMPTY / 未建
   const prepAllConfirmed = prepTotal > 0 && prepConfirmed === prepTotal;
+  // 機關區(非 CENTER)逐階段「全部完成」判定:精靈「上傳/繳交/確認」項不應只看「任一項」
+  const mechStatuses = c.prepRequirements
+    .filter((r) => r.category !== 'CENTER')
+    .map((r) => r.submission?.status ?? 'EMPTY');
+  const mechAllAddressed = mechStatuses.length > 0 && mechStatuses.every((s) => s !== 'EMPTY');
+  const mechAllSubmitted = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'SUBMITTED' || s === 'CONFIRMED');
+  const mechAllConfirmed = mechStatuses.length > 0 && mechStatuses.every((s) => s === 'CONFIRMED');
+  const mechTotal = mechStatuses.length;
+  const mechConfirmed = mechStatuses.filter((s) => s === 'CONFIRMED').length;
+  const mechInsufficient = mechStatuses.filter((s) => s === 'INSUFFICIENT').length;
+  const mechDraft = mechStatuses.filter((s) => s === 'UPLOADED').length;
+  const mechRemaining = mechStatuses.filter((s) => s === 'EMPTY').length;
 
   const signedUploaded = c.signedReports.length > 0;
   const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
   const status = c.status as CycleStatus;
-  const overdue = status === 'REMEDIATION' && !allPassed && new Date(c.dueDate) < now;
+  const overdue = status === 'REMEDIATION' && !allPassed && !!c.dueDate && new Date(c.dueDate) < now;
 
   const checklistTotal = c.checklistVersion?._count?.items ?? 0;
   const checklistAnswered = (c.responses ?? []).filter((r) => r.compliance != null).length;
@@ -92,9 +116,11 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): Cy
   const checklistOpenComments = (c.responses ?? []).filter((r) => (r.comments?.length ?? 0) > 0).length;
 
   return {
-    id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, onsiteDate: c.onsiteDate,
+    id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, prepDueTech: c.prepDueTech, onsiteDate: c.onsiteDate,
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
+    mechAllAddressed, mechAllSubmitted, mechAllConfirmed,
+    mechTotal, mechConfirmed, mechInsufficient, mechDraft, mechRemaining,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
     checklistTotal, checklistAnswered, checklistSubmitted, checklistOpenComments,
@@ -112,7 +138,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (st === 'CLOSED') return null;
 
   if (role === 'SUPER_ADMIN') {
-    if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: base, cta: '去設定' };
+    if (st === 'DRAFT') return { text: '設定資料準備清單、指派委員後開始準備', href: `${base}#assign-auditors`, cta: '去設定' };
     if (st === 'PREPARATION') {
       if (f.prepAllConfirmed) return { text: '資料全數確認齊備,可安排實地稽核', href: base, cta: '去安排' };
       if (f.prepToConfirm > 0) return { text: `機關已繳交,待審核確認 ${f.prepToConfirm} 項`, href: `${base}/prep`, cta: '去審核' };
@@ -131,17 +157,25 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (role === 'ORG_ADMIN') {
     if (st === 'DRAFT') return { text: '中心開立中,暫無需處理' };
     if (st === 'PREPARATION') {
-      if (f.prepInsufficient > 0) return { text: `${f.prepInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
-      // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出
-      if (f.checklistTotal > 0 && !f.checklistSubmitted) return { text: `填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' };
-      if (f.prepRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.prepRemaining}/${f.prepTotal} 項)${prepDue ? `,截止 ${prepDue}` : ''}`, href: `${base}/prep`, cta: '去處理' };
-      if (f.prepDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
-      if (f.prepAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
+      // 機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;截止日分技術檢測與實地稽核兩條列出
+      const techDue = fmtMD(f.prepDueTech);
+      const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
+      if (f.mechInsufficient > 0) return { text: `${f.mechInsufficient} 項資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' };
+      // 87 題自評檢核表是機關最花時間的任務,先前完全不在「下一步」導引中(隱形死路)→ 未送出時明確帶出;
+      // 並一併帶出尚未處理的稽核前資料(機關區),讓機關一眼看到兩項平行任務(檢核表 + 應上傳資料)。
+      if (f.checklistTotal > 0 && !f.checklistSubmitted) {
+        const parts = [`填報資安檢核表(${f.checklistAnswered}/${f.checklistTotal} 題)`];
+        if (f.mechRemaining > 0) parts.push(`上傳稽核前資料(尚有 ${f.mechRemaining} 項)`);
+        return { text: parts.join('、'), href: `${base}/checklist`, cta: '去填報' };
+      }
+      if (f.mechRemaining > 0) return { text: `上傳或敘明稽核前資料(還有 ${f.mechRemaining} 項)${dueText ? `,${dueText}` : ''}`, href: `${base}/prep`, cta: '去處理' };
+      if (f.mechDraft > 0) return { text: '資料已齊,請按「確定繳交」送交中心審核', href: `${base}/prep`, cta: '去繳交' };
+      if (f.mechAllConfirmed) return { text: '資料已全數確認齊備,等待中心安排實地稽核', href: `${base}/prep`, cta: '查看' };
       return { text: '資料已繳交,等待中心確認', href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `資料齊備,等待實地稽核${onsite ? `(${onsite})` : ''}` };
     if (st === 'ONSITE') return { text: '實地稽核進行中,配合委員查核' };
-    if (st === 'REPORT_ISSUED') return { text: '缺失發布中,可先檢視內容', href: `${base}/deficiencies`, cta: '去檢視' };
+    if (st === 'REPORT_ISSUED') return { text: '缺失發布中,待中心通知後即可填報矯正措施' };
     // REMEDIATION
     if (f.returned > 0) return { text: `優先補正 ${f.returned} 項被退回的矯正措施`, href: `${base}/deficiencies?status=returned`, cta: '去補正' };
     if (f.toFill > 0) return { text: `填報 ${f.toFill} 項矯正措施${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '去填報' };
@@ -153,7 +187,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 
   // AUDITOR
   if (st === 'DRAFT') return { text: '週期開立中' };
-  if (st === 'PREPARATION') return { text: '資料準備中(由中心審核齊備),待實地稽核', href: `${base}/prep`, cta: '查看' };
+  if (st === 'PREPARATION') return { text: '資料準備中(中心審核齊備中);待週期進入資料齊備階段後可檢視資料' };
   if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
   if (st === 'ONSITE') {
     if (f.checklistSubmitted) {
@@ -177,7 +211,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
 /** 各角色在四個步驟分別要做的事(後台流程指引文案)。 */
 export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = {
   SUPER_ADMIN: [
-    '開立稽核週期、設定截止日並指派委員;機關確定繳交後,逐項確認資料齊備或退回補正。',
+    '開立稽核週期、設定截止日並指派委員;機關確定繳交後逐項確認齊備或退回補正,另可由中心匯入補充資料;全數齊備後使週期進入資料齊備階段。',
     '實地稽核當日留存查核紀錄;結束後彙整缺失內容。',
     '以表單或 Excel 發布稽核缺失;追蹤各機關填報進度、寄送追蹤信。',
     '委員全數審查通過後,確認機關用印報告並正式結案。',
@@ -189,7 +223,7 @@ export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = 
     '全數通過後列印改善報告,完成用印並上傳回傳中心。',
   ],
   AUDITOR: [
-    '資料準備由中心審核齊備;此階段可先熟悉受稽機關背景資料。',
+    '資料準備階段由中心逐項確認齊備;週期進入資料齊備階段後,委員可檢視已確認之資料並熟悉受稽機關背景。',
     '依排定日期到場實地查核。',
     '機關送審後逐項審查矯正措施,必要時退回補正(可多輪)。',
     '全數通過後,配合中心完成結案確認。',

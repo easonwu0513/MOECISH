@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Role } from '@/lib/types';
 import {
   LayoutDashboard, ClipboardCheck, Users, History, Briefcase,
-  FileText, Folder, Mail, Megaphone, BarChart,
+  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings,
 } from '../icons';
 
 /**
@@ -16,18 +16,20 @@ import {
  */
 
 export type NavIconKey =
-  | 'dashboard' | 'cycles' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'posts' | 'emails' | 'mergeTool' | 'auditLog';
+  | 'dashboard' | 'cycles' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
+  | 'checklists' | 'prepTemplate' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
   cycles: (s) => <ClipboardCheck size={s} />,
+  journey: (s) => <CheckCircle size={s} />,
   orgs: (s) => <Briefcase size={s} />,
   users: (s) => <Users size={s} />,
   crossCycles: (s) => <BarChart size={s} />,
   scores: (s) => <BarChart size={s} />,
   checklists: (s) => <FileText size={s} />,
   prepTemplate: (s) => <FileText size={s} />,
+  journeyEdit: (s) => <Settings size={s} />,
   posts: (s) => <Megaphone size={s} />,
   emails: (s) => <Mail size={s} />,
   mergeTool: (s) => <Folder size={s} />,
@@ -56,12 +58,14 @@ const ADMIN: Role[] = ['SUPER_ADMIN'];
 export const NAV_ROUTES: NavRoute[] = [
   { href: '/dashboard', label: '總覽',     allow: ALL, iconKey: 'dashboard', group: '',     cmdGroup: '導覽' },
   { href: '/cycles',    label: '稽核週期', allow: ALL, iconKey: 'cycles',    group: '稽核作業', cmdGroup: '導覽' },
+  { href: '/journey',   label: '引導式精靈', allow: ADMIN, iconKey: 'journey', group: '稽核作業', cmdGroup: '導覽' },
   { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '管理' },
   { href: '/admin/users',             label: '使用者管理',   allow: ADMIN, iconKey: 'users',       group: '管理' },
   { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '管理' },
   { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '管理' },
   { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '管理' },
   { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '管理' },
+  { href: '/admin/journey',           label: '精靈範本',     allow: ADMIN, iconKey: 'journeyEdit', group: '管理' },
   { href: '/admin/posts',             label: '公告管理',     allow: ADMIN, iconKey: 'posts',       group: '管理' },
   { href: '/admin/emails',            label: 'Email',        allow: ADMIN, iconKey: 'emails',      group: '管理' },
   { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '管理' },

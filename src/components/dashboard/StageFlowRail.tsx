@@ -24,7 +24,14 @@ const STAGE_ICON: Record<CycleStatus, ComponentType<{ size?: number }>> = {
 export function StageFlowRail({ status, className }: { status: CycleStatus; className?: string }) {
   const curIdx = CYCLE_STATUSES.indexOf(status);
   return (
-    <ol className={cn('flex items-start overflow-x-auto scrollbar-thin', className)} aria-label="稽核週期七階段流程">
+    <ol
+      className={cn(
+        'flex items-start overflow-x-auto scrollbar-thin',
+        '[mask-image:linear-gradient(to_right,transparent,#000_16px,#000_calc(100%-16px),transparent)] lg:[mask-image:none]',
+        className,
+      )}
+      aria-label="稽核週期七階段流程"
+    >
       {CYCLE_STATUSES.map((s, i) => {
         const state = i < curIdx ? 'done' : i === curIdx ? 'now' : 'todo';
         const Icon = state === 'done' ? Check : STAGE_ICON[s];

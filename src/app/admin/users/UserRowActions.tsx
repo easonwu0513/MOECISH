@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { ROLE_LABELS, type Role } from '@/lib/types';
 
@@ -29,13 +30,15 @@ export default function UserRowActions({
   const [toggleOpen, setToggleOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const [newRole, setNewRole] = useState<Role>(role);
+  const [reason, setReason] = useState('');
+  const [reasonErr, setReasonErr] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
   if (isSelf) {
     return <span className="text-caption text-on-surface-variant">本人</span>;
   }
 
-  async function patch(data: { isActive?: boolean; role?: Role }, okMsg: string) {
+  async function patch(data: { isActive?: boolean; role?: Role; reason?: string }, okMsg: string) {
     setSaving(true);
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: 'PATCH',
@@ -67,30 +70,59 @@ export default function UserRowActions({
           size="sm"
           variant="text"
           className={isActive ? 'text-danger-600' : 'text-success-700'}
-          onClick={() => setToggleOpen(true)}
+          onClick={() => { setReason(''); setReasonErr(undefined); setToggleOpen(true); }}
         >
           {isActive ? '停用' : '啟用'}
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={toggleOpen}
-        onOpenChange={(o) => !saving && setToggleOpen(o)}
-        title={isActive ? '停用帳號' : '啟用帳號'}
-        description={
-          isActive
-            ? `停用後「${name}」將無法登入系統;歷史紀錄保留。確定停用?`
-            : `確定重新啟用「${name}」的帳號?`
-        }
-        confirmLabel={isActive ? '停用' : '啟用'}
-        tone={isActive ? 'danger' : 'primary'}
-        onConfirm={async () => {
-          if (await patch({ isActive: !isActive }, isActive ? '已停用帳號' : '已啟用帳號')) {
-            setToggleOpen(false);
+      {isActive ? (
+        <Dialog
+          open={toggleOpen}
+          onOpenChange={(o) => !saving && setToggleOpen(o)}
+          title="停用帳號"
+          description={`停用後「${name}」將無法登入系統;歷史紀錄保留。權責分立要求須填寫停用理由,並留存操作者與時間。`}
+          footer={
+            <>
+              <Button variant="text" onClick={() => setToggleOpen(false)} disabled={saving}>取消</Button>
+              <Button
+                variant="danger"
+                loading={saving}
+                onClick={async () => {
+                  const r = reason.trim();
+                  if (!r) { setReasonErr('請填寫停用理由'); return; }
+                  if (await patch({ isActive: false, reason: r }, '已停用帳號')) setToggleOpen(false);
+                }}
+              >
+                停用
+              </Button>
+            </>
           }
-        }}
-        loading={saving}
-      />
+        >
+          <Textarea
+            label="停用理由"
+            placeholder="例:人員離職、職務調整、帳號疑似遭冒用…"
+            value={reason}
+            onChange={(e) => { setReason(e.target.value); if (reasonErr) setReasonErr(undefined); }}
+            errorText={reasonErr}
+            rows={3}
+            maxLength={500}
+          />
+        </Dialog>
+      ) : (
+        <ConfirmDialog
+          open={toggleOpen}
+          onOpenChange={(o) => !saving && setToggleOpen(o)}
+          title="啟用帳號"
+          description={`確定重新啟用「${name}」的帳號?`}
+          confirmLabel="啟用"
+          tone="primary"
+          onConfirm={async () => {
+            if (await patch({ isActive: true }, '已啟用帳號')) setToggleOpen(false);
+          }}
+          loading={saving}
+        />
+      )}
 
       <Dialog
         open={roleOpen}

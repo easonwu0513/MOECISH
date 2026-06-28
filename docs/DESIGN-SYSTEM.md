@@ -91,7 +91,7 @@
 | 元件 | 用途 |
 |---|---|
 | `IdentityBand` | 身分帶:頭像 + 姓名/問候 + 角色徽章 + 範圍 + 右側讀數;定位「我是誰、在哪、多少待辦」 |
-| `PrimaryActionBanner` | 「你現在唯一該做的事」深藍主行動橫幅,直接吃 `nextActionForRole` 的 `NextAction`;**全頁唯一飽和色**,自連本頁時不顯示 CTA |
+| `PrimaryActionBanner` | 「建議的下一步」主行動橫幅,直接吃 `nextActionForRole` 的 `NextAction`;**全頁唯一飽和色**,自連本頁時不顯示 CTA |
 | `StageFlowRail` | 7 階段引導流程帶(由 [lib/stage.ts](../src/lib/stage.ts) SoT 驅動);週期頁主視覺,取代 4 步 `CycleStepper`(儀表板卡片仍用精簡 4 步) |
 
 ### Button 變體(2026-06 統一,**只用這套詞彙**)

@@ -118,9 +118,23 @@ export default async function UsersPage() {
                   </Td>
                   <Td className="text-on-surface-variant">{u.organization?.name ?? '—'}</Td>
                   <Td>
-                    {u.isActive
-                      ? <Chip size="sm" tone="success">啟用</Chip>
-                      : <Chip size="sm" tone="neutral">停用</Chip>}
+                    {u.isActive ? (
+                      <Chip size="sm" tone="success">啟用</Chip>
+                    ) : (
+                      <div className="space-y-1">
+                        <Chip size="sm" tone="neutral">停用</Chip>
+                        {u.disableReason && (
+                          <p className="text-caption text-on-surface-variant max-w-[16rem] leading-snug">
+                            {u.disableReason}
+                            {u.disabledByName && (
+                              <span className="block text-on-surface-variant/70">
+                                — {u.disabledByName}{u.disabledAt ? ` · ${fmtROC(u.disabledAt)}` : ''}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </Td>
                   <Td className="text-right text-caption text-on-surface-variant tabular-nums">
                     {u.lastLoginAt ? fmtROCDateTime(u.lastLoginAt) : '尚未登入'}
