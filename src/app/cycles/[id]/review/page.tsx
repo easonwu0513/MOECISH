@@ -134,7 +134,7 @@ export default async function ReviewPage({
       <header className="mb-5">
         <h1 className="text-headline text-on-surface">委員審閱</h1>
         <p className="text-body-sm text-on-surface-variant mt-1 leading-relaxed">
-          逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心(是否退回重填由中心決定)。
+          逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心。
         </p>
         <p className="text-body-sm text-on-surface-variant mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -142,12 +142,13 @@ export default async function ReviewPage({
         </p>
       </header>
 
+      {/* 委員審閱為當天留存意見,不涉退回重填 → 此頁不提供退回(canReopen=false);僅顯示送出狀態 */}
       <SubmissionBanner
         cycleId={cycle.id}
         submittedAtISO={cycle.checklistSubmittedAt?.toISOString() ?? null}
         submittedBy={cycle.checklistSubmittedBy}
         reopenNote={null}
-        canReopen={session.user.role === 'SUPER_ADMIN'}
+        canReopen={false}
       />
 
       {/* 中心:委員審閱完成進度 */}
@@ -318,8 +319,8 @@ export default async function ReviewPage({
         ))
       )}
 
-      {/* 審閱收尾:已送出且尚未結案時,委員可整批退回補正(接 checklist/reopen) */}
-      {cycle.checklistSubmittedAt && cycle.status !== 'CLOSED' && (
+      {/* 審閱收尾:僅委員顯示「意見填寫完成」(通知中心);不提供退回重填 */}
+      {cycle.checklistSubmittedAt && cycle.status !== 'CLOSED' && session.user.role === 'AUDITOR' && (
         <ReviewReopenBar cycleId={cycle.id} role={session.user.role} openComments={withOpenComments} reviewDone={myReviewDone} />
       )}
     </AppShell>

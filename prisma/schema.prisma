@@ -215,6 +215,20 @@ model AuditFinding {
   @@index([cycleId, aspect, kind])
 }
 
+// 稽核發現「剪貼簿」片語庫(最高管理員維護;委員於實地稽核發現表單依構面/類型篩選後一鍵插入)
+// aspect/kind 留空("")= 通用,任何構面/類型皆會列出。
+model FindingSnippet {
+  id         String   @id @default(cuid())
+  aspect     String   @default("") // STRATEGY | MANAGEMENT | TECHNICAL | ""(通用)
+  kind       String   @default("") // COMPLIANCE | IMPROVE | SUGGEST | ""(通用)
+  text       String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([aspect, kind])
+}
+
 model AuditorAssignment {
   id        String   @id @default(cuid())
   cycleId   String

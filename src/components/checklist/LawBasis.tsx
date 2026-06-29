@@ -1,4 +1,5 @@
 import { cn } from '@/lib/cn';
+import { arabicizeLawRefs } from '@/lib/law-numerals';
 
 /**
  * 法規對照渲染:稽核依據(逐字法條)/ 稽核重點 / 佐證資料。
@@ -8,7 +9,7 @@ import { cn } from '@/lib/cn';
  * - 其他行原樣
  */
 export function LawBasisText({ text, className }: { text: string; className?: string }) {
-  const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+  const lines = arabicizeLawRefs(text).split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
   return (
     <div className={cn('space-y-1', className)}>
       {lines.map((line, i) => {
@@ -38,7 +39,7 @@ export function LawBasisText({ text, className }: { text: string; className?: st
 
 /** 編號清單(稽核重點/佐證資料):「1. …」逐行顯示。 */
 export function NumberedList({ text, className }: { text: string; className?: string }) {
-  const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+  const lines = arabicizeLawRefs(text).split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
   return (
     <ul className={cn('space-y-1.5', className)}>
       {lines.map((line, i) => (

@@ -6,12 +6,16 @@ import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Textarea } from '@/components/ui/Textarea';
 import { TextField } from '@/components/ui/TextField';
-import { ConfirmDialog } from '@/components/ui/Dialog';
+import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Check } from '@/components/icons';
+import { Plus, Check, FileText, ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { LawPanel } from '@/components/checklist/LawBasis';
+import {
+  snippetMatches, snippetAspectLabel, snippetKindLabel, type FindingSnippetDTO,
+} from '@/lib/finding-snippet';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   gradeOf, gradeHint, GRADE_TONE, compareChecklistRef,
@@ -37,6 +41,8 @@ export type MyFinding = {
   checklistRef: string | null;
   locked: boolean;
 };
+/** 項次 → 法規對照(供發現表單「法規對照」鈕展開) */
+export type ItemLaw = { auditBasis: string | null; auditFocus: string | null; expectedEvidence: string | null };
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const ALL_DIMS: Dimension[] = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
@@ -65,9 +71,11 @@ export default function AuditPad({
   stats,
   itemRefs,
   itemContent = {},
+  itemLaw = {},
   dimIssues = {},
   assignedLabels = [],
   focusAspects = [],
+  snippets = [],
   initialScores,
   initialCounts,
   initialFindings,
@@ -79,11 +87,15 @@ export default function AuditPad({
   stats: Record<string, DimStat>;
   itemRefs: string[];
   itemContent?: Record<string, string>;
+  /** 項次 → 法規對照(發現表單「法規對照」鈕用) */
+  itemLaw?: Record<string, ItemLaw>;
   dimIssues?: Record<string, DimIssue[]>;
   /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
   focusAspects?: DeficiencyAspect[];
+  /** 發現片語庫(剪貼簿);最高管理員維護 */
+  snippets?: FindingSnippetDTO[];
   initialScores: Record<string, number | null>;
   initialCounts: Record<string, DimCounts>;
   initialFindings: MyFinding[];
@@ -106,7 +118,7 @@ export default function AuditPad({
         </div>
       )}
       <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
 }
@@ -446,12 +458,14 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, dimIssues, initialFindings, unsavedFindingsRef,
+  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
   itemContent: Record<string, string>;
+  itemLaw: Record<string, ItemLaw>;
   dimIssues: Record<string, DimIssue[]>;
+  snippets: FindingSnippetDTO[];
   initialFindings: MyFinding[];
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
@@ -461,6 +475,36 @@ function FindingSection({
   const [drafts, setDrafts] = useState<Partial<Record<FindingKind, DraftFinding>>>({});
   const [busy, setBusy] = useState<string | null>(null); // finding id 或 `new:KIND`
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
+  // 法規對照 Dialog:依輸入之對應項次展開該檢核項的稽核依據
+  const [lawRef, setLawRef] = useState<string | null>(null);
+  // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容
+  const [clip, setClip] = useState<{ aspect: DeficiencyAspect; kind: FindingKind; onInsert: (text: string) => void } | null>(null);
+
+  // 將片語接到既有內容後(非空則換行接續)。
+  function appendText(existing: string, add: string): string {
+    const base = existing.replace(/\s+$/, '');
+    return base ? `${base}\n${add}` : add;
+  }
+
+  // 發現列共用的兩個輔助鈕(法規對照 + 剪貼簿);ref 取對應項次,onInsert 插入發現內容。
+  function helperButtons(ref: string, aspect: DeficiencyAspect, kind: FindingKind, onInsert: (text: string) => void) {
+    return (
+      <>
+        <Button
+          size="sm" variant="text" leadingIcon={<FileText size={14} />}
+          onClick={() => {
+            const r = ref.trim();
+            if (!r) { toast.info('請先填寫對應項次', '法規對照會依對應項次展開該檢核項的稽核依據。'); return; }
+            setLawRef(r);
+          }}
+        >法規對照</Button>
+        <Button
+          size="sm" variant="text" leadingIcon={<ClipboardCheck size={14} />}
+          onClick={() => setClip({ aspect, kind, onInsert })}
+        >剪貼簿</Button>
+      </>
+    );
+  }
 
   // 離開保護:編輯中未存的發現(editedRef)或有內容的草稿(draftDirtyRef)→ 關分頁攔截
   const editedRef = useRef<Set<string>>(new Set());
@@ -695,6 +739,10 @@ function FindingSection({
                           清除項次
                         </Button>
                       )}
+                      {canEdit && !f.locked && helperButtons(
+                        f.checklistRef ?? '', f.aspect, f.kind,
+                        (text) => mutate(f.id, { content: appendText(f.content, text) }),
+                      )}
                       {f.locked && <Chip size="sm" tone="primary" dot>已轉入缺失管考</Chip>}
                       <div className="flex-1" />
                       {canEdit && !f.locked && (
@@ -746,6 +794,14 @@ function FindingSection({
                           清除項次
                         </Button>
                       )}
+                      {helperButtons(
+                        draft.checklistRef, draft.aspect, kind,
+                        (text) => setDrafts((d) => {
+                          const cur = d[kind];
+                          if (!cur) return d;
+                          return { ...d, [kind]: { ...cur, content: appendText(cur.content, text) } };
+                        }),
+                      )}
                       <div className="flex-1" />
                       <Button
                         size="sm" variant="text"
@@ -771,6 +827,64 @@ function FindingSection({
           );
         })}
       </div>
+
+      {/* 法規對照(項4):依對應項次展開該檢核項之稽核依據/重點/應備文件 */}
+      <Dialog
+        open={lawRef !== null}
+        onOpenChange={(o) => !o && setLawRef(null)}
+        size="lg"
+        title={lawRef ? `法規對照 · 項次 ${lawRef}` : '法規對照'}
+      >
+        {lawRef && (
+          itemLaw[lawRef]
+            ? (
+              <LawPanel
+                auditBasis={itemLaw[lawRef].auditBasis}
+                auditFocus={itemLaw[lawRef].auditFocus}
+                expectedEvidence={itemLaw[lawRef].expectedEvidence}
+              />
+            )
+            : <p className="text-body-sm text-on-surface-variant py-2">查無項次「{lawRef}」的法規對照資料,請確認項次編號。</p>
+        )}
+      </Dialog>
+
+      {/* 剪貼簿(項5):依當前構面/類型篩選片語,點選插入發現內容 */}
+      {clip && (() => {
+        const matched = snippets.filter((s) => snippetMatches(s, clip.aspect, clip.kind));
+        return (
+          <Dialog
+            open
+            onOpenChange={(o) => !o && setClip(null)}
+            size="lg"
+            title="剪貼簿 — 插入常用發現片語"
+            description={`依目前構面「${snippetAspectLabel(clip.aspect)}」、類型「${snippetKindLabel(clip.kind)}」篩選;點選即插入發現內容。`}
+          >
+            {snippets.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant py-2">尚無片語。請最高管理員至「管理 → 發現片語庫」新增。</p>
+            ) : matched.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant py-2">此構面/類型尚無對應片語;可至「發現片語庫」新增,或將片語設為通用。</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {matched.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => { clip.onInsert(s.text); setClip(null); toast.success('已插入片語'); }}
+                      className="w-full text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low transition-colors px-4 py-3"
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Chip size="sm" tone="primary">{snippetAspectLabel(s.aspect)}</Chip>
+                        <Chip size="sm" tone="sage">{snippetKindLabel(s.kind)}</Chip>
+                      </div>
+                      <p className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{s.text}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Dialog>
+        );
+      })()}
     </section>
   );
 }
