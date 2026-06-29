@@ -14,7 +14,7 @@ import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import {
-  snippetMatches, snippetAspectLabel, snippetKindLabel, type FindingSnippetDTO,
+  snippetMatches, type FindingSnippetDTO,
 } from '@/lib/finding-snippet';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
@@ -485,6 +485,7 @@ function FindingSection({
   const [lawRef, setLawRef] = useState<string | null>(null);
   // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容(插入於游標所在處)
   const [clip, setClip] = useState<{ aspect: DeficiencyAspect; kind: FindingKind; insert: (snippet: string) => void } | null>(null);
+  const [clipShowAll, setClipShowAll] = useState(false); // 剪貼簿:false=只看符合當前構面/類型,true=全部
   // 各發現內容 textarea 的 DOM 參照(key=既有發現 f.id 或 `draft:KIND`),供剪貼簿插入於游標處
   const taRefs = useRef<Map<string, HTMLTextAreaElement | null>>(new Map());
 
@@ -509,6 +510,7 @@ function FindingSection({
         <Button
           size="sm" variant="text" leadingIcon={<ClipboardCheck size={14} />}
           onClick={() => {
+            setClipShowAll(false); // 每次開啟預設「符合當前構面/類型」
             // 按下當下擷取該 textarea 的游標位置與內容(對話框開啟後內容不再變動)
             const ta = taRefs.current.get(taKey);
             const content = ta?.value ?? '';
@@ -927,39 +929,53 @@ function FindingSection({
         })()}
       </Dialog>
 
-      {/* 剪貼簿(項5):依當前構面/類型篩選片語,點選插入發現內容 */}
+      {/* 剪貼簿(項5):緊湊片語清單,點選插入游標處;預設依當前構面/類型篩選,可切換全部 */}
       {clip && (() => {
         const matched = snippets.filter((s) => snippetMatches(s, clip.aspect, clip.kind));
+        const shown = clipShowAll ? snippets : matched;
+        const toggleCls = (active: boolean) =>
+          `inline-flex items-center min-h-8 px-3 rounded-full text-label-sm tabular-nums transition-colors ${
+            active ? 'bg-primary-container text-on-primary-container font-medium' : 'text-on-surface-variant hover:bg-surface-container'
+          }`;
         return (
           <Dialog
             open
             onOpenChange={(o) => !o && setClip(null)}
             size="lg"
             title="剪貼簿 — 插入常用發現片語"
-            description={`依目前構面「${snippetAspectLabel(clip.aspect)}」、類型「${snippetKindLabel(clip.kind)}」篩選;點選即插入發現內容。`}
+            description="點選片語即插入「發現內容」游標所在處。"
           >
             {snippets.length === 0 ? (
               <p className="text-body-sm text-on-surface-variant py-2">尚無片語。請最高管理員至「管理 → 發現片語庫」新增。</p>
-            ) : matched.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant py-2">此構面/類型尚無對應片語;可至「發現片語庫」新增,或將片語設為通用。</p>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {matched.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => { clip.insert(s.text); setClip(null); toast.success('已插入片語'); }}
-                      className="w-full text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low transition-colors px-4 py-3"
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Chip size="sm" tone="primary">{snippetAspectLabel(s.aspect)}</Chip>
-                        <Chip size="sm" tone="sage">{snippetKindLabel(s.kind)}</Chip>
-                      </div>
-                      <p className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{s.text}</p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {/* 篩選切換:符合目前構面/類型 ↔ 全部 */}
+                <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                  <button type="button" onClick={() => setClipShowAll(false)} className={toggleCls(!clipShowAll)}>
+                    符合此構面/類型 {matched.length}
+                  </button>
+                  <button type="button" onClick={() => setClipShowAll(true)} className={toggleCls(clipShowAll)}>
+                    全部 {snippets.length}
+                  </button>
+                </div>
+                {shown.length === 0 ? (
+                  <p className="text-body-sm text-on-surface-variant py-2">此構面/類型尚無對應片語;可切換「全部」,或至「發現片語庫」新增/設為通用。</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {shown.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        title={s.text}
+                        onClick={() => { clip.insert(s.text); setClip(null); toast.success('已插入片語'); }}
+                        className="text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low hover:border-primary-300 transition-colors px-2.5 py-1.5 text-body-sm text-on-surface-variant max-w-[18rem]"
+                      >
+                        <span className="line-clamp-2 break-words whitespace-pre-wrap">{s.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </Dialog>
         );
