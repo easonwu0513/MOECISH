@@ -195,41 +195,35 @@ function Att17Sheet({
         </tbody>
       </table>
 
-      {/* 稽核發現 */}
-      <div style={{ fontSize: '13pt', fontWeight: 'bold', margin: '10pt 0 4pt' }}>稽核發現</div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-        <thead>
-          <tr>
-            {KINDS.map((kind) => (
-              <th key={kind} style={{ ...th, width: '33.33%' }}>
-                {FINDING_KIND_LABELS[kind]}
-                <div style={{ fontSize: '9.5pt', fontWeight: 'normal' }}>※{FINDING_KIND_HINTS[kind].replace('開立情境:', '開立情境:')}</div>
-              </th>
-            ))}
-          </tr>
-        </thead>
+      {/* 稽核發現(強制換頁:讓稽核評分獨占第一頁) */}
+      <div style={{ fontSize: '13pt', fontWeight: 'bold', margin: '10pt 0 4pt', breakBefore: 'page', pageBreakBefore: 'always' }}>稽核發現</div>
+      {/* 轉置版:類別標題移到左欄(每類一列、整列全寬),較三欄並排好讀 */}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <tbody>
-          <tr>
-            {KINDS.map((kind) => {
-              const list = findings
-                .filter((f) => f.kind === kind)
-                .sort((a, b) => compareChecklistRef(a.checklistRef, b.checklistRef));
-              return (
-                <td key={kind} style={{ ...td, verticalAlign: 'top', minHeight: '80pt', height: '120pt' }}>
+          {KINDS.map((kind) => {
+            const list = findings
+              .filter((f) => f.kind === kind)
+              .sort((a, b) => compareChecklistRef(a.checklistRef, b.checklistRef));
+            return (
+              <tr key={kind}>
+                <th style={{ ...th, width: '20%', textAlign: 'left', verticalAlign: 'top' }}>
+                  {FINDING_KIND_LABELS[kind]}
+                  <div style={{ fontSize: '8.5pt', fontWeight: 'normal', lineHeight: 1.2 }}>※{FINDING_KIND_HINTS[kind]}</div>
+                </th>
+                <td style={{ ...td, verticalAlign: 'top', height: '60pt' }}>
                   {list.length === 0 ? '' : (
                     <ol style={{ margin: 0, paddingLeft: '14pt', fontSize: '10.5pt', lineHeight: 1.6 }}>
                       {list.map((f) => (
                         <li key={f.id} style={{ marginBottom: '4pt' }}>
-                          {f.checklistRef ? `【${f.checklistRef}】` : ''}
-                          【{DEFICIENCY_ASPECT_LABELS[f.aspect as DeficiencyAspect]}】{f.content}
+                          {f.checklistRef ? `【${f.checklistRef}】` : ''}{f.content}
                         </li>
                       ))}
                     </ol>
                   )}
                 </td>
-              );
-            })}
-          </tr>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

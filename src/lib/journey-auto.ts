@@ -52,6 +52,11 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
  * 純提醒項(無 autoKey)亦給目的地:先依標題關鍵字精準對應,否則用階段預設(方便委員一點即達)。
  */
 export function journeyItemHref(stageKey: string, autoKey: string | null, title?: string): string {
+  // 實地稽核階段「留存查核紀錄、稽核結束後彙整缺失」(最高管理員)→ 彙整委員稽核發現報告。
+  // (與「缺失發布中」的『以表單/Excel 發布缺失』共用 autoKey deficiencies_published,但去處不同:此處去彙整報告,發布缺失才去 /deficiencies)
+  if (stageKey === 'ONSITE' && (title?.includes('彙整') || title?.includes('留存查核紀錄'))) {
+    return '/audit/report';
+  }
   switch (autoKey) {
     case 'checklist_filled': return '/checklist';
     case 'prep_uploaded':
