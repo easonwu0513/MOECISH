@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Textarea } from '@/components/ui/Textarea';
-import { TextField } from '@/components/ui/TextField';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
@@ -18,7 +17,7 @@ import {
 } from '@/lib/finding-snippet';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs,
+  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs, sortRefs, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
 
@@ -787,15 +786,11 @@ function FindingSection({
                         disabled={!canEdit || f.locked}
                         onChange={(aspect) => mutate(f.id, { aspect })}
                       />
-                      <div className="w-36">
-                        <TextField
-                          label="對應項次(選填)"
-                          list="audit-item-refs"
-                          value={f.checklistRef ?? ''}
-                          onChange={(e) => mutate(f.id, { checklistRef: e.target.value })}
-                          disabled={!canEdit || f.locked}
-                        />
-                      </div>
+                      <RefChips
+                        value={f.checklistRef ?? ''}
+                        disabled={!canEdit || f.locked}
+                        onChange={(next) => mutate(f.id, { checklistRef: next })}
+                      />
                       {canEdit && !f.locked && (f.checklistRef ?? '').trim() !== '' && (
                         <Button size="sm" variant="text" onClick={() => mutate(f.id, { checklistRef: '' })}>
                           清除項次
@@ -836,14 +831,10 @@ function FindingSection({
                         value={draft.aspect}
                         onChange={(aspect) => setDrafts((d) => ({ ...d, [kind]: { ...draft, aspect } }))}
                       />
-                      <div className="w-36">
-                        <TextField
-                          label="對應項次(選填)"
-                          list="audit-item-refs"
-                          value={draft.checklistRef}
-                          onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: e.target.value } }))}
-                        />
-                      </div>
+                      <RefChips
+                        value={draft.checklistRef}
+                        onChange={(next) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: next } }))}
+                      />
                       {draft.checklistRef.trim() !== '' && (
                         <Button size="sm" variant="text" onClick={() => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: '' } }))}>
                           清除項次
@@ -985,11 +976,54 @@ function FindingSection({
 }
 
 /**
+ * 對應項次輸入:每個項次一個可刪 chip + 「新增」輸入;自動依項次排序(如先填 6.7 後 6.6 → 顯示 6.6、6.7)。
+ * 內部以「、」連接的字串存於 checklistRef(沿用既有資料格式),sortRefsString 保證去重+排序。
+ */
+function RefChips({ value, onChange, disabled }: { value: string; onChange: (next: string) => void; disabled?: boolean }) {
+  const refs = sortRefs(value);
+  const [input, setInput] = useState('');
+  function add() {
+    const r = input.trim();
+    if (!r) return;
+    onChange(sortRefsString([...refs, r].join('、')));
+    setInput('');
+  }
+  return (
+    <div className="flex flex-col gap-0.5 min-w-[10rem]">
+      <span className="text-caption text-on-surface-variant px-1">對應項次(選填)</span>
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-1 min-h-9">
+        {refs.map((r) => (
+          <span key={r} className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-caption text-on-surface">
+            {r}
+            {!disabled && (
+              <button type="button" aria-label={`移除 ${r}`} onClick={() => onChange(sortRefsString(refs.filter((x) => x !== r).join('、')))} className="text-on-surface-variant hover:text-danger-700 leading-none">×</button>
+            )}
+          </span>
+        ))}
+        {!disabled && (
+          <span className="inline-flex items-center gap-0.5">
+            <input
+              list="audit-item-refs"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+              placeholder="項次"
+              className="w-14 h-6 bg-transparent text-caption outline-none placeholder:text-on-surface-variant/60"
+            />
+            <button type="button" onClick={add} className="text-caption text-primary-700 whitespace-nowrap">+ 新增</button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * 對應檢核項即時摘要(委員填/選對應項次當下就顯示,不必等儲存)。
  * 支援多項次(如「5.2、5.9」):逐項顯示題目摘要;無此項次者逐項提示確認編號。
  */
 function RefSummary({ refStr, itemContent }: { refStr: string; itemContent: Record<string, string> }) {
-  const refs = parseRefs(refStr);
+  const refs = sortRefs(refStr);
   if (refs.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">

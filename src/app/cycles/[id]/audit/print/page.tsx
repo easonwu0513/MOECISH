@@ -5,7 +5,7 @@ import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  computeDimStats, gradeHint, compareChecklistRef,
+  computeDimStats, gradeHint, compareChecklistRef, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind, type DimStat,
 } from '@/lib/audit-score';
 import PrintTrigger from '../../print/PrintTrigger';
@@ -215,7 +215,7 @@ function Att17Sheet({
                     <ol style={{ margin: 0, paddingLeft: '14pt', fontSize: '10.5pt', lineHeight: 1.6 }}>
                       {list.map((f) => (
                         <li key={f.id} style={{ marginBottom: '4pt' }}>
-                          {f.checklistRef ? `【${f.checklistRef}】` : ''}{f.content}
+                          {f.checklistRef ? `【${sortRefsString(f.checklistRef)}】` : ''}{f.content}
                         </li>
                       ))}
                     </ol>

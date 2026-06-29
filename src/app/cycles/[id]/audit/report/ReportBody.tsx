@@ -9,7 +9,7 @@ import {
 } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  computeDimStats, gradeOf, compareChecklistRef,
+  computeDimStats, gradeOf, compareChecklistRef, sortRefsString,
   parseAssignDimensions, ASSIGN_TO_ASPECT,
 } from '@/lib/audit-score';
 import {
@@ -78,7 +78,7 @@ export function buildReportData(data: AuditReportData): ReportData {
     if (!cat || !sec) continue;
     findings[cat][sec].push({
       id: f.id,
-      code: f.checklistRef ?? '',
+      code: sortRefsString(f.checklistRef),
       text: f.content,
       pageBreakBefore: false,
       duplicateAcknowledged: true,

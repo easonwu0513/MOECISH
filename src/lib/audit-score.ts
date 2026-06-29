@@ -153,6 +153,15 @@ export function compareChecklistRef(a: string | null | undefined, b: string | nu
   return 0;
 }
 
+/** 解析+去重+依項次自然排序回傳陣列(如 "6.7、6.6" → ["6.6","6.7"])。 */
+export function sortRefs(ref: string | null | undefined): string[] {
+  return parseRefs(ref).sort(compareChecklistRef);
+}
+/** 同 sortRefs,回傳以「、」連接的字串(空則回空字串)。供輸入、發現摘要、列印/報告統一排序顯示。 */
+export function sortRefsString(ref: string | null | undefined): string {
+  return sortRefs(ref).join('、');
+}
+
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 
 /** 由檢核表題目+機關作答計算各構面統計(評分表「檢核結果數量統計」自動帶入)。 */
