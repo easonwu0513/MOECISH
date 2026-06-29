@@ -483,17 +483,19 @@ function FindingSection({
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
   // 法規對照 Dialog:依輸入之對應項次展開該檢核項的稽核依據
   const [lawRef, setLawRef] = useState<string | null>(null);
-  // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容
-  const [clip, setClip] = useState<{ aspect: DeficiencyAspect; kind: FindingKind; onInsert: (text: string) => void } | null>(null);
+  // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容(插入於游標所在處)
+  const [clip, setClip] = useState<{ aspect: DeficiencyAspect; kind: FindingKind; insert: (snippet: string) => void } | null>(null);
+  // 各發現內容 textarea 的 DOM 參照(key=既有發現 f.id 或 `draft:KIND`),供剪貼簿插入於游標處
+  const taRefs = useRef<Map<string, HTMLTextAreaElement | null>>(new Map());
 
-  // 將片語接到既有內容後(非空則換行接續)。
-  function appendText(existing: string, add: string): string {
-    const base = existing.replace(/\s+$/, '');
-    return base ? `${base}\n${add}` : add;
-  }
-
-  // 發現列共用的兩個輔助鈕(法規對照 + 剪貼簿);ref 取對應項次,onInsert 插入發現內容。
-  function helperButtons(ref: string, aspect: DeficiencyAspect, kind: FindingKind, onInsert: (text: string) => void) {
+  // 發現列共用的兩個輔助鈕(法規對照 + 剪貼簿);ref 取對應項次,taKey 對應 textarea,setContent 寫回內容。
+  function helperButtons(
+    ref: string,
+    aspect: DeficiencyAspect,
+    kind: FindingKind,
+    taKey: string,
+    setContent: (next: string) => void,
+  ) {
     return (
       <>
         <Button
@@ -506,7 +508,24 @@ function FindingSection({
         >法規對照</Button>
         <Button
           size="sm" variant="text" leadingIcon={<ClipboardCheck size={14} />}
-          onClick={() => setClip({ aspect, kind, onInsert })}
+          onClick={() => {
+            // 按下當下擷取該 textarea 的游標位置與內容(對話框開啟後內容不再變動)
+            const ta = taRefs.current.get(taKey);
+            const content = ta?.value ?? '';
+            const start = ta?.selectionStart ?? content.length;
+            const end = ta?.selectionEnd ?? content.length;
+            setClip({
+              aspect, kind,
+              insert: (snippet: string) => {
+                setContent(content.slice(0, start) + snippet + content.slice(end));
+                // 還原焦點並把游標移到插入文字之後(等下一次繪製後再設定)
+                requestAnimationFrame(() => {
+                  const el = taRefs.current.get(taKey);
+                  if (el) { el.focus(); const pos = start + snippet.length; el.setSelectionRange(pos, pos); }
+                });
+              },
+            });
+          }}
         >剪貼簿</Button>
       </>
     );
@@ -782,7 +801,7 @@ function FindingSection({
                       )}
                       {canEdit && !f.locked && helperButtons(
                         f.checklistRef ?? '', f.aspect, f.kind,
-                        (text) => mutate(f.id, { content: appendText(f.content, text) }),
+                        f.id, (next) => mutate(f.id, { content: next }),
                       )}
                       {f.locked && <Chip size="sm" tone="primary" dot>已轉入缺失管考</Chip>}
                       <div className="flex-1" />
@@ -799,6 +818,7 @@ function FindingSection({
                     <RefSummary refStr={f.checklistRef ?? ''} itemContent={itemContent} />
                     <Textarea
                       label="發現內容"
+                      ref={(el) => { taRefs.current.set(f.id, el); }}
                       value={f.content}
                       onChange={(e) => mutate(f.id, { content: e.target.value })}
                       disabled={!canEdit || f.locked}
@@ -829,10 +849,11 @@ function FindingSection({
                       )}
                       {helperButtons(
                         draft.checklistRef, draft.aspect, kind,
-                        (text) => setDrafts((d) => {
+                        `draft:${kind}`,
+                        (next) => setDrafts((d) => {
                           const cur = d[kind];
                           if (!cur) return d;
-                          return { ...d, [kind]: { ...cur, content: appendText(cur.content, text) } };
+                          return { ...d, [kind]: { ...cur, content: next } };
                         }),
                       )}
                       <div className="flex-1" />
@@ -850,6 +871,7 @@ function FindingSection({
                     <RefSummary refStr={draft.checklistRef} itemContent={itemContent} />
                     <Textarea
                       label="發現內容(可直接從 Word 貼上)"
+                      ref={(el) => { taRefs.current.set(`draft:${kind}`, el); }}
                       value={draft.content}
                       onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, content: e.target.value } }))}
                       rows={3}
@@ -926,7 +948,7 @@ function FindingSection({
                   <li key={s.id}>
                     <button
                       type="button"
-                      onClick={() => { clip.onInsert(s.text); setClip(null); toast.success('已插入片語'); }}
+                      onClick={() => { clip.insert(s.text); setClip(null); toast.success('已插入片語'); }}
                       className="w-full text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low transition-colors px-4 py-3"
                     >
                       <div className="flex items-center gap-1.5 mb-1">
