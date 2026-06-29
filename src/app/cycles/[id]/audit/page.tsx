@@ -1,10 +1,7 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { Button } from '@/components/ui/Button';
-import { FileText } from '@/components/icons';
 import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
 import { auditorCanScore, type DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
@@ -122,14 +119,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
               : '管理員檢視(評分與發現由各委員填寫)'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/cycles/${cycle.id}/audit/print`} target="_blank" rel="noopener">
-            <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-              列印我的評分表(附件17)
-            </Button>
-          </Link>
-          {/* 「彙整報告」為中心(最高管理員)用的全體委員整合視圖,委員端不顯示 */}
-        </div>
+        {/* 附件17 評分表改由最高管理員於「彙整報告」頁逐委員列印、交付紙本簽名;委員頁不再自印 */}
       </header>
 
       {user.role === 'AUDITOR' ? (

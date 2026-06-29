@@ -5,7 +5,7 @@ import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  computeDimStats, gradeHint,
+  computeDimStats, gradeHint, compareChecklistRef,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind, type DimStat,
 } from '@/lib/audit-score';
 import PrintTrigger from '../../print/PrintTrigger';
@@ -117,11 +117,11 @@ function Att17Sheet({
   const total = Object.values(scores).reduce((a, b) => a + b, 0);
 
   const th: React.CSSProperties = {
-    border: B, padding: '4pt 6pt', fontWeight: 'bold', textAlign: 'center',
+    border: B, padding: '2.5pt 6pt', fontWeight: 'bold', textAlign: 'center',
     fontSize: '11pt', verticalAlign: 'middle',
   };
   const td: React.CSSProperties = {
-    border: B, padding: '4pt 6pt', fontSize: '11pt', verticalAlign: 'middle',
+    border: B, padding: '2.5pt 6pt', fontSize: '11pt', verticalAlign: 'middle',
   };
 
   return (
@@ -136,9 +136,9 @@ function Att17Sheet({
         受稽機關:{orgName}　　年度:{yearROC} 年度
       </div>
 
-      {/* 稽核評分 */}
+      {/* 稽核評分(整表不跨頁:break-inside avoid + 緊縮列高,塞於同一頁) */}
       <div style={{ fontSize: '13pt', fontWeight: 'bold', margin: '6pt 0 4pt' }}>稽核評分</div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
         <thead>
           <tr>
             <th style={{ ...th, width: '9%' }} rowSpan={2}>稽核構面</th>
@@ -170,7 +170,7 @@ function Att17Sheet({
                   <td style={td}>
                     {/* DIMENSION_LABELS 已含「一、」前綴 */}
                     {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
-                    <div style={{ fontSize: '9.5pt' }}>{gradeHint(dim)}</div>
+                    <div style={{ fontSize: '8.5pt', lineHeight: 1.2 }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>
                   <td style={{ ...td, textAlign: 'center' }}>{ct.c1 ?? ''}</td>
@@ -211,7 +211,9 @@ function Att17Sheet({
         <tbody>
           <tr>
             {KINDS.map((kind) => {
-              const list = findings.filter((f) => f.kind === kind);
+              const list = findings
+                .filter((f) => f.kind === kind)
+                .sort((a, b) => compareChecklistRef(a.checklistRef, b.checklistRef));
               return (
                 <td key={kind} style={{ ...td, verticalAlign: 'top', minHeight: '80pt', height: '120pt' }}>
                   {list.length === 0 ? '' : (

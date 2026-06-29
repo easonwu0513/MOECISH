@@ -118,7 +118,7 @@ export default function AuditPad({
         </div>
       )}
       <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
 }
@@ -458,7 +458,7 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, initialFindings, unsavedFindingsRef,
+  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
@@ -466,12 +466,18 @@ function FindingSection({
   itemLaw: Record<string, ItemLaw>;
   dimIssues: Record<string, DimIssue[]>;
   snippets: FindingSnippetDTO[];
+  /** 委員受指派的評分構面;新發現的構面預設取第一個(否則 STRATEGY) */
+  focusAspects?: DeficiencyAspect[];
   initialFindings: MyFinding[];
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [findings, setFindings] = useState<MyFinding[]>(initialFindings);
+  // saveAllDirty 讀最新 findings(避免 async 迴圈讀到 stale 快照覆蓋並行編輯)+ 同步重入鎖(防雙擊/與單列儲存並行)
+  const findingsRef = useRef(findings);
+  useEffect(() => { findingsRef.current = findings; }, [findings]);
+  const savingRef = useRef(false);
   const [drafts, setDrafts] = useState<Partial<Record<FindingKind, DraftFinding>>>({});
   const [busy, setBusy] = useState<string | null>(null); // finding id 或 `new:KIND`
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
@@ -528,7 +534,9 @@ function FindingSection({
   }, [canEdit]);
 
   function openDraft(kind: FindingKind) {
-    setDrafts((d) => ({ ...d, [kind]: d[kind] ?? { aspect: 'STRATEGY', content: '', checklistRef: '' } }));
+    // 預設構面取委員受指派的第一個構面(如管理面);未指派則沿用 STRATEGY
+    const defaultAspect: DeficiencyAspect = focusAspects[0] ?? 'STRATEGY';
+    setDrafts((d) => ({ ...d, [kind]: d[kind] ?? { aspect: defaultAspect, content: '', checklistRef: '' } }));
   }
 
   async function createFinding(kind: FindingKind) {
@@ -590,20 +598,26 @@ function FindingSection({
   }
 
   async function patchFinding(f: MyFinding) {
+    if (savingRef.current) return; // 不與其他儲存(單列/全部)並行
+    savingRef.current = true;
     setBusy(f.id);
-    const res = await fetch(`/api/audit-findings/${f.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
-    });
-    setBusy(null);
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-      toast.error('儲存失敗', j.error);
-      return;
+    try {
+      const res = await fetch(`/api/audit-findings/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+        toast.error('儲存失敗', j.error);
+        return;
+      }
+      editedRef.current.delete(f.id);
+      toast.success('已儲存發現');
+    } finally {
+      savingRef.current = false;
+      setBusy(null);
     }
-    editedRef.current.delete(f.id);
-    toast.success('已儲存發現');
   }
 
   async function deleteFinding(f: MyFinding) {
@@ -639,6 +653,36 @@ function FindingSection({
     toast.success('已依項次排序', '各類發現已依對應項次排列。');
   }
 
+  // 底部「全部儲存」:一次送出所有有編輯過(editedRef)的既有發現(草稿仍用「新增此條」)。
+  async function saveAllDirty() {
+    if (savingRef.current) return; // 同步重入鎖:防雙擊,且不與單列儲存並行
+    const dirtyIds = Array.from(editedRef.current);
+    if (dirtyIds.length === 0) {
+      toast.info('無待儲存項目', '目前沒有未儲存的發現編輯。');
+      return;
+    }
+    savingRef.current = true;
+    setBusy('save-all');
+    let ok = 0;
+    try {
+      for (const id of dirtyIds) {
+        const f = findingsRef.current.find((x) => x.id === id); // 讀最新狀態,避免覆蓋使用者並行編輯
+        if (!f) { editedRef.current.delete(id); continue; }
+        const res = await fetch(`/api/audit-findings/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
+        });
+        if (res.ok) { editedRef.current.delete(id); ok++; }
+      }
+    } finally {
+      savingRef.current = false;
+      setBusy(null);
+    }
+    if (ok === dirtyIds.length) toast.success('已全部儲存', `共儲存 ${ok} 條發現。`);
+    else toast.error('部分儲存失敗', `已儲存 ${ok}/${dirtyIds.length} 條,請逐條檢查未儲存項目。`);
+  }
+
   return (
     <section>
       <ConfirmDialog
@@ -654,9 +698,6 @@ function FindingSection({
 
       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
         <h2 className="text-title-lg text-on-surface">稽核發現</h2>
-        {findings.length > 1 && (
-          <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
-        )}
       </div>
       <p className="text-body-sm text-on-surface-variant mb-4">
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
@@ -821,6 +862,18 @@ function FindingSection({
           );
         })}
       </div>
+
+      {/* 底部操作列:全部填完後一鍵排序 / 全部儲存(取代原本置於標頭的排序鈕) */}
+      {findings.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-outline-variant/40 flex flex-wrap items-center justify-end gap-2">
+          {findings.length > 1 && (
+            <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
+          )}
+          {canEdit && (
+            <Button size="sm" variant="tonal" loading={busy === 'save-all'} onClick={saveAllDirty}>全部儲存</Button>
+          )}
+        </div>
+      )}
 
       {/* 法規對照(項4):依對應項次展開該檢核項之稽核依據/重點/應備文件 */}
       <Dialog

@@ -12,7 +12,7 @@ import FinishButton from './FinishButton';
 
 /**
  * 實地稽核彙整報告:全體委員發現自動整合,版式 = 稽核報告彙整工具的 Word 格式
- * (當天列印給受稽單位簽名的正式文件)。評分總覽僅螢幕顯示(附件17 由各委員自印)。
+ * (當天列印給受稽單位簽名的正式文件)。評分總覽僅螢幕顯示(附件17 由最高管理員於本頁逐委員列印交付簽名)。
  * 「報告設定」直接啟動彙整工具(週期模式);「已完成年度稽核」一鍵轉缺失+推狀態+通知機關。
  */
 export default async function AuditReportPage({ params }: { params: { id: string } }) {
@@ -82,11 +82,11 @@ export default async function AuditReportPage({ params }: { params: { id: string
         </div>
       </header>
 
-      {/* 評分總覽(螢幕用;附件17 評分表由各委員至「實地稽核」頁自印) */}
+      {/* 評分總覽(螢幕用;附件17 評分表由最高管理員於下方逐委員列印交付簽名) */}
       <Card className="mb-6">
         <CardTitle>評分總覽</CardTitle>
         <CardDescription>
-          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)。
+          各委員九項評分與平均(僅供管考檢視;附件17 評分表由您於下方逐一列印,交付委員紙本簽名)。
           下表「符合/部分/不符/不適」為機關自評數量供參;各委員實地判定之檢核數量請見各自附件17 評分表。
         </CardDescription>
         {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
@@ -113,6 +113,28 @@ export default async function AuditReportPage({ params }: { params: { id: string
                 </span>
               );
             })}
+          </div>
+        )}
+        {/* 最高管理員逐委員列印附件17 評分表(交付委員紙本簽名);委員端不再自印 */}
+        {isAdmin && data.assignments.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-outline-variant/40">
+            <p className="text-label-sm font-medium text-on-surface-variant mb-2">
+              列印各委員評分表(附件17;列印後交付委員紙本簽名)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {data.assignments.map((a) => (
+                <Link
+                  key={a.auditor.id}
+                  href={`/cycles/${data.id}/audit/print?auditorId=${a.auditor.id}`}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
+                    {a.auditor.name} 評分表
+                  </Button>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
         <div className="mt-4">
