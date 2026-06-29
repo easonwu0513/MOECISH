@@ -23,6 +23,7 @@ import {
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import { toneClasses } from '@/lib/stage';
+import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { cn } from '@/lib/cn';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
@@ -65,6 +66,8 @@ export default async function HomePage() {
       signedReports: { select: { id: true, confirmedAt: true } },
       checklistVersion: { select: { _count: { select: { items: true } } } },
       responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
+      // 委員視角:帶出本人於各週期受指派的構面(卡片標註負責構面);其他角色查無、回空陣列
+      assignments: { where: { auditorId: user.id }, select: { dimensions: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -407,6 +410,9 @@ export default async function HomePage() {
                   const next = nextActionForRole(user.role, e);
                   const tone = cycleStatusTone(c.status as CycleStatus);
                   const border = toneClasses(tone).border;
+                  const auditorDims = user.role === 'AUDITOR'
+                    ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
+                    : [];
                   return (
                     <Link
                       key={c.id}
@@ -421,6 +427,9 @@ export default async function HomePage() {
                           <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
                           <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                           <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                          {auditorDims.length > 0 && (
+                            <span className="text-caption text-primary-700">負責構面:{auditorDims.join('、')}</span>
+                          )}
                         </div>
                         {next?.text && <p className="mt-1 text-caption text-on-surface-variant truncate">{next.text}</p>}
                       </div>

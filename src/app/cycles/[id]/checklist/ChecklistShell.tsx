@@ -56,7 +56,7 @@ const filterOptions: { key: FilterKey; label: string; tone?: 'success' | 'warnin
   { key: 'partial',       label: '部分符合',   tone: 'warning' },
   { key: 'noncompliant',  label: '不符合',     tone: 'danger' },
   { key: 'na',            label: '不適用',     tone: 'neutral' },
-  { key: 'comments',      label: '有意見待補' },
+  { key: 'comments',      label: '委員意見' },
 ];
 
 export default function ChecklistShell({
@@ -312,7 +312,7 @@ export default function ChecklistShell({
           </div>
         </div>
 
-        {/* Filters（機關管理員不顯示「有意見待補」:填報階段不會事先有委員審核意見） */}
+        {/* Filters（機關管理員不顯示「委員意見」:填報階段不會事先有委員審核意見） */}
         <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="篩選題目">
           {filterOptions
             .filter((f) => !(f.key === 'comments' && userRole === 'ORG_ADMIN'))

@@ -120,13 +120,25 @@ export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
 };
 
 /**
+ * 拆解「對應項次」字串為多個項次:支援 、 , ， 與空白分隔(一條發現可對多項次,如「5.2、5.9」)。
+ * 空字串/未填回空陣列。供發現摘要與法規對照逐項次顯示。
+ */
+export function parseRefs(ref: string | null | undefined): string[] {
+  const t = (ref ?? '').trim();
+  if (!t) return [];
+  const parts = t.split(/[、,，\s]+/).map((p) => p.trim()).filter((p) => p.length > 0);
+  return [...new Set(parts)]; // 去重:重複項次無意義,並避免 React .map key 碰撞
+}
+
+/**
  * 稽核發現「對應項次」排序鍵:把 "2.5"、"9.10" 解析為數字序列做自然排序
- * (2.5 < 2.10 < 7.4);無項次或非數字者排最後。供發現清單與彙整報告/列印一致排序。
+ * (2.5 < 2.10 < 7.4);多項次者以第一個項次為排序依據;無項次或非數字者排最後。
+ * 供發現清單與彙整報告/列印一致排序。
  */
 export function checklistRefSortKey(ref: string | null | undefined): number[] {
-  const t = (ref ?? '').trim();
-  if (!t) return [Number.MAX_SAFE_INTEGER];
-  const parts = t.split('.').map((p) => parseInt(p, 10));
+  const first = parseRefs(ref)[0];
+  if (!first) return [Number.MAX_SAFE_INTEGER];
+  const parts = first.split('.').map((p) => parseInt(p, 10));
   return parts.some((n) => Number.isNaN(n)) ? [Number.MAX_SAFE_INTEGER - 1] : parts;
 }
 

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
 import { toneClasses } from '@/lib/stage';
+import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
@@ -51,10 +52,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   // 委員:未指派 → 導回;開立中(DRAFT)亦不可見(中心仍在調整名單,PREPARATION 起才開放)
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
 
-  // 委員視角:本人於此週期的九構面評分進度(磚上徽章)
-  const myScoreCount = user.role === 'AUDITOR'
-    ? await prisma.auditScore.count({ where: { cycleId: cycle.id, auditorId: user.id } })
-    : 0;
+  // 委員視角:本人於此週期受指派負責的構面(標頭標註;評分不再以 X/9 呈現,因各委員只評負責構面)
+  const myAssignment = user.role === 'AUDITOR' ? cycle.assignments.find((a) => a.auditorId === user.id) : null;
+  const myAssignedLabels = myAssignment
+    ? parseAssignDimensions(myAssignment.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
+    : [];
 
   const total = cycle.deficiencies.length;
   const byStatus = (s: string) => cycle.deficiencies.filter((d) => d.action?.status === s).length;
@@ -107,9 +109,6 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
     : undefined;
   const checklistBadge = cycle.checklistSubmittedAt
     ? <Chip tone="success" size="sm" dot>已送出</Chip>
-    : undefined;
-  const auditBadge = user.role === 'AUDITOR'
-    ? <Chip tone={myScoreCount >= 9 ? 'success' : 'neutral'} size="sm">評分 {myScoreCount}/9</Chip>
     : undefined;
   const defBadge = total > 0
     ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
@@ -169,6 +168,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
             {' · '}
             {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日期尚未設定'}
+            {myAssignedLabels.length > 0 && <> · 您負責構面:{myAssignedLabels.join('、')}</>}
           </>
         }
         roleChip={
@@ -346,7 +346,6 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             title="實地稽核評分與發現"
             desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
             href={`/cycles/${cycle.id}/audit`}
-            badge={auditBadge}
             muted={!modActive.audit}
             locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
             lockedHint="實地稽核階段開放"

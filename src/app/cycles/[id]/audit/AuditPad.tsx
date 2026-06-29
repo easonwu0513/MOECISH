@@ -18,7 +18,7 @@ import {
 } from '@/lib/finding-snippet';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef,
+  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
 
@@ -754,16 +754,8 @@ function FindingSection({
                         </>
                       )}
                     </div>
-                    {/* A5:即時顯示所引項次的題目摘要,避免引錯項次 */}
-                    {f.checklistRef?.trim() && (
-                      itemContent[f.checklistRef.trim()] ? (
-                        <p className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
-                          對應檢核項【{f.checklistRef.trim()}】{itemContent[f.checklistRef.trim()]}
-                        </p>
-                      ) : (
-                        <p className="text-caption text-warning-700">查無檢核項次「{f.checklistRef.trim()}」,請確認編號</p>
-                      )
-                    )}
+                    {/* A5:即時顯示所引項次的題目摘要(支援多項次),避免引錯項次 */}
+                    <RefSummary refStr={f.checklistRef ?? ''} itemContent={itemContent} />
                     <Textarea
                       label="發現內容"
                       value={f.content}
@@ -813,6 +805,8 @@ function FindingSection({
                         新增此條
                       </Button>
                     </div>
+                    {/* 即時顯示對應檢核項摘要(填好對應項次即顯示,不必等儲存;支援多項次) */}
+                    <RefSummary refStr={draft.checklistRef} itemContent={itemContent} />
                     <Textarea
                       label="發現內容(可直接從 Word 貼上)"
                       value={draft.content}
@@ -835,17 +829,27 @@ function FindingSection({
         size="lg"
         title={lawRef ? `法規對照 · 項次 ${lawRef}` : '法規對照'}
       >
-        {lawRef && (
-          itemLaw[lawRef]
-            ? (
-              <LawPanel
-                auditBasis={itemLaw[lawRef].auditBasis}
-                auditFocus={itemLaw[lawRef].auditFocus}
-                expectedEvidence={itemLaw[lawRef].expectedEvidence}
-              />
-            )
-            : <p className="text-body-sm text-on-surface-variant py-2">查無項次「{lawRef}」的法規對照資料,請確認項次編號。</p>
-        )}
+        {lawRef && (() => {
+          const refs = parseRefs(lawRef);
+          return (
+            <div className="flex flex-col gap-5">
+              {refs.map((r) => (
+                <div key={r}>
+                  {refs.length > 1 && <p className="text-label text-primary-800 mb-2">項次 {r}</p>}
+                  {itemLaw[r] ? (
+                    <LawPanel
+                      auditBasis={itemLaw[r].auditBasis}
+                      auditFocus={itemLaw[r].auditFocus}
+                      expectedEvidence={itemLaw[r].expectedEvidence}
+                    />
+                  ) : (
+                    <p className="text-body-sm text-on-surface-variant py-2">查無項次「{r}」的法規對照資料,請確認項次編號。</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </Dialog>
 
       {/* 剪貼簿(項5):依當前構面/類型篩選片語,點選插入發現內容 */}
@@ -886,6 +890,28 @@ function FindingSection({
         );
       })()}
     </section>
+  );
+}
+
+/**
+ * 對應檢核項即時摘要(委員填/選對應項次當下就顯示,不必等儲存)。
+ * 支援多項次(如「5.2、5.9」):逐項顯示題目摘要;無此項次者逐項提示確認編號。
+ */
+function RefSummary({ refStr, itemContent }: { refStr: string; itemContent: Record<string, string> }) {
+  const refs = parseRefs(refStr);
+  if (refs.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      {refs.map((r) =>
+        itemContent[r] ? (
+          <p key={r} className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
+            對應檢核項【{r}】{itemContent[r]}
+          </p>
+        ) : (
+          <p key={r} className="text-caption text-warning-700">查無檢核項次「{r}」,請確認編號</p>
+        ),
+      )}
+    </div>
   );
 }
 
