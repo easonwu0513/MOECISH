@@ -150,14 +150,14 @@ export default async function AuditReportPage({ params }: { params: { id: string
         </div>
       </Card>
 
-      {/* 委員填寫狀態異動(系統內同步通知:委員確認填寫完畢/解除鎖定,免漏看 email) */}
+      {/* 委員填寫狀態(每位委員一方塊:目前最新狀態 + 時間;免漏看 email) */}
       <Card className="mb-6">
-        <CardTitle>委員填寫狀態異動</CardTitle>
+        <CardTitle>委員填寫狀態</CardTitle>
         <CardDescription>
-          委員「確認填寫完畢」或「解除鎖定(內容異動)」會即時記於此處;解除鎖定代表該委員可能已修改評分或發現,請複核。
+          各委員目前的填寫狀態與最近動作時間;「已解除鎖定 / 已被退件」代表該委員內容可能已修改,請複核。
         </CardDescription>
         <div className="mt-4">
-          <AuditorStateChangeLog events={stateChanges} />
+          <AuditorStateChangeLog assignments={data.assignments} events={stateChanges} />
         </div>
       </Card>
 

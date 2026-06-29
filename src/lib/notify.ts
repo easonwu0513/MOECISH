@@ -457,6 +457,7 @@ export async function notifyAuditScoreReturned(opts: {
       `— MOECISH 資通安全稽核管考平台`,
     kind: 'audit-score-return',
     relatedCycleId: cycle.id,
+    notificationLink: `/cycles/${cycle.id}/audit`, // 站內通知點擊 → 實地稽核評分頁(委員重新編輯處)
     context: { auditorName: auditor.name },
   });
   return { recipientCount: 1 };

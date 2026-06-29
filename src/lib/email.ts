@@ -33,6 +33,8 @@ export type SendEmailInput = {
   context?: Record<string, unknown>;
   relatedInvitationId?: string;
   relatedCycleId?: string;
+  /** 站內通知點擊去處覆寫;不給則預設為 /cycles/{relatedCycleId}(或 null)。 */
+  notificationLink?: string;
   /** 去重鍵:同 kind+to+dedupeKey 在 24h 內已真寄成功過則跳過(防轟炸)。不給 = 不去重。 */
   dedupeKey?: string;
 };
@@ -165,7 +167,7 @@ export async function sendEmail(input: SendEmailInput) {
           kind,
           title: input.subject.replace(/^\[MOECISH\]\s*/, ''),
           body: notificationSummary(input.body),
-          link: input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null,
+          link: input.notificationLink ?? (input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null),
         },
       });
     }
