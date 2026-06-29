@@ -7,17 +7,18 @@
 
 /* 報告清單排版(與彙整工具一致) */
 .asr-scope .finding-list {
-  margin: 0 0 0 92pt;
+  margin: 0;
   padding-left: 0;
-  list-style-position: outside;
+  list-style-position: inside;
   list-style-type: decimal;
 }
 .asr-scope .finding-item {
-  margin-bottom: 6pt;
+  /* 對齊 Word 段落值:文字之前 3.4cm、凸排(hanging)0.85cm、最小行高 24pt */
+  margin: 0 0 6pt 3.4cm;
+  text-indent: -0.85cm;
   text-align: justify;
   font-size: 12pt;
   line-height: 24pt;
-  padding-left: 0;
 }
 
 /* 螢幕:換頁線提示 */
