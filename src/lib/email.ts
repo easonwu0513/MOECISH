@@ -20,6 +20,7 @@ export type EmailKind =
   | 'checklist-review-done' // 委員完成檢核表審閱意見 → 通知中心
   | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
   | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
+  | 'audit-score-return'  // 最高管理員退件 → 通知該委員(解除鎖定、請重新編輯)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

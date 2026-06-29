@@ -9,6 +9,7 @@ import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChange
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
+import ReturnScoreButton from './ReturnScoreButton';
 
 /**
  * 實地稽核彙整報告:全體委員發現自動整合,版式 = 稽核報告彙整工具的 Word 格式
@@ -104,7 +105,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
                   }`}
                 >
                   <span className="font-medium text-on-surface">{a.auditor.name}</span>
-                  評分 {sc}/9 · 發現 {fc} 條
+                  已評 {sc} 構面 · 發現 {fc} 條
                   {locked && (
                     <span className="inline-flex items-center gap-1 font-medium text-primary-700">
                       <Check size={13} />已定稿
@@ -115,24 +116,31 @@ export default async function AuditReportPage({ params }: { params: { id: string
             })}
           </div>
         )}
-        {/* 最高管理員逐委員列印附件17 評分表(交付委員紙本簽名);委員端不再自印 */}
+        {/* 最高管理員逐委員:列印附件17 評分表(交付紙本簽名)+ 已定稿者可「退件」供重新編輯;委員端不再自印 */}
         {isAdmin && data.assignments.length > 0 && (
           <div className="mt-4 pt-4 border-t border-outline-variant/40">
             <p className="text-label-sm font-medium text-on-surface-variant mb-2">
-              列印各委員評分表(附件17;列印後交付委員紙本簽名)
+              各委員評分表(附件17):列印後交付委員紙本簽名;已定稿者可「退件」解除鎖定供其重新編輯
             </p>
             <div className="flex flex-wrap gap-2">
               {data.assignments.map((a) => (
-                <Link
+                <div
                   key={a.auditor.id}
-                  href={`/cycles/${data.id}/audit/print?auditorId=${a.auditor.id}`}
-                  target="_blank"
-                  rel="noopener"
+                  className="inline-flex items-center gap-0.5 rounded-md border border-outline-variant/60 bg-surface-container-lowest pl-1 pr-1.5 py-0.5"
                 >
-                  <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>
-                    {a.auditor.name} 評分表
-                  </Button>
-                </Link>
+                  <Link
+                    href={`/cycles/${data.id}/audit/print?auditorId=${a.auditor.id}`}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <Button variant="text" size="sm" leadingIcon={<FileText size={15} />}>
+                      {a.auditor.name} 評分表
+                    </Button>
+                  </Link>
+                  {a.scoreLockedAt && (
+                    <ReturnScoreButton cycleId={data.id} auditorId={a.auditor.id} auditorName={a.auditor.name} />
+                  )}
+                </div>
               ))}
             </div>
           </div>

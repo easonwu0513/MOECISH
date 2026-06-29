@@ -235,7 +235,7 @@ export async function loadAuditorStateChanges(assignmentIds: string[]) {
     where: {
       entityType: 'AuditorAssignment',
       entityId: { in: assignmentIds },
-      action: { in: ['audit.score.lock', 'audit.score.unlock'] },
+      action: { in: ['audit.score.lock', 'audit.score.unlock', 'audit.score.return'] },
     },
     include: { actor: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
@@ -247,24 +247,33 @@ type StateChange = Awaited<ReturnType<typeof loadAuditorStateChanges>>[number];
 
 export function AuditorStateChangeLog({ events }: { events: StateChange[] }) {
   if (events.length === 0) {
-    return <p className="text-body-sm text-on-surface-variant">尚無委員「確認填寫完畢 / 解除鎖定」紀錄。</p>;
+    return <p className="text-body-sm text-on-surface-variant">尚無委員「確認填寫完畢 / 解除鎖定 / 退件」紀錄。</p>;
   }
   return (
     <ul className="space-y-2">
       {events.map((e) => {
+        const isReturn = e.action === 'audit.score.return';
         let locked = false;
         try { locked = JSON.parse(e.afterJson ?? '{}').locked === true; } catch { /* 容錯 */ }
         return (
           <li
             key={e.id}
             className={`flex items-start gap-2.5 rounded-md border px-3 py-2 text-body-sm ${
-              locked ? 'border-primary-200 bg-primary-50 text-primary-800' : 'border-warning-200 bg-warning-50 text-warning-800'
+              locked
+                ? 'border-primary-200 bg-primary-50 text-primary-800'
+                : isReturn
+                  ? 'border-outline-variant bg-surface-container text-on-surface-variant'
+                  : 'border-warning-200 bg-warning-50 text-warning-800'
             }`}
           >
             <span className="mt-0.5 shrink-0">{locked ? <Check size={15} /> : <AlertTriangle size={15} />}</span>
             <div className="min-w-0">
               <span className="font-medium text-on-surface">{e.actor?.name ?? '稽核委員'}</span>
-              {locked ? ' 已確認填寫完畢(評分與發現定稿)' : ' 解除鎖定 — 內容可能已異動,請複核'}
+              {isReturn
+                ? ' 已退件 — 解除該委員鎖定供重新編輯'
+                : locked
+                  ? ' 已確認填寫完畢(評分與發現定稿)'
+                  : ' 解除鎖定 — 內容可能已異動,請複核'}
               <span className="block text-caption text-on-surface-variant tabular-nums">{fmtROCDateTime(e.createdAt)}</span>
             </div>
           </li>
