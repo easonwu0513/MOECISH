@@ -28,7 +28,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div
         className={cn(
-          'relative rounded-t-md overflow-hidden transition-all duration-200 ease-standard',
+          'group relative rounded-t-md overflow-hidden transition-all duration-200 ease-standard',
           'bg-surface-container',
           hasError
             ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-danger-500'
@@ -39,11 +39,22 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
           disabled && 'opacity-50',
         )}
       >
+        {/* 標籤帶遮罩:textarea 內容捲動時會捲進頂部 padding 區、透到浮動標籤後方造成重疊;
+            以與欄位同底色的遮罩(高度=pt-6)蓋住該帶,讓捲上來的文字被遮住、標籤恆清晰。 */}
+        {label && (
+          <div
+            aria-hidden
+            className={cn(
+              'absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-md bg-surface-container',
+              !focused && !hasError && 'group-hover:bg-surface-container-high',
+            )}
+          />
+        )}
         {label && (
           <label
             htmlFor={inputId}
             className={cn(
-              'absolute pointer-events-none transition-all duration-200 ease-standard left-3.5',
+              'absolute z-20 pointer-events-none transition-all duration-200 ease-standard left-3.5',
               raised
                 ? 'top-2 text-caption'
                 : 'top-3 text-body',
