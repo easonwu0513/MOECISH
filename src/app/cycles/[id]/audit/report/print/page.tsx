@@ -22,7 +22,7 @@ export default async function AuditReportPrintPage({ params }: { params: { id: s
   const report = buildReportData(data);
 
   return (
-    <main className="mx-auto max-w-[210mm] bg-white px-[20mm] py-[15mm] text-black">
+    <main className="mx-auto max-w-[210mm] print:max-w-none bg-white px-[20mm] py-[15mm] print:px-0 print:py-0 text-black">
       <PrintTrigger />
       <AssembledReport data={report} />
     </main>

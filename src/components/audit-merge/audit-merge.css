@@ -128,6 +128,8 @@
 
 /* ═══ 列印:只在工具頁掛載時(body.amt-active)生效 ═══ */
 @media print {
+  /* 頁邊對齊 Word 檔(實地稽核報告.doc):上下 2.54cm、左右 3.175cm */
+  @page { size: A4; margin: 2.54cm 3.175cm; }
   body.amt-active .no-print { display: none !important; }
   body.amt-active .print-only { display: block !important; }
   body.amt-active { height: auto !important; min-height: auto !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }

@@ -30,6 +30,8 @@
 
 /* 列印 */
 @media print {
+  /* 頁邊對齊 Word 檔(實地稽核報告.doc):上下 2.54cm、左右 3.175cm */
+  @page { size: A4; margin: 2.54cm 3.175cm; }
   .no-print { display: none !important; }
   .asr-scope .page-break {
     page-break-before: always;
