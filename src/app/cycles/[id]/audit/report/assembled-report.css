@@ -13,9 +13,10 @@
   list-style-type: decimal;
 }
 .asr-scope .finding-item {
-  /* 對齊 Word 段落值(實地稽核報告.doc):body 文字之前 4.25cm(w:left 2410)、凸排 0.85cm(w:hanging 482,首行落 3.4cm)、最小行高 24pt(w:line 480 atLeast) */
-  margin: 0 0 6pt 4.25cm;
-  text-indent: -0.85cm;
+  /* 對齊 Word「稽核發現」段落設定(使用者實機段落對話框):左縮排 3.4cm、凸排 0.63cm(首行落 2.77cm)、左右對齊、段前後 0、最小行高 24pt。
+     瀏覽器列印用 CSS 清單(list-style inside),margin-left 即實際縮排、無 Word 匯出時的清單偏移,故直接設 3.4cm。 */
+  margin: 0 0 0 3.4cm;
+  text-indent: -0.63cm;
   text-align: justify;
   font-size: 12pt;
   line-height: 24pt;

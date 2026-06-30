@@ -339,7 +339,9 @@ export function AuditMergeTool({
           table { width: 100%; border-collapse: collapse; }
           td { vertical-align: top; text-align: justify; padding-bottom: 6pt; }
           .finding-list { margin-left: 0 !important; padding-left: 0 !important; list-style-type: decimal; }
-          .finding-item { margin-left: 92pt !important; text-indent: -24pt !important; padding-left: 0 !important; }
+          /* Word 匯出「稽核發現」段落設定:目標 = 使用者實機段落對話框(左縮排 3.4cm、凸排 0.63cm、左右對齊、最小行高 24pt)。
+             ⚠️ Word 匯入 HTML 編號清單時會自動加 +1.27cm(0.5")清單縮排,故 li margin-left 須設 2.13cm(=3.4-1.27)才會在 Word 顯示為左縮排 3.4cm;經 Word COM round-trip 實測 1~12 項皆得 左3.40/首行-0.63/左右對齊。勿改回 3.4cm(會變 4.67cm)。 */
+          .finding-item { margin-left: 2.13cm !important; text-indent: -0.63cm !important; text-align: justify; padding-left: 0 !important; }
         </style>
       </head>
       <body>
