@@ -44,9 +44,9 @@ export default function ReturnScoreButton({
     setReason('');
     // 誠實反映通知是否送達:委員若已停用,notified=0,不可假性宣稱已通知
     if (j.notified > 0) {
-      toast.success('已退件', `${auditorName} 委員將收到通知,可重新編輯。`);
+      toast.success('已退件', `已解除 ${auditorName} 委員的鎖定,可重新編輯;已於系統內通知(不寄 email),請一併於現場告知委員。`);
     } else {
-      toast.success('已退件', `已解除 ${auditorName} 委員的鎖定;惟通知未送達(委員可能已停用),請另行告知委員。`);
+      toast.success('已退件', `已解除 ${auditorName} 委員的鎖定;惟站內通知未建立(委員可能已停用),請另行告知委員。`);
     }
     router.refresh();
   }
@@ -58,7 +58,7 @@ export default function ReturnScoreButton({
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
         title={`退件給 ${auditorName} 委員`}
-        description="退件後該委員的評分與發現將解除鎖定、可重新編輯,並收到通知信與站內通知。"
+        description="退件後該委員的評分與發現將解除鎖定、可重新編輯,並於系統內收到站內通知(不另寄 email,退件請於實地稽核現場一併告知委員)。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>

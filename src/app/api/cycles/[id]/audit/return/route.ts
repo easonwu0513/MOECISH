@@ -14,7 +14,7 @@ const Body = z.object({
 
 /**
  * 最高管理員「退件」:解除某委員已定稿(scoreLockedAt)的實地稽核評分與發現,
- * 使該委員可重新編輯;通知該委員(寄信 + 站內),並寫稽核軌跡。
+ * 使該委員可重新編輯;以站內通知告知該委員(不寄 email,退件於現場口頭告知),並寫稽核軌跡。
  * 僅 SUPER_ADMIN;委員自鎖/自解見 ../lock。
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {

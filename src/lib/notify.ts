@@ -421,7 +421,7 @@ export async function notifyAuditScoreUnlocked(opts: {
   return { recipientCount: recipients.length };
 }
 
-/** 最高管理員「退件」:通知該委員其評分與發現已退回、已解除鎖定,請重新編輯後再次確認。 */
+/** 最高管理員「退件」:以站內通知(不寄 email;退件於實地稽核現場口頭告知)告知該委員其評分與發現已退回、已解除鎖定,請重新編輯後再次確認。 */
 export async function notifyAuditScoreReturned(opts: {
   cycleId: string;
   auditorId: string;
@@ -439,26 +439,21 @@ export async function notifyAuditScoreReturned(opts: {
   });
   if (!auditor) return { recipientCount: 0 };
 
-  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/audit`;
   const yearROC = cycle.year - 1911;
   const orgName = cycle.organization.shortName ?? cycle.organization.name;
 
-  await sendEmail({
-    to: auditor.email,
-    toName: auditor.name,
-    subject: `[MOECISH] 您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回,請重新確認`,
-    body:
-      `${auditor.name} 委員您好,\n\n` +
-      `最高管理員已將您於 ${cycle.organization.name} ${yearROC} 年度的實地稽核評分與稽核發現退回,已解除鎖定;\n` +
-      `請重新編輯後,再次按「確認填寫完畢」。\n` +
-      (opts.reason ? `\n退回原因:${opts.reason}\n` : '') +
-      `\n請至實地稽核評分與發現頁面處理:\n\n` +
-      `${link}\n\n` +
-      `— MOECISH 資通安全稽核管考平台`,
-    kind: 'audit-score-return',
-    relatedCycleId: cycle.id,
-    notificationLink: `/cycles/${cycle.id}/audit`, // 站內通知點擊 → 實地稽核評分頁(委員重新編輯處)
-    context: { auditorName: auditor.name },
+  // 退件於實地稽核現場即口頭告知委員,故「不寄 email」(避免委員信箱信件過多);
+  // 僅建立站內通知(鈴鐺)供委員登入系統時看到,點擊導向實地稽核評分頁重新編輯。
+  await prisma.notification.create({
+    data: {
+      userId: auditor.id,
+      kind: 'audit-score-return',
+      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回,請重新確認`,
+      body:
+        '最高管理員已將您的實地稽核評分與稽核發現退回,已解除鎖定,請重新編輯後再次按「確認填寫完畢」。' +
+        (opts.reason ? ` 退回原因:${opts.reason}` : ''),
+      link: `/cycles/${cycle.id}/audit`,
+    },
   });
   return { recipientCount: 1 };
 }
