@@ -328,11 +328,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </section>
       )}
 
-      {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話),密度更高、取代原長描述大卡 */}
-      <section className="grid grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
+      {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話);圖示統一主色,與全站一致 */}
+      <section className={`grid grid-cols-2 gap-3 mb-8 ${user.role === 'ORG_ADMIN' ? 'lg:grid-cols-3' : 'xl:grid-cols-4'}`}>
         <StatusTile
           icon={<FileText size={18} />}
-          tone="sage"
+          tone="primary"
           title="稽核前資料準備"
           status={prepStatus}
           statusTone={prepDone ? 'success' : 'default'}
@@ -345,25 +345,30 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           }
           lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
+        {/* 檢核表與委員審閱整併為一張:委員→審閱頁(含檢視)、機關/中心→檢核表頁 */}
         <StatusTile
           icon={<ClipboardCheck size={18} />}
           tone="primary"
           title="資通安全檢核表"
-          status={checklistStatus}
-          statusTone={checklistSubmitted ? 'success' : 'default'}
-          caption={checklistCaption}
-          href={`/cycles/${cycle.id}/checklist`}
-          muted={!modActive.checklist}
+          status={user.role === 'AUDITOR' ? reviewStatus : checklistStatus}
+          statusTone={
+            user.role === 'AUDITOR'
+              ? (modActive.review ? 'primary' : 'default')
+              : (checklistSubmitted ? 'success' : 'default')
+          }
+          caption={user.role === 'AUDITOR' ? '檢視填報、逐題留審查意見' : checklistCaption}
+          href={user.role === 'AUDITOR' ? `/cycles/${cycle.id}/review` : `/cycles/${cycle.id}/checklist`}
+          muted={!(user.role === 'AUDITOR' ? modActive.review : modActive.checklist)}
           locked={
             (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
             (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
           }
-          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
+          lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員審閱'}
         />
         {user.role !== 'ORG_ADMIN' && (
           <StatusTile
             icon={<Eye size={18} />}
-            tone="sage"
+            tone="primary"
             title="實地稽核評分與發現"
             status={auditStatus}
             statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
@@ -372,20 +377,6 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
             muted={!modActive.audit}
             locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
             lockedHint="實地稽核階段開放"
-          />
-        )}
-        {user.role !== 'ORG_ADMIN' && (
-          <StatusTile
-            icon={<CheckCircle size={18} />}
-            tone="primary"
-            title="委員審閱（檢核表）"
-            status={reviewStatus}
-            statusTone={modActive.review ? 'primary' : 'default'}
-            caption="逐題檢視佐證、留審查意見"
-            href={`/cycles/${cycle.id}/review`}
-            muted={!modActive.review}
-            locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
-            lockedHint="資料齊備後開放"
           />
         )}
         <StatusTile

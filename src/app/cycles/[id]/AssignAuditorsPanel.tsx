@@ -106,33 +106,23 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
     <Card className="mb-6">
       <CardTitle>稽核委員指派</CardTitle>
       <CardDescription>
-        被指派的委員才能檢視本週期並進行審查;委員不得審查自己服務之機關。
-        可一併指派各委員負責的稽核構面(策略/管理/管理OT/技術),委員於評分頁會聚焦其負責構面;未指定視同全構面。
+        被指派的委員才能檢視並審查本週期(不得審查自己服務之機關)。勾選各委員負責構面,未勾視同全構面。
       </CardDescription>
 
       <div className="mt-4 flex flex-col gap-3">
         {assignments.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">尚未指派任何委員</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {assignments.map((a) => {
               const dims = parseAssignDimensions(a.dimensions ?? null);
               return (
-                <div key={a.id} className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <Chip tone="sage" size="md" dot>{a.auditor.name}</Chip>
-                    <button
-                      type="button"
-                      onClick={() => remove(a.auditor.id)}
-                      disabled={busy}
-                      className="text-caption text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
-                      aria-label={`移除 ${a.auditor.name}`}
-                    >
-                      移除
-                    </button>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-caption text-on-surface-variant">負責構面:</span>
+                <div
+                  key={a.id}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-3 py-2"
+                >
+                  <Chip tone="neutral" size="sm" dot className="shrink-0">{a.auditor.name}</Chip>
+                  <div className="flex flex-wrap items-center gap-1">
                     {ASSIGN_ASPECTS.map((asp) => {
                       const on = dims.includes(asp);
                       return (
@@ -143,7 +133,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
                           aria-pressed={on}
                           onClick={() => toggleDim(a, asp)}
                           className={cn(
-                            'px-2.5 py-1 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
+                            'px-2 py-0.5 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
                             on
                               ? 'bg-primary-600 border-primary-600 text-white'
                               : 'border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container',
@@ -154,9 +144,18 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
                       );
                     })}
                     {dims.length === 0 && (
-                      <span className="text-caption text-on-surface-variant">(未指定=全構面)</span>
+                      <span className="text-caption text-on-surface-variant">全構面</span>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => remove(a.auditor.id)}
+                    disabled={busy}
+                    className="ml-auto shrink-0 text-caption text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
+                    aria-label={`移除 ${a.auditor.name}`}
+                  >
+                    移除
+                  </button>
                 </div>
               );
             })}
