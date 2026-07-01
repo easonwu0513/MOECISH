@@ -7,6 +7,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
+import { copyText } from '@/lib/clipboard';
 import { ROLE_LABELS, type Role } from '@/lib/types';
 
 /** 使用者列操作:停用/啟用、變更角色(不可操作自己,後端另有最後管理員防呆)。 */
@@ -204,7 +205,10 @@ export default function UserRowActions({
             <Button
               size="sm"
               variant="tonal"
-              onClick={() => { navigator.clipboard?.writeText(resetLink); toast.success('已複製連結'); }}
+              onClick={async () => {
+                if (await copyText(resetLink)) toast.success('已複製連結');
+                else toast.error('複製失敗', '請長按或反白連結文字手動複製');
+              }}
             >
               複製
             </Button>
