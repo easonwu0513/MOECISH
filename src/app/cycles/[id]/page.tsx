@@ -20,7 +20,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
 import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
-import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
+import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
@@ -110,15 +110,24 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const prepInsufficient = user.role === 'ORG_ADMIN' ? facts.mechInsufficient : facts.prepInsufficient;
   const prepDraft = user.role === 'ORG_ADMIN' ? facts.mechDraft : facts.prepDraft;
   const prepRemaining = user.role === 'ORG_ADMIN' ? facts.mechRemaining : facts.prepRemaining;
-  const prepBadge = prepTotal > 0
-    ? <Chip tone={prepConfirmed === prepTotal ? 'success' : 'neutral'} size="sm">{prepConfirmed}/{prepTotal} 齊備</Chip>
-    : undefined;
-  const checklistBadge = cycle.checklistSubmittedAt
-    ? <Chip tone="success" size="sm" dot>已送出</Chip>
-    : undefined;
-  const defBadge = total > 0
-    ? <Chip tone={passed === total ? 'success' : 'neutral'} size="sm">{passed}/{total} 通過</Chip>
-    : undefined;
+  // 模組狀態卡:各入口改「狀態值 + 一句話」精簡呈現(取代長描述大卡),密度更高、版面更清爽
+  const onsitePast = stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED';
+  const prepDone = prepTotal > 0 && prepConfirmed === prepTotal;
+  const prepStatus = prepTotal > 0 ? `${prepConfirmed}/${prepTotal}` : '—';
+  const prepCaption = prepTotal > 0
+    ? (prepDone ? '資料齊備' : `待繳 ${prepDraft} · 退補 ${prepInsufficient}`)
+    : '尚無資料需求';
+  const checklistSubmitted = Boolean(cycle.checklistSubmittedAt);
+  const checklistStatus = checklistSubmitted
+    ? '已送出'
+    : (facts.checklistTotal > 0 ? `${facts.checklistAnswered}/${facts.checklistTotal}` : '—');
+  const checklistCaption = checklistSubmitted
+    ? '線上填報完成'
+    : (facts.checklistTotal > 0 ? '逐題填報中' : '待中心開放填報');
+  const auditStatus = onsitePast ? '已完成' : (stForMod === 'ONSITE' ? '進行中' : '尚未開始');
+  const reviewStatus = onsitePast ? '已完成' : (modActive.review ? '進行中' : '待開放');
+  const defStatus = total > 0 ? `${passed}/${total}` : '尚未發布';
+  const defCaption = total > 0 ? `待填 ${pendingCount} · 退回 ${returned}` : '缺失發布後開放填報';
 
   // 矯正截止壓力提示(僅矯正執行中且未全通過時;以本地日界計天數,與追蹤信一致)
   const dueDay = cycle.dueDate ? new Date(cycle.dueDate) : null;
@@ -319,19 +328,16 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
         </section>
       )}
 
-      {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}
-      <section
-        className={`grid grid-cols-1 gap-5 mb-8 ${
-          user.role === 'ORG_ADMIN' ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-3'
-        }`}
-      >
-        <ModuleTile
-          icon={<FileText size={22} />}
+      {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話),密度更高、取代原長描述大卡 */}
+      <section className="grid grid-cols-2 xl:grid-cols-3 gap-3 mb-8">
+        <StatusTile
+          icon={<FileText size={18} />}
           tone="sage"
           title="稽核前資料準備"
-          desc="實地稽核前，機關上傳文件或敘明無相關文件後「確定繳交」；中心確認資料齊備或退回補正。"
+          status={prepStatus}
+          statusTone={prepDone ? 'success' : 'default'}
+          caption={prepCaption}
           href={`/cycles/${cycle.id}/prep`}
-          badge={prepBadge}
           muted={!modActive.prep}
           locked={
             (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
@@ -339,13 +345,14 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           }
           lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
-        <ModuleTile
-          icon={<ClipboardCheck size={22} />}
+        <StatusTile
+          icon={<ClipboardCheck size={18} />}
           tone="primary"
           title="資通安全檢核表"
-          desc="行政院檢核項目線上填報:逐題符合度、說明與佐證上傳;每題附法規對照(稽核依據、重點、應備文件)。"
+          status={checklistStatus}
+          statusTone={checklistSubmitted ? 'success' : 'default'}
+          caption={checklistCaption}
           href={`/cycles/${cycle.id}/checklist`}
-          badge={checklistBadge}
           muted={!modActive.checklist}
           locked={
             (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
@@ -354,11 +361,13 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
         />
         {user.role !== 'ORG_ADMIN' && (
-          <ModuleTile
-            icon={<Eye size={22} />}
+          <StatusTile
+            icon={<Eye size={18} />}
             tone="sage"
             title="實地稽核評分與發現"
-            desc="稽核當天:委員線上評分(檢核統計自動帶入)與逐條輸入發現;系統即時彙整成完整報告。"
+            status={auditStatus}
+            statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
+            caption="委員線上評分、記錄稽核發現"
             href={`/cycles/${cycle.id}/audit`}
             muted={!modActive.audit}
             locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
@@ -366,24 +375,27 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           />
         )}
         {user.role !== 'ORG_ADMIN' && (
-          <ModuleTile
-            icon={<CheckCircle size={22} />}
+          <StatusTile
+            icon={<CheckCircle size={18} />}
             tone="primary"
-            title="委員審閱(檢核表)"
-            desc="逐題檢視機關填報的符合度與佐證,於每題留下審查意見;可退回補正或維持送審。"
+            title="委員審閱（檢核表）"
+            status={reviewStatus}
+            statusTone={modActive.review ? 'primary' : 'default'}
+            caption="逐題檢視佐證、留審查意見"
             href={`/cycles/${cycle.id}/review`}
             muted={!modActive.review}
             locked={user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)}
             lockedHint="資料齊備後開放"
           />
         )}
-        <ModuleTile
-          icon={<AlertTriangle size={22} />}
+        <StatusTile
+          icon={<AlertTriangle size={18} />}
           tone="primary"
           title="缺失與矯正管考"
-          desc="檢視稽核缺失、填報矯正措施與佐證；委員逐項審查通過或退回補正。"
+          status={defStatus}
+          statusTone={total > 0 && passed === total ? 'success' : 'default'}
+          caption={defCaption}
           href={`/cycles/${cycle.id}/deficiencies`}
-          badge={defBadge}
           muted={!modActive.deficiencies}
           locked={user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)}
           lockedHint={user.role === 'ORG_ADMIN' ? '矯正執行階段開放填報' : '缺失發布後開放'}
@@ -508,13 +520,14 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   );
 }
 
-function ModuleTile({
+function StatusTile({
   icon,
   tone,
   title,
-  desc,
+  status,
+  statusTone = 'default',
+  caption,
   href,
-  badge,
   muted,
   locked,
   lockedHint,
@@ -522,10 +535,13 @@ function ModuleTile({
   icon: React.ReactNode;
   tone: 'primary' | 'sage' | 'neutral';
   title: string;
-  desc: string;
+  /** 精簡卡的主狀態值(如 20/20、已送出、進行中、待處理) */
+  status: string;
+  /** 狀態值配色:done→綠、需注意→琥珀、當前→主色、其餘→中性 */
+  statusTone?: 'default' | 'success' | 'warning' | 'primary';
+  /** 一句話補充(退補/待繳、線上填報完成…) */
+  caption?: string;
   href: string;
-  /** 右上角狀態徽章(進度一目了然);無進度可省略 */
-  badge?: React.ReactNode;
   /** 非當前階段的入口降權(淡化但仍可點),讓「現在該做的」那張最突出 */
   muted?: boolean;
   /** 鎖定:不可點(如委員於資料齊備前不可看機關檢核表),改顯示提示而非連結 */
@@ -536,24 +552,33 @@ function ModuleTile({
   const iconBg = muted || locked
     ? 'bg-surface-container-high text-on-surface-variant'
     : toneClasses(tone).iconBg;
+  const statusColor = locked
+    ? 'text-on-surface-variant'
+    : statusTone === 'success'
+      ? 'text-success-700'
+      : statusTone === 'warning'
+        ? 'text-amber-600'
+        : statusTone === 'primary'
+          ? 'text-primary-700'
+          : 'text-on-surface';
 
   const inner = (
     <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
-      <div className="flex items-start gap-4">
-        <div className={`w-11 h-11 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+      <div className="flex items-center gap-2.5">
+        <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
           {icon}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="text-title-md text-on-surface">{title}</div>
-            {badge && <div className="shrink-0">{badge}</div>}
-          </div>
-          <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
-          {locked && lockedHint && (
-            <p className="mt-1.5 text-caption text-on-surface-variant">🔒 {lockedHint}</p>
-          )}
-        </div>
+        <p className="min-w-0 flex-1 text-body-sm font-medium text-on-surface leading-tight">{title}</p>
+        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant" />}
       </div>
+      {locked ? (
+        <p className="mt-3 text-body-sm text-on-surface-variant">🔒 {lockedHint}</p>
+      ) : (
+        <>
+          <p className={`mt-3 text-title-md font-medium tabular-nums leading-none ${statusColor}`}>{status}</p>
+          {caption && <p className="mt-1.5 text-caption text-on-surface-variant leading-tight">{caption}</p>}
+        </>
+      )}
     </Card>
   );
 
