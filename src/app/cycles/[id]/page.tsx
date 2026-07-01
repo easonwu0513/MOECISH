@@ -502,6 +502,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 分組:報告與匯出(用印掃描檔 + 公文匯出) ── */}
+          {user.role !== 'AUDITOR' && <SectionLabel>報告與匯出</SectionLabel>}
+
           {/* 用印報告(可見性由 access-policy 決定) */}
           {canAccess('signedReport.section', user.role as Role, cycle.status) && (
             <section id="signed-report" className="mb-6 scroll-mt-20">
@@ -564,12 +567,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 分組:委員(指派與構面) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel>委員</SectionLabel>}
+
           {/* SUPER_ADMIN:委員指派 */}
           {user.role === 'SUPER_ADMIN' && (
             <div id="assign-auditors" className="scroll-mt-24">
               <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
             </div>
           )}
+
+          {/* ── 分組:週期管理(通知機關、推進/回退狀態) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel>週期管理</SectionLabel>}
 
           {/* SUPER_ADMIN:管理動作 */}
           {user.role === 'SUPER_ADMIN' && (
@@ -656,6 +665,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+/** 週期頁下半部的分組小標(輕度歸類:報告與匯出 / 委員 / 週期管理),不改功能只加結構 */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 mb-3 flex items-center gap-3">
+      <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant whitespace-nowrap">{children}</h2>
+      <span className="h-px flex-1 bg-outline-variant/50" aria-hidden />
+    </div>
   );
 }
 
