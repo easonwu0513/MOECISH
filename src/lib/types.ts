@@ -110,16 +110,19 @@ export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
 // ════════════════════════════════════════════
 
 // 資料準備狀態機:
-//   EMPTY(未處理) → UPLOADED(待繳交/草稿,機關仍可改) → SUBMITTED(機關「確定繳交」,鎖定) → CONFIRMED(中心確認齊備)
+//   EMPTY(未處理) → UPLOADED(已處理・待確定繳交/草稿,機關仍可改) → SUBMITTED(機關「確定繳交」,鎖定待中心審核) → CONFIRMED(中心確認齊備)
 //   SUBMITTED/CONFIRMED →(中心退回補正)→ INSUFFICIENT(解鎖,機關補正後重新繳交)
 // 機關「已處理」一項 = 有檔案 或 已填「無相關文件理由」(二擇一)。委員僅見 CONFIRMED。
 export const PREP_STATUSES = ['EMPTY', 'UPLOADED', 'SUBMITTED', 'CONFIRMED', 'INSUFFICIENT'] as const;
 export type PrepStatus = (typeof PREP_STATUSES)[number];
 
+// 狀態徽章文案:兩個易錯位的狀態寫全,機關/中心兩端讀起來都正確——
+// UPLOADED 讓機關知道「上傳/敘明完還要按確定繳交」(已處理=有檔或已敘明,見上);
+// SUBMITTED 讓機關知道中心在審、讓中心知道待自己審。
 export const PREP_STATUS_LABELS: Record<PrepStatus, string> = {
   EMPTY: '尚未處理',
-  UPLOADED: '待繳交',
-  SUBMITTED: '已繳交',
+  UPLOADED: '已處理・待確定繳交',
+  SUBMITTED: '已繳交・待中心審核',
   CONFIRMED: '已確認齊備',
   INSUFFICIENT: '已退回',
 };

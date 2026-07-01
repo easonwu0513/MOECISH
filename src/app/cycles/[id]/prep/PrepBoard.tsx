@@ -641,7 +641,7 @@ export default function PrepBoard({
                         {st.requiredUnaddressed.length > 0
                           ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
                           : st.draftCount > 0
-                            ? `${st.draftCount} 項待繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
+                            ? `${st.draftCount} 項已處理、待確定繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
                             : '本區已全部繳交,等待中心審核。'}
                       </p>
                     </div>
