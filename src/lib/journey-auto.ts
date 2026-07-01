@@ -40,7 +40,9 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   prep_confirmed: (c) => c.facts.mechAllConfirmed,
   onsite_scheduled: (c) => !!c.facts.onsiteDate,
   deficiencies_published: (c) => c.facts.total > 0,
-  remediation_submitted: (c) => c.facts.submitted > 0 || c.facts.passed > 0,
+  // 「逐項填報...送審」以「全部送審」為準(比照機關區 mechAllSubmitted 的全部完成原則):
+  // 須無待填(toFill)且無退回(returned)——只要還有一項未送審或被退回,即未完成(修正原 submitted>0 只要送出一項就打勾的問題)。
+  remediation_submitted: (c) => c.facts.total > 0 && c.facts.toFill === 0 && c.facts.returned === 0,
   remediation_reviewed: (c) => c.facts.passed > 0 || c.facts.returned > 0,
   signed_uploaded: (c) => c.facts.signedUploaded,
   signed_confirmed: (c) => c.facts.signedConfirmed,
