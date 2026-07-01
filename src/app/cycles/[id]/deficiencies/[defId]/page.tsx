@@ -6,7 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Timeline, type TimelineNode } from '@/components/ui/Timeline';
-import { AlertTriangle, Info, History } from '@/components/icons';
+import { AlertTriangle, Info, History, ChevronLeft, ChevronRight } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
@@ -162,14 +162,12 @@ export default async function DeficiencyDetailPage({
       : user.role === 'ORG_ADMIN'
       ? s === 'PENDING' || s === 'DRAFT' || s === 'RETURNED'
       : false;
-  const siblings =
-    user.role === 'SUPER_ADMIN'
-      ? []
-      : await prisma.deficiency.findMany({
-          where: { cycleId: cycle.id },
-          include: { action: { select: { status: true } } },
-          orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
-        });
+  // 全週期缺失(依構面/類型/項次排序):供「上一筆/下一筆」導覽(所有角色)與委員「下一筆待審」
+  const siblings = await prisma.deficiency.findMany({
+    where: { cycleId: cycle.id },
+    include: { action: { select: { status: true } } },
+    orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
+  });
   const matching = siblings.filter(
     (d) =>
       d.id !== deficiency.id &&
@@ -182,6 +180,10 @@ export default async function DeficiencyDetailPage({
   const after = matching.find((d) => siblings.findIndex((x) => x.id === d.id) > myIdx);
   const nextDef = after ?? matching[0] ?? null;
   const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
+
+  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點,所有角色皆可用)
+  const prevDefNav = myIdx > 0 ? siblings[myIdx - 1] : null;
+  const nextDefNav = myIdx >= 0 && myIdx < siblings.length - 1 ? siblings[myIdx + 1] : null;
   const remaining = matching.length;
 
   // 最新一輪退回意見(機關視角置頂提示)
@@ -388,6 +390,40 @@ export default async function DeficiencyDetailPage({
             : null
         }
       />
+
+      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點) */}
+      {(prevDefNav || nextDefNav) && (
+        <nav className="mt-8 pt-5 border-t border-outline-variant/40 flex items-center justify-between gap-3">
+          {prevDefNav ? (
+            <Link
+              href={`/cycles/${cycle.id}/deficiencies/${prevDefNav.id}`}
+              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+            >
+              <ChevronLeft size={17} aria-hidden />
+              上一筆缺失
+            </Link>
+          ) : (
+            <span />
+          )}
+          <Link
+            href={`/cycles/${cycle.id}/deficiencies`}
+            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus-ring"
+          >
+            回缺失與矯正列表
+          </Link>
+          {nextDefNav ? (
+            <Link
+              href={`/cycles/${cycle.id}/deficiencies/${nextDefNav.id}`}
+              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+            >
+              下一筆缺失
+              <ChevronRight size={17} aria-hidden />
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </AppShell>
   );
 }
