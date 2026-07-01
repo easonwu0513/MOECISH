@@ -14,7 +14,6 @@ import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { fmtROC } from '@/lib/date';
-import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
@@ -212,35 +211,9 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* 主行動橫幅:建議的下一步(③ 招牌元件,取代原本細條下一步) */}
       <PrimaryActionBanner next={bannerNext} subtext={`${cycle.organization.name} · ${yearROC} 年度`} className="mb-5" />
 
-      {/* 流程位置:7 階段引導流程帶(取代 4 步 Stepper) */}
-      <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
-        <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant mb-3">稽核週期進度</p>
-        <StageFlowRail status={cycle.status as CycleStatus} />
-      </section>
-
-      {/* 引導式精靈:各階段該做什麼(可勾選、存檔;預設展開目前階段) */}
-      {journeyStages.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
-              引導式精靈 · 各階段任務
-              <span className="ml-2 normal-case tracking-normal text-on-surface-variant/80">依系統進度自動更新</span>
-            </p>
-            {journeyView && journeyView.total > 0 && (
-              <span className="text-caption text-on-surface-variant tabular-nums">
-                已完成 {journeyView.doneCount}/{journeyView.total}
-              </span>
-            )}
-          </div>
-          <JourneyChecklist
-            scope="CYCLE"
-            binding={{ cycleId: cycle.id }}
-            stages={journeyStages}
-            defaultOpenStageKey={cycle.status}
-            showRoleChips={user.role === 'SUPER_ADMIN'}
-          />
-        </section>
-      )}
+      {/* 雙欄:左=工作內容;右=常駐「流程與任務」rail(合併原「稽核週期進度」帶與引導式精靈) */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_336px] lg:gap-6 lg:items-start">
+        <div className="min-w-0">
 
       {/* 本階段進度讀數(資料準備中):機關/中心關心的「還剩什麼」;委員此階段尚不可見機關資料,不顯示(避免退補/待繳/未處理誤導委員) */}
       {cycle.status === 'PREPARATION' && user.role !== 'AUDITOR' && (prepTotal > 0 || facts.checklistTotal > 0) && (
@@ -504,6 +477,29 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           </div>
         </Card>
       )}
+        </div>
+
+        {/* 右欄:常駐「流程與任務」— 直式階段 + 當前階段任務(精靈,自動完成) */}
+        {journeyStages.length > 0 && (
+          <aside className="mt-8 lg:mt-0 lg:sticky lg:top-6">
+            <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">流程與任務</p>
+                {journeyView && journeyView.total > 0 && (
+                  <span className="text-caption text-on-surface-variant tabular-nums">{journeyView.doneCount}/{journeyView.total}</span>
+                )}
+              </div>
+              <JourneyChecklist
+                scope="CYCLE"
+                binding={{ cycleId: cycle.id }}
+                stages={journeyStages}
+                defaultOpenStageKey={cycle.status}
+                showRoleChips={user.role === 'SUPER_ADMIN'}
+              />
+            </div>
+          </aside>
+        )}
+      </div>
     </AppShell>
   );
 }
