@@ -59,6 +59,7 @@ model User {
   auditLogs          AuditLog[]
   notifications      Notification[]
   passwordResetTokens PasswordResetToken[]
+  reviewedDeficiencies Deficiency[] @relation("DeficiencyReviewer")
 }
 
 // 忘記密碼/管理員重設:一次性重設 token(存 SHA-256 雜湊,明文只放連結);單次使用、有期限。
@@ -339,6 +340,10 @@ model Deficiency {
   checklistRef String? // 檢核項參照，如 "9.10"
   action       CorrectiveAction?
   createdById  String
+  // 審閱委員:由中心(SUPER_ADMIN)於「相關開立委員」中指派;null=尚未指派。
+  // 審核權限(審核通過/退回補正)= 此委員 或 SUPER_ADMIN(見 action/review)。
+  reviewerAuditorId String?
+  reviewerAuditor   User?   @relation("DeficiencyReviewer", fields: [reviewerAuditorId], references: [id])
   createdAt    DateTime @default(now())
 
   @@unique([cycleId, aspect, type, itemNo])

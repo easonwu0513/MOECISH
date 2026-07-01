@@ -24,6 +24,8 @@ import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/sta
 import { findRepeatDeficiencies } from '@/lib/deficiency-history';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
+import ReviewerAssign from './ReviewerAssign';
+import { deficiencyAuthors } from '@/lib/deficiency-reviewer';
 import AdminDefActions from './AdminDefActions';
 
 export default async function DeficiencyDetailPage({
@@ -65,6 +67,15 @@ export default async function DeficiencyDetailPage({
       })
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
+
+  // 批32:審閱委員 — 相關開立委員(供中心指派)+ 目前指派 + 本使用者是否為本缺失審閱人
+  const relevantAuthors = await deficiencyAuthors(deficiency.id);
+  const assignedReviewer = deficiency.reviewerAuditorId
+    ? relevantAuthors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
+    : null;
+  const isDefReviewer =
+    user.role === 'SUPER_ADMIN' ||
+    (user.role === 'AUDITOR' && deficiency.reviewerAuditorId === user.id);
 
   // 缺失回鏈:依 checklistRef 找來源檢核項題目 + 機關當初填報(容錯:對不上就不顯示)
   const sourceItem = deficiency.checklistRef
@@ -137,7 +148,7 @@ export default async function DeficiencyDetailPage({
     user.role === 'ORG_ADMIN' &&
     cycle.status === 'REMEDIATION' &&
     actionEditable(status);
-  const canReview = user.role === 'AUDITOR' && status === 'SUBMITTED';
+  const canReview = isDefReviewer && status === 'SUBMITTED';
 
   // ── 下一筆導覽:委員找下一筆已送審;機關找下一筆待填/退回 ──
   const wantNext = (s: ActionStatus) =>
@@ -155,7 +166,11 @@ export default async function DeficiencyDetailPage({
           orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
         });
   const matching = siblings.filter(
-    (d) => d.id !== deficiency.id && wantNext((d.action?.status ?? 'PENDING') as ActionStatus),
+    (d) =>
+      d.id !== deficiency.id &&
+      wantNext((d.action?.status ?? 'PENDING') as ActionStatus) &&
+      // 委員只導覽/計數自己被指派審閱的缺失(其餘缺失他不可審)
+      (user.role !== 'AUDITOR' || d.reviewerAuditorId === user.id),
   );
   // 取排序在本筆之後的第一筆;沒有就回頭取第一筆(環狀)
   const myIdx = siblings.findIndex((d) => d.id === deficiency.id);
@@ -300,6 +315,23 @@ export default async function DeficiencyDetailPage({
         <div className="mb-6 flex items-start gap-2.5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
           <Info size={16} className="mt-0.5 shrink-0" />
           <span>{orgReadonlyReason}</span>
+        </div>
+      )}
+
+      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心) */}
+      {(user.role === 'SUPER_ADMIN' || isDefReviewer || assignedReviewer) && (
+        <div className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
+          <p className="text-title-md text-on-surface mb-1">審閱委員</p>
+          <p className="text-body-sm text-on-surface-variant mb-3">
+            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
+          </p>
+          {user.role === 'SUPER_ADMIN' ? (
+            <ReviewerAssign deficiencyId={deficiency.id} authors={relevantAuthors} current={deficiency.reviewerAuditorId} />
+          ) : (
+            <p className="text-body-sm text-on-surface">
+              {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}
+            </p>
+          )}
         </div>
       )}
 

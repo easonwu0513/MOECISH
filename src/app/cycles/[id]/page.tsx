@@ -70,7 +70,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const yearROC = cycle.year - 1911;
 
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
-  const facts = deriveCycleFacts(cycle);
+  const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
   const next = nextActionForRole(user.role, facts);
 
   // 階段聚焦:只有「當前階段相關」的入口維持高亮,其餘降權(仍可點),讓現在該做的最突出

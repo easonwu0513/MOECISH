@@ -75,7 +75,7 @@ export default async function HomePage() {
   const now = new Date();
 
   // ── 每週期衍生數據(與週期內頁共用 process-guide) ──
-  const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now) }));
+  const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now, user.role === 'AUDITOR' ? user.id : undefined) }));
 
   type Enriched = (typeof enriched)[number];
 
