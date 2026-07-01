@@ -15,6 +15,8 @@ export type EmailKind =
   | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
   | 'committee-review'    // 資料齊備 → 通知委員開始審閱
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
+  | 'signed-report-submitted' // 機關確認繳交用印掃描檔 → 通知中心
+  | 'signed-report-returned'  // 中心退回用印掃描檔(解除鎖定)→ 站內通知機關重新上傳
   | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
   | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
   | 'checklist-review-done' // 委員完成檢核表審閱意見 → 通知中心

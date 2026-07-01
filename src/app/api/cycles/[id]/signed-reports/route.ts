@@ -4,6 +4,8 @@ import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyCycleSignedReportSubmitted } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg'];
 
@@ -30,12 +32,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '週期已結案,不可再上傳用印掃描檔' }, { status: 409 });
     }
-    const confirmedCount = await prisma.signedReport.count({
-      where: { cycleId: cycle.id, confirmedAt: { not: null } },
+    // 一旦機關「確認繳交」(submittedAt)或中心已確認(confirmedAt),檔案即鎖定,不可再上傳新版
+    const lockedCount = await prisma.signedReport.count({
+      where: {
+        cycleId: cycle.id,
+        OR: [{ submittedAt: { not: null } }, { confirmedAt: { not: null } }],
+      },
     });
-    if (confirmedCount > 0) {
+    if (lockedCount > 0) {
       return NextResponse.json(
-        { error: '用印掃描檔已經中心確認,不可再上傳;如需更換請聯繫中心' },
+        { error: '用印掃描檔已確認繳交,不可再上傳;如需更換請聯繫中心退回' },
         { status: 409 },
       );
     }
@@ -78,16 +84,150 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 }
 
-/** 最高管理員確認用印掃描檔（結案前置條件） */
+/**
+ * action=submit → 機關管理員「確認繳交」:鎖定此掃描檔為正式繳交版本 + 通知中心(email + 站內)
+ * action=return → 最高管理員退回:解除鎖定,讓機關可重新上傳/繳交(站內通知機關)
+ * action=confirm(預設)→ 最高管理員確認(結案前置條件),須機關已確認繳交
+ */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { user } = await assertCycleAccess(params.id);
+    const { user, cycle } = await assertCycleAccess(params.id);
+    const url = new URL(req.url);
+    const reportId = url.searchParams.get('reportId') ?? '';
+    const action = url.searchParams.get('action') ?? 'confirm';
+    if (!reportId) return NextResponse.json({ error: 'reportId required' }, { status: 400 });
+
+    // 只操作本週期下的掃描檔,避免跨週期竄改
+    const report = await prisma.signedReport.findUnique({ where: { id: reportId } });
+    if (!report || report.cycleId !== cycle.id) {
+      return NextResponse.json({ error: '找不到用印掃描檔' }, { status: 404 });
+    }
+
+    if (action === 'submit') {
+      if (user.role !== 'ORG_ADMIN') {
+        return NextResponse.json({ error: '僅機關管理員可確認繳交' }, { status: 403 });
+      }
+      if (cycle.status === 'CLOSED') {
+        return NextResponse.json({ error: '週期已結案,不可再繳交' }, { status: 409 });
+      }
+      if (report.submittedAt) {
+        return NextResponse.json({ error: '此掃描檔已確認繳交,不需重複繳交' }, { status: 409 });
+      }
+      // 一份週期只留一個正式繳交版本。用可序列化交易讓「檢查其他鎖定版本 + 標記繳交」原子化,
+      // 避免兩份草稿同時繳交造成雙鎖定版本(count-then-update race)。
+      let outcome;
+      try {
+        outcome = await prisma.$transaction(
+          async (tx) => {
+            const otherLocked = await tx.signedReport.count({
+              where: {
+                cycleId: cycle.id,
+                id: { not: reportId },
+                OR: [{ submittedAt: { not: null } }, { confirmedAt: { not: null } }],
+              },
+            });
+            if (otherLocked > 0) return { conflict: true as const, item: null };
+            const updated = await tx.signedReport.update({
+              where: { id: reportId },
+              data: { submittedById: user.id, submittedAt: new Date() },
+            });
+            return { conflict: false as const, item: updated };
+          },
+          { isolationLevel: 'Serializable' },
+        );
+      } catch (e) {
+        // 兩筆繳交同時競爭時其中一筆會序列化失敗(P2034)→ 轉為 409 請重試
+        if ((e as { code?: string }).code === 'P2034') {
+          return NextResponse.json({ error: '系統忙碌,請稍後再試' }, { status: 409 });
+        }
+        throw e;
+      }
+      if (outcome.conflict) {
+        return NextResponse.json(
+          { error: '已有繳交版本,不可重複繳交;如需更換請聯繫中心退回' },
+          { status: 409 },
+        );
+      }
+      const item = outcome.item;
+
+      const meta = extractRequestMeta(req);
+      await writeAuditLog({
+        actorId: user.id,
+        action: 'SIGNED_REPORT_SUBMIT',
+        entityType: 'SignedReport',
+        entityId: item.id,
+        after: { fileName: item.fileName },
+        ...meta,
+      });
+
+      // 通知中心「已繳交用印掃描檔」(失敗不擋流程)
+      await notifyCycleSignedReportSubmitted({
+        cycleId: cycle.id,
+        submittedByName: user.name,
+        fileName: item.fileName,
+        appBaseUrl: appBaseUrl(req),
+      }).catch((e) => console.error('[signed-report] notify failed:', (e as Error).message));
+
+      return NextResponse.json({ item });
+    }
+
+    if (action === 'return') {
+      // 中心退回:解除鎖定,讓機關可重新上傳/繳交正確版本(這是各處提示「聯繫中心退回」的實際入口)
+      if (user.role !== 'SUPER_ADMIN') {
+        return NextResponse.json({ error: '僅最高管理員可退回用印掃描檔' }, { status: 403 });
+      }
+      if (cycle.status === 'CLOSED') {
+        return NextResponse.json({ error: '週期已結案,不可退回' }, { status: 409 });
+      }
+      if (!report.submittedAt && !report.confirmedAt) {
+        return NextResponse.json({ error: '此掃描檔尚未繳交,無須退回' }, { status: 409 });
+      }
+      const item = await prisma.signedReport.update({
+        where: { id: reportId },
+        data: { submittedById: null, submittedAt: null, confirmedById: null, confirmedAt: null },
+      });
+
+      const meta = extractRequestMeta(req);
+      await writeAuditLog({
+        actorId: user.id,
+        action: 'SIGNED_REPORT_RETURN',
+        entityType: 'SignedReport',
+        entityId: item.id,
+        after: { fileName: item.fileName },
+        ...meta,
+      });
+
+      // 退回不寄信(比照實地稽核退件慣例),僅建立站內通知供機關重新上傳
+      try {
+        const orgAdmins = await prisma.user.findMany({
+          where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+          select: { id: true },
+        });
+        if (orgAdmins.length > 0) {
+          await prisma.notification.createMany({
+            data: orgAdmins.map((u) => ({
+              userId: u.id,
+              kind: 'signed-report-returned',
+              title: '用印掃描檔已退回',
+              body: '您上傳的用印改善報告掃描檔已被中心退回,請重新上傳正確版本後再次按「確認繳交」。',
+              link: `/cycles/${cycle.id}#signed-report`,
+            })),
+          });
+        }
+      } catch (e) {
+        console.error('[signed-report] return notify failed:', (e as Error).message);
+      }
+
+      return NextResponse.json({ item });
+    }
+
+    // action === 'confirm':最高管理員確認(結案前置),須機關已確認繳交
     if (user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: '僅最高管理員可確認' }, { status: 403 });
     }
-    const url = new URL(req.url);
-    const reportId = url.searchParams.get('reportId') ?? '';
-    if (!reportId) return NextResponse.json({ error: 'reportId required' }, { status: 400 });
+    if (!report.submittedAt) {
+      return NextResponse.json({ error: '機關尚未確認繳交,無法確認' }, { status: 409 });
+    }
 
     const item = await prisma.signedReport.update({
       where: { id: reportId },

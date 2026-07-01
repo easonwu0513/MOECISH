@@ -396,6 +396,8 @@ model SignedReport {
   sha256        String
   uploadedById  String
   uploadedAt    DateTime @default(now())
+  submittedById String?   // 機關「確認繳交」鎖定此掃描檔為正式繳交版本;null=草稿(可換版/再上傳)
+  submittedAt   DateTime?
   confirmedById String?
   confirmedAt   DateTime?
 

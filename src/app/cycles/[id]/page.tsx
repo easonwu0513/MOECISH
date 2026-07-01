@@ -40,7 +40,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       assignments: { include: { auditor: { select: { name: true } } } },
       deficiencies: { include: { action: { select: { status: true } } } },
       prepRequirements: { include: { submission: { select: { status: true } } } },
-      signedReports: { select: { id: true, confirmedAt: true } },
+      signedReports: { select: { id: true, submittedAt: true, confirmedAt: true } },
       checklistVersion: { select: { _count: { select: { items: true } } } },
       responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
     },
@@ -396,7 +396,11 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <SignedReportPanel
             cycleId={cycle.id}
             role={user.role}
-            locked={cycle.status === 'CLOSED' || cycle.signedReports.some((r) => r.confirmedAt)}
+            locked={
+              cycle.status === 'CLOSED' ||
+              cycle.signedReports.some((r) => r.submittedAt || r.confirmedAt)
+            }
+            closed={cycle.status === 'CLOSED'}
           />
         </section>
       )}
