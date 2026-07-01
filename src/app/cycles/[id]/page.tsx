@@ -13,6 +13,7 @@ import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
+import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
 import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
@@ -49,7 +50,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   SIGNED_REPORT_RETURN: '退回了用印掃描檔',
 };
 
-export default async function CyclePage({ params }: { params: { id: string } }) {
+export default async function CyclePage({ params, searchParams }: { params: { id: string }; searchParams: { stage?: string } }) {
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}`);
   const user = session.user;
@@ -193,8 +194,41 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
   const donePct = journeyView && journeyView.total > 0 ? Math.round((journeyView.doneCount / journeyView.total) * 100) : 0;
-  // 此階段待完成事項:當前階段的精靈項目
-  const todoItems = (journeyStages.find((s) => s.stageKey === cycle.status)?.items ?? []);
+  // 階段待辦:預設當前階段;點橫向階段列(?stage=KEY)看該階段;?stage=all 看全部階段進度
+  const stageParam = typeof searchParams?.stage === 'string' ? searchParams.stage : undefined;
+  const stageKeySet = new Set(journeyStages.map((s) => s.stageKey));
+  const viewAllStages = stageParam === 'all';
+  const selectedStageKey = viewAllStages ? null : (stageParam && stageKeySet.has(stageParam) ? stageParam : cycle.status);
+  const selectedStage = selectedStageKey ? journeyStages.find((s) => s.stageKey === selectedStageKey) : null;
+  const todoItems = selectedStage?.items ?? [];
+
+  // 待辦列渲染(選定階段 / 全部階段共用)
+  const renderTodo = (it: JourneyClientItem) => {
+    const row = (
+      <div className="flex items-start gap-3 rounded-xl border border-outline-variant/70 px-3.5 py-3 bg-surface">
+        <span
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+            it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
+          }`}
+          aria-hidden
+        >
+          {it.done && <Check size={12} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
+          {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+        </div>
+        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />}
+      </div>
+    );
+    return (
+      <li key={it.id}>
+        {it.href && !it.lockedStageTitle
+          ? <Link href={it.href} className="block focus-ring rounded-xl">{row}</Link>
+          : row}
+      </li>
+    );
+  };
 
   // 最近活動:本週期相關實體的稽核軌跡(白名單動作→中文);entityId 皆屬本週期,不跨租戶
   const assignmentIds = cycle.assignments.map((a) => a.id);
@@ -212,11 +246,17 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       ],
     },
     orderBy: { createdAt: 'desc' },
-    take: 25,
-    include: { actor: { select: { name: true } } },
+    take: 40,
+    include: { actor: { select: { name: true, organizationId: true } } },
   });
+  // 最近活動角色範圍:中心看全部;機關只看自己機關的活動;委員只看自己的活動
   const activities = rawLogs
     .filter((l) => ACTIVITY_LABELS[l.action])
+    .filter((l) => {
+      if (user.role === 'AUDITOR') return l.actorId === user.id;
+      if (user.role === 'ORG_ADMIN') return l.actor?.organizationId === user.organizationId;
+      return true;
+    })
     .slice(0, 6)
     .map((l) => ({ id: l.id, who: l.actor?.name ?? '系統', what: ACTIVITY_LABELS[l.action], at: l.createdAt }));
 
@@ -286,7 +326,12 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           <div className="h-full rounded-full bg-primary-600 transition-all duration-700" style={{ width: `${donePct}%` }} />
         </div>
 
-        <StageFlowRail status={cycle.status as CycleStatus} className="mt-5" />
+        <StageFlowRail
+          status={cycle.status as CycleStatus}
+          className="mt-5"
+          stageHref={(s) => `/cycles/${cycle.id}?stage=${s}`}
+          selectedKey={selectedStageKey ? (selectedStageKey as CycleStatus) : undefined}
+        />
       </section>
 
       {/* 系統建議的下一步 */}
@@ -308,43 +353,55 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
         <div className="min-w-0">
 
-          {/* 此階段待完成事項(當前階段的精靈項目) */}
-          {todoItems.length > 0 && (
+          {/* 待完成事項:預設當前階段;點上方階段列切換、或「查看全部」看所有階段進度 */}
+          {journeyStages.length > 0 && (
             <Card className="mb-6">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <CardTitle>此階段待完成事項</CardTitle>
-                {journeyView && journeyView.total > 0 && (
-                  <span className="text-caption text-on-surface-variant tabular-nums">{journeyView.doneCount}/{journeyView.total} 完成</span>
-                )}
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle>{viewAllStages ? '所有階段待辦進度' : `${selectedStage?.title ?? '此階段'}待完成事項`}</CardTitle>
+                  {!viewAllStages && selectedStageKey !== cycle.status && (
+                    <p className="mt-0.5 text-caption text-on-surface-variant">
+                      正在檢視其他階段 · <Link href={`/cycles/${cycle.id}`} className="text-primary-700 hover:underline">回當前階段</Link>
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {journeyView && journeyView.total > 0 && (
+                    <span className="text-caption text-on-surface-variant tabular-nums">{journeyView.doneCount}/{journeyView.total} 完成</span>
+                  )}
+                  <Link
+                    href={viewAllStages ? `/cycles/${cycle.id}` : `/cycles/${cycle.id}?stage=all`}
+                    className="text-body-sm text-primary-700 hover:underline whitespace-nowrap"
+                  >
+                    {viewAllStages ? '只看當前' : '查看全部'}
+                  </Link>
+                </div>
               </div>
-              <ul className="flex flex-col gap-2">
-                {todoItems.map((it) => {
-                  const row = (
-                    <div className="flex items-start gap-3 rounded-xl border border-outline-variant/70 px-3.5 py-3 bg-surface">
-                      <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
-                          it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
-                        }`}
-                        aria-hidden
-                      >
-                        {it.done && <Check size={12} />}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
-                        {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+
+              {viewAllStages ? (
+                <div className="flex flex-col gap-5">
+                  {journeyStages.map((stage) => (
+                    <div key={stage.id}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <p className="text-title text-on-surface">{stage.title}</p>
+                        <span className="text-caption text-on-surface-variant tabular-nums">
+                          {stage.items.filter((it) => it.done).length}/{stage.items.length}
+                        </span>
+                        {stage.stageKey === cycle.status && <Chip tone="primary" size="sm" dot>進行中</Chip>}
                       </div>
-                      {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />}
+                      {stage.items.length === 0 ? (
+                        <p className="text-caption text-on-surface-variant">(此階段無待辦項)</p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">{stage.items.map(renderTodo)}</ul>
+                      )}
                     </div>
-                  );
-                  return (
-                    <li key={it.id}>
-                      {it.href && !it.lockedStageTitle
-                        ? <Link href={it.href} className="block focus-ring rounded-xl">{row}</Link>
-                        : row}
-                    </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                </div>
+              ) : todoItems.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant">此階段目前沒有待完成事項。</p>
+              ) : (
+                <ul className="flex flex-col gap-2">{todoItems.map(renderTodo)}</ul>
+              )}
             </Card>
           )}
 

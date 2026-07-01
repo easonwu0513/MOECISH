@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { CYCLE_STATUSES, type CycleStatus } from '@/lib/types';
 import { CYCLE_STATUS_LABELS } from '@/lib/stage';
@@ -21,7 +22,19 @@ const STAGE_ICON: Record<CycleStatus, ComponentType<{ size?: number }>> = {
  * 走過的階段打勾、當前階段放大發亮(深藍 + ring)、未來階段淡化。
  * 直接由 stage SoT(CYCLE_STATUSES + CYCLE_STATUS_LABELS)驅動,與週期 Chip 同語彙。
  */
-export function StageFlowRail({ status, className }: { status: CycleStatus; className?: string }) {
+export function StageFlowRail({
+  status,
+  className,
+  stageHref,
+  selectedKey,
+}: {
+  status: CycleStatus;
+  className?: string;
+  /** 提供時每個階段可點(整格覆蓋連結),點擊跳往該階段(如查看該階段待辦) */
+  stageHref?: (s: CycleStatus) => string;
+  /** 目前「檢視中」的階段(與 status 不同時加底色標示),供點擊切換待辦時回饋 */
+  selectedKey?: CycleStatus;
+}) {
   const curIdx = CYCLE_STATUSES.indexOf(status);
   return (
     <ol
@@ -35,12 +48,17 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
       {CYCLE_STATUSES.map((s, i) => {
         const state = i < curIdx ? 'done' : i === curIdx ? 'now' : 'todo';
         const Icon = state === 'done' ? Check : STAGE_ICON[s];
+        const isSelected = selectedKey === s && selectedKey !== status;
         return (
-          <li key={s} className="relative flex-1 min-w-[58px] flex flex-col items-center px-1 text-center" aria-current={state === 'now' ? 'step' : undefined}>
+          <li
+            key={s}
+            className={cn('relative flex-1 min-w-[58px] flex flex-col items-center px-1 py-1 text-center rounded-lg', isSelected && 'bg-primary-50')}
+            aria-current={state === 'now' ? 'step' : undefined}
+          >
             {/* 連接線:畫到「前一個節點中心」→「本節點中心」 */}
             {i > 0 && (
               <span
-                className={cn('absolute top-4 -left-1/2 w-full h-0.5', i <= curIdx ? 'bg-success-500' : 'bg-outline-variant')}
+                className={cn('absolute top-5 -left-1/2 w-full h-0.5', i <= curIdx ? 'bg-success-500' : 'bg-outline-variant')}
                 aria-hidden
               />
             )}
@@ -67,6 +85,13 @@ export function StageFlowRail({ status, className }: { status: CycleStatus; clas
             </span>
             {state === 'now' && (
               <span className="mt-1 text-label-sm text-primary-700 bg-primary-50 rounded-full px-2 leading-5">進行中</span>
+            )}
+            {stageHref && (
+              <Link
+                href={stageHref(s)}
+                aria-label={`查看「${CYCLE_STATUS_LABELS[s]}」階段的待完成事項`}
+                className="absolute inset-0 z-20 rounded-lg hover:bg-primary-500/[0.06] focus-ring"
+              />
             )}
           </li>
         );
