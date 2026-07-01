@@ -1,11 +1,13 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep, auditorCanSeeCycle } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle, type Role } from '@/lib/types';
+import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { ProgressBar } from '@/components/ui/ProgressBar';
+import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight } from '@/components/icons';
 import PrepBoard from './PrepBoard';
 
 export default async function PrepPage({ params }: { params: { id: string } }) {
@@ -54,6 +56,23 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
   const total = countReqs.length;
   const confirmed = countReqs.filter((r) => r.submission?.status === 'CONFIRMED').length;
+  const submittedN = countReqs.filter((r) => r.submission?.status === 'SUBMITTED').length;
+  const pendingN = Math.max(0, total - confirmed - submittedN);
+
+  // 左側「稽核作業項目」導覽(master-detail):跳往同週期其他作業,附狀態
+  const st = cycle.status;
+  const onsitePast = st === 'REPORT_ISSUED' || st === 'REMEDIATION' || st === 'CLOSED';
+  const auditStatus = onsitePast ? '已完成' : (st === 'ONSITE' ? '進行中' : '尚未開始');
+  const defTotal = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
+  const base = `/cycles/${cycle.id}`;
+  type Nav = { key: string; label: string; sub: string; href: string | null; status: string; statusTone: 'success' | 'neutral'; icon: React.ReactNode };
+  const navItems: (Nav & { show: boolean })[] = [
+    { key: 'prep', label: '稽核前資料準備', sub: '附件收集與繳交', href: null, status: total > 0 ? `${confirmed}/${total}` : '—', statusTone: total > 0 && confirmed === total ? 'success' : 'neutral', icon: <FileText size={16} />, show: true },
+    { key: 'checklist', label: '資通安全檢核表', sub: isAuditor ? '委員審閱' : '機關自評與佐證', href: isAuditor ? `${base}/review` : `${base}/checklist`, status: cycle.checklistSubmittedAt ? '已送出' : (isAuditor ? '審閱' : '填報中'), statusTone: cycle.checklistSubmittedAt ? 'success' : 'neutral', icon: <ClipboardCheck size={16} />, show: true },
+    { key: 'audit', label: '實地稽核評分', sub: '委員評分與發現', href: `${base}/audit`, status: auditStatus, statusTone: 'neutral', icon: <Eye size={16} />, show: user.role !== 'ORG_ADMIN' },
+    { key: 'def', label: '缺失與矯正管考', sub: '缺失通知、改善', href: `${base}/deficiencies`, status: defTotal > 0 ? `${defTotal} 項` : '未發布', statusTone: 'neutral', icon: <AlertTriangle size={16} />, show: user.role === 'SUPER_ADMIN' || canAccess('deficiencies.view', user.role as Role, cycle.status) },
+  ];
+  const shownNav = navItems.filter((n) => n.show);
 
   return (
     <AppShell
@@ -72,64 +91,104 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
         label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
         nextHint="繳交後於工作台確認齊備、查看下一步"
       />
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant">
-          {yearROC} 年度 · {cycle.organization.name}
-          {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
-        </p>
-        {isAuditor
-          ? total > 0 && (
-              <p className="mt-3 text-caption text-on-surface-variant">
-                僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
-              </p>
-            )
-          : total > 0 && (
-              <div className="mt-4 max-w-md">
-                <ProgressBar value={confirmed} max={total} tone="primary" size="sm" />
-                <p className="mt-1.5 text-caption text-on-surface-variant">
-                  已確認齊備 <span className="tabular-nums font-medium text-on-surface">{confirmed}</span> / {total} 項
-                </p>
-              </div>
-            )}
-      </header>
 
-      {isAuditor && visibleRequirements.length === 0 ? (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
-          目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
+      {/* master-detail:左=稽核作業項目導覽;右=稽核前資料準備明細 */}
+      <div className="lg:grid lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-6 lg:items-start">
+        <aside className="mb-5 lg:mb-0 lg:sticky lg:top-6">
+          <div className="rounded-2xl border border-outline-variant/60 bg-surface p-2">
+            <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">稽核作業項目</p>
+            <div className="flex flex-col gap-0.5">
+              {shownNav.map((n) => {
+                const inner = (
+                  <div className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 ${n.href === null ? 'bg-primary-50 border border-primary-100' : 'hover:bg-surface-container'}`}>
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.href === null ? 'bg-white text-primary-700' : 'bg-surface-container text-on-surface-variant'}`}>
+                      {n.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-body-sm font-medium leading-tight ${n.href === null ? 'text-primary-800' : 'text-on-surface'}`}>{n.label}</p>
+                      <p className="mt-0.5 text-caption text-on-surface-variant leading-tight">{n.sub}</p>
+                      <span className={`mt-1 inline-block rounded-full px-1.5 text-label-sm ${n.statusTone === 'success' ? 'bg-success-50 text-success-700' : 'bg-surface-container text-on-surface-variant'}`}>{n.status}</span>
+                    </div>
+                    {n.href !== null && <ChevronRight size={15} className="shrink-0 text-on-surface-variant" />}
+                  </div>
+                );
+                return n.href === null
+                  ? <div key={n.key} aria-current="page">{inner}</div>
+                  : <Link key={n.key} href={n.href} className="block focus-ring rounded-xl">{inner}</Link>;
+              })}
+            </div>
+          </div>
+        </aside>
+
+        <div className="min-w-0">
+          <header className="mb-5">
+            <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              {yearROC} 年度 · {cycle.organization.name}
+              {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
+            </p>
+          </header>
+
+          {/* 摘要統計(機關/中心):附件處理概況一目了然 */}
+          {!isAuditor && total > 0 && (
+            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: '要求項目', value: `${total}`, tone: '' },
+                { label: '已確認齊備', value: `${confirmed}`, tone: 'text-success-700' },
+                { label: '審核中', value: `${submittedN}`, tone: '' },
+                { label: '待補正/未繳', value: `${pendingN}`, tone: pendingN > 0 ? 'text-amber-600' : '' },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-outline-variant/60 bg-surface px-4 py-3">
+                  <p className="text-caption text-on-surface-variant">{s.label}</p>
+                  <p className={`mt-1 text-headline-sm font-medium tabular-nums leading-none ${s.tone}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          {isAuditor && total > 0 && (
+            <p className="mb-4 text-caption text-on-surface-variant">
+              僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
+            </p>
+          )}
+
+          {isAuditor && visibleRequirements.length === 0 ? (
+            <div className="rounded-xl border border-outline-variant bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
+              目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
+            </div>
+          ) : (
+            <PrepBoard
+              cycleId={cycle.id}
+              role={user.role}
+              cycleStatus={cycle.status}
+              prepDueOnsiteISO={cycle.prepDueDate ? cycle.prepDueDate.toISOString() : null}
+              prepDueTechISO={cycle.prepDueTech ? cycle.prepDueTech.toISOString() : null}
+              initialItems={visibleRequirements.map((r) => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                required: r.required,
+                category: r.category,
+                submission: r.submission
+                  ? {
+                      id: r.submission.id,
+                      status: r.submission.status,
+                      note: r.submission.note,
+                      noFileReason: r.submission.noFileReason,
+                      reviewNote: r.submission.reviewNote,
+                      submittedAt: r.submission.submittedAt ? r.submission.submittedAt.toISOString() : null,
+                    }
+                  : null,
+              }))}
+              initialFiles={files.map((f) => ({
+                id: f.id,
+                targetId: f.targetId,
+                originalName: f.originalName,
+                sizeBytes: f.sizeBytes,
+              }))}
+            />
+          )}
         </div>
-      ) : (
-      <PrepBoard
-        cycleId={cycle.id}
-        role={user.role}
-        cycleStatus={cycle.status}
-        prepDueOnsiteISO={cycle.prepDueDate ? cycle.prepDueDate.toISOString() : null}
-        prepDueTechISO={cycle.prepDueTech ? cycle.prepDueTech.toISOString() : null}
-        initialItems={visibleRequirements.map((r) => ({
-          id: r.id,
-          title: r.title,
-          description: r.description,
-          required: r.required,
-          category: r.category,
-          submission: r.submission
-            ? {
-                id: r.submission.id,
-                status: r.submission.status,
-                note: r.submission.note,
-                noFileReason: r.submission.noFileReason,
-                reviewNote: r.submission.reviewNote,
-                submittedAt: r.submission.submittedAt ? r.submission.submittedAt.toISOString() : null,
-              }
-            : null,
-        }))}
-        initialFiles={files.map((f) => ({
-          id: f.id,
-          targetId: f.targetId,
-          originalName: f.originalName,
-          sizeBytes: f.sizeBytes,
-        }))}
-      />
-      )}
+      </div>
     </AppShell>
   );
 }
