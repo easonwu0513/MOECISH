@@ -19,7 +19,7 @@ import { JourneyChecklist } from '@/components/journey/JourneyChecklist';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, type CycleStatus, type Role } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -64,6 +64,13 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
   const submitted = byStatus('SUBMITTED');
   const returned = byStatus('RETURNED');
   const pendingCount = total - passed - submitted - returned ? total - passed - submitted - returned : 0;
+
+  // 構面數據資訊:各稽核構面(策略/管理/技術)的缺失矯正通過進度(逐構面 passed/total)
+  const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
+  const aspectProgress = ASPECTS.map((asp) => {
+    const items = cycle.deficiencies.filter((d) => d.aspect === asp);
+    return { asp, passed: items.filter((d) => d.action?.status === 'PASSED').length, total: items.length };
+  });
 
   const transitions = nextStatuses(cycle.status as CycleStatus, user.role as Role);
   const rollbacks = rollbackTargets(cycle.status as CycleStatus, user.role as Role);
@@ -303,6 +310,40 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
           muted={pendingCount + returned === 0}
         />
       </section>
+      )}
+
+      {/* 構面數據資訊:逐構面矯正進度(有缺失時顯示,補足上排三卡的整體讀數) */}
+      {total > 0 && (
+        <section className="mb-8">
+          <Card>
+            <div className="flex items-end justify-between gap-3 mb-4">
+              <div>
+                <p className="text-title-md text-on-surface">構面矯正進度</p>
+                <p className="text-body-sm text-on-surface-variant mt-0.5">各稽核構面的缺失矯正通過情形</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-headline text-on-surface tabular-nums leading-none">{Math.round((passed / total) * 100)}%</p>
+                <p className="text-caption text-on-surface-variant mt-1">整體 {passed}/{total}</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {aspectProgress.map(({ asp, passed: p, total: t }) => {
+                const pct = t > 0 ? Math.round((p / t) * 100) : 0;
+                return (
+                  <div key={asp}>
+                    <div className="flex justify-between items-baseline text-body-sm mb-1.5">
+                      <span className="font-medium text-on-surface">{DEFICIENCY_ASPECT_LABELS[asp]}</span>
+                      <span className="text-on-surface-variant tabular-nums">{t > 0 ? `${p}/${t}` : '—'}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
+                      <div className="h-full rounded-full bg-primary-600 transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </section>
       )}
 
       {/* 模組入口(委員/管理員多「實地稽核」「委員審閱」) */}
