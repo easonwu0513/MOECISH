@@ -15,11 +15,14 @@ export type EmailKind =
   | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
   | 'committee-review'    // 資料齊備 → 通知委員開始審閱
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
+  | 'signed-report-submitted' // 機關確認繳交用印掃描檔 → 通知中心
+  | 'signed-report-returned'  // 中心退回用印掃描檔(解除鎖定)→ 站內通知機關重新上傳
   | 'prep-submitted'      // 機關確定繳交稽核前資料 → 通知中心
   | 'prep-returned'       // 中心退回稽核前資料 → 通知機關
   | 'checklist-review-done' // 委員完成檢核表審閱意見 → 通知中心
   | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
   | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
+  | 'audit-score-return'  // 最高管理員退件 → 通知該委員(解除鎖定、請重新編輯)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 
@@ -32,6 +35,8 @@ export type SendEmailInput = {
   context?: Record<string, unknown>;
   relatedInvitationId?: string;
   relatedCycleId?: string;
+  /** 站內通知點擊去處覆寫;不給則預設為 /cycles/{relatedCycleId}(或 null)。 */
+  notificationLink?: string;
   /** 去重鍵:同 kind+to+dedupeKey 在 24h 內已真寄成功過則跳過(防轟炸)。不給 = 不去重。 */
   dedupeKey?: string;
 };
@@ -164,7 +169,7 @@ export async function sendEmail(input: SendEmailInput) {
           kind,
           title: input.subject.replace(/^\[MOECISH\]\s*/, ''),
           body: notificationSummary(input.body),
-          link: input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null,
+          link: input.notificationLink ?? (input.relatedCycleId ? `/cycles/${input.relatedCycleId}` : null),
         },
       });
     }

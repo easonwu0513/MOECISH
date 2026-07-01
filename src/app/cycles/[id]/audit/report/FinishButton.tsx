@@ -14,9 +14,12 @@ import { CheckCircle } from '@/components/icons';
 export default function FinishButton({
   cycleId,
   pendingCount,
+  blockReason,
 }: {
   cycleId: string;
   pendingCount: number;
+  /** 非 null 時代表尚不可完成(如委員未全數定稿):按鈕停用並顯示原因。 */
+  blockReason?: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -41,6 +44,17 @@ export default function FinishButton({
     );
     router.push(`/cycles/${cycleId}/deficiencies`);
     router.refresh();
+  }
+
+  if (blockReason) {
+    return (
+      <span className="inline-flex flex-col items-end gap-0.5">
+        <Button size="sm" leadingIcon={<CheckCircle size={15} />} disabled title={`${blockReason},尚無法完成年度稽核`}>
+          已完成年度稽核
+        </Button>
+        <span className="text-caption text-on-surface-variant text-right max-w-[16rem]">{blockReason},尚無法完成</span>
+      </span>
+    );
   }
 
   return (

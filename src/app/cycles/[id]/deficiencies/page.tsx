@@ -74,10 +74,15 @@ export default async function DeficienciesPage({
 
   const total = cycle.deficiencies.length;
   const passed = cycle.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
-  const submitted = cycle.deficiencies.filter((d) => d.action?.status === 'SUBMITTED').length;
   const returned = cycle.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
-  // 連續審查:第一筆待審(已送審)缺失,委員/管理員一鍵進入逐筆審
-  const firstSubmitted = cycle.deficiencies.find((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
+  // 連續審查:委員只計/進入「指派給本人審閱」的送審缺失;中心(SUPER_ADMIN)可審全部送審。
+  // reviewer-aware,對齊詳情頁 canReview 與 review API 授權,避免膨脹待審數或導向不可審之缺失。
+  const reviewable = cycle.deficiencies.filter(
+    (d) =>
+      (d.action?.status ?? 'PENDING') === 'SUBMITTED' &&
+      (user.role !== 'AUDITOR' || d.reviewerAuditorId === user.id),
+  );
+  const firstReviewable = reviewable[0];
   const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
 
   // 套用狀態篩選
@@ -115,9 +120,9 @@ export default async function DeficienciesPage({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {canReview && submitted > 0 && firstSubmitted && (
-            <Link href={`/cycles/${cycle.id}/deficiencies/${firstSubmitted.id}`}>
-              <Button variant="filled" size="sm">開始連續審查({submitted})</Button>
+          {canReview && reviewable.length > 0 && firstReviewable && (
+            <Link href={`/cycles/${cycle.id}/deficiencies/${firstReviewable.id}`}>
+              <Button variant="filled" size="sm">開始連續審查({reviewable.length})</Button>
             </Link>
           )}
           {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (

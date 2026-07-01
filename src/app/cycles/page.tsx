@@ -9,6 +9,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
+import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import type { CycleStatus } from '@/lib/types';
 import { EMPTY } from '@/lib/copy';
 import { fmtROC } from '@/lib/date';
@@ -36,6 +37,8 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     include: {
       organization: true,
       deficiencies: { select: { id: true, action: { select: { status: true } } } },
+      // 委員視角:帶出本人於各週期受指派的構面(卡片標註負責構面);其他角色查無、回空陣列
+      assignments: { where: { auditorId: user.id }, select: { dimensions: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -91,6 +94,9 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
             const total = c.deficiencies.length;
             const passed = c.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
             const orgName = c.organization.shortName?.trim() || c.organization.name;
+            const auditorDims = user.role === 'AUDITOR'
+              ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
+              : [];
             return (
               <Link key={c.id} href={`/cycles/${c.id}`}>
                 <Card interactive variant="elevated">
@@ -102,6 +108,9 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                       <p className="text-caption text-on-surface-variant mt-1">
                         {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
+                      {auditorDims.length > 0 && (
+                        <p className="text-caption text-primary-700 mt-1">負責構面:{auditorDims.join('、')}</p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <Chip tone={cycleStatusTone(c.status as CycleStatus)} size="sm" dot>

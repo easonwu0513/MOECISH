@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { convertFindingsToDeficiencies } from '@/lib/convert-findings';
+import { auditorsFinalized } from '@/lib/audit-finalize';
 import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
@@ -32,6 +33,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '週期已結案' }, { status: 409 });
+    }
+
+    // 0) 前置:全體委員評分表須定稿(與手動 transition 至 REPORT_ISSUED 共用 auditorsFinalized,避免兩路徑不一致被繞過)
+    const finalized = await auditorsFinalized(cycle.id);
+    if (!finalized.ok) {
+      return NextResponse.json({ error: finalized.error }, { status: 400 });
     }
 
     // 1) 前置:確認有可發布的缺失(待轉發現或既有缺失),否則不啟動(不進交易)

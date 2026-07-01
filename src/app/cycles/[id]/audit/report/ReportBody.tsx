@@ -9,7 +9,8 @@ import {
 } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  computeDimStats, gradeOf, compareChecklistRef,
+  computeDimStats, gradeOf, compareChecklistRef, sortRefsString,
+  parseAssignDimensions, ASSIGN_TO_ASPECT,
 } from '@/lib/audit-score';
 import {
   makeDefaultReportData,
@@ -77,7 +78,7 @@ export function buildReportData(data: AuditReportData): ReportData {
     if (!cat || !sec) continue;
     findings[cat][sec].push({
       id: f.id,
-      code: f.checklistRef ?? '',
+      code: sortRefsString(f.checklistRef),
       text: f.content,
       pageBreakBefore: false,
       duplicateAcknowledged: true,
@@ -89,6 +90,23 @@ export function buildReportData(data: AuditReportData): ReportData {
       findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
     }
   }
+
+  // 項4:各構面委員自動代入(依系統 AuditorAssignment.dimensions → 構面);只填「空的構面」,
+  // 管理員若已於該構面手動編輯(meta.team 有值)則沿用手動值,不覆蓋。MANAGEMENT_OT 併入 management。
+  const assignedTeam: Record<Category, string[]> = { strategy: [], management: [], technical: [] };
+  for (const a of data.assignments) {
+    const name = a.auditor?.name;
+    if (!name) continue;
+    const cats = new Set(parseAssignDimensions(a.dimensions).map((d) => ASPECT_TO_CATEGORY[ASSIGN_TO_ASPECT[d]]));
+    for (const cat of cats) {
+      if (!assignedTeam[cat].includes(name)) assignedTeam[cat].push(name);
+    }
+  }
+  const team: Record<Category, string[]> = {
+    strategy: meta.team?.strategy?.length ? meta.team.strategy : assignedTeam.strategy,
+    management: meta.team?.management?.length ? meta.team.management : assignedTeam.management,
+    technical: meta.team?.technical?.length ? meta.team.technical : assignedTeam.technical,
+  };
 
   return {
     ...base,
@@ -104,7 +122,7 @@ export function buildReportData(data: AuditReportData): ReportData {
     ).map((text, i) => ({ id: `ac${i + 1}`, text })),
     lead: meta.lead ?? { name: leadDefault, title: '' },
     subLead: meta.subLead ?? { name: '', title: '', org: '' },
-    team: meta.team ?? { strategy: [], management: [], technical: [] },
+    team,
     findings,
   };
 }
@@ -235,7 +253,7 @@ export async function loadAuditorStateChanges(assignmentIds: string[]) {
     where: {
       entityType: 'AuditorAssignment',
       entityId: { in: assignmentIds },
-      action: { in: ['audit.score.lock', 'audit.score.unlock'] },
+      action: { in: ['audit.score.lock', 'audit.score.unlock', 'audit.score.return'] },
     },
     include: { actor: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
@@ -245,31 +263,63 @@ export async function loadAuditorStateChanges(assignmentIds: string[]) {
 
 type StateChange = Awaited<ReturnType<typeof loadAuditorStateChanges>>[number];
 
-export function AuditorStateChangeLog({ events }: { events: StateChange[] }) {
-  if (events.length === 0) {
-    return <p className="text-body-sm text-on-surface-variant">尚無委員「確認填寫完畢 / 解除鎖定」紀錄。</p>;
+/**
+ * 委員填寫狀態:每位受指派委員一個方塊,顯示其「最新狀態 + 時間戳」。
+ * 狀態以 assignment.scoreLockedAt 為準;未鎖定時依最後一筆事件分辨「已退件 / 已解除鎖定 / 未確認」。
+ */
+export function AuditorStateChangeLog({
+  assignments,
+  events,
+}: {
+  assignments: { id: string; scoreLockedAt: Date | null; auditor: { name: string } | null }[];
+  events: StateChange[];
+}) {
+  if (assignments.length === 0) {
+    return <p className="text-body-sm text-on-surface-variant">尚無受指派委員。</p>;
   }
   return (
-    <ul className="space-y-2">
-      {events.map((e) => {
-        let locked = false;
-        try { locked = JSON.parse(e.afterJson ?? '{}').locked === true; } catch { /* 容錯 */ }
+    <div className="grid gap-2 sm:grid-cols-2">
+      {assignments.map((a) => {
+        // events 已依時間遞減排序;取此委員(assignment)最後一筆狀態事件
+        const latest = events.find((e) => e.entityId === a.id);
+        let tone: 'locked' | 'warning' | 'neutral';
+        let label: string;
+        let when: Date | null;
+        if (a.scoreLockedAt) {
+          tone = 'locked'; label = '已確認填寫完畢(評分與發現定稿)'; when = a.scoreLockedAt;
+        } else if (latest?.action === 'audit.score.return') {
+          tone = 'warning'; label = '已被退件 — 待重新編輯後再次確認'; when = latest.createdAt;
+        } else if (latest?.action === 'audit.score.unlock') {
+          tone = 'warning'; label = '已解除鎖定 — 內容可能已異動,請複核'; when = latest.createdAt;
+        } else {
+          tone = 'neutral'; label = '未確認填寫完畢'; when = latest?.createdAt ?? null;
+        }
         return (
-          <li
-            key={e.id}
-            className={`flex items-start gap-2.5 rounded-md border px-3 py-2 text-body-sm ${
-              locked ? 'border-primary-200 bg-primary-50 text-primary-800' : 'border-warning-200 bg-warning-50 text-warning-800'
+          <div
+            key={a.id}
+            className={`rounded-md border px-3 py-2.5 ${
+              tone === 'locked'
+                ? 'border-primary-200 bg-primary-50'
+                : tone === 'warning'
+                  ? 'border-warning-200 bg-warning-50'
+                  : 'border-outline-variant bg-surface-container'
             }`}
           >
-            <span className="mt-0.5 shrink-0">{locked ? <Check size={15} /> : <AlertTriangle size={15} />}</span>
-            <div className="min-w-0">
-              <span className="font-medium text-on-surface">{e.actor?.name ?? '稽核委員'}</span>
-              {locked ? ' 已確認填寫完畢(評分與發現定稿)' : ' 解除鎖定 — 內容可能已異動,請複核'}
-              <span className="block text-caption text-on-surface-variant tabular-nums">{fmtROCDateTime(e.createdAt)}</span>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0">
+                {tone === 'locked'
+                  ? <Check size={15} className="text-primary-700" />
+                  : <AlertTriangle size={15} className={tone === 'warning' ? 'text-warning-700' : 'text-on-surface-variant'} />}
+              </span>
+              <span className="font-medium text-on-surface">{a.auditor?.name ?? '稽核委員'} 委員</span>
             </div>
-          </li>
+            <p className={`mt-0.5 text-body-sm ${
+              tone === 'locked' ? 'text-primary-800' : tone === 'warning' ? 'text-warning-800' : 'text-on-surface-variant'
+            }`}>{label}</p>
+            <p className="mt-0.5 text-caption text-on-surface-variant tabular-nums">{when ? fmtROCDateTime(when) : '—'}</p>
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }

@@ -44,6 +44,7 @@ export async function convertFindingsToDeficiencies(
         description: f.content,
         checklistRef: f.checklistRef,
         createdById,
+        reviewerAuditorId: f.auditorId, // 預設審閱委員=開立此發現的委員;中心可於缺失頁改指派其他委員
         action: { create: {} }, // 與手動建缺失一致;否則機關無法填報/送審矯正(閉環斷裂)
       },
     });

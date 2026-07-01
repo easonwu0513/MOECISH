@@ -17,8 +17,10 @@ const Body = z.object({
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, deficiency } = await assertDeficiencyAccess(params.id);
-    if (user.role !== 'AUDITOR') {
-      return NextResponse.json({ error: '僅稽核委員可審查' }, { status: 403 });
+    // 審核權限:本缺失指派的審閱委員 或 中心(SUPER_ADMIN);其餘委員(含未被指派審此缺失者)不可審。
+    const isAssignedReviewer = user.role === 'AUDITOR' && deficiency.reviewerAuditorId === user.id;
+    if (user.role !== 'SUPER_ADMIN' && !isAssignedReviewer) {
+      return NextResponse.json({ error: '僅本缺失的指派審閱委員或中心可審查此缺失' }, { status: 403 });
     }
     const action = deficiency.action;
     if (!action) return NextResponse.json({ error: '矯正措施紀錄不存在' }, { status: 404 });

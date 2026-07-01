@@ -40,7 +40,9 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   prep_confirmed: (c) => c.facts.mechAllConfirmed,
   onsite_scheduled: (c) => !!c.facts.onsiteDate,
   deficiencies_published: (c) => c.facts.total > 0,
-  remediation_submitted: (c) => c.facts.submitted > 0 || c.facts.passed > 0,
+  // 「逐項填報...送審」以「全部送審」為準(比照機關區 mechAllSubmitted 的全部完成原則):
+  // 須無待填(toFill)且無退回(returned)——只要還有一項未送審或被退回,即未完成(修正原 submitted>0 只要送出一項就打勾的問題)。
+  remediation_submitted: (c) => c.facts.total > 0 && c.facts.toFill === 0 && c.facts.returned === 0,
   remediation_reviewed: (c) => c.facts.passed > 0 || c.facts.returned > 0,
   signed_uploaded: (c) => c.facts.signedUploaded,
   signed_confirmed: (c) => c.facts.signedConfirmed,
@@ -52,6 +54,11 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
  * 純提醒項(無 autoKey)亦給目的地:先依標題關鍵字精準對應,否則用階段預設(方便委員一點即達)。
  */
 export function journeyItemHref(stageKey: string, autoKey: string | null, title?: string): string {
+  // 實地稽核階段「留存查核紀錄、稽核結束後彙整缺失」(最高管理員)→ 彙整委員稽核發現報告。
+  // (與「缺失發布中」的『以表單/Excel 發布缺失』共用 autoKey deficiencies_published,但去處不同:此處去彙整報告,發布缺失才去 /deficiencies)
+  if (stageKey === 'ONSITE' && (title?.includes('彙整') || title?.includes('留存查核紀錄'))) {
+    return '/audit/report';
+  }
   switch (autoKey) {
     case 'checklist_filled': return '/checklist';
     case 'prep_uploaded':

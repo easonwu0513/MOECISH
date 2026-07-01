@@ -58,6 +58,21 @@ model User {
   cycleTransitions   CycleStateTransition[]
   auditLogs          AuditLog[]
   notifications      Notification[]
+  passwordResetTokens PasswordResetToken[]
+  reviewedDeficiencies Deficiency[] @relation("DeficiencyReviewer")
+}
+
+// 忘記密碼/管理員重設:一次性重設 token(存 SHA-256 雜湊,明文只放連結);單次使用、有期限。
+model PasswordResetToken {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String    @unique          // SHA-256(明文 token);查詢用雜湊比對,DB 不存明文
+  expiresAt        DateTime                    // 自助 1h / 管理員 24h
+  usedAt           DateTime?                   // 消費後蓋章,單次使用
+  createdByAdminId String?                     // 管理員手動觸發時記錄操作者;自助則 null
+  createdAt        DateTime  @default(now())
+  @@index([userId])
 }
 
 // 站內通知(鈴鐺):每封寄給系統使用者的信同步建立一筆,避免委員/機關漏看 email。
@@ -215,6 +230,20 @@ model AuditFinding {
   @@index([cycleId, aspect, kind])
 }
 
+// 稽核發現「剪貼簿」片語庫(最高管理員維護;委員於實地稽核發現表單依構面/類型篩選後一鍵插入)
+// aspect/kind 留空("")= 通用,任何構面/類型皆會列出。
+model FindingSnippet {
+  id         String   @id @default(cuid())
+  aspect     String   @default("") // STRATEGY | MANAGEMENT | TECHNICAL | ""(通用)
+  kind       String   @default("") // COMPLIANCE | IMPROVE | SUGGEST | ""(通用)
+  text       String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([aspect, kind])
+}
+
 model AuditorAssignment {
   id        String   @id @default(cuid())
   cycleId   String
@@ -311,6 +340,10 @@ model Deficiency {
   checklistRef String? // 檢核項參照，如 "9.10"
   action       CorrectiveAction?
   createdById  String
+  // 審閱委員:由中心(SUPER_ADMIN)於「相關開立委員」中指派;null=尚未指派。
+  // 審核權限(審核通過/退回補正)= 此委員 或 SUPER_ADMIN(見 action/review)。
+  reviewerAuditorId String?
+  reviewerAuditor   User?   @relation("DeficiencyReviewer", fields: [reviewerAuditorId], references: [id])
   createdAt    DateTime @default(now())
 
   @@unique([cycleId, aspect, type, itemNo])
@@ -363,6 +396,8 @@ model SignedReport {
   sha256        String
   uploadedById  String
   uploadedAt    DateTime @default(now())
+  submittedById String?   // 機關「確認繳交」鎖定此掃描檔為正式繳交版本;null=草稿(可換版/再上傳)
+  submittedAt   DateTime?
   confirmedById String?
   confirmedAt   DateTime?
 

@@ -112,21 +112,25 @@
 
 /* 報告清單排版(螢幕預覽與列印共用) */
 .amt-app .finding-list {
-  margin: 0 0 0 92pt;
+  margin: 0;
   padding-left: 0;
-  list-style-position: outside;
+  list-style-position: inside;
   list-style-type: decimal;
 }
 .amt-app .finding-item {
-  margin-bottom: 6pt;
+  /* 對齊 Word「稽核發現」段落設定(使用者實機段落對話框):左縮排 3.4cm、凸排 0.63cm(首行落 2.77cm)、左右對齊、段前後 0、最小行高 24pt。
+     瀏覽器列印用 CSS 清單(list-style inside),margin-left 即實際縮排、無 Word 匯出時的清單偏移,故直接設 3.4cm。 */
+  margin: 0 0 0 3.4cm;
+  text-indent: -0.63cm;
   text-align: justify;
   font-size: 12pt;
   line-height: 24pt;
-  padding-left: 0;
 }
 
 /* ═══ 列印:只在工具頁掛載時(body.amt-active)生效 ═══ */
 @media print {
+  /* 頁邊對齊 Word 檔(實地稽核報告.doc):上下 2.54cm、左右 3.175cm */
+  @page { size: A4; margin: 2.54cm 3.175cm; }
   body.amt-active .no-print { display: none !important; }
   body.amt-active .print-only { display: block !important; }
   body.amt-active { height: auto !important; min-height: auto !important; overflow: visible !important; background: white !important; margin: 0 !important; padding: 0 !important; }

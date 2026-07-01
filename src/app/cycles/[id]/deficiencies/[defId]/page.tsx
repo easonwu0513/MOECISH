@@ -6,7 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Timeline, type TimelineNode } from '@/components/ui/Timeline';
-import { AlertTriangle, Info, History } from '@/components/icons';
+import { AlertTriangle, Info, History, ChevronLeft, ChevronRight } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
@@ -24,6 +24,8 @@ import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/sta
 import { findRepeatDeficiencies } from '@/lib/deficiency-history';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
+import ReviewerAssign from './ReviewerAssign';
+import { deficiencyAuthors } from '@/lib/deficiency-reviewer';
 import AdminDefActions from './AdminDefActions';
 
 export default async function DeficiencyDetailPage({
@@ -65,6 +67,20 @@ export default async function DeficiencyDetailPage({
       })
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
+
+  // 批32/35:審閱委員 — 開立委員(顯示「由 X 開立」)、參與此次稽核的所有委員(供中心指派)、目前指派
+  const relevantAuthors = await deficiencyAuthors(deficiency.id);
+  const assignedAuditors = await prisma.user.findMany({
+    where: { id: { in: cycle.assignments.map((a) => a.auditorId) } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+  const assignedReviewer = deficiency.reviewerAuditorId
+    ? assignedAuditors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
+    : null;
+  const isDefReviewer =
+    user.role === 'SUPER_ADMIN' ||
+    (user.role === 'AUDITOR' && deficiency.reviewerAuditorId === user.id);
 
   // 缺失回鏈:依 checklistRef 找來源檢核項題目 + 機關當初填報(容錯:對不上就不顯示)
   const sourceItem = deficiency.checklistRef
@@ -137,7 +153,7 @@ export default async function DeficiencyDetailPage({
     user.role === 'ORG_ADMIN' &&
     cycle.status === 'REMEDIATION' &&
     actionEditable(status);
-  const canReview = user.role === 'AUDITOR' && status === 'SUBMITTED';
+  const canReview = isDefReviewer && status === 'SUBMITTED';
 
   // ── 下一筆導覽:委員找下一筆已送審;機關找下一筆待填/退回 ──
   const wantNext = (s: ActionStatus) =>
@@ -146,22 +162,28 @@ export default async function DeficiencyDetailPage({
       : user.role === 'ORG_ADMIN'
       ? s === 'PENDING' || s === 'DRAFT' || s === 'RETURNED'
       : false;
-  const siblings =
-    user.role === 'SUPER_ADMIN'
-      ? []
-      : await prisma.deficiency.findMany({
-          where: { cycleId: cycle.id },
-          include: { action: { select: { status: true } } },
-          orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
-        });
+  // 全週期缺失(依構面/類型/項次排序):供「上一筆/下一筆」導覽(所有角色)與委員「下一筆待審」
+  const siblings = await prisma.deficiency.findMany({
+    where: { cycleId: cycle.id },
+    include: { action: { select: { status: true } } },
+    orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
+  });
   const matching = siblings.filter(
-    (d) => d.id !== deficiency.id && wantNext((d.action?.status ?? 'PENDING') as ActionStatus),
+    (d) =>
+      d.id !== deficiency.id &&
+      wantNext((d.action?.status ?? 'PENDING') as ActionStatus) &&
+      // 委員只導覽/計數自己被指派審閱的缺失(其餘缺失他不可審)
+      (user.role !== 'AUDITOR' || d.reviewerAuditorId === user.id),
   );
   // 取排序在本筆之後的第一筆;沒有就回頭取第一筆(環狀)
   const myIdx = siblings.findIndex((d) => d.id === deficiency.id);
   const after = matching.find((d) => siblings.findIndex((x) => x.id === d.id) > myIdx);
   const nextDef = after ?? matching[0] ?? null;
   const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
+
+  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點,所有角色皆可用)
+  const prevDefNav = myIdx > 0 ? siblings[myIdx - 1] : null;
+  const nextDefNav = myIdx >= 0 && myIdx < siblings.length - 1 ? siblings[myIdx + 1] : null;
   const remaining = matching.length;
 
   // 最新一輪退回意見(機關視角置頂提示)
@@ -303,6 +325,23 @@ export default async function DeficiencyDetailPage({
         </div>
       )}
 
+      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心) */}
+      {(user.role === 'SUPER_ADMIN' || isDefReviewer || assignedReviewer) && (
+        <div className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
+          <p className="text-title-md text-on-surface mb-1">審閱委員</p>
+          <p className="text-body-sm text-on-surface-variant mb-3">
+            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
+          </p>
+          {user.role === 'SUPER_ADMIN' ? (
+            <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
+          ) : (
+            <p className="text-body-sm text-on-surface">
+              {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* 委員審查面板（送審狀態 + 委員身分） */}
       {canReview && action && (
         <ReviewPanel
@@ -351,6 +390,40 @@ export default async function DeficiencyDetailPage({
             : null
         }
       />
+
+      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點) */}
+      {(prevDefNav || nextDefNav) && (
+        <nav className="mt-8 pt-5 border-t border-outline-variant/40 flex items-center justify-between gap-3">
+          {prevDefNav ? (
+            <Link
+              href={`/cycles/${cycle.id}/deficiencies/${prevDefNav.id}`}
+              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+            >
+              <ChevronLeft size={17} aria-hidden />
+              上一筆缺失
+            </Link>
+          ) : (
+            <span />
+          )}
+          <Link
+            href={`/cycles/${cycle.id}/deficiencies`}
+            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus-ring"
+          >
+            回缺失與矯正列表
+          </Link>
+          {nextDefNav ? (
+            <Link
+              href={`/cycles/${cycle.id}/deficiencies/${nextDefNav.id}`}
+              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+            >
+              下一筆缺失
+              <ChevronRight size={17} aria-hidden />
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </AppShell>
   );
 }

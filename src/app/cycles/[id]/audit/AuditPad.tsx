@@ -5,18 +5,22 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Textarea } from '@/components/ui/Textarea';
-import { TextField } from '@/components/ui/TextField';
-import { ConfirmDialog } from '@/components/ui/Dialog';
+import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Check } from '@/components/icons';
+import { Plus, Check, FileText, ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { LawPanel } from '@/components/checklist/LawBasis';
+import {
+  snippetMatches, type FindingSnippetDTO,
+} from '@/lib/finding-snippet';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
-  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef,
+  gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs, sortRefs, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
+import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 /** 委員手填之檢核結果數量(符/部分/不符/不適用;null=空白) */
@@ -37,6 +41,8 @@ export type MyFinding = {
   checklistRef: string | null;
   locked: boolean;
 };
+/** 項次 → 法規對照(供發現表單「法規對照」鈕展開) */
+export type ItemLaw = { auditBasis: string | null; auditFocus: string | null; expectedEvidence: string | null };
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const ALL_DIMS: Dimension[] = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
@@ -65,9 +71,11 @@ export default function AuditPad({
   stats,
   itemRefs,
   itemContent = {},
+  itemLaw = {},
   dimIssues = {},
   assignedLabels = [],
   focusAspects = [],
+  snippets = [],
   initialScores,
   initialCounts,
   initialFindings,
@@ -79,11 +87,15 @@ export default function AuditPad({
   stats: Record<string, DimStat>;
   itemRefs: string[];
   itemContent?: Record<string, string>;
+  /** 項次 → 法規對照(發現表單「法規對照」鈕用) */
+  itemLaw?: Record<string, ItemLaw>;
   dimIssues?: Record<string, DimIssue[]>;
   /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
   focusAspects?: DeficiencyAspect[];
+  /** 發現片語庫(剪貼簿);最高管理員維護 */
+  snippets?: FindingSnippetDTO[];
   initialScores: Record<string, number | null>;
   initialCounts: Record<string, DimCounts>;
   initialFindings: MyFinding[];
@@ -106,7 +118,7 @@ export default function AuditPad({
         </div>
       )}
       <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} dimIssues={dimIssues} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
     </div>
   );
 }
@@ -446,21 +458,80 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, dimIssues, initialFindings, unsavedFindingsRef,
+  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
   itemContent: Record<string, string>;
+  itemLaw: Record<string, ItemLaw>;
   dimIssues: Record<string, DimIssue[]>;
+  snippets: FindingSnippetDTO[];
+  /** 委員受指派的評分構面;新發現的構面預設取第一個(否則 STRATEGY) */
+  focusAspects?: DeficiencyAspect[];
   initialFindings: MyFinding[];
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [findings, setFindings] = useState<MyFinding[]>(initialFindings);
+  // saveAllDirty 讀最新 findings(避免 async 迴圈讀到 stale 快照覆蓋並行編輯)+ 同步重入鎖(防雙擊/與單列儲存並行)
+  const findingsRef = useRef(findings);
+  useEffect(() => { findingsRef.current = findings; }, [findings]);
+  const savingRef = useRef(false);
   const [drafts, setDrafts] = useState<Partial<Record<FindingKind, DraftFinding>>>({});
   const [busy, setBusy] = useState<string | null>(null); // finding id 或 `new:KIND`
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
+  // 法規對照 Dialog:依輸入之對應項次展開該檢核項的稽核依據
+  const [lawRef, setLawRef] = useState<string | null>(null);
+  // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容(插入於游標所在處)
+  const [clip, setClip] = useState<{ aspect: DeficiencyAspect; kind: FindingKind; insert: (snippet: string) => void } | null>(null);
+  const [clipShowAll, setClipShowAll] = useState(false); // 剪貼簿:false=只看符合當前構面/類型,true=全部
+  // 各發現內容 textarea 的 DOM 參照(key=既有發現 f.id 或 `draft:KIND`),供剪貼簿插入於游標處
+  const taRefs = useRef<Map<string, HTMLTextAreaElement | null>>(new Map());
+
+  // 發現列共用的兩個輔助鈕(法規對照 + 剪貼簿);ref 取對應項次,taKey 對應 textarea,setContent 寫回內容。
+  function helperButtons(
+    ref: string,
+    aspect: DeficiencyAspect,
+    kind: FindingKind,
+    taKey: string,
+    setContent: (next: string) => void,
+  ) {
+    return (
+      <>
+        <Button
+          size="sm" variant="text" leadingIcon={<FileText size={14} />}
+          onClick={() => {
+            const r = ref.trim();
+            if (!r) { toast.info('請先填寫對應項次', '法規對照會依對應項次展開該檢核項的稽核依據。'); return; }
+            setLawRef(r);
+          }}
+        >法規對照</Button>
+        <Button
+          size="sm" variant="text" leadingIcon={<ClipboardCheck size={14} />}
+          onClick={() => {
+            setClipShowAll(false); // 每次開啟預設「符合當前構面/類型」
+            // 按下當下擷取該 textarea 的游標位置與內容(對話框開啟後內容不再變動)
+            const ta = taRefs.current.get(taKey);
+            const content = ta?.value ?? '';
+            const start = ta?.selectionStart ?? content.length;
+            const end = ta?.selectionEnd ?? content.length;
+            setClip({
+              aspect, kind,
+              insert: (snippet: string) => {
+                setContent(content.slice(0, start) + snippet + content.slice(end));
+                // 還原焦點並把游標移到插入文字之後(等下一次繪製後再設定)
+                requestAnimationFrame(() => {
+                  const el = taRefs.current.get(taKey);
+                  if (el) { el.focus(); const pos = start + snippet.length; el.setSelectionRange(pos, pos); }
+                });
+              },
+            });
+          }}
+        >剪貼簿</Button>
+      </>
+    );
+  }
 
   // 離開保護:編輯中未存的發現(editedRef)或有內容的草稿(draftDirtyRef)→ 關分頁攔截
   const editedRef = useRef<Set<string>>(new Set());
@@ -484,7 +555,9 @@ function FindingSection({
   }, [canEdit]);
 
   function openDraft(kind: FindingKind) {
-    setDrafts((d) => ({ ...d, [kind]: d[kind] ?? { aspect: 'STRATEGY', content: '', checklistRef: '' } }));
+    // 預設構面取委員受指派的第一個構面(如管理面);未指派則沿用 STRATEGY
+    const defaultAspect: DeficiencyAspect = focusAspects[0] ?? 'STRATEGY';
+    setDrafts((d) => ({ ...d, [kind]: d[kind] ?? { aspect: defaultAspect, content: '', checklistRef: '' } }));
   }
 
   async function createFinding(kind: FindingKind) {
@@ -500,7 +573,7 @@ function FindingSection({
       body: JSON.stringify({
         aspect: draft.aspect,
         kind,
-        content: draft.content.trim(),
+        content: toFullWidthPunct(draft.content.trim()),
         checklistRef: draft.checklistRef.trim() || undefined,
       }),
     });
@@ -527,7 +600,7 @@ function FindingSection({
       body: JSON.stringify({
         aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
         kind: 'IMPROVE',
-        content: `依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`,
+        content: toFullWidthPunct(`依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`),
         checklistRef: itemNo,
       }),
     });
@@ -546,20 +619,26 @@ function FindingSection({
   }
 
   async function patchFinding(f: MyFinding) {
+    if (savingRef.current) return; // 不與其他儲存(單列/全部)並行
+    savingRef.current = true;
     setBusy(f.id);
-    const res = await fetch(`/api/audit-findings/${f.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
-    });
-    setBusy(null);
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-      toast.error('儲存失敗', j.error);
-      return;
+    try {
+      const res = await fetch(`/api/audit-findings/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+        toast.error('儲存失敗', j.error);
+        return;
+      }
+      editedRef.current.delete(f.id);
+      toast.success('已儲存發現');
+    } finally {
+      savingRef.current = false;
+      setBusy(null);
     }
-    editedRef.current.delete(f.id);
-    toast.success('已儲存發現');
   }
 
   async function deleteFinding(f: MyFinding) {
@@ -595,6 +674,36 @@ function FindingSection({
     toast.success('已依項次排序', '各類發現已依對應項次排列。');
   }
 
+  // 底部「全部儲存」:一次送出所有有編輯過(editedRef)的既有發現(草稿仍用「新增此條」)。
+  async function saveAllDirty() {
+    if (savingRef.current) return; // 同步重入鎖:防雙擊,且不與單列儲存並行
+    const dirtyIds = Array.from(editedRef.current);
+    if (dirtyIds.length === 0) {
+      toast.info('無待儲存項目', '目前沒有未儲存的發現編輯。');
+      return;
+    }
+    savingRef.current = true;
+    setBusy('save-all');
+    let ok = 0;
+    try {
+      for (const id of dirtyIds) {
+        const f = findingsRef.current.find((x) => x.id === id); // 讀最新狀態,避免覆蓋使用者並行編輯
+        if (!f) { editedRef.current.delete(id); continue; }
+        const res = await fetch(`/api/audit-findings/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
+        });
+        if (res.ok) { editedRef.current.delete(id); ok++; }
+      }
+    } finally {
+      savingRef.current = false;
+      setBusy(null);
+    }
+    if (ok === dirtyIds.length) toast.success('已全部儲存', `共儲存 ${ok} 條發現。`);
+    else toast.error('部分儲存失敗', `已儲存 ${ok}/${dirtyIds.length} 條,請逐條檢查未儲存項目。`);
+  }
+
   return (
     <section>
       <ConfirmDialog
@@ -610,9 +719,6 @@ function FindingSection({
 
       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
         <h2 className="text-title-lg text-on-surface">稽核發現</h2>
-        {findings.length > 1 && (
-          <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
-        )}
       </div>
       <p className="text-body-sm text-on-surface-variant mb-4">
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
@@ -681,19 +787,19 @@ function FindingSection({
                         disabled={!canEdit || f.locked}
                         onChange={(aspect) => mutate(f.id, { aspect })}
                       />
-                      <div className="w-36">
-                        <TextField
-                          label="對應項次(選填)"
-                          list="audit-item-refs"
-                          value={f.checklistRef ?? ''}
-                          onChange={(e) => mutate(f.id, { checklistRef: e.target.value })}
-                          disabled={!canEdit || f.locked}
-                        />
-                      </div>
+                      <RefChips
+                        value={f.checklistRef ?? ''}
+                        disabled={!canEdit || f.locked}
+                        onChange={(next) => mutate(f.id, { checklistRef: next })}
+                      />
                       {canEdit && !f.locked && (f.checklistRef ?? '').trim() !== '' && (
                         <Button size="sm" variant="text" onClick={() => mutate(f.id, { checklistRef: '' })}>
                           清除項次
                         </Button>
+                      )}
+                      {canEdit && !f.locked && helperButtons(
+                        f.checklistRef ?? '', f.aspect, f.kind,
+                        f.id, (next) => mutate(f.id, { content: next }),
                       )}
                       {f.locked && <Chip size="sm" tone="primary" dot>已轉入缺失管考</Chip>}
                       <div className="flex-1" />
@@ -706,20 +812,14 @@ function FindingSection({
                         </>
                       )}
                     </div>
-                    {/* A5:即時顯示所引項次的題目摘要,避免引錯項次 */}
-                    {f.checklistRef?.trim() && (
-                      itemContent[f.checklistRef.trim()] ? (
-                        <p className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
-                          對應檢核項【{f.checklistRef.trim()}】{itemContent[f.checklistRef.trim()]}
-                        </p>
-                      ) : (
-                        <p className="text-caption text-warning-700">查無檢核項次「{f.checklistRef.trim()}」,請確認編號</p>
-                      )
-                    )}
+                    {/* A5:即時顯示所引項次的題目摘要(支援多項次),避免引錯項次 */}
+                    <RefSummary refStr={f.checklistRef ?? ''} itemContent={itemContent} />
                     <Textarea
                       label="發現內容"
+                      ref={(el) => { taRefs.current.set(f.id, el); }}
                       value={f.content}
                       onChange={(e) => mutate(f.id, { content: e.target.value })}
+                      onBlur={(e) => { const v = toFullWidthPunct(e.target.value); if (v !== f.content) mutate(f.id, { content: v }); }}
                       disabled={!canEdit || f.locked}
                       rows={3}
                     />
@@ -733,18 +833,23 @@ function FindingSection({
                         value={draft.aspect}
                         onChange={(aspect) => setDrafts((d) => ({ ...d, [kind]: { ...draft, aspect } }))}
                       />
-                      <div className="w-36">
-                        <TextField
-                          label="對應項次(選填)"
-                          list="audit-item-refs"
-                          value={draft.checklistRef}
-                          onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: e.target.value } }))}
-                        />
-                      </div>
+                      <RefChips
+                        value={draft.checklistRef}
+                        onChange={(next) => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: next } }))}
+                      />
                       {draft.checklistRef.trim() !== '' && (
                         <Button size="sm" variant="text" onClick={() => setDrafts((d) => ({ ...d, [kind]: { ...draft, checklistRef: '' } }))}>
                           清除項次
                         </Button>
+                      )}
+                      {helperButtons(
+                        draft.checklistRef, draft.aspect, kind,
+                        `draft:${kind}`,
+                        (next) => setDrafts((d) => {
+                          const cur = d[kind];
+                          if (!cur) return d;
+                          return { ...d, [kind]: { ...cur, content: next } };
+                        }),
                       )}
                       <div className="flex-1" />
                       <Button
@@ -757,10 +862,14 @@ function FindingSection({
                         新增此條
                       </Button>
                     </div>
+                    {/* 即時顯示對應檢核項摘要(填好對應項次即顯示,不必等儲存;支援多項次) */}
+                    <RefSummary refStr={draft.checklistRef} itemContent={itemContent} />
                     <Textarea
                       label="發現內容(可直接從 Word 貼上)"
+                      ref={(el) => { taRefs.current.set(`draft:${kind}`, el); }}
                       value={draft.content}
                       onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, content: e.target.value } }))}
+                      onBlur={(e) => { const v = toFullWidthPunct(e.target.value); if (v !== draft.content) setDrafts((d) => ({ ...d, [kind]: { ...draft, content: v } })); }}
                       rows={3}
                       placeholder="例:依資通安全管理法第 9 條規定…,惟查…"
                     />
@@ -771,7 +880,166 @@ function FindingSection({
           );
         })}
       </div>
+
+      {/* 底部操作列:全部填完後一鍵排序 / 全部儲存(取代原本置於標頭的排序鈕) */}
+      {findings.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-outline-variant/40 flex flex-wrap items-center justify-end gap-2">
+          {findings.length > 1 && (
+            <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
+          )}
+          {canEdit && (
+            <Button size="sm" variant="tonal" loading={busy === 'save-all'} onClick={saveAllDirty}>全部儲存</Button>
+          )}
+        </div>
+      )}
+
+      {/* 法規對照(項4):依對應項次展開該檢核項之稽核依據/重點/應備文件 */}
+      <Dialog
+        open={lawRef !== null}
+        onOpenChange={(o) => !o && setLawRef(null)}
+        size="lg"
+        title={lawRef ? `法規對照 · 項次 ${lawRef}` : '法規對照'}
+      >
+        {lawRef && (() => {
+          const refs = parseRefs(lawRef);
+          return (
+            <div className="flex flex-col gap-5">
+              {refs.map((r) => (
+                <div key={r}>
+                  {refs.length > 1 && <p className="text-label text-primary-800 mb-2">項次 {r}</p>}
+                  {itemLaw[r] ? (
+                    <LawPanel
+                      auditBasis={itemLaw[r].auditBasis}
+                      auditFocus={itemLaw[r].auditFocus}
+                      expectedEvidence={itemLaw[r].expectedEvidence}
+                    />
+                  ) : (
+                    <p className="text-body-sm text-on-surface-variant py-2">查無項次「{r}」的法規對照資料,請確認項次編號。</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </Dialog>
+
+      {/* 剪貼簿(項5):緊湊片語清單,點選插入游標處;預設依當前構面/類型篩選,可切換全部 */}
+      {clip && (() => {
+        const matched = snippets.filter((s) => snippetMatches(s, clip.aspect, clip.kind));
+        const shown = clipShowAll ? snippets : matched;
+        const toggleCls = (active: boolean) =>
+          `inline-flex items-center min-h-8 px-3 rounded-full text-label-sm tabular-nums transition-colors ${
+            active ? 'bg-primary-container text-on-primary-container font-medium' : 'text-on-surface-variant hover:bg-surface-container'
+          }`;
+        return (
+          <Dialog
+            open
+            onOpenChange={(o) => !o && setClip(null)}
+            size="lg"
+            title="剪貼簿 — 插入常用發現片語"
+            description="點選片語即插入「發現內容」游標所在處。"
+          >
+            {snippets.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant py-2">尚無片語。請最高管理員至「管理 → 發現片語庫」新增。</p>
+            ) : (
+              <>
+                {/* 篩選切換:符合目前構面/類型 ↔ 全部 */}
+                <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                  <button type="button" onClick={() => setClipShowAll(false)} className={toggleCls(!clipShowAll)}>
+                    符合此構面/類型 {matched.length}
+                  </button>
+                  <button type="button" onClick={() => setClipShowAll(true)} className={toggleCls(clipShowAll)}>
+                    全部 {snippets.length}
+                  </button>
+                </div>
+                {shown.length === 0 ? (
+                  <p className="text-body-sm text-on-surface-variant py-2">此構面/類型尚無對應片語;可切換「全部」,或至「發現片語庫」新增/設為通用。</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {shown.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        title={s.text}
+                        onClick={() => { clip.insert(s.text); setClip(null); toast.success('已插入片語'); }}
+                        className="text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low hover:border-primary-300 transition-colors px-2.5 py-1.5 text-body-sm text-on-surface-variant max-w-[18rem]"
+                      >
+                        <span className="line-clamp-2 break-words whitespace-pre-wrap">{s.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </Dialog>
+        );
+      })()}
     </section>
+  );
+}
+
+/**
+ * 對應項次輸入:每個項次一個可刪 chip + 「新增」輸入;自動依項次排序(如先填 6.7 後 6.6 → 顯示 6.6、6.7)。
+ * 內部以「、」連接的字串存於 checklistRef(沿用既有資料格式),sortRefsString 保證去重+排序。
+ */
+function RefChips({ value, onChange, disabled }: { value: string; onChange: (next: string) => void; disabled?: boolean }) {
+  const refs = sortRefs(value);
+  const [input, setInput] = useState('');
+  function add() {
+    const r = input.trim();
+    if (!r) return;
+    onChange(sortRefsString([...refs, r].join('、')));
+    setInput('');
+  }
+  return (
+    <div className="flex flex-col gap-0.5 min-w-[10rem]">
+      <span className="text-caption text-on-surface-variant px-1">對應項次(選填)</span>
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-1 min-h-9">
+        {refs.map((r) => (
+          <span key={r} className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-caption text-on-surface">
+            {r}
+            {!disabled && (
+              <button type="button" aria-label={`移除 ${r}`} onClick={() => onChange(sortRefsString(refs.filter((x) => x !== r).join('、')))} className="text-on-surface-variant hover:text-danger-700 leading-none">×</button>
+            )}
+          </span>
+        ))}
+        {!disabled && (
+          <span className="inline-flex items-center gap-0.5">
+            <input
+              list="audit-item-refs"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+              placeholder="項次"
+              className="w-14 h-6 bg-transparent text-caption outline-none placeholder:text-on-surface-variant/60"
+            />
+            <button type="button" onClick={add} className="text-caption text-primary-700 whitespace-nowrap">+ 新增</button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 對應檢核項即時摘要(委員填/選對應項次當下就顯示,不必等儲存)。
+ * 支援多項次(如「5.2、5.9」):逐項顯示題目摘要;無此項次者逐項提示確認編號。
+ */
+function RefSummary({ refStr, itemContent }: { refStr: string; itemContent: Record<string, string> }) {
+  const refs = sortRefs(refStr);
+  if (refs.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      {refs.map((r) =>
+        itemContent[r] ? (
+          <p key={r} className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
+            對應檢核項【{r}】{itemContent[r]}
+          </p>
+        ) : (
+          <p key={r} className="text-caption text-warning-700">查無檢核項次「{r}」,請確認編號</p>
+        ),
+      )}
+    </div>
   );
 }
 

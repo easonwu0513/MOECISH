@@ -9,10 +9,11 @@ import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChange
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
+import ReturnScoreButton from './ReturnScoreButton';
 
 /**
  * 實地稽核彙整報告:全體委員發現自動整合,版式 = 稽核報告彙整工具的 Word 格式
- * (當天列印給受稽單位簽名的正式文件)。評分總覽僅螢幕顯示(附件17 由各委員自印)。
+ * (當天列印給受稽單位簽名的正式文件)。評分總覽僅螢幕顯示(附件17 由最高管理員於本頁逐委員列印交付簽名)。
  * 「報告設定」直接啟動彙整工具(週期模式);「已完成年度稽核」一鍵轉缺失+推狀態+通知機關。
  */
 export default async function AuditReportPage({ params }: { params: { id: string } }) {
@@ -33,6 +34,14 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const report = buildReportData(data);
   const isAdmin = user.role === 'SUPER_ADMIN';
   const status = data.status;
+  // 「已完成年度稽核」前置:全體委員評分表須定稿(scoreLockedAt);退件會清 scoreLockedAt,故此即「已繳交且非退件」。
+  const unfinalizedAuditors = data.assignments.filter((a) => !a.scoreLockedAt).length;
+  const finishBlockReason =
+    data.assignments.length === 0
+      ? '尚未指派稽核委員'
+      : unfinalizedAuditors > 0
+        ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
+        : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 
@@ -77,16 +86,16 @@ export default async function AuditReportPage({ params }: { params: { id: string
           {isAdmin && status !== 'CLOSED' && (
             status === 'REMEDIATION'
               ? <ConvertButton cycleId={data.id} pendingCount={pendingCount} />
-              : <FinishButton cycleId={data.id} pendingCount={pendingCount} />
+              : <FinishButton cycleId={data.id} pendingCount={pendingCount} blockReason={finishBlockReason} />
           )}
         </div>
       </header>
 
-      {/* 評分總覽(螢幕用;附件17 評分表由各委員至「實地稽核」頁自印) */}
+      {/* 評分總覽(螢幕用;附件17 評分表由最高管理員於下方逐委員列印交付簽名) */}
       <Card className="mb-6">
         <CardTitle>評分總覽</CardTitle>
         <CardDescription>
-          各委員九項評分與平均(僅供管考檢視;附件17 評分表請各委員於「實地稽核」頁列印簽名)。
+          各委員九項評分與平均(僅供管考檢視;附件17 評分表由您於下方逐一列印,交付委員紙本簽名)。
           下表「符合/部分/不符/不適」為機關自評數量供參;各委員實地判定之檢核數量請見各自附件17 評分表。
         </CardDescription>
         {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
@@ -104,7 +113,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
                   }`}
                 >
                   <span className="font-medium text-on-surface">{a.auditor.name}</span>
-                  評分 {sc}/9 · 發現 {fc} 條
+                  已評 {sc} 構面 · 發現 {fc} 條
                   {locked && (
                     <span className="inline-flex items-center gap-1 font-medium text-primary-700">
                       <Check size={13} />已定稿
@@ -115,19 +124,48 @@ export default async function AuditReportPage({ params }: { params: { id: string
             })}
           </div>
         )}
+        {/* 最高管理員逐委員:列印附件17 評分表(交付紙本簽名)+ 已定稿者可「退件」供重新編輯;委員端不再自印 */}
+        {isAdmin && data.assignments.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-outline-variant/40">
+            <p className="text-label-sm font-medium text-on-surface-variant mb-2">
+              各委員評分表(附件17):列印後交付委員紙本簽名;已定稿者可「退件」解除鎖定供其重新編輯
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {data.assignments.map((a) => (
+                <div
+                  key={a.auditor.id}
+                  className="inline-flex items-center gap-0.5 rounded-md border border-outline-variant/60 bg-surface-container-lowest pl-1 pr-1.5 py-0.5"
+                >
+                  <Link
+                    href={`/cycles/${data.id}/audit/print?auditorId=${a.auditor.id}`}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <Button variant="text" size="sm" leadingIcon={<FileText size={15} />}>
+                      {a.auditor.name} 評分表
+                    </Button>
+                  </Link>
+                  {a.scoreLockedAt && (
+                    <ReturnScoreButton cycleId={data.id} auditorId={a.auditor.id} auditorName={a.auditor.name} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="mt-4">
           <ScoreOverview data={data} />
         </div>
       </Card>
 
-      {/* 委員填寫狀態異動(系統內同步通知:委員確認填寫完畢/解除鎖定,免漏看 email) */}
+      {/* 委員填寫狀態(每位委員一方塊:目前最新狀態 + 時間;免漏看 email) */}
       <Card className="mb-6">
-        <CardTitle>委員填寫狀態異動</CardTitle>
+        <CardTitle>委員填寫狀態</CardTitle>
         <CardDescription>
-          委員「確認填寫完畢」或「解除鎖定(內容異動)」會即時記於此處;解除鎖定代表該委員可能已修改評分或發現,請複核。
+          各委員目前的填寫狀態與最近動作時間;「已解除鎖定 / 已被退件」代表該委員內容可能已修改,請複核。
         </CardDescription>
         <div className="mt-4">
-          <AuditorStateChangeLog events={stateChanges} />
+          <AuditorStateChangeLog assignments={data.assignments} events={stateChanges} />
         </div>
       </Card>
 

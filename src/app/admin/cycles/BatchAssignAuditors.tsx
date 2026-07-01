@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
+import { canAssignAuditors } from '@/lib/stage';
+import type { CycleStatus } from '@/lib/types';
 
 type Auditor = { id: string; name: string; organizationId: string | null };
-type Cyc = { id: string; label: string; organizationId: string };
+type Cyc = { id: string; label: string; organizationId: string; status: CycleStatus };
 
 /** 批次把一位委員指派到多個週期(沿用迴避原則,後端冪等)。 */
 export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Auditor[]; cycles: Cyc[] }) {
@@ -21,7 +23,9 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
 
   const auditor = auditors.find((a) => a.id === auditorId);
   const recuse = (c: Cyc) => Boolean(auditor?.organizationId && auditor.organizationId === c.organizationId);
-  const assignable = cycles.filter((c) => !recuse(c));
+  // 實地稽核結束後(缺失發布中起)委員名單凍結,不可再批次指派(與單筆指派共用 canAssignAuditors)
+  const frozen = (c: Cyc) => !canAssignAuditors(c.status);
+  const assignable = cycles.filter((c) => !recuse(c) && !frozen(c));
 
   function toggle(id: string) {
     setChecked((prev) => {
@@ -88,11 +92,13 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
               <div className="max-h-72 overflow-y-auto rounded-md border border-outline-variant/70 divide-y divide-outline-variant/40">
                 {cycles.map((c) => {
                   const r = recuse(c);
+                  const fz = frozen(c);
+                  const disabled = r || fz;
                   return (
-                    <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2.5 text-body-sm ${r ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-container'}`}>
-                      <input type="checkbox" disabled={r} checked={checked.has(c.id)} onChange={() => toggle(c.id)} className="accent-primary-600" />
+                    <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2.5 text-body-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-container'}`}>
+                      <input type="checkbox" disabled={disabled} checked={checked.has(c.id)} onChange={() => toggle(c.id)} className="accent-primary-600" />
                       <span className="flex-1 text-on-surface">{c.label}</span>
-                      {r && <span className="text-caption text-warning-700 shrink-0">迴避</span>}
+                      {r ? <span className="text-caption text-warning-700 shrink-0">迴避</span> : fz && <span className="text-caption text-on-surface-variant shrink-0">已凍結</span>}
                     </label>
                   );
                 })}

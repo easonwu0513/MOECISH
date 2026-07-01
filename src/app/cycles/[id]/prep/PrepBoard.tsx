@@ -71,6 +71,7 @@ export default function PrepBoard({
   const [busy, setBusy] = useState(false);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [reminding, setReminding] = useState<string | null>(null);
+  const [remindingItem, setRemindingItem] = useState<string | null>(null);
 
   // 中心對受稽機關催繳該區應備資料(人工點擊;寄信給機關管理員)
   async function remind(cat: PrepCategory) {
@@ -87,6 +88,24 @@ export default function PrepBoard({
     } else {
       const j = res ? await res.json().catch(() => ({})) : {};
       toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+    }
+  }
+
+  // 中心逐項催補:針對單一尚未繳交的機關區需求項寄提醒
+  async function remindItem(reqId: string) {
+    setRemindingItem(reqId);
+    const res = await fetch(`/api/cycles/${cycleId}/prep/remind`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ requirementId: reqId }),
+    }).catch(() => null);
+    setRemindingItem(null);
+    if (res && res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.success('已寄出催補通知', j.sent ? `已通知 ${j.sent} 位機關管理員` : undefined);
+    } else {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      toast.error('催補失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
     }
   }
 
@@ -543,6 +562,13 @@ export default function PrepBoard({
                   <span className="text-caption text-on-surface-variant">
                     {status === 'INSUFFICIENT' ? '已退回,待機關補正後重新繳交' : status === 'UPLOADED' ? '機關編輯中,尚未確定繳交' : '機關尚未上傳或敘明'}
                   </span>
+                )}
+
+                {/* 中心逐項催補:機關區、尚未繳交/確認的項目(資料準備中);寄提醒給機關管理員 */}
+                {!isCenter && isAdmin && cycleStatus === 'PREPARATION' && status !== 'CONFIRMED' && status !== 'SUBMITTED' && (
+                  <Button size="sm" variant="tonal" loading={remindingItem === item.id} onClick={() => remindItem(item.id)}>
+                    催補此項
+                  </Button>
                 )}
 
                 {/* 中心可刪除尚無上傳檔/無理由的需求項(逐年清單可增刪;已上傳則不可刪) */}

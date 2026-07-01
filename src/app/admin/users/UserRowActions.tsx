@@ -7,6 +7,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
+import { copyText } from '@/lib/clipboard';
 import { ROLE_LABELS, type Role } from '@/lib/types';
 
 /** 使用者列操作:停用/啟用、變更角色(不可操作自己,後端另有最後管理員防呆)。 */
@@ -33,6 +34,10 @@ export default function UserRowActions({
   const [reason, setReason] = useState('');
   const [reasonErr, setReasonErr] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetLink, setResetLink] = useState('');
+  const [resetDelivered, setResetDelivered] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
 
   if (isSelf) {
     return <span className="text-caption text-on-surface-variant">本人</span>;
@@ -56,6 +61,21 @@ export default function UserRowActions({
     return true;
   }
 
+  async function sendReset() {
+    setResetBusy(true);
+    const res = await fetch(`/api/admin/users/${userId}/reset-password`, { method: 'POST' });
+    setResetBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '產生重設連結失敗' }));
+      toast.error('操作失敗', j.error);
+      return;
+    }
+    const j = await res.json();
+    setResetLink(j.link ?? '');
+    setResetDelivered(!!j.delivered);
+    setResetOpen(true);
+  }
+
   const roleOptions: Role[] = hasOrganization
     ? ['ORG_ADMIN', 'AUDITOR', 'SUPER_ADMIN']
     : ['AUDITOR', 'SUPER_ADMIN'];
@@ -66,6 +86,11 @@ export default function UserRowActions({
         <Button size="sm" variant="text" onClick={() => { setNewRole(role); setRoleOpen(true); }}>
           改角色
         </Button>
+        {isActive && (
+          <Button size="sm" variant="text" onClick={sendReset} disabled={resetBusy}>
+            重設密碼
+          </Button>
+        )}
         <Button
           size="sm"
           variant="text"
@@ -155,6 +180,40 @@ export default function UserRowActions({
               此帳號未隸屬機關,不可改為機關管理員。
             </p>
           )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title={`重設「${name}」的密碼`}
+        description={
+          resetDelivered
+            ? '已寄出密碼重設連結至該使用者 Email(24 小時內有效)。如未收到,可複製下方連結另行轉交。'
+            : 'Email 未實際寄出(未設定寄信服務);請複製下方連結,以其他管道轉交該使用者(24 小時內有效)。'
+        }
+        footer={<Button onClick={() => setResetOpen(false)}>關閉</Button>}
+      >
+        <div className="flex flex-col gap-2 pt-2">
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={resetLink}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 min-w-0 rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-caption font-mono"
+            />
+            <Button
+              size="sm"
+              variant="tonal"
+              onClick={async () => {
+                if (await copyText(resetLink)) toast.success('已複製連結');
+                else toast.error('複製失敗', '請長按或反白連結文字手動複製');
+              }}
+            >
+              複製
+            </Button>
+          </div>
+          <p className="text-caption text-on-surface-variant">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
         </div>
       </Dialog>
     </>

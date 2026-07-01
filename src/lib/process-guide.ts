@@ -15,7 +15,7 @@ export type CycleFactsInput = {
   prepDueDate: Date | null;
   prepDueTech: Date | null;
   onsiteDate: Date | null;
-  deficiencies: { action: { status: string } | null }[];
+  deficiencies: { action: { status: string } | null; reviewerAuditorId?: string | null }[];
   prepRequirements: { category: string; submission: { status: string } | null }[];
   signedReports: { confirmedAt: Date | null }[];
   // 檢核表(87 題自評)— 選填;傳入才會納入「下一步」導引(救出原本隱形的填報死路)
@@ -73,11 +73,15 @@ export function fmtMD(d: Date | null | undefined): string | null {
   return `${x.getMonth() + 1}/${x.getDate()}`;
 }
 
-export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date()): CycleFacts {
+export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), viewerAuditorId?: string): CycleFacts {
   const count = (s: string) =>
     c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === s).length;
   const returned = count('RETURNED');
-  const submitted = count('SUBMITTED');
+  // 委員視角(傳 viewerAuditorId):待審(submitted)只計「指派給本人審閱」的送審缺失(reviewer-aware);
+  // 其餘角色(不傳)計全部,語意不變。避免委員在首頁/儀表板 CTA 看到非自己負責審的膨脹待審數。
+  const submitted = viewerAuditorId
+    ? c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED' && d.reviewerAuditorId === viewerAuditorId).length
+    : count('SUBMITTED');
   const toFill = count('PENDING') + count('DRAFT');
   const passed = count('PASSED');
   const total = c.deficiencies.length;

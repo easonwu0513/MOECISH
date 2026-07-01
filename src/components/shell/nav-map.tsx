@@ -17,7 +17,7 @@ import {
 
 export type NavIconKey =
   | 'dashboard' | 'cycles' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog';
+  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
@@ -29,6 +29,7 @@ const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   scores: (s) => <BarChart size={s} />,
   checklists: (s) => <FileText size={s} />,
   prepTemplate: (s) => <FileText size={s} />,
+  snippets: (s) => <ClipboardCheck size={s} />,
   journeyEdit: (s) => <Settings size={s} />,
   posts: (s) => <Megaphone size={s} />,
   emails: (s) => <Mail size={s} />,
@@ -65,6 +66,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '管理' },
   { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '管理' },
   { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '管理' },
+  { href: '/admin/finding-snippets',  label: '發現片語庫',   allow: ADMIN, iconKey: 'snippets',    group: '管理' },
   { href: '/admin/journey',           label: '精靈範本',     allow: ADMIN, iconKey: 'journeyEdit', group: '管理' },
   { href: '/admin/posts',             label: '公告管理',     allow: ADMIN, iconKey: 'posts',       group: '管理' },
   { href: '/admin/emails',            label: 'Email',        allow: ADMIN, iconKey: 'emails',      group: '管理' },

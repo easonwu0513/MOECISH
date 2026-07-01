@@ -255,6 +255,50 @@ export async function notifyChecklistSubmitted(opts: {
   return { recipientCount: recipients.length };
 }
 
+/** 機關「確認繳交」用印改善報告掃描檔 → 通知最高管理員(中心)確認(結案前置)。email + 站內。 */
+export async function notifyCycleSignedReportSubmitted(opts: {
+  cycleId: string;
+  submittedByName: string;
+  fileName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}#signed-report`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} 已繳交 ${yearROC} 年度用印改善報告掃描檔，請確認`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 確認繳交 ${yearROC} 年度用印改善報告掃描檔（${opts.fileName}），檔案已鎖定。\n` +
+          `請登入系統確認掃描檔;確認後即可結案：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'signed-report-submitted',
+        relatedCycleId: cycle.id,
+        notificationLink: `/cycles/${cycle.id}#signed-report`,
+        context: { submittedBy: opts.submittedByName, fileName: opts.fileName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 中心於「資料齊備」後,主動寄信通知受指派委員開始審閱檢核表(由週期推進至資料齊備時的提示觸發)。 */
 export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl: string }) {
   const cycle = await prisma.auditCycle.findUnique({
@@ -419,6 +463,43 @@ export async function notifyAuditScoreUnlocked(opts: {
     ),
   );
   return { recipientCount: recipients.length };
+}
+
+/** 最高管理員「退件」:以站內通知(不寄 email;退件於實地稽核現場口頭告知)告知該委員其評分與發現已退回、已解除鎖定,請重新編輯後再次確認。 */
+export async function notifyAuditScoreReturned(opts: {
+  cycleId: string;
+  auditorId: string;
+  reason?: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const auditor = await prisma.user.findFirst({
+    where: { id: opts.auditorId, isActive: true },
+  });
+  if (!auditor) return { recipientCount: 0 };
+
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  // 退件於實地稽核現場即口頭告知委員,故「不寄 email」(避免委員信箱信件過多);
+  // 僅建立站內通知(鈴鐺)供委員登入系統時看到,點擊導向實地稽核評分頁重新編輯。
+  await prisma.notification.create({
+    data: {
+      userId: auditor.id,
+      kind: 'audit-score-return',
+      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回,請重新確認`,
+      body:
+        '最高管理員已將您的實地稽核評分與稽核發現退回,已解除鎖定,請重新編輯後再次按「確認填寫完畢」。' +
+        (opts.reason ? ` 退回原因:${opts.reason}` : ''),
+      link: `/cycles/${cycle.id}/audit`,
+    },
+  });
+  return { recipientCount: 1 };
 }
 
 /** 檢核表被退回重填 → 通知機關管理員(帶退回原因)。 */

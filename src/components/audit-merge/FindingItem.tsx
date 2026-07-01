@@ -32,9 +32,18 @@ export const FindingItem = memo(function FindingItem({
   onDrop: (e: DragEvent<HTMLDivElement>, cat: Category, sec: SectionKey, index: number) => void;
 }) {
   const handleChangeText = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = toFullWidth(e.target.value);
+    // 中文輸入法組字中(isComposing)不即時正規化,避免改寫受控 value 拆掉組字/跳掉選字視窗;
+    // 待上屏(非組字的 onChange)或 onCompositionEnd 才套標點全形化。
+    const composing = (e.nativeEvent as { isComposing?: boolean }).isComposing;
+    const val = composing ? e.target.value : toFullWidth(e.target.value);
     onUpdate(cat, sec, item.id, 'text', val);
     onFocus(item.id, 'text', e.target.selectionStart);
+  };
+
+  const handleCompositionEndText = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    const val = toFullWidth(e.currentTarget.value);
+    onUpdate(cat, sec, item.id, 'text', val);
+    onFocus(item.id, 'text', e.currentTarget.selectionStart);
   };
 
   const handleSelectText = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
@@ -168,6 +177,7 @@ export const FindingItem = memo(function FindingItem({
         placeholder="請貼入委員的稽核發現內容... (若涉及系統類別可於結尾加註（IT、OT類）)"
         value={item.text}
         onChange={handleChangeText}
+        onCompositionEnd={handleCompositionEndText}
         onFocus={handleSelectText}
         onClick={handleSelectText}
         onKeyUp={handleSelectText}

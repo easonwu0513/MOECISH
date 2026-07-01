@@ -53,7 +53,11 @@ function bodyCell(text: string, width?: number) {
 /** 產出「資通安全稽核改善暨執行情形報告」Word(版式對齊教育部範本) */
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    await assertCycleAccess(params.id);
+    const { user } = await assertCycleAccess(params.id);
+    // 委員不匯出改善報告(僅於系統內檢視機關填報的矯正措施);機關/中心可匯出
+    if (user.role === 'AUDITOR') {
+      return NextResponse.json({ error: '委員無需匯出改善報告,請於系統內檢視矯正措施' }, { status: 403 });
+    }
 
     const cycle = await prisma.auditCycle.findUnique({
       where: { id: params.id },
