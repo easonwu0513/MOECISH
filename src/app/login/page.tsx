@@ -122,6 +122,12 @@ function LoginForm() {
             </Button>
           </form>
 
+          <div className="mt-4 text-center">
+            <Link href="/forgot-password" className="text-body-sm text-primary-700 hover:underline focus-ring rounded px-1 py-0.5">
+              忘記密碼?
+            </Link>
+          </div>
+
           {SHOW_DEMO && (
           <div className="mt-7 pt-6 border-t border-outline-variant">
             <div className="flex items-center justify-between mb-3">

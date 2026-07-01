@@ -58,6 +58,20 @@ model User {
   cycleTransitions   CycleStateTransition[]
   auditLogs          AuditLog[]
   notifications      Notification[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// 忘記密碼/管理員重設:一次性重設 token(存 SHA-256 雜湊,明文只放連結);單次使用、有期限。
+model PasswordResetToken {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String    @unique          // SHA-256(明文 token);查詢用雜湊比對,DB 不存明文
+  expiresAt        DateTime                    // 自助 1h / 管理員 24h
+  usedAt           DateTime?                   // 消費後蓋章,單次使用
+  createdByAdminId String?                     // 管理員手動觸發時記錄操作者;自助則 null
+  createdAt        DateTime  @default(now())
+  @@index([userId])
 }
 
 // 站內通知(鈴鐺):每封寄給系統使用者的信同步建立一筆,避免委員/機關漏看 email。
