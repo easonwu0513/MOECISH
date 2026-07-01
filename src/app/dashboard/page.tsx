@@ -77,6 +77,24 @@ export default async function HomePage() {
   // ── 每週期衍生數據(與週期內頁共用 process-guide) ──
   const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now, user.role === 'AUDITOR' ? user.id : undefined) }));
 
+  // 中心:實地稽核/缺失發布中週期的委員評分完成度(scoreLockedAt),供「今日待辦」的未評分訊號
+  const scoringByCycle = new Map<string, { total: number; scored: number }>();
+  if (user.role === 'SUPER_ADMIN') {
+    const scoringIds = cycles.filter((c) => c.status === 'ONSITE' || c.status === 'REPORT_ISSUED').map((c) => c.id);
+    if (scoringIds.length > 0) {
+      const asgs = await prisma.auditorAssignment.findMany({
+        where: { cycleId: { in: scoringIds } },
+        select: { cycleId: true, scoreLockedAt: true },
+      });
+      for (const a of asgs) {
+        const cur = scoringByCycle.get(a.cycleId) ?? { total: 0, scored: 0 };
+        cur.total += 1;
+        if (a.scoreLockedAt) cur.scored += 1;
+        scoringByCycle.set(a.cycleId, cur);
+      }
+    }
+  }
+
   type Enriched = (typeof enriched)[number];
 
   // ── 全域統計 ──
@@ -142,6 +160,11 @@ export default async function HomePage() {
       }
       if (st === 'PREPARATION' && e.prepAllConfirmed) {
         todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
+      }
+      // 委員未評分:實地稽核起就要盯(影響報告產出與發布缺失);連到報告頁看逐委員狀態/退件
+      const sc = scoringByCycle.get(c.id);
+      if ((st === 'ONSITE' || st === 'REPORT_ISSUED') && sc && sc.scored < sc.total) {
+        todos.push({ key: `${c.id}-score`, tone: 'warning', title: `${org}:${sc.total - sc.scored} 位委員尚未完成評分(${sc.scored}/${sc.total})`, href: `${base}/audit/report`, cta: '去查看' });
       }
       if (st === 'ONSITE') {
         todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
@@ -251,6 +274,35 @@ export default async function HomePage() {
             <StatTopBar tone="warning" muted={confirmOrgs === 0} icon={<ClipboardCheck size={20} />} primary={`${confirmOrgs}`} label="待你確認齊備" sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'} />
             <StatTopBar tone="primary" muted={remediationCount === 0} icon={<ShieldCheck size={20} />} primary={`${remediationCount}`} label="矯正執行中" sub={remediationCount > 0 ? '缺失改善追蹤' : '無矯正中'} />
           </section>
+          )}
+
+          {/* 中心:今日待辦 —— 逐週期可點擊待辦(原本只算件數不渲染;依緊急度排序,直達對應頁) */}
+          {isSuper && todos.length > 0 && (
+            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">今日待辦 · {todos.length} 件</p>
+                <span className="text-caption text-on-surface-variant">依緊急程度排序</span>
+              </div>
+              <ul className="divide-y divide-outline-variant/50">
+                {todos.slice(0, 8).map((t) => (
+                  <li key={t.key}>
+                    <Link href={t.href} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-container transition-colors focus-ring">
+                      <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
+                      <span className="min-w-0 flex-1 text-body-sm text-on-surface">{t.title}</span>
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
+                        {t.cta}
+                        <ChevronRight size={14} />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {todos.length > 8 && (
+                <div className="px-4 py-2.5 border-t border-outline-variant/60 text-caption text-on-surface-variant">
+                  另有 {todos.length - 8} 件較不緊急的待辦,可由下方「跨院週期總覽」逐院處理。
+                </div>
+              )}
+            </section>
           )}
 
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
