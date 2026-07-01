@@ -144,20 +144,9 @@ export function sanitizeImported(parsed: unknown): ReportData | null {
 // ═══ 文字工具 ═══
 
 /** 智慧標點轉換:保留 IP/網址/版本號中的半形句號。 */
-export function toFullWidth(str: string): string {
-  const map: Record<string, string> = {
-    ',': '，', ':': '：', ';': '；',
-    '!': '！', '?': '？', '(': '（', ')': '）',
-  };
-  return str.replace(/([,.:;!?()])/g, (match, _p1, offset, s: string) => {
-    if (match === '.') {
-      const prevChar = s[offset - 1];
-      if (prevChar && /[0-9a-zA-Z]/.test(prevChar)) return '.';
-      return '。';
-    }
-    return map[match] ?? match;
-  });
-}
+// 標點半形→全形:委派全站單一實作(含引號成對「」、rule 2 例外)。
+// 保留 toFullWidth 名稱供彙整工具 FindingItem 沿用。
+export { toFullWidthPunct as toFullWidth } from '@/lib/fullwidth-punct';
 
 export function toROCDate(dateStr: string, defaultYear: string): string {
   if (!dateStr) return `${defaultYear}年○月○日`;

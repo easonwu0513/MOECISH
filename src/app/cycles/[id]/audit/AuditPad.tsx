@@ -20,6 +20,7 @@ import {
   gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs, sortRefs, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
+import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 /** 委員手填之檢核結果數量(符/部分/不符/不適用;null=空白) */
@@ -572,7 +573,7 @@ function FindingSection({
       body: JSON.stringify({
         aspect: draft.aspect,
         kind,
-        content: draft.content.trim(),
+        content: toFullWidthPunct(draft.content.trim()),
         checklistRef: draft.checklistRef.trim() || undefined,
       }),
     });
@@ -599,7 +600,7 @@ function FindingSection({
       body: JSON.stringify({
         aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
         kind: 'IMPROVE',
-        content: `依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`,
+        content: toFullWidthPunct(`依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`),
         checklistRef: itemNo,
       }),
     });
@@ -625,7 +626,7 @@ function FindingSection({
       const res = await fetch(`/api/audit-findings/${f.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
+        body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: '儲存失敗' }));
@@ -691,7 +692,7 @@ function FindingSection({
         const res = await fetch(`/api/audit-findings/${id}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ aspect: f.aspect, content: f.content, checklistRef: f.checklistRef }),
+          body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
         });
         if (res.ok) { editedRef.current.delete(id); ok++; }
       }
@@ -818,6 +819,7 @@ function FindingSection({
                       ref={(el) => { taRefs.current.set(f.id, el); }}
                       value={f.content}
                       onChange={(e) => mutate(f.id, { content: e.target.value })}
+                      onBlur={(e) => { const v = toFullWidthPunct(e.target.value); if (v !== f.content) mutate(f.id, { content: v }); }}
                       disabled={!canEdit || f.locked}
                       rows={3}
                     />
@@ -867,6 +869,7 @@ function FindingSection({
                       ref={(el) => { taRefs.current.set(`draft:${kind}`, el); }}
                       value={draft.content}
                       onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, content: e.target.value } }))}
+                      onBlur={(e) => { const v = toFullWidthPunct(e.target.value); if (v !== draft.content) setDrafts((d) => ({ ...d, [kind]: { ...draft, content: v } })); }}
                       rows={3}
                       placeholder="例:依資通安全管理法第 9 條規定…,惟查…"
                     />

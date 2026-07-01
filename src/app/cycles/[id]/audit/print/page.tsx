@@ -10,6 +10,7 @@ import {
 } from '@/lib/audit-score';
 import PrintTrigger from '../../print/PrintTrigger';
 import { fmtROC } from '@/lib/date';
+import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
@@ -215,7 +216,7 @@ function Att17Sheet({
                     <ol style={{ margin: 0, paddingLeft: '14pt', fontSize: '10.5pt', lineHeight: 1.6 }}>
                       {list.map((f) => (
                         <li key={f.id} style={{ marginBottom: '4pt' }}>
-                          {f.checklistRef ? `【${sortRefsString(f.checklistRef)}】` : ''}{f.content}
+                          {f.checklistRef ? `【${sortRefsString(f.checklistRef)}】` : ''}{toFullWidthPunct(f.content)}
                         </li>
                       ))}
                     </ol>

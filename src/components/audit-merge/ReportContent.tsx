@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { toROCDate, type Finding, type ReportData } from './lib';
+import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 
 /**
  * 報表渲染(螢幕即時預覽與列印共用)。
@@ -101,7 +102,7 @@ export function ReportContent({
                 <li key={f.id} className="finding-item">
                   {f.code && <span style={{ fontWeight: 'bold' }}>【{f.code}】</span>}
                   <span id={!isPrint ? `preview-target-${f.id}` : undefined} className={hlClass(f.id)}>
-                    {renderTextWithCursor(f.text, f.id)}
+                    {renderTextWithCursor(toFullWidthPunct(f.text), f.id)}
                   </span>
                 </li>
               ))}
