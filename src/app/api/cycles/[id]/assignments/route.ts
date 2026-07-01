@@ -5,6 +5,8 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ASSIGN_ASPECTS } from '@/lib/audit-score';
+import { canAssignAuditors } from '@/lib/stage';
+import type { CycleStatus } from '@/lib/types';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -37,6 +39,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       include: { organization: true },
     });
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
+    // 實地稽核結束後(缺失發布中起)凍結委員名單:不得再新增指派(與 client 共用 canAssignAuditors)
+    if (!canAssignAuditors(cycle.status as CycleStatus)) {
+      return NextResponse.json({ error: '實地稽核階段已結束,委員名單已凍結,無法再新增指派' }, { status: 409 });
+    }
 
     const auditor = await prisma.user.findUnique({ where: { id: body.auditorId } });
     if (!auditor || auditor.role !== 'AUDITOR' || !auditor.isActive) {

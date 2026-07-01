@@ -81,3 +81,12 @@ export function stepTitleOfStatus(status: CycleStatus): string {
   const idx = cycleStepIndex(status, false);
   return PROCESS_STEPS.find((s) => s.no === idx)?.title ?? '';
 }
+
+/**
+ * 委員指派是否仍可「新增」:僅「實地稽核(ONSITE)」及之前的階段可新增指派;
+ * 進入「缺失發布中(REPORT_ISSUED)」起,委員名單凍結,不得再新增(避免實地稽核結束後才補指派委員)。
+ * client(AssignAuditorsPanel)與 server(assignments POST)共用此單一判斷,避免前後端不一致。
+ */
+export function canAssignAuditors(status: CycleStatus): boolean {
+  return status === 'DRAFT' || status === 'PREPARATION' || status === 'READY' || status === 'ONSITE';
+}

@@ -34,6 +34,14 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const report = buildReportData(data);
   const isAdmin = user.role === 'SUPER_ADMIN';
   const status = data.status;
+  // 「已完成年度稽核」前置:全體委員評分表須定稿(scoreLockedAt);退件會清 scoreLockedAt,故此即「已繳交且非退件」。
+  const unfinalizedAuditors = data.assignments.filter((a) => !a.scoreLockedAt).length;
+  const finishBlockReason =
+    data.assignments.length === 0
+      ? '尚未指派稽核委員'
+      : unfinalizedAuditors > 0
+        ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
+        : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 
@@ -78,7 +86,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
           {isAdmin && status !== 'CLOSED' && (
             status === 'REMEDIATION'
               ? <ConvertButton cycleId={data.id} pendingCount={pendingCount} />
-              : <FinishButton cycleId={data.id} pendingCount={pendingCount} />
+              : <FinishButton cycleId={data.id} pendingCount={pendingCount} blockReason={finishBlockReason} />
           )}
         </div>
       </header>

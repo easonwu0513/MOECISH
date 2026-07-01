@@ -8,7 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { CYCLE_STATUS_LABELS, cycleStatusTone, nextStatuses, rollbackTargets } from '@/lib/state-machine';
-import { toneClasses } from '@/lib/stage';
+import { toneClasses, canAssignAuditors } from '@/lib/stage';
 import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { deriveCycleFacts, nextActionForRole } from '@/lib/process-guide';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
@@ -437,7 +437,7 @@ export default async function CyclePage({ params }: { params: { id: string } }) 
       {/* SUPER_ADMIN:委員指派(精靈「指派稽核委員」項目的跳轉錨點) */}
       {user.role === 'SUPER_ADMIN' && (
         <div id="assign-auditors" className="scroll-mt-24">
-          <AssignAuditorsPanel cycleId={cycle.id} />
+          <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
         </div>
       )}
 

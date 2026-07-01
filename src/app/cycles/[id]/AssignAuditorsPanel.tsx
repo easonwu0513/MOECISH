@@ -13,7 +13,7 @@ import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type Assig
 type Auditor = { id: string; name: string; email: string };
 type Assignment = { id: string; auditor: Auditor; role?: string; dimensions?: string | null };
 
-export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
+export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: string; canAssign: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -163,19 +163,25 @@ export default function AssignAuditorsPanel({ cycleId }: { cycleId: string }) {
           </div>
         )}
 
-        <div className="flex gap-2 items-end flex-wrap">
-          <div className="w-64 max-w-full">
-            <Select label="新增委員" value={pick} onChange={(e) => setPick(e.target.value)}>
-              <option value="">選擇稽核委員…</option>
-              {available.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}（{a.email}）</option>
-              ))}
-            </Select>
+        {canAssign ? (
+          <div className="flex gap-2 items-end flex-wrap">
+            <div className="w-64 max-w-full">
+              <Select label="新增委員" value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">選擇稽核委員…</option>
+                {available.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}（{a.email}）</option>
+                ))}
+              </Select>
+            </div>
+            <Button variant="tonal" onClick={add} disabled={!pick} loading={busy}>
+              指派
+            </Button>
           </div>
-          <Button variant="tonal" onClick={add} disabled={!pick} loading={busy}>
-            指派
-          </Button>
-        </div>
+        ) : (
+          <p className="rounded-lg border border-outline-variant/60 bg-surface-container px-3 py-2.5 text-body-sm text-on-surface-variant">
+            實地稽核階段已結束,委員名單已凍結,無法再新增指派。如確需增補委員,請將週期回退至「實地稽核」階段後再指派。
+          </p>
+        )}
       </div>
     </Card>
   );

@@ -96,6 +96,7 @@ export default async function AdminCyclesPage({
     id: c.id,
     label: `${c.year - 1911} 年度 · ${c.organization.name}`,
     organizationId: c.organizationId,
+    status: c.status as CycleStatus,
   }));
 
   return (

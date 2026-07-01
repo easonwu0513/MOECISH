@@ -7,6 +7,7 @@ import { canTransition, canRollback } from '@/lib/state-machine';
 import type { CycleStatus, Role } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ensureStandardPrepItems } from '@/lib/prep-standard';
+import { auditorsFinalized } from '@/lib/audit-finalize';
 import { notifyCycleStatusChange, notifyCommitteeReview } from '@/lib/notify';
 import { cycleTransitionNotify } from '@/lib/notify-policy';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -28,6 +29,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 回退必須附理由(記入狀態轉換紀錄與稽核軌跡)
     if (rollback && (body.reason?.trim().length ?? 0) < 5) {
       return NextResponse.json({ error: '回退狀態必須填寫理由(至少 5 個字)' }, { status: 400 });
+    }
+
+    // 實地稽核 → 缺失發布(REPORT_ISSUED)前置:全體委員評分表須定稿。
+    // 與「已完成年度稽核」(audit/finish)共用 auditorsFinalized,避免手動 transition 繞過定稿閘。
+    if (to === 'REPORT_ISSUED' && forward) {
+      const finalized = await auditorsFinalized(cycle.id);
+      if (!finalized.ok) {
+        return NextResponse.json({ error: finalized.error }, { status: 400 });
+      }
     }
 
     // 缺失發布 → 矯正執行:至少要有一筆缺失(回退到 REMEDIATION 不受此限,缺失必然已存在)
