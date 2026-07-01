@@ -146,6 +146,7 @@ function ScoreSection({
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   // debounce 儲存讀「最新」狀態,避免 setTimeout 捕捉到 stale 快照(連續改多格時漏存)
   const scoresRef = useRef(scores);
@@ -236,6 +237,7 @@ function ScoreSection({
       body: JSON.stringify({ locked: false }),
     });
     setLockBusy(false);
+    setUnlockConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
     toast.success('已解除鎖定', '已通知最高管理員有內容異動,您可再編輯。');
     router.refresh();
@@ -255,6 +257,15 @@ function ScoreSection({
         description="將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。"
         confirmLabel="確認並鎖定"
         onConfirm={doConfirmDone}
+        loading={lockBusy}
+      />
+      <ConfirmDialog
+        open={unlockConfirmOpen}
+        onOpenChange={(o) => !lockBusy && !o && setUnlockConfirmOpen(false)}
+        title="解除鎖定?"
+        description="解除鎖定後,系統會通知最高管理員您的評分/發現有內容異動。請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。"
+        confirmLabel="解除鎖定"
+        onConfirm={unlock}
         loading={lockBusy}
       />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -295,7 +306,7 @@ function ScoreSection({
           {locked && (
             <>
               <Chip tone="success" size="sm" dot>已確認填寫完畢</Chip>
-              <Button size="sm" variant="tonal" onClick={unlock} loading={lockBusy}>解除鎖定</Button>
+              <Button size="sm" variant="tonal" onClick={() => setUnlockConfirmOpen(true)} loading={lockBusy}>解除鎖定</Button>
             </>
           )}
         </div>

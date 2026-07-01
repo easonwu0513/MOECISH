@@ -95,9 +95,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       `${link}\n\n` +
       `— 教育部轄下醫療領域資訊安全推動中心(系統催繳通知)`;
 
+    // 誠實回報實際寄送結果:dedupe 跳過(24h 內已催過)與寄送失敗不可計入「已通知」,
+    // 否則中心重按催繳會看到假成功(實際一封都沒寄)。
     let sent = 0;
+    let skipped = 0;
+    let failed = 0;
     for (const a of admins) {
-      await sendEmail({
+      const log = await sendEmail({
         to: a.email,
         toName: a.name,
         subject,
@@ -107,7 +111,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         context: { remindCategory: cat, ...(requirementId ? { requirementId } : {}), manual: true, by: user.name },
         dedupeKey, // 24h 內同區/同項去重
       });
-      sent += 1;
+      if (log.status === 'skipped') skipped += 1;
+      else if (log.status === 'failed') failed += 1;
+      else sent += 1; // sent(實寄)/ simulated(demo 模式記錄)
     }
 
     await writeAuditLog({
@@ -115,11 +121,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'prep.remind',
       entityType: 'AuditCycle',
       entityId: cycle.id,
-      after: { category: cat, ...(requirementId ? { requirementId } : {}), recipients: sent, overdue },
+      after: { category: cat, ...(requirementId ? { requirementId } : {}), recipients: sent, skipped, failed, overdue },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, sent, org: org?.name });
+    return NextResponse.json({ ok: true, sent, skipped, failed, org: org?.name });
   } catch (e) {
     return errorResponse(e);
   }
