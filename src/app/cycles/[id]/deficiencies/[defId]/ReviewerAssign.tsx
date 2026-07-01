@@ -45,7 +45,7 @@ export default function ReviewerAssign({
   return (
     <div className="flex items-end gap-2 flex-wrap">
       <div className="w-60 max-w-full">
-        <Select label="審閱委員(自相關開立委員指派)" value={pick} onChange={(e) => setPick(e.target.value)}>
+        <Select label="審閱委員(參與此次稽核的委員)" value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">未指派</option>
           {authors.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>

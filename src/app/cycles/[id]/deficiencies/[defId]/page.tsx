@@ -68,10 +68,15 @@ export default async function DeficiencyDetailPage({
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
 
-  // 批32:審閱委員 — 相關開立委員(供中心指派)+ 目前指派 + 本使用者是否為本缺失審閱人
+  // 批32/35:審閱委員 — 開立委員(顯示「由 X 開立」)、參與此次稽核的所有委員(供中心指派)、目前指派
   const relevantAuthors = await deficiencyAuthors(deficiency.id);
+  const assignedAuditors = await prisma.user.findMany({
+    where: { id: { in: cycle.assignments.map((a) => a.auditorId) } },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
   const assignedReviewer = deficiency.reviewerAuditorId
-    ? relevantAuthors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
+    ? assignedAuditors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
     : null;
   const isDefReviewer =
     user.role === 'SUPER_ADMIN' ||
@@ -326,7 +331,7 @@ export default async function DeficiencyDetailPage({
             此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
           </p>
           {user.role === 'SUPER_ADMIN' ? (
-            <ReviewerAssign deficiencyId={deficiency.id} authors={relevantAuthors} current={deficiency.reviewerAuditorId} />
+            <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
           ) : (
             <p className="text-body-sm text-on-surface">
               {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}

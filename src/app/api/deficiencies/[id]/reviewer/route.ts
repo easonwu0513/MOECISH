@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { deficiencyAuthors } from '@/lib/deficiency-reviewer';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 const Body = z.object({ auditorId: z.string().min(1).nullable() });
@@ -17,15 +16,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const admin = await requireRole('SUPER_ADMIN');
     const def = await prisma.deficiency.findUnique({
       where: { id: params.id },
-      select: { id: true, reviewerAuditorId: true },
+      select: { id: true, cycleId: true, reviewerAuditorId: true },
     });
     if (!def) return NextResponse.json({ error: '缺失不存在' }, { status: 404 });
 
     const { auditorId } = Body.parse(await req.json());
     if (auditorId) {
-      const authors = await deficiencyAuthors(def.id);
-      if (!authors.some((a) => a.id === auditorId)) {
-        return NextResponse.json({ error: '只能指派給該缺失的相關開立委員' }, { status: 400 });
+      // 只能指派給「參與此次稽核(受指派)的委員」(預設為開立委員,中心可改為其他參與委員)
+      const assigned = await prisma.auditorAssignment.findUnique({
+        where: { cycleId_auditorId: { cycleId: def.cycleId, auditorId } },
+      });
+      if (!assigned) {
+        return NextResponse.json({ error: '只能指派給參與此次稽核的委員' }, { status: 400 });
       }
     }
 
