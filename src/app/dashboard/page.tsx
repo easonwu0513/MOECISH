@@ -201,23 +201,26 @@ export default async function HomePage() {
       <section className="mb-6">
         <h1 className="sr-only">總覽工作台</h1>
         <p className="text-caption text-on-surface-variant tracking-wide mb-2">{today}</p>
-        <IdentityBand
-          avatar={user.name.slice(0, 1)}
-          title={`${greeting}，${user.name}`}
-          subtitle={scopeText}
-          roleChip={<Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>}
-          right={
-            todos.length > 0 ? (
-              <>
-                <div className="text-title-md text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
-                <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
-              </>
-            ) : undefined
-          }
-        />
-        {cycles.length > 0 && (
-          <PrimaryActionBanner next={topAction} subtext={topSubtext} className="mt-4" doneText="目前沒有待辦事項,一切都在進度上。" />
-        )}
+        {/* 早安身分帶 與「建議的下一步」整併為同一列(有週期時並排;無週期時身分帶滿版) */}
+        <div className={cn('grid gap-4 items-stretch', cycles.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1')}>
+          <IdentityBand
+            avatar={user.name.slice(0, 1)}
+            title={`${greeting}，${user.name}`}
+            subtitle={scopeText}
+            roleChip={<Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>}
+            right={
+              todos.length > 0 ? (
+                <>
+                  <div className="text-title-md text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
+                  <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
+                </>
+              ) : undefined
+            }
+          />
+          {cycles.length > 0 && (
+            <PrimaryActionBanner next={topAction} subtext={topSubtext} doneText="目前沒有待辦事項,一切都在進度上。" />
+          )}
+        </div>
       </section>
 
       {cycles.length === 0 ? (
@@ -240,6 +243,16 @@ export default async function HomePage() {
         </Card>
       ) : (
         <>
+          {/* 中心:跨院總覽 4 讀數(移至矩陣之上;其餘角色有各自的讀數,不顯示這排缺失導向統計) */}
+          {isSuper && (
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTopBar tone="primary" icon={<Briefcase size={20} />} primary={`${orgCount}`} label="本期院所" sub="全國納管醫院" />
+            <StatTopBar tone="danger" muted={overdueCount === 0} icon={<AlertCircle size={20} />} primary={`${overdueCount}`} label="逾期需催辦" sub={overdueCount > 0 ? `${overdueOrgIds.length} 院已逾期` : '無逾期'} />
+            <StatTopBar tone="warning" muted={confirmOrgs === 0} icon={<ClipboardCheck size={20} />} primary={`${confirmOrgs}`} label="待你確認齊備" sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'} />
+            <StatTopBar tone="primary" muted={remediationCount === 0} icon={<ShieldCheck size={20} />} primary={`${remediationCount}`} label="矯正執行中" sub={remediationCount > 0 ? '缺失改善追蹤' : '無矯正中'} />
+          </section>
+          )}
+
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
             <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
@@ -298,43 +311,6 @@ export default async function HomePage() {
                 </div>
               )}
             </section>
-          )}
-
-          {/* 中心:跨院總覽 4 讀數(其餘角色有各自的讀數,不顯示這排缺失導向統計) */}
-          {isSuper && (
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatTopBar
-              tone="primary"
-              icon={<Briefcase size={20} />}
-              primary={`${orgCount}`}
-              label="本期院所"
-              sub="全國納管醫院"
-            />
-            <StatTopBar
-              tone="danger"
-              muted={overdueCount === 0}
-              icon={<AlertCircle size={20} />}
-              primary={`${overdueCount}`}
-              label="逾期需催辦"
-              sub={overdueCount > 0 ? `${overdueOrgIds.length} 院已逾期` : '無逾期'}
-            />
-            <StatTopBar
-              tone="warning"
-              muted={confirmOrgs === 0}
-              icon={<ClipboardCheck size={20} />}
-              primary={`${confirmOrgs}`}
-              label="待你確認齊備"
-              sub={confirmOrgs > 0 ? '已繳交待確認' : '無待確認'}
-            />
-            <StatTopBar
-              tone="primary"
-              muted={remediationCount === 0}
-              icon={<ShieldCheck size={20} />}
-              primary={`${remediationCount}`}
-              label="矯正執行中"
-              sub={remediationCount > 0 ? '缺失改善追蹤' : '無矯正中'}
-            />
-          </section>
           )}
 
           {isSuper && (
