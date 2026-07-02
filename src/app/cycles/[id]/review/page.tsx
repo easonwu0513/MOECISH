@@ -55,6 +55,15 @@ export default async function ReviewPage({
     redirect('/dashboard');
   }
 
+  // 委員意見隱私(UAT 批62):委員僅見「自己」填寫的意見——各委員獨立審查,
+  // 不互看彼此意見以免相互影響;中心仍可見全部具名意見。以下所有計數/篩選
+  // (意見待補、已補正待複核)自然變成「以本人意見為準」。
+  if (session.user.role === 'AUDITOR') {
+    for (const r of cycle.responses) {
+      r.comments = r.comments.filter((c) => c.auditorId === session.user.id);
+    }
+  }
+
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
 
   // 委員意見作者(本頁僅委員/中心可進入,皆可具名顯示;受稽機關端不具名)

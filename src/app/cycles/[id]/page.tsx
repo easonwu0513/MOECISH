@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -210,6 +210,24 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
   const donePct = journeyView && journeyView.total > 0 ? Math.round((journeyView.doneCount / journeyView.total) * 100) : 0;
+  // 進度條的自訂階段(批62):範本中非七狀態的階段依排序插入流程帶——
+  // 不參與狀態機(週期不會「處於」自訂階段),以該階段待辦完成度打勾;點擊看該階段待辦。
+  const statusKeySet = new Set<string>(CYCLE_STATUSES);
+  const customRail: { key: string; title: string; afterKey: CycleStatus | null; done: boolean }[] = [];
+  {
+    let lastStatus: CycleStatus | null = null;
+    for (const s of journeyStages) {
+      if (statusKeySet.has(s.stageKey)) { lastStatus = s.stageKey as CycleStatus; continue; }
+      const countable = s.items.filter((it) => !it.informational);
+      customRail.push({
+        key: s.stageKey,
+        title: s.title,
+        afterKey: lastStatus,
+        done: countable.length > 0 && countable.every((it) => it.done),
+      });
+    }
+  }
+
   // 階段待辦:預設當前階段;點橫向階段列(?stage=KEY)看該階段;?stage=all 看全部階段進度
   const stageParam = typeof searchParams?.stage === 'string' ? searchParams.stage : undefined;
   const stageKeySet = new Set(journeyStages.map((s) => s.stageKey));
@@ -382,7 +400,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           status={cycle.status as CycleStatus}
           className="mt-5"
           stageHref={(s) => `/cycles/${cycle.id}?stage=${s}`}
-          selectedKey={selectedStageKey ? (selectedStageKey as CycleStatus) : undefined}
+          selectedKey={selectedStageKey ?? undefined}
+          custom={customRail}
         />
       </section>
 
