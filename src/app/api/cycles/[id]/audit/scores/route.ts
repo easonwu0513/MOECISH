@@ -22,6 +22,9 @@ const Body = z.object({
   ).min(1),
 });
 
+/** 交易內偵測到已鎖定的訊號(rollback 後轉 409) */
+class ScoreLockedError extends Error {}
+
 /** 受指派委員批次儲存自己的九項評分(null = 清除該項)。 */
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -32,7 +35,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '已結案的週期不可再評分' }, { status: 409 });
     }
-    await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下
+    await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下(快速失敗;交易內另權威重查)
 
     const body = Body.parse(await req.json());
     for (const s of body.scores) {
@@ -45,33 +48,53 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
-    for (const s of body.scores) {
-      const counts = {
-        cntComply: s.cntComply ?? null,
-        cntPartial: s.cntPartial ?? null,
-        cntNonComply: s.cntNonComply ?? null,
-        cntNa: s.cntNa ?? null,
-      };
-      // 該構面有評分或有任一檢核數量 → 保留;全空 → 刪除該列
-      const hasAny =
-        s.score !== null ||
-        counts.cntComply !== null || counts.cntPartial !== null ||
-        counts.cntNonComply !== null || counts.cntNa !== null;
-      if (!hasAny) {
-        await prisma.auditScore.deleteMany({
-          where: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension },
+    // 鎖定檢查+寫入收進同一可序列化交易:防止「檢查通過→寫入前」的空檔被 lock route
+    // 設下 scoreLockedAt,導致鎖定後仍寫入(破壞鎖定閘剛驗證過的完整性;TOCTOU)。
+    // 與 lock route 的交易形成讀寫對,衝突方由 PG 以 P2034 中止 → 回 409 請重試。
+    try {
+      await prisma.$transaction(async (tx) => {
+        const a = await tx.auditorAssignment.findUnique({
+          where: { cycleId_auditorId: { cycleId: cycle.id, auditorId: user.id } },
+          select: { scoreLockedAt: true },
         });
-      } else {
-        await prisma.auditScore.upsert({
-          where: {
-            cycleId_auditorId_dimension: {
-              cycleId: cycle.id, auditorId: user.id, dimension: s.dimension,
-            },
-          },
-          create: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension, score: s.score, ...counts },
-          update: { score: s.score, ...counts },
-        });
+        if (a?.scoreLockedAt) throw new ScoreLockedError();
+        for (const s of body.scores) {
+          const counts = {
+            cntComply: s.cntComply ?? null,
+            cntPartial: s.cntPartial ?? null,
+            cntNonComply: s.cntNonComply ?? null,
+            cntNa: s.cntNa ?? null,
+          };
+          // 該構面有評分或有任一檢核數量 → 保留;全空 → 刪除該列
+          const hasAny =
+            s.score !== null ||
+            counts.cntComply !== null || counts.cntPartial !== null ||
+            counts.cntNonComply !== null || counts.cntNa !== null;
+          if (!hasAny) {
+            await tx.auditScore.deleteMany({
+              where: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension },
+            });
+          } else {
+            await tx.auditScore.upsert({
+              where: {
+                cycleId_auditorId_dimension: {
+                  cycleId: cycle.id, auditorId: user.id, dimension: s.dimension,
+                },
+              },
+              create: { cycleId: cycle.id, auditorId: user.id, dimension: s.dimension, score: s.score, ...counts },
+              update: { score: s.score, ...counts },
+            });
+          }
+        }
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if (e instanceof ScoreLockedError) {
+        return NextResponse.json({ error: '您已確認填寫完畢,評分已鎖定;如需修改請先「解除鎖定」。' }, { status: 409 });
       }
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+      }
+      throw e;
     }
 
     await writeAuditLog({

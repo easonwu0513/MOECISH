@@ -65,6 +65,16 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         { status: 400 },
       );
     }
+    // 在用防護(同新增題目):版本已被進行中週期使用即不可刪題(委員定稿的判定數量以題數為基準)
+    const inUse = await prisma.auditCycle.count({
+      where: { checklistVersionId: item.versionId, status: { not: 'DRAFT' } },
+    });
+    if (inUse > 0) {
+      return NextResponse.json(
+        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用,不可刪除題目;若要停用請改用年度換版。` },
+        { status: 400 },
+      );
+    }
 
     await prisma.checklistItem.delete({ where: { id: item.id } });
 

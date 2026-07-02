@@ -68,7 +68,8 @@ export function Dialog({
             )}
             {title && <h2 id={titleId} className="text-title-lg text-on-surface">{title}</h2>}
             {description && (
-              <p id={descId} className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</p>
+              // div 而非 p:description 可為區塊級 ReactNode(如含勾選聲明),p 內含 div/label 為無效巢狀
+              <div id={descId} className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</div>
             )}
           </div>
         )}
@@ -93,6 +94,7 @@ export function ConfirmDialog({
   onConfirm,
   tone = 'primary',
   loading,
+  confirmDisabled,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -103,6 +105,8 @@ export function ConfirmDialog({
   onConfirm: () => void | Promise<void>;
   tone?: 'primary' | 'danger' | 'warning';
   loading?: boolean;
+  /** 需先完成前置(如勾選告知聲明)才可按確認 */
+  confirmDisabled?: boolean;
 }) {
   return (
     <Dialog
@@ -119,6 +123,7 @@ export function ConfirmDialog({
             variant={tone === 'danger' ? 'danger' : tone === 'warning' ? 'warning' : 'filled'}
             onClick={onConfirm}
             loading={loading}
+            disabled={confirmDisabled}
           >
             {confirmLabel}
           </Button>
