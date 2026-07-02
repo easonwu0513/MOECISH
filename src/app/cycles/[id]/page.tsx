@@ -448,8 +448,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 工作區:稽核作業(中心視角四大工作區之一;評分發現卡移入下方「委員」工作區) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="檢核表、佐證資料、改善報告與匯出">稽核作業</SectionLabel>}
+
           {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話);圖示統一主色 */}
-          <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'ORG_ADMIN' ? 'lg:grid-cols-3' : 'xl:grid-cols-4'}`}>
+          <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'AUDITOR' ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <StatusTile
               icon={<FileText size={18} />}
               tone="primary"
@@ -485,7 +488,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               }
               lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員審閱'}
             />
-            {user.role !== 'ORG_ADMIN' && (
+            {/* 委員視角留在主格;中心視角移至下方「委員」工作區(與委員指派同區) */}
+            {user.role === 'AUDITOR' && (
               <StatusTile
                 icon={<Eye size={18} />}
                 tone="primary"
@@ -495,7 +499,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 caption="委員線上評分、記錄稽核發現"
                 href={`/cycles/${cycle.id}/audit`}
                 muted={!modActive.audit}
-                locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
+                locked={!auditorCanScore(cycle.status)}
                 lockedHint="實地稽核階段開放"
               />
             )}
@@ -545,8 +549,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 分組:報告與匯出(用印掃描檔 + 公文匯出) ── */}
-          {user.role !== 'AUDITOR' && <SectionLabel>報告與匯出</SectionLabel>}
+          {/* ── 分組:報告與匯出(機關視角;中心視角已併入上方「稽核作業」工作區) ── */}
+          {user.role === 'ORG_ADMIN' && <SectionLabel>報告與匯出</SectionLabel>}
 
           {/* 用印報告(可見性由 access-policy 決定) */}
           {canAccess('signedReport.section', user.role as Role, cycle.status) && (
@@ -610,18 +614,30 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 分組:委員(指派與構面) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel>委員</SectionLabel>}
-
-          {/* SUPER_ADMIN:委員指派 */}
+          {/* ── 工作區:委員(評分與發現 + 指派與構面) ── */}
           {user.role === 'SUPER_ADMIN' && (
-            <div id="assign-auditors" className="scroll-mt-24">
-              <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
-            </div>
+            <>
+              <SectionLabel desc="評分與發現、指派委員與分配構面">委員</SectionLabel>
+              <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-3">
+                <StatusTile
+                  icon={<Eye size={18} />}
+                  tone="primary"
+                  title="實地稽核評分與發現"
+                  status={auditStatus}
+                  statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
+                  caption="委員線上評分、記錄稽核發現"
+                  href={`/cycles/${cycle.id}/audit`}
+                  muted={!modActive.audit}
+                />
+              </section>
+              <div id="assign-auditors" className="scroll-mt-24">
+                <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
+              </div>
+            </>
           )}
 
-          {/* ── 分組:週期管理(通知機關、推進/回退狀態) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel>週期管理</SectionLabel>}
+          {/* ── 工作區:設定管理(日期、階段推進與狀態控制;通知模板/權限等全站設定在管理選單,不在本頁重複) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="日期、階段推進與狀態控制">設定管理</SectionLabel>}
 
           {/* SUPER_ADMIN:管理動作 */}
           {user.role === 'SUPER_ADMIN' && (
@@ -723,11 +739,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   );
 }
 
-/** 週期頁下半部的分組小標(輕度歸類:報告與匯出 / 委員 / 週期管理),不改功能只加結構 */
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/** 週期頁下半部的工作區小標(中心視角:稽核作業 / 委員 / 設定管理;機關視角:報告與匯出),不改功能只加結構 */
+function SectionLabel({ children, desc }: { children: React.ReactNode; desc?: string }) {
   return (
     <div className="mt-3 mb-3 flex items-center gap-3">
       <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant whitespace-nowrap">{children}</h2>
+      {desc && <span className="hidden sm:inline text-caption text-on-surface-variant whitespace-nowrap">{desc}</span>}
       <span className="h-px flex-1 bg-outline-variant/50" aria-hidden />
     </div>
   );
