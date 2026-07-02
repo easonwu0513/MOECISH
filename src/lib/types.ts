@@ -272,18 +272,19 @@ export const COMPLIANCE_LABELS: Record<ComplianceLevel, string> = {
   NOT_APPLICABLE: '不適用',
 };
 
-/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色) */
-export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
+/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色)。
+ *  不適用=主色藍:它是「刻意作答」的狀態,須與灰色的「未作答」明確區隔(UAT 回報兩者同灰易混淆)。 */
+export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral' | 'primary'> = {
   COMPLIANT: 'success',
   PARTIALLY_COMPLIANT: 'warning',
   NON_COMPLIANT: 'danger',
-  NOT_APPLICABLE: 'neutral',
+  NOT_APPLICABLE: 'primary',
 };
 
-/** 符合度 → 條狀標示底色(卡片頂條) */
+/** 符合度 → 條狀標示底色(卡片頂條;未作答的頂條為 bg-surface-container-high 灰,不適用須與之區隔) */
 export const COMPLIANCE_BAR: Record<ComplianceLevel, string> = {
   COMPLIANT: 'bg-success-500',
   PARTIALLY_COMPLIANT: 'bg-warning-500',
   NON_COMPLIANT: 'bg-danger-500',
-  NOT_APPLICABLE: 'bg-outline-variant',
+  NOT_APPLICABLE: 'bg-primary-300',
 };
