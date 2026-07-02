@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Plus, CheckCircle } from '@/components/icons';
 import { ROLE_LABELS, JOURNEY_SCOPE_LABELS, type Role, type JourneyScope } from '@/lib/types';
 import { AUTO_KEY_OPTIONS, HREF_OPTIONS } from '@/lib/journey-auto';
+import { fmtROC } from '@/lib/date';
 
 type EItem = {
   id: string; title: string; hint: string | null; role: Role | null;
@@ -28,7 +29,12 @@ const KIND_OPTS = [
   { value: 'MANUAL', label: '必做・手動勾選' },
   { value: 'INFO', label: '純提醒(不勾選)' },
 ];
-type EStage = { id: string; stageKey: string; title: string; summary: string | null; items: EItem[] };
+type EStage = {
+  id: string; stageKey: string; title: string; summary: string | null;
+  /** ISO 字串;僅 PROGRAMME 使用(年度 SOP 的開始/截止排程),CYCLE 恆為 null */
+  startDate: string | null; dueDate: string | null;
+  items: EItem[];
+};
 type EData = { CYCLE: EStage[]; PROGRAMME: EStage[] };
 
 const ROLE_OPTS = [
@@ -44,10 +50,10 @@ export default function JourneyEditor({ data }: { data: EData }) {
   const [scope, setScope] = useState<JourneyScope>('PROGRAMME');
   const [busy, setBusy] = useState(false);
 
-  // 階段對話框
+  // 階段對話框(startDate/dueDate 為 yyyy-mm-dd;僅 PROGRAMME 顯示與送出)
   const [stageOpen, setStageOpen] = useState(false);
   const [stageEditing, setStageEditing] = useState<EStage | null>(null);
-  const [stageForm, setStageForm] = useState({ stageKey: '', title: '', summary: '' });
+  const [stageForm, setStageForm] = useState({ stageKey: '', title: '', summary: '', startDate: '', dueDate: '' });
   const [stageDeleting, setStageDeleting] = useState<EStage | null>(null);
 
   // 項目對話框
@@ -64,26 +70,40 @@ export default function JourneyEditor({ data }: { data: EData }) {
   // ── 階段 ──
   function openAddStage() {
     setStageEditing(null);
-    setStageForm({ stageKey: '', title: '', summary: '' });
+    setStageForm({ stageKey: '', title: '', summary: '', startDate: '', dueDate: '' });
     setStageOpen(true);
   }
   function openEditStage(s: EStage) {
     setStageEditing(s);
-    setStageForm({ stageKey: s.stageKey, title: s.title, summary: s.summary ?? '' });
+    setStageForm({
+      stageKey: s.stageKey,
+      title: s.title,
+      summary: s.summary ?? '',
+      startDate: s.startDate ? s.startDate.slice(0, 10) : '',
+      dueDate: s.dueDate ? s.dueDate.slice(0, 10) : '',
+    });
     setStageOpen(true);
   }
   async function submitStage() {
     if (stageForm.title.trim().length < 1) { toast.error('請輸入階段名稱'); return; }
     if (!stageEditing && stageForm.stageKey.trim().length < 1) { toast.error('請輸入階段代碼'); return; }
+    if (scope === 'PROGRAMME' && stageForm.startDate && stageForm.dueDate && stageForm.dueDate < stageForm.startDate) {
+      toast.error('日期順序不正確', '截止日期不可早於開始日期');
+      return;
+    }
     setBusy(true);
+    // 開始/截止日期僅 PROGRAMME 送出(週期各階段依使用者裁定不加此功能)
+    const dateFields = scope === 'PROGRAMME'
+      ? { startDate: stageForm.startDate || null, dueDate: stageForm.dueDate || null }
+      : {};
     const url = stageEditing ? `/api/admin/journey/stages/${stageEditing.id}` : '/api/admin/journey/stages';
     const res = await fetch(url, {
       method: stageEditing ? 'PATCH' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(
         stageEditing
-          ? { title: stageForm.title.trim(), summary: stageForm.summary.trim() || null, stageKey: stageForm.stageKey.trim() }
-          : { scope, stageKey: stageForm.stageKey.trim(), title: stageForm.title.trim(), summary: stageForm.summary.trim() || null },
+          ? { title: stageForm.title.trim(), summary: stageForm.summary.trim() || null, stageKey: stageForm.stageKey.trim(), ...dateFields }
+          : { scope, stageKey: stageForm.stageKey.trim(), title: stageForm.title.trim(), summary: stageForm.summary.trim() || null, ...dateFields },
       ),
     });
     setBusy(false);
@@ -212,6 +232,14 @@ export default function JourneyEditor({ data }: { data: EData }) {
                     <p className="text-title-md text-on-surface">{s.title}</p>
                     <Chip tone="neutral" size="sm">{s.stageKey}</Chip>
                     <Chip tone="neutral" size="sm">{s.items.length} 項</Chip>
+                    {/* 年度 SOP 排程(僅 PROGRAMME):何時開始、何時之前完成 */}
+                    {scope === 'PROGRAMME' && (s.startDate || s.dueDate) && (
+                      <Chip tone="primary" size="sm">
+                        {s.startDate ? `${fmtROC(s.startDate)} 開始` : ''}
+                        {s.startDate && s.dueDate ? '・' : ''}
+                        {s.dueDate ? `${fmtROC(s.dueDate)} 截止` : ''}
+                      </Chip>
+                    )}
                   </div>
                   {s.summary && <p className="mt-1 text-caption text-on-surface-variant">{s.summary}</p>}
                 </div>
@@ -281,6 +309,18 @@ export default function JourneyEditor({ data }: { data: EData }) {
             </p>
           )}
           <Textarea label="階段說明(選填)" value={stageForm.summary} onChange={(e) => setStageForm((f) => ({ ...f, summary: e.target.value }))} rows={2} />
+          {/* 開始/截止日期:僅中心年度計畫執行(PROGRAMME)使用;週期各階段時程由週期本身的日期欄位管理 */}
+          {scope === 'PROGRAMME' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <TextField label="開始日期(選填)" type="date" value={stageForm.startDate} onChange={(e) => setStageForm((f) => ({ ...f, startDate: e.target.value }))} />
+                <TextField label="截止日期(選填)" type="date" value={stageForm.dueDate} onChange={(e) => setStageForm((f) => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+              <p className="-mt-2 text-caption text-on-surface-variant leading-relaxed">
+                標示此階段「何時開始做、何時之前要完成」;會顯示於精靈範本與「中心年度計畫執行精靈」頁。
+              </p>
+            </>
+          )}
         </div>
       </Dialog>
 

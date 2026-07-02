@@ -7,7 +7,9 @@ import { auditorCanSeePrep, auditorCanSeeCycle, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check } from '@/components/icons';
+import { Button } from '@/components/ui/Button';
+import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check, Download } from '@/components/icons';
+import { getTemplateFilesForYear } from '@/lib/prep-standard';
 import PrepBoard from './PrepBoard';
 
 export default async function PrepPage({ params }: { params: { id: string } }) {
@@ -52,6 +54,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const files = allFiles.filter((f) => visibleSubIds.has(f.targetId));
 
   const yearROC = cycle.year - 1911;
+  // 文件範本(中心於標準清單維護,依週期年度解析):機關/中心可整包下載依式填寫;委員不需要
+  const templateFiles = isAuditor ? [] : await getTemplateFilesForYear(cycle.year);
   // 機關管理員只負責機關區(技術檢測 / 實地稽核);中心匯入由中心經手,不計入機關的「已確認齊備 X/Y」分母。
   const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
   const total = countReqs.length;
@@ -128,6 +132,21 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
             </p>
           </header>
+
+          {/* 文件範本:中心提供之應備文件空白範本(Word/Excel 等),下載依式填寫後轉 PDF 上傳 */}
+          {!isAuditor && templateFiles.length > 0 && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50/50 px-4 py-3.5">
+              <div className="min-w-0">
+                <p className="text-body-sm font-medium text-on-surface">文件範本({templateFiles.length} 檔)</p>
+                <p className="mt-0.5 text-caption text-on-surface-variant leading-relaxed">
+                  中心提供之應備文件範本(Word/Excel 等);請下載依式填寫,完成後轉存 PDF 再上傳對應項目。
+                </p>
+              </div>
+              <a href={`/api/cycles/${cycle.id}/prep/templates`} className="shrink-0">
+                <Button size="sm" variant="tonal" leadingIcon={<Download size={15} />}>整包下載(zip)</Button>
+              </a>
+            </div>
+          )}
 
           {/* 完成時刻:全數確認齊備時以完成卡取代讀數格,給承辦人明確的「做完了」儀式感 */}
           {!isAuditor && total > 0 && confirmed === total && (

@@ -99,6 +99,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const rollbacks = rollbackTargets(cycle.status as CycleStatus, user.role as Role);
   const yearROC = cycle.year - 1911;
 
+  // 「資料齊備」推進前置(UX 提示層;transition API 為權威閘):必要資料全確認 + 檢核表已送出
+  const readyBlockers: string[] = [];
+  if (cycle.status === 'PREPARATION') {
+    const reqNotConfirmed = cycle.prepRequirements.filter(
+      (r) => r.required && r.submission?.status !== 'CONFIRMED',
+    ).length;
+    if (reqNotConfirmed > 0) readyBlockers.push(`${reqNotConfirmed} 份必要資料未確認齊備`);
+    if (!cycle.checklistSubmittedAt) readyBlockers.push('檢核表尚未送出');
+  }
+
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
   const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
   const next = nextActionForRole(user.role, facts);
@@ -631,7 +641,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 />
               </section>
               <div id="assign-auditors" className="scroll-mt-24">
-                <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
+                {/* 實地稽核進行中新增委員屬重大變動(立即取得審查權限)→ 事前確認視窗 */}
+                <AssignAuditorsPanel
+                  cycleId={cycle.id}
+                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
+                  confirmOnAssign={cycle.status === 'ONSITE'}
+                />
               </div>
             </>
           )}
@@ -649,7 +664,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   <NotifyButton cycleId={cycle.id} />
                 )}
                 {transitions.map((t) => (
-                  <TransitionButton key={t} cycleId={cycle.id} target={t} />
+                  <TransitionButton
+                    key={t}
+                    cycleId={cycle.id}
+                    target={t}
+                    disabled={t === 'READY' && readyBlockers.length > 0}
+                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                  />
                 ))}
                 {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
                 {rollbacks.map((t) => (

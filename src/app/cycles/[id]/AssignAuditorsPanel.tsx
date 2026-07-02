@@ -14,7 +14,16 @@ import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type Assig
 type Auditor = { id: string; name: string; email: string };
 type Assignment = { id: string; auditor: Auditor; role?: string; dimensions?: string | null; scoreLockedAt?: string | null };
 
-export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: string; canAssign: boolean }) {
+export default function AssignAuditorsPanel({
+  cycleId,
+  canAssign,
+  confirmOnAssign = false,
+}: {
+  cycleId: string;
+  canAssign: boolean;
+  /** 實地稽核進行中:新增委員=立即取得本週期審查權限,比照移除加事前確認視窗(UAT 批61) */
+  confirmOnAssign?: boolean;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -23,6 +32,8 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
   const [busy, setBusy] = useState(false);
   // 移除指派為不可逆(刪除指派紀錄含負責構面;已定稿委員後端會擋,列上直接鎖定)→ 正式確認對話框防誤刪
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
+  // 實地稽核階段新增委員的事前確認(confirmOnAssign 時啟用)
+  const [pendingAssign, setPendingAssign] = useState<{ id: string; name: string } | null>(null);
 
   async function load() {
     const res = await fetch(`/api/cycles/${cycleId}/assignments`);
@@ -36,8 +47,20 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
   const assignedIds = new Set(assignments.map((a) => a.auditor.id));
   const available = auditors.filter((a) => !assignedIds.has(a.id));
 
+  /** 指派入口:實地稽核進行中先跳確認視窗,其餘階段直接指派 */
+  function requestAdd() {
+    if (!pick) return;
+    if (confirmOnAssign) {
+      const auditor = available.find((a) => a.id === pick);
+      setPendingAssign({ id: pick, name: auditor?.name ?? '此委員' });
+      return;
+    }
+    void add();
+  }
+
   async function add() {
     if (!pick) return;
+    setPendingAssign(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/cycles/${cycleId}/assignments`, {
@@ -187,7 +210,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
                 ))}
               </Select>
             </div>
-            <Button variant="tonal" onClick={add} disabled={!pick} loading={busy}>
+            <Button variant="tonal" onClick={requestAdd} disabled={!pick} loading={busy}>
               指派
             </Button>
           </div>
@@ -197,6 +220,22 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
           </p>
         )}
       </div>
+
+      {/* 實地稽核階段新增委員確認:新增即立即取得檢視與審查權限,防誤點(比照移除的確認慣例) */}
+      <ConfirmDialog
+        open={pendingAssign !== null}
+        onOpenChange={(o) => !busy && !o && setPendingAssign(null)}
+        title="於實地稽核階段新增委員"
+        description={
+          pendingAssign
+            ? `實地稽核已在進行中。指派後「${pendingAssign.name}」將立即取得本週期的檢視與審查權限(含機關檢核表與已齊備資料),並可填寫評分與稽核發現。確定要新增這位委員嗎?`
+            : undefined
+        }
+        confirmLabel="確認指派"
+        tone="primary"
+        onConfirm={() => { if (pendingAssign) return add(); }}
+        loading={busy}
+      />
 
       {/* 移除指派確認(防誤刪):對齊全站不可逆動作一律 ConfirmDialog 的慣例 */}
       <ConfirmDialog

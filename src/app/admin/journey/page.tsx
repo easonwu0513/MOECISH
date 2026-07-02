@@ -29,6 +29,8 @@ export default async function AdminJourneyPage() {
       stageKey: s.stageKey,
       title: s.title,
       summary: s.summary,
+      startDate: s.startDate ? s.startDate.toISOString() : null,
+      dueDate: s.dueDate ? s.dueDate.toISOString() : null,
       items: s.items.map((it) => ({
         id: it.id,
         title: it.title,

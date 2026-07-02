@@ -33,6 +33,9 @@ export type JourneyStageView = {
   stageKey: string;
   title: string;
   summary: string | null;
+  /** PROGRAMME 年度 SOP 的開始/截止排程(CYCLE 恆為 null,不使用) */
+  startDate: Date | null;
+  dueDate: Date | null;
   orderIndex: number;
   items: JourneyItemView[];
   doneCount: number;
@@ -153,6 +156,8 @@ export async function loadJourney(opts: {
       stageKey: st.stageKey,
       title: st.title,
       summary: st.summary,
+      startDate: st.startDate,
+      dueDate: st.dueDate,
       orderIndex: st.orderIndex,
       items,
       doneCount,
@@ -188,6 +193,8 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
     stageKey: s.stageKey,
     title: s.title,
     summary: s.summary,
+    startDate: s.startDate ? s.startDate.toISOString() : null,
+    dueDate: s.dueDate ? s.dueDate.toISOString() : null,
     items: s.items.map((it) => ({
       id: it.id,
       title: it.title,
