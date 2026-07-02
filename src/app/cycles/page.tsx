@@ -105,9 +105,10 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
             const auditorDims = user.role === 'AUDITOR'
               ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
               : [];
-            return (
-              <Link key={c.id} href={`/cycles/${c.id}`}>
-                <Card interactive variant="elevated">
+            // 委員於結案後不可再進入(access-policy cycle.access);清單顯示已結案、卡片鎖定不可點
+            const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+            const card = (
+                <Card interactive={!lockedForAuditor} variant="elevated" className={lockedForAuditor ? 'bg-surface-container-low' : undefined}>
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div className="min-w-0">
                       <p className="text-title text-on-surface truncate" title={c.organization.name}>
@@ -155,8 +156,15 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                   ) : (
                     <p className="text-caption text-on-surface-variant">尚未發布缺失</p>
                   )}
+                  {lockedForAuditor && (
+                    <p className="mt-2 text-caption text-on-surface-variant">本週期已結案,資料已鎖定,委員無法再進入檢視。</p>
+                  )}
                 </Card>
-              </Link>
+            );
+            return lockedForAuditor ? (
+              <div key={c.id} aria-disabled className="cursor-not-allowed">{card}</div>
+            ) : (
+              <Link key={c.id} href={`/cycles/${c.id}`}>{card}</Link>
             );
           })}
         </div>

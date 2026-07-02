@@ -456,6 +456,29 @@ export default async function HomePage() {
                   const auditorDims = user.role === 'AUDITOR'
                     ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
                     : [];
+                  // 委員於結案後不可再進入(access-policy);列顯示已結案並鎖定
+                  const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+                  if (lockedForAuditor) {
+                    return (
+                      <div
+                        key={c.id}
+                        aria-disabled
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border border-outline-variant/60 border-l-4 bg-surface-container-low px-4 py-3.5 cursor-not-allowed',
+                          border,
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
+                            <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
+                            <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                          </div>
+                          <p className="mt-1 text-caption text-on-surface-variant">本週期已結案,資料已鎖定。</p>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <Link
                       key={c.id}

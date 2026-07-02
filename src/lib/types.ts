@@ -156,6 +156,7 @@ export function isCenterCategory(c: string): boolean {
  */
 export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean, cycleStatus: string): boolean {
   if (prepCyclePhaseOpen(cycleStatus)) return false; // DRAFT / PREPARATION 期間一律不開放委員(含中心匯入)
+  if (cycleStatus === 'CLOSED') return false; // 結案後對委員鎖定(對齊 cycle.access;含 evidence 下載端點)
   if (category === 'CENTER') return status === 'CONFIRMED' && hasFiles; // 資料齊備起:中心已開放且有檔
   return status === 'CONFIRMED'; // 資料齊備起:機關區已確認齊備
 }

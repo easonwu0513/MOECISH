@@ -49,12 +49,14 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
   switch (surface) {
     case 'cycle.access':
       // 委員只在週期離開「開立中(DRAFT)」後才看得到/能進入(開立中中心仍在頻繁調整委員名單);
-      // 中心/機關全程(細粒度租戶/指派另由 rbac 管)。中心指派/抽換委員不受此閘影響(assignments API 為 SUPER_ADMIN-only、無階段限制)。
-      return role === 'AUDITOR' ? cycleStatus !== 'DRAFT' : true;
+      // 結案(CLOSED)後委員任務已了,資料對委員鎖定不可再進入(2026-07 UAT:清單顯示已結案、不可點)。
+      // 中心/機關全程(細粒度租戶/指派另由 rbac 管)。
+      return role === 'AUDITOR' ? cycleStatus !== 'DRAFT' && cycleStatus !== 'CLOSED' : true;
 
     case 'checklist.view':
-      // 委員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;機關看自家、中心全程(細粒度租戶/指派另管)
-      return role === 'AUDITOR' ? !inPrepPhase(cycleStatus) : true;
+      // 委員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;結案後鎖定。
+      // 機關看自家、中心全程(細粒度租戶/指派另管)
+      return role === 'AUDITOR' ? !inPrepPhase(cycleStatus) && cycleStatus !== 'CLOSED' : true;
 
     case 'checklist.orgEdit':
       // 機關填寫/送出檢核表僅限「資料準備中」;開立中(DRAFT)中心尚在設定,機關尚不可填(送出後另由項目狀態 checklistSubmittedAt 鎖定)
@@ -66,13 +68,13 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
 
     case 'audit.score':
       // 委員「實地稽核評分與發現」於進入「實地稽核(ONSITE)」階段才開放(資料齊備僅供熟悉背景,尚不評分);
-      // 中心改看彙整報告、機關不涉入。頁面(redirect)+ 入口磚以此把關(委員為受指派信任角色,評分 API 另以未結案+未鎖定把關)。
-      return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE');
+      // 結案後鎖定。中心改看彙整報告、機關不涉入。
+      return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE') && cycleStatus !== 'CLOSED';
 
     case 'deficiencies.view':
-      // 缺失與矯正管考:中心全程;委員待「缺失發布中(REPORT_ISSUED)」後可審;
-      // 機關待「矯正執行中(REMEDIATION)」後才開放填報矯正(缺失發布中為中心發布期,機關尚不填)。
-      if (role === 'AUDITOR') return atOrAfter(cycleStatus, 'REPORT_ISSUED');
+      // 缺失與矯正管考:中心全程;委員待「缺失發布中(REPORT_ISSUED)」後可審、結案後鎖定;
+      // 機關待「矯正執行中(REMEDIATION)」後才開放填報矯正(結案後仍可檢視自家紀錄)。
+      if (role === 'AUDITOR') return atOrAfter(cycleStatus, 'REPORT_ISSUED') && cycleStatus !== 'CLOSED';
       if (role === 'ORG_ADMIN') return atOrAfter(cycleStatus, 'REMEDIATION');
       return true; // SUPER_ADMIN 全程
 
