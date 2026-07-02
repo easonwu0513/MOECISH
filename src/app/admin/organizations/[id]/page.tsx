@@ -9,7 +9,7 @@ import { Chip } from '@/components/ui/Chip';
 import { inviteStatus } from '@/lib/invite';
 import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
 import { fmtROC, fmtROCDateTime, rocYear } from '@/lib/date';
-import InvitePanel from './InvitePanel';
+import InviteDialog from '@/components/admin/InviteDialog';
 import CreateCycleButton from './CreateCycleButton';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
@@ -68,7 +68,14 @@ export default async function OrganizationDetail({ params }: { params: { id: str
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="text-title-lg text-on-surface">人員 · 邀請</h2>
-          <InvitePanel orgId={org.id} orgName={org.name} />
+          {/* 統一邀請對話框(與使用者管理同一元件):鎖定本院、角色固定機關管理員 */}
+          <InviteDialog
+            orgs={[{ id: org.id, name: org.name }]}
+            defaultRole="ORG_ADMIN"
+            defaultOrgId={org.id}
+            lockOrg
+            triggerLabel="邀請人員"
+          />
         </div>
         <Card padded={false} variant="outlined">
           <div className="px-5 py-3 bg-surface-container-low text-label-sm uppercase tracking-wide text-on-surface-variant border-b border-outline-variant/60">
