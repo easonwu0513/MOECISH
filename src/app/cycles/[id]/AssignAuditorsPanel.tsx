@@ -119,7 +119,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
               return (
                 <div
                   key={a.id}
-                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-3 py-2"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-3 py-2"
                 >
                   <Chip tone="neutral" size="sm" dot className="shrink-0">{a.auditor.name}</Chip>
                   <div className="flex flex-wrap items-center gap-1">
@@ -177,7 +177,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
             </Button>
           </div>
         ) : (
-          <p className="rounded-lg border border-outline-variant/60 bg-surface-container px-3 py-2.5 text-body-sm text-on-surface-variant">
+          <p className="rounded-md border border-outline-variant/60 bg-surface-container px-3 py-2.5 text-body-sm text-on-surface-variant">
             實地稽核階段已結束,委員名單已凍結,無法再新增指派。如確需增補委員,請將週期回退至「實地稽核」階段後再指派。
           </p>
         )}

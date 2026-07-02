@@ -143,7 +143,7 @@ export default function SignedReportPanel({
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((it) => (
-                <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant px-4 py-3">
+                <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant/60 px-4 py-3">
                   <FileText size={18} className="text-on-surface-variant shrink-0" />
                   <div className="flex-1 min-w-0">
                     <a

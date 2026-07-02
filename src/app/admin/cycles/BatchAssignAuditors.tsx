@@ -89,7 +89,7 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
                 <p className="text-label text-on-surface">週期({checked.size} 已選)</p>
                 <button type="button" onClick={selectAllAssignable} className="text-caption text-primary-700 hover:underline">全選可指派</button>
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-md border border-outline-variant/70 divide-y divide-outline-variant/40">
+              <div className="max-h-72 overflow-y-auto rounded-md border border-outline-variant/60 divide-y divide-outline-variant/50">
                 {cycles.map((c) => {
                   const r = recuse(c);
                   const fz = frozen(c);

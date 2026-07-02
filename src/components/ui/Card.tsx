@@ -33,7 +33,7 @@ export const Card = forwardRef<HTMLDivElement, Props>(function Card(
       'bg-surface-container-highest ' +
       (interactive ? 'hover:bg-surface-container-high' : ''),
     outlined:
-      'bg-surface border border-outline-variant ' +
+      'bg-surface border border-outline-variant/60 ' +
       (interactive ? 'hover:border-outline hover:bg-surface-container-low' : ''),
   };
 

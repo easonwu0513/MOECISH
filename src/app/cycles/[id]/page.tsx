@@ -205,7 +205,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 待辦列渲染(選定階段 / 全部階段共用)
   const renderTodo = (it: JourneyClientItem) => {
     const row = (
-      <div className="flex items-start gap-3 rounded-xl border border-outline-variant/70 px-3.5 py-3 bg-surface">
+      <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface transition-colors group-hover:bg-surface-container">
         <span
           className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
             it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
@@ -218,13 +218,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
           {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
         </div>
-        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />}
+        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
     );
     return (
       <li key={it.id}>
         {it.href && !it.lockedStageTitle
-          ? <Link href={it.href} className="block focus-ring rounded-xl">{row}</Link>
+          ? <Link href={it.href} className="group block focus-ring rounded-md">{row}</Link>
           : row}
       </li>
     );
@@ -316,7 +316,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               </div>
             )}
             <div className="text-right">
-              <p className="text-[2rem] font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
+              <p className="text-headline-lg font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
               <p className="mt-1 text-caption text-on-surface-variant">流程完成度</p>
             </div>
           </div>
@@ -336,7 +336,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
       {/* 系統建議的下一步 */}
       {bannerNext && bannerNext.text && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-outline-variant border-l-4 border-l-primary-600 bg-surface px-5 py-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-outline-variant/60 border-l-4 border-l-primary-600 bg-surface px-5 py-4">
           <div className="min-w-0">
             <p className="text-caption text-on-surface-variant">系統建議的下一步</p>
             <p className="mt-1 text-title-md font-medium text-on-surface">{bannerNext.text}</p>
@@ -604,7 +604,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         {/* 右欄:系統提醒 / 快捷統計 / 最近活動 */}
         <aside className="mt-2 lg:mt-0 lg:sticky lg:top-6 flex flex-col gap-4">
           {/* 系統提醒 */}
-          <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
             <div className="mb-3 flex items-center gap-2">
               <Bell size={16} className="text-on-surface-variant" />
               <h3 className="text-title font-medium text-on-surface">系統提醒</h3>
@@ -614,7 +614,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             ) : (
               <div className="flex flex-col gap-2">
                 {shownAlerts.map((a, i) => (
-                  <div key={i} className={`rounded-xl border px-3.5 py-2.5 ${alertBox[a.tone]}`}>
+                  <div key={i} className={`rounded-md border px-3.5 py-2.5 ${alertBox[a.tone]}`}>
                     <p className="text-body-sm font-medium text-on-surface">{a.title}</p>
                     <p className="mt-0.5 text-caption text-on-surface-variant">{a.desc}</p>
                   </div>
@@ -625,11 +625,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
           {/* 快捷統計 */}
           {quickStats.length > 0 && (
-            <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+            <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
               <h3 className="mb-3 text-title-sm font-medium text-on-surface">快捷統計</h3>
               <div className="grid grid-cols-2 gap-2">
                 {quickStats.map((s) => (
-                  <div key={s.label} className="rounded-xl bg-surface-container-lowest px-3 py-2.5">
+                  <div key={s.label} className="rounded-md bg-surface-container-lowest px-3 py-2.5">
                     <p className="text-caption text-on-surface-variant">{s.label}</p>
                     <p className={`mt-1 text-title-md font-medium tabular-nums ${s.tone === 'success' ? 'text-success-700' : 'text-on-surface'}`}>{s.value}</p>
                   </div>
@@ -639,7 +639,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           )}
 
           {/* 最近活動(稽核軌跡) */}
-          <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
             <div className="mb-3 flex items-center gap-2">
               <History size={16} className="text-on-surface-variant" />
               <h3 className="text-title font-medium text-on-surface">最近活動</h3>
@@ -722,17 +722,32 @@ function StatusTile({
   const inner = (
     <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
       <div className="flex items-center gap-2.5">
-        <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+        <div className={`w-9 h-9 rounded-md ${iconBg} flex items-center justify-center shrink-0`}>
           {icon}
         </div>
         <p className="min-w-0 flex-1 text-body-sm font-medium text-on-surface leading-tight">{title}</p>
-        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant" />}
+        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
       {locked ? (
         <p className="mt-3 text-body-sm text-on-surface-variant">🔒 {lockedHint}</p>
       ) : (
         <>
-          <p className={`mt-3 text-title-md font-medium tabular-nums leading-none ${statusColor}`}>{status}</p>
+          {/* n/N 型狀態:大數字 + 小單位分排(排印精緻化);其餘照原樣 */}
+          {(() => {
+            const m = status.match(/^(\d+)\/(\d+)$/);
+            return (
+              <p className={`mt-3 text-title-md font-medium tabular-nums leading-none ${statusColor}`}>
+                {m ? (
+                  <>
+                    {m[1]}
+                    <span className="text-caption font-normal text-on-surface-variant"> /{m[2]}</span>
+                  </>
+                ) : (
+                  status
+                )}
+              </p>
+            );
+          })()}
           {caption && <p className="mt-1.5 text-caption text-on-surface-variant leading-tight">{caption}</p>}
         </>
       )}
@@ -743,7 +758,7 @@ function StatusTile({
     return <div className="block h-full cursor-not-allowed" aria-disabled>{inner}</div>;
   }
   return (
-    <Link href={href} className="block h-full focus-ring rounded-lg">
+    <Link href={href} className="group block h-full focus-ring rounded-lg">
       {inner}
     </Link>
   );
