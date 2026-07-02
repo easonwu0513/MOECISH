@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -24,6 +24,7 @@ import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
+import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -97,6 +98,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const transitions = nextStatuses(cycle.status as CycleStatus, user.role as Role);
   const rollbacks = rollbackTargets(cycle.status as CycleStatus, user.role as Role);
   const yearROC = cycle.year - 1911;
+
+  // 「資料齊備」推進前置(UX 提示層;transition API 為權威閘):必要資料全確認 + 檢核表已送出
+  const readyBlockers: string[] = [];
+  if (cycle.status === 'PREPARATION') {
+    const reqNotConfirmed = cycle.prepRequirements.filter(
+      (r) => r.required && r.submission?.status !== 'CONFIRMED',
+    ).length;
+    if (reqNotConfirmed > 0) readyBlockers.push(`${reqNotConfirmed} 份必要資料未確認齊備`);
+    if (!cycle.checklistSubmittedAt) readyBlockers.push('檢核表尚未送出');
+  }
 
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
   const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
@@ -199,6 +210,24 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
   const donePct = journeyView && journeyView.total > 0 ? Math.round((journeyView.doneCount / journeyView.total) * 100) : 0;
+  // 進度條的自訂階段(批62):範本中非七狀態的階段依排序插入流程帶——
+  // 不參與狀態機(週期不會「處於」自訂階段),以該階段待辦完成度打勾;點擊看該階段待辦。
+  const statusKeySet = new Set<string>(CYCLE_STATUSES);
+  const customRail: { key: string; title: string; afterKey: CycleStatus | null; done: boolean }[] = [];
+  {
+    let lastStatus: CycleStatus | null = null;
+    for (const s of journeyStages) {
+      if (statusKeySet.has(s.stageKey)) { lastStatus = s.stageKey as CycleStatus; continue; }
+      const countable = s.items.filter((it) => !it.informational);
+      customRail.push({
+        key: s.stageKey,
+        title: s.title,
+        afterKey: lastStatus,
+        done: countable.length > 0 && countable.every((it) => it.done),
+      });
+    }
+  }
+
   // 階段待辦:預設當前階段;點橫向階段列(?stage=KEY)看該階段;?stage=all 看全部階段進度
   const stageParam = typeof searchParams?.stage === 'string' ? searchParams.stage : undefined;
   const stageKeySet = new Set(journeyStages.map((s) => s.stageKey));
@@ -371,7 +400,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           status={cycle.status as CycleStatus}
           className="mt-5"
           stageHref={(s) => `/cycles/${cycle.id}?stage=${s}`}
-          selectedKey={selectedStageKey ? (selectedStageKey as CycleStatus) : undefined}
+          selectedKey={selectedStageKey ?? undefined}
+          custom={customRail}
         />
       </section>
 
@@ -447,8 +477,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 工作區:稽核作業(中心視角四大工作區之一;評分發現卡移入下方「委員」工作區) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="檢核表、佐證資料、改善報告與匯出">稽核作業</SectionLabel>}
+
           {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話);圖示統一主色 */}
-          <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'ORG_ADMIN' ? 'lg:grid-cols-3' : 'xl:grid-cols-4'}`}>
+          <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'AUDITOR' ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <StatusTile
               icon={<FileText size={18} />}
               tone="primary"
@@ -484,7 +517,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               }
               lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員審閱'}
             />
-            {user.role !== 'ORG_ADMIN' && (
+            {/* 委員視角留在主格;中心視角移至下方「委員」工作區(與委員指派同區) */}
+            {user.role === 'AUDITOR' && (
               <StatusTile
                 icon={<Eye size={18} />}
                 tone="primary"
@@ -494,7 +528,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 caption="委員線上評分、記錄稽核發現"
                 href={`/cycles/${cycle.id}/audit`}
                 muted={!modActive.audit}
-                locked={user.role === 'AUDITOR' && !auditorCanScore(cycle.status)}
+                locked={!auditorCanScore(cycle.status)}
                 lockedHint="實地稽核階段開放"
               />
             )}
@@ -544,8 +578,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 分組:報告與匯出(用印掃描檔 + 公文匯出) ── */}
-          {user.role !== 'AUDITOR' && <SectionLabel>報告與匯出</SectionLabel>}
+          {/* ── 分組:報告與匯出(機關視角;中心視角已併入上方「稽核作業」工作區) ── */}
+          {user.role === 'ORG_ADMIN' && <SectionLabel>報告與匯出</SectionLabel>}
 
           {/* 用印報告(可見性由 access-policy 決定) */}
           {canAccess('signedReport.section', user.role as Role, cycle.status) && (
@@ -609,18 +643,35 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 分組:委員(指派與構面) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel>委員</SectionLabel>}
-
-          {/* SUPER_ADMIN:委員指派 */}
+          {/* ── 工作區:委員(評分與發現 + 指派與構面) ── */}
           {user.role === 'SUPER_ADMIN' && (
-            <div id="assign-auditors" className="scroll-mt-24">
-              <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
-            </div>
+            <>
+              <SectionLabel desc="評分與發現、指派委員與分配構面">委員</SectionLabel>
+              <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-3">
+                <StatusTile
+                  icon={<Eye size={18} />}
+                  tone="primary"
+                  title="實地稽核評分與發現"
+                  status={auditStatus}
+                  statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
+                  caption="委員線上評分、記錄稽核發現"
+                  href={`/cycles/${cycle.id}/audit`}
+                  muted={!modActive.audit}
+                />
+              </section>
+              <div id="assign-auditors" className="scroll-mt-24">
+                {/* 實地稽核進行中新增委員屬重大變動(立即取得審查權限)→ 事前確認視窗 */}
+                <AssignAuditorsPanel
+                  cycleId={cycle.id}
+                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
+                  confirmOnAssign={cycle.status === 'ONSITE'}
+                />
+              </div>
+            </>
           )}
 
-          {/* ── 分組:週期管理(通知機關、推進/回退狀態) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel>週期管理</SectionLabel>}
+          {/* ── 工作區:設定管理(日期、階段推進與狀態控制;通知模板/權限等全站設定在管理選單,不在本頁重複) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="日期、階段推進與狀態控制">設定管理</SectionLabel>}
 
           {/* SUPER_ADMIN:管理動作 */}
           {user.role === 'SUPER_ADMIN' && (
@@ -632,12 +683,30 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   <NotifyButton cycleId={cycle.id} />
                 )}
                 {transitions.map((t) => (
-                  <TransitionButton key={t} cycleId={cycle.id} target={t} />
+                  <TransitionButton
+                    key={t}
+                    cycleId={cycle.id}
+                    target={t}
+                    disabled={t === 'READY' && readyBlockers.length > 0}
+                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                  />
                 ))}
                 {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
                 {rollbacks.map((t) => (
                   <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
                 ))}
+                {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
+                {cycle.status === 'DRAFT' && (
+                  <>
+                    <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />
+                    <DeleteCycleButton
+                      cycleId={cycle.id}
+                      orgName={cycle.organization.shortName ?? cycle.organization.name}
+                      yearROC={yearROC}
+                      redirectTo="/admin/cycles"
+                    />
+                  </>
+                )}
               </div>
             </Card>
           )}
@@ -710,11 +779,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   );
 }
 
-/** 週期頁下半部的分組小標(輕度歸類:報告與匯出 / 委員 / 週期管理),不改功能只加結構 */
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/** 週期頁下半部的工作區小標(中心視角:稽核作業 / 委員 / 設定管理;機關視角:報告與匯出),不改功能只加結構 */
+function SectionLabel({ children, desc }: { children: React.ReactNode; desc?: string }) {
   return (
     <div className="mt-3 mb-3 flex items-center gap-3">
       <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant whitespace-nowrap">{children}</h2>
+      {desc && <span className="hidden sm:inline text-caption text-on-surface-variant whitespace-nowrap">{desc}</span>}
       <span className="h-px flex-1 bg-outline-variant/50" aria-hidden />
     </div>
   );

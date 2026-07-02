@@ -20,7 +20,10 @@ const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warni
 
 export default async function NewsDetailPage({ params }: { params: { slug: string } }) {
   const session = await auth();
-  const post = await prisma.post.findUnique({ where: { slug: params.slug } });
+  const post = await prisma.post.findUnique({
+    where: { slug: params.slug },
+    include: { attachments: { orderBy: { id: 'asc' } } },
+  });
   if (!post || post.status !== 'PUBLISHED') notFound();
 
   return (
@@ -55,6 +58,28 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           <div className="mt-8 border-t border-outline-variant/60 pt-8 max-w-[70ch]">
             <Markdown content={post.contentMd} />
           </div>
+
+          {/* 附件下載(公告附件公開;下載端 attachment+nosniff) */}
+          {post.attachments.length > 0 && (
+            <div className="mt-8 rounded-lg border border-outline-variant/60 bg-surface-container-low p-4 max-w-[70ch]">
+              <p className="text-title text-on-surface mb-2">附件下載</p>
+              <ul className="flex flex-col gap-1.5">
+                {post.attachments.map((a) => (
+                  <li key={a.id} className="flex items-center gap-2 text-body-sm min-w-0">
+                    <a
+                      href={`/api/post-attachments/${a.id}/download`}
+                      className="text-primary-700 hover:underline truncate focus-ring rounded-sm"
+                    >
+                      {a.fileName}
+                    </a>
+                    <span className="shrink-0 text-caption text-on-surface-variant tabular-nums">
+                      {a.sizeBytes >= 1024 * 1024 ? `${(a.sizeBytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(a.sizeBytes / 1024))} KB`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* 文末收尾動線 */}
           <div className="mt-10 pt-6 border-t border-outline-variant/60">

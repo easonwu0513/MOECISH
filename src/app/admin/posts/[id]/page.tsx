@@ -8,7 +8,10 @@ export default async function EditPostPage({ params }: { params: { id: string } 
   const session = await auth();
   const user = session!.user;
 
-  const post = await prisma.post.findUnique({ where: { id: params.id } });
+  const post = await prisma.post.findUnique({
+    where: { id: params.id },
+    include: { attachments: { orderBy: { id: 'asc' } } },
+  });
   if (!post) notFound();
 
   return (
@@ -31,6 +34,12 @@ export default async function EditPostPage({ params }: { params: { id: string } 
           pinned: post.pinned,
           status: post.status,
         }}
+        attachments={post.attachments.map((a) => ({
+          id: a.id,
+          fileName: a.fileName,
+          mimeType: a.mimeType,
+          sizeBytes: a.sizeBytes,
+        }))}
       />
     </AppShell>
   );

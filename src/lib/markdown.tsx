@@ -3,13 +3,15 @@ import type { ReactNode } from 'react';
 /**
  * 極簡 Markdown 渲染器 — 公告內文專用。
  * 直接輸出 React elements(無 dangerouslySetInnerHTML),原始 HTML 一律當純文字 → 先天免疫 XSS。
- * 支援:# ## ### 標題、**粗體**、*斜體*、`行內碼`、[連結](url)、- 清單、1. 編號清單、> 引言、段落。
+ * 支援:# ## ### 標題、**粗體**、*斜體*、`行內碼`、[連結](url)、![圖片](url)、- 清單、1. 編號清單、> 引言、段落。
  */
 
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const out: ReactNode[] = [];
-  // tokens: **bold** | *italic* | `code` | [text](url)
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\((?:https?:\/\/|\/)[^)\s]+\))/g;
+  // tokens: ![img](url) | **bold** | *italic* | `code` | [text](url)
+  // (圖片 token 置於連結之前,否則 `![alt](url)` 的 `[alt](url)` 會被連結規則吃掉)
+  // url 僅允許 https?:// 或站內相對路徑(/ 開頭),先天阻擋 javascript: 等危險 scheme
+  const re = /(!\[[^\]]*\]\((?:https?:\/\/|\/)[^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\((?:https?:\/\/|\/)[^)\s]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
@@ -17,7 +19,23 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index));
     const tok = m[0];
     const key = `${keyPrefix}-${i++}`;
-    if (tok.startsWith('**')) {
+    if (tok.startsWith('![')) {
+      const mm = tok.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      if (mm) {
+        // eslint-disable-next-line @next/next/no-img-element
+        out.push(
+          <img
+            key={key}
+            src={mm[2]}
+            alt={mm[1]}
+            loading="lazy"
+            className="my-3 max-w-full h-auto rounded-md border border-outline-variant/60"
+          />,
+        );
+      } else {
+        out.push(tok);
+      }
+    } else if (tok.startsWith('**')) {
       out.push(<strong key={key}>{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith('`')) {
       out.push(<code key={key} className="font-mono text-[0.92em] bg-surface-container px-1.5 py-0.5 rounded-sm">{tok.slice(1, -1)}</code>);

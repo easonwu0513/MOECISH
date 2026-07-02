@@ -209,6 +209,9 @@ export default function ChecklistShell({
     setCollapsedDims(new Set());
   }
 
+  // 鍵盤導覽才允許捲動聚焦卡片(見下方 scroll effect 註解)
+  const kbNavScroll = useRef(false);
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -218,9 +221,13 @@ export default function ChecklistShell({
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         e.preventDefault();
+        // 僅索引真的會移動才設旗標:在邊界按鍵時 state 不變、scroll effect 不會執行,
+        // 旗標若殘留會被下一次存檔 refresh 消費而誤捲動
+        if (focusedIdx < flatIds.length - 1) kbNavScroll.current = true;
         setFocusedIdx((i) => Math.min(flatIds.length - 1, i + 1));
       } else if (e.key === 'k' || e.key === 'ArrowUp') {
         e.preventDefault();
+        if (focusedIdx > 0) kbNavScroll.current = true;
         setFocusedIdx((i) => Math.max(0, i - 1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -231,9 +238,14 @@ export default function ChecklistShell({
     return () => window.removeEventListener('keydown', onKey);
   }, [flatIds, focusedIdx]);
 
-  // Scroll focused into view
+  // Scroll focused into view — 只回應鍵盤導覽(j/k/方向鍵)。
+  // flatIds 經 useMemo 鏈依賴 responses prop:每次存檔 router.refresh() 後 props 換新參照,
+  // 此 effect 若照舊觸發,會對「聚焦卡片」(預設第一張,通常在視窗上方)scrollIntoView
+  // → 自動/手動儲存時頁面往上捲的元凶。改以旗標限定:非鍵盤導覽引起的重算一律不捲動。
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!kbNavScroll.current) return;
+    kbNavScroll.current = false;
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-item-id="${flatIds[focusedIdx]}"]`);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [focusedIdx, flatIds]);

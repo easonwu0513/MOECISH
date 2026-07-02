@@ -295,6 +295,24 @@ model PrepTemplateItem {
   category    String  @default("ONSITE") // 同 PrepCategory(TECH/ONSITE/CENTER)
   year        Int?    // 年度分類(西元,同 AuditCycle.year;null=通用逐年皆帶)。套用時取「該年度+通用」,年度同名優先
   orderIndex  Int
+  files       PrepTemplateFile[]
+}
+
+// 資料準備清單「文件範本」:中心上傳供機關下載依式填寫(僅此處允許 Word/Excel 等可編輯格式;
+// 機關佐證上傳仍限 PDF/JPG/PNG)。掛在年度化的清單項目上=歷年範本隨年度項目自然保存。
+model PrepTemplateFile {
+  id           String @id @default(cuid())
+  itemId       String
+  item         PrepTemplateItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String
+  sha256       String
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  @@index([itemId])
 }
 
 model PrepRequirement {
@@ -533,6 +551,8 @@ model JourneyStage {
   stageKey   String  // CYCLE：CycleStatus（DRAFT..CLOSED）；PROGRAMME：自訂 key
   title      String
   summary    String?
+  startDate  DateTime? // 開始日期(中心年度計畫執行 PROGRAMME 排程用;週期各階段 CYCLE 不使用)
+  dueDate    DateTime? // 截止日期(同上;「何時之前要完成」)
   orderIndex Int
   items      JourneyItem[]
 

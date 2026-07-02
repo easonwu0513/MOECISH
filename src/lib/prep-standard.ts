@@ -41,6 +41,42 @@ export async function getStandardItems(cycleYear: number): Promise<StdPrepItem[]
   }));
 }
 
+export type TemplateFileForYear = {
+  itemTitle: string;
+  category: string;
+  fileId: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageKey: string;
+};
+
+/**
+ * 取得某年度「文件範本」檔案清單(供機關下載依式填寫):
+ * 與 getStandardItems 同一套年度解析(通用+該年,同名年度項覆寫通用),
+ * 排除中心匯入區(CENTER 由中心經手,機關無需範本)。
+ */
+export async function getTemplateFilesForYear(cycleYear: number): Promise<TemplateFileForYear[]> {
+  const tpl = await prisma.prepTemplateItem.findMany({
+    where: { OR: [{ year: null }, { year: cycleYear }], category: { not: 'CENTER' } },
+    orderBy: { orderIndex: 'asc' },
+    include: { files: { orderBy: { uploadedAt: 'asc' } } },
+  });
+  const yearlyTitles = new Set(tpl.filter((t) => t.year === cycleYear).map((t) => t.title));
+  const resolved = tpl.filter((t) => t.year === cycleYear || !yearlyTitles.has(t.title));
+  return resolved.flatMap((t) =>
+    t.files.map((f) => ({
+      itemTitle: t.title,
+      category: t.category,
+      fileId: f.id,
+      originalName: f.originalName,
+      mimeType: f.mimeType,
+      sizeBytes: f.sizeBytes,
+      storageKey: f.storageKey,
+    })),
+  );
+}
+
 /**
  * 確保週期具備標準資料準備需求清單(冪等:已存在同標題者略過,並各建一筆空 submission)。
  * 供「套用標準清單」按鈕、與「轉入 PREPARATION 自動套用」共用;清單來源為全域模板(可由中心增刪,年度化)。

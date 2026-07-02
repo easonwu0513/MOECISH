@@ -44,16 +44,6 @@ export default function ChecklistItemCard({
 }) {
   const router = useRouter();
   const toast = useToast();
-  // router.refresh() 會重繪伺服器樹,若上方有其他展開卡片會造成捲動錨點上跳(逐題填答很擾民)。
-  // 存檔後保留當前捲動位置,於重繪後數個影格內回復,消除「按符合/儲存時頁面往上跳」。
-  function refreshKeepScroll() {
-    const y = window.scrollY;
-    router.refresh();
-    const restore = () => window.scrollTo(0, y);
-    requestAnimationFrame(restore);
-    setTimeout(restore, 80);
-    setTimeout(restore, 220);
-  }
   const [compliance, setCompliance] = useState<ComplianceLevel | null>(
     (response?.compliance ?? null) as ComplianceLevel | null,
   );
@@ -119,7 +109,10 @@ export default function ChecklistItemCard({
       setJustSaved(true);
       if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
-      refreshKeepScroll();
+      // 存檔後往上捲的元凶在 ChecklistShell 的「捲動聚焦卡片」effect(已限定僅鍵盤導覽觸發),
+      // 這裡直接 refresh 即可;勿再加「記住/回復捲動位置」補丁 — refresh 完成時間不定,
+      // 定時回復只會在使用者剛捲動時把頁面拉回舊位置(反而製造跳動)。
+      router.refresh();
     });
   }
 

@@ -61,6 +61,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           { status: 400 },
         );
       }
+      // 檢核表也須完成送出:「資料齊備」即開放委員審閱檢核表,未送出=委員無資料可審。
+      // (原僅檢查資料準備項 → 附件 20/20 但檢核表未填也能推進,UAT 批61 圖3 補上)
+      if (!cycle.checklistSubmittedAt) {
+        return NextResponse.json(
+          { error: '機關尚未完成並送出「資通安全檢核表」,無法進入資料齊備;請待機關完成填報送出後再推進。' },
+          { status: 400 },
+        );
+      }
     }
 
     // 結案前置條件:全數缺失審核通過 + 已上傳用印掃描檔

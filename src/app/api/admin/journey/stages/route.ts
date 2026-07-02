@@ -5,11 +5,16 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
+// 日期字串(yyyy-mm-dd 或 ISO;null=清除)。開始/截止供 PROGRAMME 年度 SOP 排程,CYCLE 不使用(編輯器不顯示)
+const DateStr = z.string().refine((v) => !Number.isNaN(Date.parse(v)), '日期格式不正確').nullable().optional();
+
 const Body = z.object({
   scope: z.enum(['CYCLE', 'PROGRAMME']),
   stageKey: z.string().min(1).max(40),
   title: z.string().min(1).max(100),
   summary: z.string().max(300).nullable().optional(),
+  startDate: DateStr,
+  dueDate: DateStr,
 });
 
 /** 後台：新增一個精靈階段（接到該 scope 範本最後）。 */
@@ -36,6 +41,8 @@ export async function POST(req: Request) {
         stageKey: body.stageKey,
         title: body.title,
         summary: body.summary ?? null,
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         orderIndex: (last?.orderIndex ?? -1) + 1,
       },
     });

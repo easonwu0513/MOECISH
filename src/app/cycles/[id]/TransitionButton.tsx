@@ -19,10 +19,15 @@ export default function TransitionButton({
   cycleId,
   target,
   rollback = false,
+  disabled = false,
+  disabledHint,
 }: {
   cycleId: string;
   target: CycleStatus;
   rollback?: boolean;
+  /** 前置條件未滿足時鎖定按鈕並顯示原因(後端 transition API 為權威閘,此為 UX 提示層) */
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -95,6 +100,18 @@ export default function TransitionButton({
           loading={loading}
         />
       </>
+    );
+  }
+
+  if (disabled) {
+    // 行內排版(與同列其他按鈕垂直置中對齊);原因以文字直接顯示,不藏在 tooltip
+    return (
+      <span className="inline-flex items-center gap-2" title={disabledHint}>
+        <Button variant="filled" size="sm" disabled trailingIcon={<ChevronRight size={14} />}>
+          {CYCLE_STATUS_LABELS[target]}
+        </Button>
+        {disabledHint && <span className="text-caption text-on-surface-variant">{disabledHint}</span>}
+      </span>
     );
   }
 

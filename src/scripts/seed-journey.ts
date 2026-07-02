@@ -137,6 +137,8 @@ const CYCLE: SeedTemplate = {
       title: '資料準備中',
       summary: '機關上傳資料與填報自評（技術檢測與實地稽核）；中心可匯入補充資料；中心逐項確認齊備或退回補正。',
       items: [
+        // 手動勾選項(無 autoKey、非提醒):機關下載範本後自行打勾;href 由 journeyItemHref 依 PREPARATION 預設導 /prep
+        { title: '下載文件範本，依式填寫後轉存 PDF', hint: '於「稽核前資料準備」頁整包下載中心提供之範本(Word/Excel)，填寫完成轉 PDF 後上傳對應項目;中心未提供範本時可略過此項。', role: 'ORG_ADMIN' },
         { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN', autoKey: 'prep_uploaded' },
         { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
         { title: '技術檢測資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted_tech' },

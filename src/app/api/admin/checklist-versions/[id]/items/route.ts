@@ -21,6 +21,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const version = await prisma.checklistVersion.findUnique({ where: { id: params.id } });
     if (!version) return NextResponse.json({ error: '版本不存在' }, { status: 404 });
 
+    // 在用防護:版本已被「進行中」週期使用(推進出開立中)即不可增題——
+    // 委員評分表的「判定數量合計=題數」鎖定閘以題數為基準,事後改題會讓已定稿資料靜默失真
+    const inUse = await prisma.auditCycle.count({
+      where: { checklistVersionId: version.id, status: { not: 'DRAFT' } },
+    });
+    if (inUse > 0) {
+      return NextResponse.json(
+        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用,不可再新增題目;請以年度換版調整題庫。` },
+        { status: 400 },
+      );
+    }
+
     const body = Body.parse(await req.json());
 
     const dup = await prisma.checklistItem.findUnique({

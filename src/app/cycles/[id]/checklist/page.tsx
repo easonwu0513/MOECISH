@@ -80,6 +80,12 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   // 委員的檢核表審閱意見定位為「委員資料齊備後先行審閱的私人註記/筆記」,不開放受稽機關檢視;
   // 對機關的正式回饋以實地稽核當天開立之「稽核發現/缺失」為準。故機關端一律不下發委員意見。
   const hideAuditorComments = user.role === 'ORG_ADMIN';
+  // 委員意見隱私(UAT 批62):委員僅見自己填寫的意見(與 /review 頁同規則);中心見全部
+  if (user.role === 'AUDITOR') {
+    for (const r of cycle.responses) {
+      r.comments = r.comments.filter((c) => c.auditorId === user.id);
+    }
+  }
   // 委員意見作者:僅委員/中心可見具名;受稽機關端不顯示作者(避免針對個別委員)
   const showAuthors = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
   const commentAuthorIds = showAuthors

@@ -10,6 +10,7 @@ import { inviteStatus } from '@/lib/invite';
 import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
 import { fmtROC, fmtROCDateTime, rocYear } from '@/lib/date';
 import InviteDialog from '@/components/admin/InviteDialog';
+import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 import CreateCycleButton from './CreateCycleButton';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
@@ -181,9 +182,15 @@ export default async function OrganizationDetail({ params }: { params: { id: str
                       {fmtROC(c.dueDate)}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:text-primary-800">
-                        開啟
-                      </Link>
+                      <span className="inline-flex items-center gap-2">
+                        <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:text-primary-800">
+                          開啟
+                        </Link>
+                        {/* 建錯醫院/年度可刪:僅開立中(DRAFT);推進後不可刪(後端亦擋) */}
+                        {c.status === 'DRAFT' && (
+                          <DeleteCycleButton cycleId={c.id} orgName={org.name} yearROC={rocYear(c.year)} />
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}

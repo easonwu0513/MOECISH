@@ -241,6 +241,15 @@ export function isOrgUploadAllowed(fileName: string, mime: string): boolean {
   return /\.(pdf|jpe?g|png)$/i.test(fileName) || ORG_UPLOAD_MIMES.includes(mime);
 }
 
+// 「文件範本」上傳限制(僅最高管理員於資料準備標準清單使用):範本供機關下載依式填寫,
+// 故開放 Word/Excel/ODF 等可編輯格式;巨集啟用格式(docm/xlsm)、網頁/腳本/壓縮檔一律擋。
+// 機關端佐證上傳不受此放寬影響(仍走 isOrgUploadAllowed)。
+export const TEMPLATE_UPLOAD_ACCEPT = '.doc,.docx,.xls,.xlsx,.odt,.ods,.pdf,.csv,.jpg,.jpeg,.png';
+export const TEMPLATE_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+export function isTemplateUploadAllowed(fileName: string): boolean {
+  return /\.(docx?|xlsx?|odt|ods|pdf|csv|jpe?g|png)$/i.test(fileName);
+}
+
 // ════════════════════════════════════════════
 // 檢核表模組（保留為選用功能）
 // ════════════════════════════════════════════

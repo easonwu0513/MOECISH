@@ -16,7 +16,7 @@ import {
   snippetMatches, type FindingSnippetDTO,
 } from '@/lib/finding-snippet';
 import {
-  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
+  ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
   gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs, sortRefs, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
@@ -147,6 +147,8 @@ function ScoreSection({
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
+  // 解除鎖定前置:委員須先勾選「已告知中心工作人員」才可按(UAT 批63)
+  const [unlockAck, setUnlockAck] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   // debounce 儲存讀「最新」狀態,避免 setTimeout 捕捉到 stale 快照(連續改多格時漏存)
   const scoresRef = useRef(scores);
@@ -168,6 +170,7 @@ function ScoreSection({
       v = Math.max(0, Math.min(max, v));
     }
     setScores((prev) => ({ ...prev, [dim]: v }));
+    clearProblem(dim);
     scheduleSave();
   }
 
@@ -178,6 +181,7 @@ function ScoreSection({
       v = Math.max(0, Math.min(999, v));
     }
     setCounts((prev) => ({ ...prev, [dim]: { ...(prev[dim] ?? EMPTY_COUNTS), [key]: v } }));
+    clearProblem(dim);
     scheduleSave();
   }
 
@@ -248,6 +252,51 @@ function ScoreSection({
   const myTotal = Object.values(scores).reduce<number>((a, v) => a + (v ?? 0), 0);
   const filledCount = Object.values(scores).filter((v) => v !== null && v !== undefined).length;
 
+  /** 某構面判定數量四格合計(全空回 null,供行內提示區分「還沒動筆」與「合計 0」) */
+  function countSum(dim: Dimension): number | null {
+    const c = counts[dim];
+    if (!c || (c.c1 == null && c.c2 == null && c.c3 == null && c.c4 == null)) return null;
+    return (c.c1 ?? 0) + (c.c2 ?? 0) + (c.c3 ?? 0) + (c.c4 ?? 0);
+  }
+
+  // 送出完整性(UAT 批63):負責構面(未指派=全構面)+任何已動筆的構面——
+  // 評分必填、判定數量合計須等於該構面題數。後端 lock API 為權威閘(同規則),此為即時回饋層。
+  function validateCompleteness(): { problems: string[]; byDim: Record<string, string> } {
+    const resp = new Set<Dimension>(
+      focusSet.size > 0 ? ALL_DIMS.filter((d) => focusSet.has(DIM_TO_ASPECT[d])) : ALL_DIMS,
+    );
+    for (const d of ALL_DIMS) {
+      if (scores[d] != null || countSum(d) != null) resp.add(d);
+    }
+    const problems: string[] = [];
+    const byDim: Record<string, string> = {};
+    for (const d of ALL_DIMS) {
+      if (!resp.has(d)) continue;
+      const total = stats[d]?.total ?? 0;
+      const sum = countSum(d);
+      const issues: string[] = [];
+      if (scores[d] == null) issues.push('未填評分');
+      // 四格全空=「未填」而非「合計 0」(誠實區分沒動筆與填了 0)
+      if ((sum ?? 0) !== total) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
+      if (issues.length) {
+        problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
+        byDim[d] = issues.join('、');
+      }
+    }
+    return { problems, byDim };
+  }
+
+  // 送出被擋的構面 → 行內常駐紅字(toast 只活 6 秒,錯誤要留在表上);修正該構面即清除
+  const [problemByDim, setProblemByDim] = useState<Record<string, string>>({});
+  function clearProblem(dim: Dimension) {
+    setProblemByDim((prev) => {
+      if (!(dim in prev)) return prev;
+      const next = { ...prev };
+      delete next[dim];
+      return next;
+    });
+  }
+
   return (
     <section>
       <ConfirmDialog
@@ -263,17 +312,41 @@ function ScoreSection({
         open={unlockConfirmOpen}
         onOpenChange={(o) => !lockBusy && !o && setUnlockConfirmOpen(false)}
         title="解除鎖定?"
-        description="解除鎖定後,系統會通知最高管理員您的評分/發現有內容異動。請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。"
+        description={
+          <div className="flex flex-col gap-3">
+            <p>
+              解除鎖定後,系統會通知最高管理員您的評分/發現有內容異動。
+              請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。
+            </p>
+            {/* 前置勾選(UAT 批63):委員須先告知工作人員,勾選後才可按「解除鎖定」 */}
+            <label className="flex items-start gap-2 rounded-md border border-outline-variant/60 bg-surface-container-low px-3 py-2.5 text-body-sm text-on-surface cursor-pointer">
+              <input
+                type="checkbox"
+                checked={unlockAck}
+                onChange={(e) => setUnlockAck(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded focus-ring accent-primary-600"
+              />
+              <span>我已告知中心工作人員,將解除鎖定重新修改實地稽核評分與稽核發現。</span>
+            </label>
+          </div>
+        }
         confirmLabel="解除鎖定"
         onConfirm={unlock}
         loading={lockBusy}
+        confirmDisabled={!unlockAck}
       />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
           <p className="text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
-            可只評您負責的構面(未評的不計入您的小計);同一構面多位委員評分時,報告以各構面平均彙整。
+            {focusSet.size > 0 ? (
+              <>可只評您負責的構面(未評的不計入您的小計);確認填寫完畢前,負責構面的評分與判定數量須填寫完整。</>
+            ) : (
+              // 未指派負責構面=視同全構面:須評滿九項才可確認填寫完畢(與鎖定閘一致,免得被擋時一頭霧水)
+              <>您未被指派特定負責構面(視同全構面):確認填寫完畢前須完成全部九項的評分與判定數量;如僅負責部分構面,請洽中心於委員指派設定。</>
+            )}
+            同一構面多位委員評分時,報告以各構面平均彙整。
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -306,6 +379,19 @@ function ScoreSection({
                     toast.error('尚有稽核發現未儲存', '請先逐條按「儲存」或取消編輯,再確認填寫完畢。');
                     return;
                   }
+                  // 完整性驗證:負責構面評分未填/判定數量合計≠題數 → 不可送出(後端亦擋);
+                  // 問題構面同步行內標紅常駐(toast 只活 6 秒)
+                  const { problems, byDim } = validateCompleteness();
+                  if (problems.length > 0) {
+                    setProblemByDim(byDim);
+                    const helpNote = focusSet.size === 0 ? '(未指派負責構面時須評滿全部構面;如僅負責部分構面,請洽中心設定)' : '';
+                    toast.error(
+                      '評分表尚未填寫完整,無法確認填寫完畢',
+                      `${problems.slice(0, 3).join(';')}${problems.length > 3 ? `…等共 ${problems.length} 個構面待補` : ''};已於下方表格標示。${helpNote}`,
+                    );
+                    return;
+                  }
+                  setProblemByDim({});
                   setConfirmOpen(true);
                 }}
               >
@@ -316,7 +402,8 @@ function ScoreSection({
           {locked && (
             <>
               <Chip tone="success" size="sm" dot>已確認填寫完畢</Chip>
-              <Button size="sm" variant="tonal" onClick={() => setUnlockConfirmOpen(true)} loading={lockBusy}>解除鎖定</Button>
+              {/* 每次開啟都重置勾選,確認視窗的「已告知工作人員」不可沿用上次狀態 */}
+              <Button size="sm" variant="tonal" onClick={() => { setUnlockAck(false); setUnlockConfirmOpen(true); }} loading={lockBusy}>解除鎖定</Button>
             </>
           )}
         </div>
@@ -449,6 +536,23 @@ function ScoreSection({
                   <span className="text-caption text-on-surface-variant/70">
                     機關自評供參:{st.total} 題(符{st.c1}/部{st.c2}/不{st.c3}/適{st.c4})
                   </span>
+                  {/* 即時合計回饋:動筆後合計≠題數標紅(唯讀改中性描述);送出被擋的構面常駐標紅到修正為止 */}
+                  {(() => {
+                    if (problemByDim[dim] && canEdit) {
+                      return <span className="text-caption font-medium text-danger-600">{problemByDim[dim]}</span>;
+                    }
+                    const sum = countSum(dim);
+                    if (sum === null) return null;
+                    if (sum === st.total) {
+                      return <span className="text-caption text-success-700 tabular-nums">合計 {sum}/{st.total} ✓</span>;
+                    }
+                    // 唯讀(已鎖定/結案)顯示描述句而非命令句——舊資料無法就地修改,紅色命令只會製造兩難
+                    return canEdit ? (
+                      <span className="text-caption font-medium text-danger-600 tabular-nums">合計 {sum}/{st.total},須等於題數</span>
+                    ) : (
+                      <span className="text-caption text-on-surface-variant tabular-nums">合計 {sum}/{st.total},與題數不符</span>
+                    );
+                  })()}
                 </div>
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">

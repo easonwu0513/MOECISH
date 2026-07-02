@@ -14,9 +14,6 @@ import {
   History,
   Paperclip,
   FileText,
-  ClipboardCheck,
-  Eye,
-  AlertTriangle,
 } from '@/components/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
@@ -219,41 +216,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ════ 平台服務 ════ */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-4 w-full">
-        <div className="mb-8">
-          <Eyebrow>平台服務</Eyebrow>
-          <h2 className="mt-3 text-headline-lg text-on-surface">稽核全流程,一站完成</h2>
-          <SectionRule />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <ServiceCard
-            icon={<FileText size={20} />}
-            step="01"
-            title="稽核前資料準備"
-            desc="受稽機關線上繳交應備文件,委員逐項確認齊備,實地稽核當天不再翻箱倒櫃。"
-          />
-          <ServiceCard
-            icon={<ClipboardCheck size={20} />}
-            step="02"
-            title="檢核表線上填報"
-            desc="行政院檢核項目逐題作答,每題附稽核依據與應備文件對照,填完一鍵送出。"
-          />
-          <ServiceCard
-            icon={<Eye size={20} />}
-            step="03"
-            title="實地稽核數位化"
-            desc="委員線上評分與輸入發現,系統當日自動彙整成正式報告,即看即印。"
-          />
-          <ServiceCard
-            icon={<AlertTriangle size={20} />}
-            step="04"
-            title="缺失矯正管考"
-            desc="缺失自動開立、矯正填報與佐證上傳、委員審查與逾期提醒,一路追蹤到結案。"
-          />
-        </div>
-      </section>
-
       {/* ════ 最新資訊 ════ */}
       <section id="news" className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full scroll-mt-16">
         <div className="flex items-end justify-between gap-4 mb-8 flex-wrap">
@@ -403,30 +365,6 @@ function Stat({ value, label, sub }: { value: string; label: string; sub: string
       <span className="mx-auto mt-4 block h-0.5 w-8 rounded-full bg-primary-300" aria-hidden />
       <p className="mt-4 text-label text-on-surface uppercase tracking-[0.08em]">{label}</p>
       <p className="mt-1.5 max-w-[22ch] mx-auto text-caption text-on-surface-variant leading-relaxed">{sub}</p>
-    </div>
-  );
-}
-
-function ServiceCard({
-  icon, step, title, desc,
-}: {
-  icon: React.ReactNode;
-  step: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="relative h-full rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-7 transition-colors duration-200 ease-standard hover:border-primary-200 hover:bg-surface-container-low">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-11 h-11 rounded-md bg-primary-50 ring-1 ring-primary-100 text-primary-700 flex items-center justify-center">
-          {icon}
-        </div>
-        <span className="text-display-sm font-semibold text-primary-100 leading-none select-none" aria-hidden>
-          {step}
-        </span>
-      </div>
-      <p className="text-title-md text-on-surface">{title}</p>
-      <p className="mt-2 max-w-[30ch] text-body-sm text-on-surface-variant leading-relaxed">{desc}</p>
     </div>
   );
 }

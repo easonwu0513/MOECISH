@@ -7,6 +7,7 @@ import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
 import { Check, ChevronRight } from '@/components/icons';
 import { ROLE_LABELS, ROLE_TONE, type Role, type JourneyScope } from '@/lib/types';
+import { fmtROC } from '@/lib/date';
 
 export type JourneyClientItem = {
   id: string;
@@ -25,6 +26,9 @@ export type JourneyClientStage = {
   stageKey: string;
   title: string;
   summary: string | null;
+  /** ISO 字串;PROGRAMME 年度 SOP 的開始/截止排程(CYCLE 恆為 null) */
+  startDate?: string | null;
+  dueDate?: string | null;
   items: JourneyClientItem[];
 };
 
@@ -130,6 +134,14 @@ export function JourneyChecklist({
               />
               <span className="flex-1 min-w-0">
                 <span className="text-title-md text-on-surface">{s.title}</span>
+                {/* 排程(PROGRAMME):何時開始做、何時之前要完成 */}
+                {(s.startDate || s.dueDate) && (
+                  <span className="block mt-0.5 text-caption font-medium text-primary-700 tabular-nums">
+                    {s.startDate && <>開始 {fmtROC(s.startDate)}</>}
+                    {s.startDate && s.dueDate && ' · '}
+                    {s.dueDate && <>截止 {fmtROC(s.dueDate)}</>}
+                  </span>
+                )}
                 {s.summary && <span className="block mt-0.5 text-caption text-on-surface-variant">{s.summary}</span>}
               </span>
               {total > 0 ? (
