@@ -34,6 +34,9 @@ export default async function AdminJourneyPage() {
         title: it.title,
         hint: it.hint,
         role: (it.role as Role | null) ?? null,
+        autoKey: it.autoKey,
+        informational: it.informational,
+        href: it.href,
       })),
     }));
   };

@@ -11,7 +11,7 @@
  */
 import { prisma } from '../lib/db';
 
-type SeedItem = { title: string; hint?: string; role?: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'AUDITOR'; autoKey?: string };
+type SeedItem = { title: string; hint?: string; role?: 'SUPER_ADMIN' | 'ORG_ADMIN' | 'AUDITOR'; autoKey?: string; informational?: boolean };
 type SeedStage = { stageKey: string; title: string; summary?: string; items: SeedItem[] };
 type SeedTemplate = { scope: 'CYCLE' | 'PROGRAMME'; title: string; stages: SeedStage[] };
 
@@ -139,7 +139,8 @@ const CYCLE: SeedTemplate = {
       items: [
         { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN', autoKey: 'prep_uploaded' },
         { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
-        { title: '確認資料齊全後按「確定繳交」分別送交各類資料（技術檢測與實地稽核可分次繳交）', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
+        { title: '技術檢測資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted_tech' },
+        { title: '實地稽核資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted_onsite' },
         { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN', autoKey: 'prep_confirmed' },
         { title: '上傳中心匯入區資料並開放委員檢視', hint: '中心自行匯入的補充資料(如技檢報告);上傳後按「開放委員檢視」,委員於資料齊備後可看。', role: 'SUPER_ADMIN', autoKey: 'center_data_released' },
       ],
@@ -150,8 +151,8 @@ const CYCLE: SeedTemplate = {
       summary: '中心安排實地稽核；委員熟悉受稽機關。',
       items: [
         // 「安排實地稽核日期」已併入開立中「設定文件繳交期限與稽核日期」,此階段不再重複
-        { title: '檢視已確認齊備之資料', role: 'AUDITOR' },
-        { title: '檢視資通安全檢核表', role: 'AUDITOR' },
+        { title: '檢視已確認齊備之資料', role: 'AUDITOR', informational: true },
+        { title: '檢視資通安全檢核表', role: 'AUDITOR', informational: true },
       ],
     },
     {
@@ -159,9 +160,9 @@ const CYCLE: SeedTemplate = {
       title: '實地稽核',
       summary: '委員到場查核、評分與記錄稽核發現。',
       items: [
-        { title: '依排定日期到場實地查核', role: 'AUDITOR' },
-        { title: '逐題檢視機關自評檢核表並留審閱註記', role: 'AUDITOR' },
-        { title: '填寫委員評分與稽核發現', role: 'AUDITOR' },
+        { title: '依排定日期到場實地查核', role: 'AUDITOR', informational: true },
+        { title: '逐題檢視機關自評檢核表並留審閱註記', role: 'AUDITOR', informational: true },
+        { title: '填寫委員評分與稽核發現', role: 'AUDITOR', informational: true },
         { title: '留存查核紀錄、稽核結束後彙整缺失', role: 'SUPER_ADMIN', autoKey: 'deficiencies_published' },
       ],
     },
@@ -171,8 +172,8 @@ const CYCLE: SeedTemplate = {
       summary: '中心發布缺失並通知機關開始矯正。',
       items: [
         { title: '以表單或 Excel 發布稽核缺失', role: 'SUPER_ADMIN', autoKey: 'deficiencies_published' },
-        { title: '通知機關開始矯正', role: 'SUPER_ADMIN' },
-        { title: '檢視已發布之缺失內容', role: 'ORG_ADMIN' },
+        { title: '通知機關開始矯正', role: 'SUPER_ADMIN', informational: true },
+        { title: '檢視已發布之缺失內容', role: 'ORG_ADMIN', informational: true },
       ],
     },
     {
@@ -181,9 +182,9 @@ const CYCLE: SeedTemplate = {
       summary: '機關逐項填報改善措施；委員審查；中心追蹤。',
       items: [
         { title: '逐項填報根因分析與改善措施並上傳佐證後送審', role: 'ORG_ADMIN', autoKey: 'remediation_submitted' },
-        { title: '退回項目補正後重新送審', role: 'ORG_ADMIN' },
+        { title: '退回項目補正後重新送審', role: 'ORG_ADMIN', informational: true },
         { title: '逐項審查矯正措施（通過 / 退回附理由）', role: 'AUDITOR', autoKey: 'remediation_reviewed' },
-        { title: '追蹤各機關填報進度、寄送追蹤信', role: 'SUPER_ADMIN' },
+        { title: '追蹤各機關填報進度、寄送追蹤信', role: 'SUPER_ADMIN', informational: true },
       ],
     },
     {
@@ -231,6 +232,7 @@ async function seedTemplate(t: SeedTemplate) {
           hint: it.hint ?? null,
           role: it.role ?? null,
           autoKey: it.autoKey ?? null,
+          informational: it.informational ?? false,
           orderIndex: ii,
         },
       });
@@ -243,11 +245,11 @@ async function seedTemplate(t: SeedTemplate) {
 /**
  * 對「已存在」的 CYCLE 範本做**嚴格附加式**校正(seedTemplate 對已存在範本會略過建立,
  * 故既有 prod 資料需在此依 stageKey + title 比對):
- *  1. autoKey 與程式碼不符 → 更新(冪等)。
- *  2. 程式碼有、DB 缺的項目 → **新增**(附加於該階段末尾)——這正是讓既有 prod
- *     補上後來才加入的委員(AUDITOR)項目(資料齊備「檢視已確認齊備之資料」、
- *     實地稽核三項)的途徑。
- * 絕不刪除、不改既有 title/role/順序 → 不會覆寫後台 /admin/journey 的編輯。
+ *  - 僅「程式碼有、DB 缺的項目 → 新增」(附加於該階段末尾,含 informational)。
+ *  - ⚠️ 不再校正既有項目的 autoKey:自編輯器支援「完成判定」(autoKey/informational/href
+ *    皆可後台編輯)起,這些欄位為編輯器所有;seed 重跑若回寫 autoKey 會默默推翻管理員的
+ *    設定並產生 autoKey+informational 的矛盾態(2026-07 批56 審查 confirmed)。
+ * 絕不刪除、不改既有項目任何欄位 → 不會覆寫後台 /admin/journey 的編輯。
  */
 async function reconcileCycle() {
   const t = await prisma.journeyTemplate.findUnique({
@@ -255,21 +257,14 @@ async function reconcileCycle() {
     include: { stages: { include: { items: true } } },
   });
   if (!t) return;
-  let updated = 0;
   let added = 0;
   for (const s of CYCLE.stages) {
     const stage = t.stages.find((x) => x.stageKey === s.stageKey);
     if (!stage) continue;
     let maxOrder = stage.items.reduce((m, x) => Math.max(m, x.orderIndex), -1);
     for (const it of s.items) {
-      const want = it.autoKey ?? null;
       const dbItem = stage.items.find((x) => x.title === it.title);
-      if (dbItem) {
-        if (dbItem.autoKey !== want) {
-          await prisma.journeyItem.update({ where: { id: dbItem.id }, data: { autoKey: want } });
-          updated++;
-        }
-      } else {
+      if (!dbItem) {
         // 程式碼有、DB 缺 → 附加(不動既有順序)
         await prisma.journeyItem.create({
           data: {
@@ -277,7 +272,8 @@ async function reconcileCycle() {
             title: it.title,
             hint: it.hint ?? null,
             role: it.role ?? null,
-            autoKey: want,
+            autoKey: it.autoKey ?? null,
+            informational: it.informational ?? false,
             orderIndex: ++maxOrder,
           },
         });
@@ -285,7 +281,7 @@ async function reconcileCycle() {
       }
     }
   }
-  if (updated || added) console.log(`[reconcile] CYCLE 更新 autoKey ${updated} 項、補上缺漏 ${added} 項`);
+  if (added) console.log(`[reconcile] CYCLE 補上缺漏 ${added} 項(既有項目一律不動,尊重後台編輯)`);
   else console.log('[reconcile] CYCLE 無需校正');
 }
 

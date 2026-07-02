@@ -84,10 +84,26 @@ export default function PrepBoard({
     setReminding(null);
     if (res && res.ok) {
       const j = await res.json().catch(() => ({}));
-      toast.success('已寄出催繳通知', j.sent ? `已通知 ${j.sent} 位機關管理員` : undefined);
+      notifyRemindResult(j, '催繳');
     } else {
       const j = res ? await res.json().catch(() => ({})) : {};
       toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+    }
+  }
+
+  // 依實際寄送結果提示(sent=實寄/demo 記錄、skipped=24h 內已通知過去重、failed=寄送失敗),避免假成功
+  function notifyRemindResult(j: { sent?: number; skipped?: number; failed?: number }, verb: string) {
+    const sent = j.sent ?? 0;
+    const skipped = j.skipped ?? 0;
+    const failed = j.failed ?? 0;
+    if (sent > 0) {
+      toast.success(`已寄出${verb}通知`, `已通知 ${sent} 位機關管理員${skipped > 0 ? `(${skipped} 位 24 小時內已通知過,未重複寄送)` : ''}`);
+    } else if (skipped > 0) {
+      toast.info(`24 小時內已${verb}過`, '為避免重複轟炸機關,系統未再寄送;如需再次通知請隔日再試,或於「通知 Email」頁手動寄送。');
+    } else if (failed > 0) {
+      toast.error(`${verb}通知寄送失敗`, '請稍後再試,或於「通知 Email」頁確認寄信狀態。');
+    } else {
+      toast.success(`已送出${verb}`);
     }
   }
 
@@ -102,7 +118,7 @@ export default function PrepBoard({
     setRemindingItem(null);
     if (res && res.ok) {
       const j = await res.json().catch(() => ({}));
-      toast.success('已寄出催補通知', j.sent ? `已通知 ${j.sent} 位機關管理員` : undefined);
+      notifyRemindResult(j, '催補');
     } else {
       const j = res ? await res.json().catch(() => ({})) : {};
       toast.error('催補失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
@@ -625,7 +641,7 @@ export default function PrepBoard({
                         {st.requiredUnaddressed.length > 0
                           ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
                           : st.draftCount > 0
-                            ? `${st.draftCount} 項待繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
+                            ? `${st.draftCount} 項已處理、待確定繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
                             : '本區已全部繳交,等待中心審核。'}
                       </p>
                     </div>

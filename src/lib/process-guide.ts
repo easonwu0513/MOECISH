@@ -47,6 +47,8 @@ export type CycleFacts = {
   // 機關區(技術檢測 / 實地稽核,非中心匯入)整體進度 — 精靈「全部完成」判定用(非「任一」)
   mechAllAddressed: boolean;  // 全部已上傳/敘明理由(非 EMPTY)
   mechAllSubmitted: boolean;  // 全部已確定繳交(SUBMITTED 或 CONFIRMED)
+  mechTechAllSubmitted: boolean;   // 技術檢測類全部已繳交(無此類項目視為完成)
+  mechOnsiteAllSubmitted: boolean; // 實地稽核類全部已繳交(無此類項目視為完成)
   mechAllConfirmed: boolean;  // 全部經中心確認齊備(CONFIRMED)
   // 機關區逐狀態計數 — 機關的儀表板/標頭只算自己的項目(扣除中心匯入)
   mechTotal: number;
@@ -108,6 +110,13 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), vie
   const mechInsufficient = mechStatuses.filter((s) => s === 'INSUFFICIENT').length;
   const mechDraft = mechStatuses.filter((s) => s === 'UPLOADED').length;
   const mechRemaining = mechStatuses.filter((s) => s === 'EMPTY').length;
+  // 分類「全部繳交」判定(技術檢測/實地稽核可分次繳交,精靈拆成兩項):該類無項目視為完成(不擋)
+  const catAllSubmitted = (cat: string) => {
+    const sts = c.prepRequirements.filter((r) => r.category === cat).map((r) => r.submission?.status ?? 'EMPTY');
+    return sts.length === 0 || sts.every((s) => s === 'SUBMITTED' || s === 'CONFIRMED');
+  };
+  const mechTechAllSubmitted = catAllSubmitted('TECH');
+  const mechOnsiteAllSubmitted = catAllSubmitted('ONSITE');
 
   const signedUploaded = c.signedReports.length > 0;
   const signedConfirmed = c.signedReports.some((r) => r.confirmedAt);
@@ -124,6 +133,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), vie
     returned, submitted, toFill, passed, total, allPassed,
     prepTotal, prepConfirmed, prepToConfirm, prepDraft, prepInsufficient, prepRemaining, prepAllConfirmed,
     mechAllAddressed, mechAllSubmitted, mechAllConfirmed,
+    mechTechAllSubmitted, mechOnsiteAllSubmitted,
     mechTotal, mechConfirmed, mechInsufficient, mechDraft, mechRemaining,
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),

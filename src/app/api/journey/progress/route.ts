@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireUser, AuthError } from '@/lib/rbac';
+import { requireUser, assertCycleAccess, AuthError } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { canToggleJourneyItem } from '@/lib/journey';
-import type { JourneyScope } from '@/lib/types';
+import { cycleStageReached } from '@/lib/journey-auto';
+import type { JourneyScope, CycleStatus } from '@/lib/types';
 
 const Body = z.object({
   itemId: z.string().min(1),
@@ -37,8 +38,11 @@ export async function POST(req: Request) {
 
     const scope = item.stage.template.scope as JourneyScope; // 以實際 scope 為準
     if (scope !== body.scope) throw new AuthError(400, 'scope 與項目不符');
-    // 週期精靈改為依系統實況自動判定,不接受手動勾選。
-    if (scope === 'CYCLE') throw new AuthError(400, '週期精靈依系統進度自動更新,無法手動勾選');
+    // 系統自動項(autoKey)與純提醒項不接受手動勾選(CYCLE/PROGRAMME 皆同,避免 UI 隱藏但 API 可寫的幽靈進度);
+    // 「必做・手動勾選」項(無 autoKey 且非純提醒,由編輯器設定)開放手動勾選。
+    if (item.autoKey != null || item.informational) {
+      throw new AuthError(400, '此項目由系統自動判定或為純提醒,無法手動勾選');
+    }
     if (!canToggleJourneyItem(user.role, scope, item.role)) {
       throw new AuthError(403, '此項目非您可勾選');
     }
@@ -51,13 +55,28 @@ export async function POST(req: Request) {
       ...(body.note !== undefined ? { note: body.note || null } : {}),
     };
 
-    // 此處 scope 必為 PROGRAMME（CYCLE 已於上方擋下,改為系統自動判定)。
-    if (body.programmeYear == null) throw new AuthError(400, '缺少 programmeYear');
-    const progress = await prisma.journeyProgress.upsert({
-      where: { itemId_programmeYear: { itemId: item.id, programmeYear: body.programmeYear } },
-      create: { itemId: item.id, programmeYear: body.programmeYear, ...fields },
-      update: fields,
-    });
+    let progress;
+    if (scope === 'CYCLE') {
+      // 防跨機關 IDOR:cycleId 必填且須為登入者可存取之週期(assertCycleAccess 內含角色/租戶檢核)
+      if (!body.cycleId) throw new AuthError(400, '缺少 cycleId');
+      const { cycle } = await assertCycleAccess(body.cycleId);
+      // 未到達的階段不可先勾(與週期頁「尚未開放」鎖定一致;避免 ?stage=all 檢視時預勾未來任務)
+      if (!cycleStageReached(item.stage.stageKey, cycle.status as CycleStatus)) {
+        throw new AuthError(400, '該階段尚未開始,無法勾選');
+      }
+      progress = await prisma.journeyProgress.upsert({
+        where: { itemId_cycleId: { itemId: item.id, cycleId: body.cycleId } },
+        create: { itemId: item.id, cycleId: body.cycleId, ...fields },
+        update: fields,
+      });
+    } else {
+      if (body.programmeYear == null) throw new AuthError(400, '缺少 programmeYear');
+      progress = await prisma.journeyProgress.upsert({
+        where: { itemId_programmeYear: { itemId: item.id, programmeYear: body.programmeYear } },
+        create: { itemId: item.id, programmeYear: body.programmeYear, ...fields },
+        update: fields,
+      });
+    }
 
     await writeAuditLog({
       actorId: user.id,

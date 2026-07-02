@@ -43,10 +43,18 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
 
+  // 卡片依「實地稽核日期」排序(近期優先、未設定者最後),方便中心/委員依時程掃讀
+  const byOnsite = [...cycles].sort((a, b) => {
+    const ta = a.onsiteDate ? a.onsiteDate.getTime() : Number.POSITIVE_INFINITY;
+    const tb = b.onsiteDate ? b.onsiteDate.getTime() : Number.POSITIVE_INFINITY;
+    if (ta !== tb) return ta - tb;
+    return b.year - a.year || b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
   // 年度做成頁籤分類(取代標題上的年度);民國年呈現
   const years = [...new Set(cycles.map((c) => c.year))].sort((a, b) => b - a);
   const selYear = searchParams.year && years.includes(Number(searchParams.year)) ? Number(searchParams.year) : null;
-  const shown = selYear ? cycles.filter((c) => c.year === selYear) : cycles;
+  const shown = selYear ? byOnsite.filter((c) => c.year === selYear) : byOnsite;
 
   const yearTab = (active: boolean) =>
     cn(
@@ -97,15 +105,27 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
             const auditorDims = user.role === 'AUDITOR'
               ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
               : [];
-            return (
-              <Link key={c.id} href={`/cycles/${c.id}`}>
-                <Card interactive variant="elevated">
+            // 委員於結案後不可再進入(access-policy cycle.access);清單顯示已結案、卡片鎖定不可點
+            const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+            const card = (
+                <Card interactive={!lockedForAuditor} variant="elevated" className={lockedForAuditor ? 'bg-surface-container-low' : undefined}>
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div className="min-w-0">
                       <p className="text-title text-on-surface truncate" title={c.organization.name}>
                         {orgName}
                       </p>
-                      <p className="text-caption text-on-surface-variant mt-1">
+                      {/* 稽核時程(非文件繳交期限):實地稽核日期為主要識別,做明顯;技術檢測次之 */}
+                      <p className="mt-1 text-body-sm">
+                        {c.onsiteDate ? (
+                          <span className="font-medium text-primary-700 tabular-nums">實地稽核 {fmtROC(c.onsiteDate)}</span>
+                        ) : (
+                          <span className="text-on-surface-variant">實地稽核日期未定</span>
+                        )}
+                        {c.techCheckDate && (
+                          <span className="text-on-surface-variant tabular-nums"> · 技術檢測 {fmtROC(c.techCheckDate)}</span>
+                        )}
+                      </p>
+                      <p className="text-caption text-on-surface-variant mt-0.5">
                         {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
                       {auditorDims.length > 0 && (
@@ -136,8 +156,15 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                   ) : (
                     <p className="text-caption text-on-surface-variant">尚未發布缺失</p>
                   )}
+                  {lockedForAuditor && (
+                    <p className="mt-2 text-caption text-on-surface-variant">本週期已結案,資料已鎖定,委員無法再進入檢視。</p>
+                  )}
                 </Card>
-              </Link>
+            );
+            return lockedForAuditor ? (
+              <div key={c.id} aria-disabled className="cursor-not-allowed">{card}</div>
+            ) : (
+              <Link key={c.id} href={`/cycles/${c.id}`}>{card}</Link>
             );
           })}
         </div>

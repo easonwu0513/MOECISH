@@ -77,6 +77,24 @@ export default async function HomePage() {
   // ── 每週期衍生數據(與週期內頁共用 process-guide) ──
   const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now, user.role === 'AUDITOR' ? user.id : undefined) }));
 
+  // 中心:實地稽核/缺失發布中週期的委員評分完成度(scoreLockedAt),供「今日待辦」的未評分訊號
+  const scoringByCycle = new Map<string, { total: number; scored: number }>();
+  if (user.role === 'SUPER_ADMIN') {
+    const scoringIds = cycles.filter((c) => c.status === 'ONSITE' || c.status === 'REPORT_ISSUED').map((c) => c.id);
+    if (scoringIds.length > 0) {
+      const asgs = await prisma.auditorAssignment.findMany({
+        where: { cycleId: { in: scoringIds } },
+        select: { cycleId: true, scoreLockedAt: true },
+      });
+      for (const a of asgs) {
+        const cur = scoringByCycle.get(a.cycleId) ?? { total: 0, scored: 0 };
+        cur.total += 1;
+        if (a.scoreLockedAt) cur.scored += 1;
+        scoringByCycle.set(a.cycleId, cur);
+      }
+    }
+  }
+
   type Enriched = (typeof enriched)[number];
 
   // ── 全域統計 ──
@@ -142,6 +160,11 @@ export default async function HomePage() {
       }
       if (st === 'PREPARATION' && e.prepAllConfirmed) {
         todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
+      }
+      // 委員未評分:實地稽核起就要盯(影響報告產出與發布缺失);連到報告頁看逐委員狀態/退件
+      const sc = scoringByCycle.get(c.id);
+      if ((st === 'ONSITE' || st === 'REPORT_ISSUED') && sc && sc.scored < sc.total) {
+        todos.push({ key: `${c.id}-score`, tone: 'warning', title: `${org}:${sc.total - sc.scored} 位委員尚未完成評分(${sc.scored}/${sc.total})`, href: `${base}/audit/report`, cta: '去查看' });
       }
       if (st === 'ONSITE') {
         todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
@@ -253,6 +276,50 @@ export default async function HomePage() {
           </section>
           )}
 
+          {/* 中心:今日待辦 —— 逐週期可點擊待辦(原本只算件數不渲染;依緊急度排序,直達對應頁) */}
+          {isSuper && todos.length > 0 && (
+            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">今日待辦 · {todos.length} 件</p>
+                <span className="text-caption text-on-surface-variant">依緊急程度排序</span>
+              </div>
+              <ul className="divide-y divide-outline-variant/50">
+                {todos.slice(0, 8).map((t) => {
+                  // 網格化:院名固定欄 + 動作欄 + CTA 右對齊欄,逐列掃讀更快(窄螢幕退回單行 flex)
+                  const m = t.title.match(/^(.+?)[:：]\s*(.+)$/);
+                  return (
+                    <li key={t.key}>
+                      <Link
+                        href={t.href}
+                        className="group flex items-center gap-3 px-4 py-3 hover:bg-surface-container transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]"
+                      >
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
+                        <span className="sm:hidden min-w-0 flex-1 text-body-sm text-on-surface">{t.title}</span>
+                        {m ? (
+                          <>
+                            <span className="hidden sm:block text-body-sm font-medium text-on-surface truncate" title={m[1]}>{m[1]}</span>
+                            <span className="hidden sm:block min-w-0 text-body-sm text-on-surface-variant truncate">{m[2]}</span>
+                          </>
+                        ) : (
+                          <span className="hidden sm:block sm:col-span-2 min-w-0 text-body-sm text-on-surface truncate">{t.title}</span>
+                        )}
+                        <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 sm:justify-self-end">
+                          {t.cta}
+                          <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {todos.length > 8 && (
+                <div className="px-4 py-2.5 border-t border-outline-variant/60 text-caption text-on-surface-variant">
+                  另有 {todos.length - 8} 件較不緊急的待辦,可由下方「跨院週期總覽」逐院處理。
+                </div>
+              )}
+            </section>
+          )}
+
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
             <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
@@ -285,9 +352,9 @@ export default async function HomePage() {
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
-                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 min-h-11 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
+                          <Link href={n.href} className="group shrink-0 inline-flex items-center justify-end gap-0.5 min-h-11 sm:min-w-[6.5rem] text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
                             {n.cta}
-                            <ChevronRight size={14} />
+                            <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                           </Link>
                         ) : n?.text ? (
                           <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-on-surface-variant">{n.text}</span>
@@ -389,6 +456,29 @@ export default async function HomePage() {
                   const auditorDims = user.role === 'AUDITOR'
                     ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
                     : [];
+                  // 委員於結案後不可再進入(access-policy);列顯示已結案並鎖定
+                  const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+                  if (lockedForAuditor) {
+                    return (
+                      <div
+                        key={c.id}
+                        aria-disabled
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border border-outline-variant/60 border-l-4 bg-surface-container-low px-4 py-3.5 cursor-not-allowed',
+                          border,
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
+                            <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
+                            <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                          </div>
+                          <p className="mt-1 text-caption text-on-surface-variant">本週期已結案,資料已鎖定。</p>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <Link
                       key={c.id}

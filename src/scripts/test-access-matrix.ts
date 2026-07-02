@@ -16,17 +16,17 @@ const NONE: CyclePhase[] = [];
 
 // 預期真值表(規格;與 canAccess 實作彼此獨立,兩者相符才算對)。每格 = 該 surface×role「允許」的階段。
 const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
-  // 委員只在離開「開立中(DRAFT)」後才可見/可進入週期;機關/中心全程
+  // 委員只在離開「開立中(DRAFT)」後才可見/可進入週期;結案後對委員鎖定(2026-07 UAT);機關/中心全程
   'cycle.access': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ALL,
-    AUDITOR: ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+    AUDITOR: ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
   },
-  // 委員一律「資料齊備(READY)」後才可見機關檢核表;機關看自家、中心全程(租戶/指派另由 rbac 管)
+  // 委員一律「資料齊備(READY)」後才可見機關檢核表、結案後鎖定;機關看自家、中心全程(租戶/指派另由 rbac 管)
   'checklist.view': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ALL,
-    AUDITOR: ['READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+    AUDITOR: ['READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
   },
   // 機關填寫/送出檢核表僅限資料準備中;開立中尚不可(避免中心尚未開放就被填報)
   'checklist.orgEdit': {
@@ -40,17 +40,17 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     ORG_ADMIN: ['PREPARATION'],
     AUDITOR: NONE,
   },
-  // 委員實地稽核評分與發現:進入「實地稽核」階段才開放(資料齊備僅供熟悉背景)
+  // 委員實地稽核評分與發現:進入「實地稽核」階段才開放(資料齊備僅供熟悉背景);結案後鎖定
   'audit.score': {
     SUPER_ADMIN: NONE,
     ORG_ADMIN: NONE,
-    AUDITOR: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+    AUDITOR: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
   },
-  // 缺失與矯正管考:中心全程;機關待矯正執行(REMEDIATION)後才填報;委員待缺失發布(REPORT_ISSUED)後可審
+  // 缺失與矯正管考:中心全程;機關待矯正執行(REMEDIATION)後才填報(結案後仍可看自家紀錄);委員待缺失發布後可審、結案後鎖定
   'deficiencies.view': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ['REMEDIATION', 'CLOSED'],
-    AUDITOR: ['REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+    AUDITOR: ['REPORT_ISSUED', 'REMEDIATION'],
   },
   // 用印掃描檔整段:機關/中心於矯正執行中之後可見;委員不參與
   'signedReport.section': {

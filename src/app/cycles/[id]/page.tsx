@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -23,6 +23,7 @@ import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
+import JourneyTodoToggle from './JourneyTodoToggle';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -156,7 +157,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const daysToDue = dueDay ? Math.round((dueDay.getTime() - today.getTime()) / 86400000) : 0;
 
   // 系統提醒(右欄):由當前階段 + 既有資料衍生的待辦訊號(角色相關)
-  const alerts: { tone: 'danger' | 'warning' | 'info'; title: string; desc: string }[] = [];
+  const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
+  // 機關完成時刻:全數缺失矯正通過 → 明確的成功訊號 + 下一步(用印上傳)
+  if (user.role === 'ORG_ADMIN' && stForMod === 'REMEDIATION' && facts.allPassed && total > 0) {
+    alerts.push({ tone: 'success', title: '全數缺失矯正通過!', desc: '請列印改善報告、機關用印後,於「用印報告」上傳並確認繳交。' });
+  }
   if (user.role !== 'AUDITOR' && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
     alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
   }
@@ -204,27 +209,61 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
   // 待辦列渲染(選定階段 / 全部階段共用)
   const renderTodo = (it: JourneyClientItem) => {
-    const row = (
-      <div className="flex items-start gap-3 rounded-xl border border-outline-variant/70 px-3.5 py-3 bg-surface">
-        <span
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
-            it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
-          }`}
-          aria-hidden
-        >
-          {it.done && <Check size={12} />}
-        </span>
-        <div className="min-w-0 flex-1">
+    const content = (
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
           <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
-          {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+          {/* 純提醒項標籤(對齊 JourneyChecklist;也讓輔助科技能區分提醒與任務) */}
+          {it.informational && <Chip size="sm" tone="neutral">提醒</Chip>}
+          {/* 中心視角:標示這項是哪個角色的工作(機關管理員/稽核委員/最高管理員;無標=全體) */}
+          {user.role === 'SUPER_ADMIN' && it.role && (
+            <Chip size="sm" tone={ROLE_TONE[it.role]}>{ROLE_LABELS[it.role]}</Chip>
+          )}
         </div>
-        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant" />}
+        {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+      </div>
+    );
+    // 必做・手動勾選項:勾選框可互動(client),文字區另行連結(避免巢狀互動元素);
+    // 未到達的階段不給互動勾選框(與連結鎖定一致;後端亦擋),落到下方靜態列。
+    if (it.canToggle && !it.lockedStageTitle) {
+      return (
+        <li key={it.id}>
+          <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface">
+            <JourneyTodoToggle itemId={it.id} cycleId={cycle.id} done={it.done} title={it.title} />
+            {it.href && !it.lockedStageTitle ? (
+              <Link href={it.href} className="group flex min-w-0 flex-1 items-start gap-3 focus-ring rounded-md">
+                {content}
+                <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : (
+              content
+            )}
+          </div>
+        </li>
+      );
+    }
+    const row = (
+      <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface transition-colors group-hover:bg-surface-container">
+        {it.informational ? (
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-outline-variant ml-1.5 mr-1.5" aria-hidden />
+        ) : (
+          <span
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+              it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
+            }`}
+            aria-hidden
+          >
+            {it.done && <Check size={12} />}
+          </span>
+        )}
+        {content}
+        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
     );
     return (
       <li key={it.id}>
         {it.href && !it.lockedStageTitle
-          ? <Link href={it.href} className="block focus-ring rounded-xl">{row}</Link>
+          ? <Link href={it.href} className="group block focus-ring rounded-md">{row}</Link>
           : row}
       </li>
     );
@@ -260,10 +299,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     .slice(0, 6)
     .map((l) => ({ id: l.id, who: l.actor?.name ?? '系統', what: ACTIVITY_LABELS[l.action], at: l.createdAt }));
 
-  const alertBox: Record<'danger' | 'warning' | 'info', string> = {
+  const alertBox: Record<'danger' | 'warning' | 'info' | 'success', string> = {
     danger: 'bg-danger-50 border-danger-100',
     warning: 'bg-warning-50 border-warning-100',
     info: 'bg-primary-50 border-primary-100',
+    success: 'bg-success-50 border-success-100',
   };
 
   return (
@@ -289,6 +329,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             <h2 className="mt-2.5 text-headline text-on-surface">{yearROC} 年度資通安全稽核</h2>
             <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">
               {cycle.organization.name}
+              {cycle.techCheckDate && <> · 技術檢測 {fmtROC(cycle.techCheckDate)}</>}
               {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
               {' · '}
               {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日尚未設定'}
@@ -316,7 +357,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               </div>
             )}
             <div className="text-right">
-              <p className="text-[2rem] font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
+              <p className="text-headline-lg font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
               <p className="mt-1 text-caption text-on-surface-variant">流程完成度</p>
             </div>
           </div>
@@ -336,7 +377,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
       {/* 系統建議的下一步 */}
       {bannerNext && bannerNext.text && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-outline-variant border-l-4 border-l-primary-600 bg-surface px-5 py-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-outline-variant/60 border-l-4 border-l-primary-600 bg-surface px-5 py-4">
           <div className="min-w-0">
             <p className="text-caption text-on-surface-variant">系統建議的下一步</p>
             <p className="mt-1 text-title-md font-medium text-on-surface">{bannerNext.text}</p>
@@ -385,7 +426,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                       <div className="mb-2 flex items-center gap-2">
                         <p className="text-title text-on-surface">{stage.title}</p>
                         <span className="text-caption text-on-surface-variant tabular-nums">
-                          {stage.items.filter((it) => it.done).length}/{stage.items.length}
+                          {/* 進度分母排除純提醒項(與卡頭 doneCount/total 同基準,否則含提醒的階段永遠到不了滿) */}
+                          {stage.items.filter((it) => !it.informational && it.done).length}/{stage.items.filter((it) => !it.informational).length}
                         </span>
                         {stage.stageKey === cycle.status && <Chip tone="primary" size="sm" dot>進行中</Chip>}
                       </div>
@@ -502,6 +544,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 分組:報告與匯出(用印掃描檔 + 公文匯出) ── */}
+          {user.role !== 'AUDITOR' && <SectionLabel>報告與匯出</SectionLabel>}
+
           {/* 用印報告(可見性由 access-policy 決定) */}
           {canAccess('signedReport.section', user.role as Role, cycle.status) && (
             <section id="signed-report" className="mb-6 scroll-mt-20">
@@ -564,12 +609,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
+          {/* ── 分組:委員(指派與構面) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel>委員</SectionLabel>}
+
           {/* SUPER_ADMIN:委員指派 */}
           {user.role === 'SUPER_ADMIN' && (
             <div id="assign-auditors" className="scroll-mt-24">
               <AssignAuditorsPanel cycleId={cycle.id} canAssign={canAssignAuditors(cycle.status as CycleStatus)} />
             </div>
           )}
+
+          {/* ── 分組:週期管理(通知機關、推進/回退狀態) ── */}
+          {user.role === 'SUPER_ADMIN' && <SectionLabel>週期管理</SectionLabel>}
 
           {/* SUPER_ADMIN:管理動作 */}
           {user.role === 'SUPER_ADMIN' && (
@@ -595,7 +646,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         {/* 右欄:系統提醒 / 快捷統計 / 最近活動 */}
         <aside className="mt-2 lg:mt-0 lg:sticky lg:top-6 flex flex-col gap-4">
           {/* 系統提醒 */}
-          <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
             <div className="mb-3 flex items-center gap-2">
               <Bell size={16} className="text-on-surface-variant" />
               <h3 className="text-title font-medium text-on-surface">系統提醒</h3>
@@ -605,7 +656,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             ) : (
               <div className="flex flex-col gap-2">
                 {shownAlerts.map((a, i) => (
-                  <div key={i} className={`rounded-xl border px-3.5 py-2.5 ${alertBox[a.tone]}`}>
+                  <div key={i} className={`rounded-md border px-3.5 py-2.5 ${alertBox[a.tone]}`}>
                     <p className="text-body-sm font-medium text-on-surface">{a.title}</p>
                     <p className="mt-0.5 text-caption text-on-surface-variant">{a.desc}</p>
                   </div>
@@ -616,11 +667,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
           {/* 快捷統計 */}
           {quickStats.length > 0 && (
-            <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+            <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
               <h3 className="mb-3 text-title-sm font-medium text-on-surface">快捷統計</h3>
               <div className="grid grid-cols-2 gap-2">
                 {quickStats.map((s) => (
-                  <div key={s.label} className="rounded-xl bg-surface-container-lowest px-3 py-2.5">
+                  <div key={s.label} className="rounded-md bg-surface-container-lowest px-3 py-2.5">
                     <p className="text-caption text-on-surface-variant">{s.label}</p>
                     <p className={`mt-1 text-title-md font-medium tabular-nums ${s.tone === 'success' ? 'text-success-700' : 'text-on-surface'}`}>{s.value}</p>
                   </div>
@@ -630,7 +681,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           )}
 
           {/* 最近活動(稽核軌跡) */}
-          <div className="rounded-2xl border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
             <div className="mb-3 flex items-center gap-2">
               <History size={16} className="text-on-surface-variant" />
               <h3 className="text-title font-medium text-on-surface">最近活動</h3>
@@ -656,6 +707,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+/** 週期頁下半部的分組小標(輕度歸類:報告與匯出 / 委員 / 週期管理),不改功能只加結構 */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 mb-3 flex items-center gap-3">
+      <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant whitespace-nowrap">{children}</h2>
+      <span className="h-px flex-1 bg-outline-variant/50" aria-hidden />
+    </div>
   );
 }
 
@@ -703,17 +764,32 @@ function StatusTile({
   const inner = (
     <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
       <div className="flex items-center gap-2.5">
-        <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+        <div className={`w-9 h-9 rounded-md ${iconBg} flex items-center justify-center shrink-0`}>
           {icon}
         </div>
         <p className="min-w-0 flex-1 text-body-sm font-medium text-on-surface leading-tight">{title}</p>
-        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant" />}
+        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
       {locked ? (
         <p className="mt-3 text-body-sm text-on-surface-variant">🔒 {lockedHint}</p>
       ) : (
         <>
-          <p className={`mt-3 text-title-md font-medium tabular-nums leading-none ${statusColor}`}>{status}</p>
+          {/* n/N 型狀態:大數字 + 小單位分排(排印精緻化);其餘照原樣 */}
+          {(() => {
+            const m = status.match(/^(\d+)\/(\d+)$/);
+            return (
+              <p className={`mt-3 text-title-md font-medium tabular-nums leading-none ${statusColor}`}>
+                {m ? (
+                  <>
+                    {m[1]}
+                    <span className="text-caption font-normal text-on-surface-variant"> /{m[2]}</span>
+                  </>
+                ) : (
+                  status
+                )}
+              </p>
+            );
+          })()}
           {caption && <p className="mt-1.5 text-caption text-on-surface-variant leading-tight">{caption}</p>}
         </>
       )}
@@ -724,7 +800,7 @@ function StatusTile({
     return <div className="block h-full cursor-not-allowed" aria-disabled>{inner}</div>;
   }
   return (
-    <Link href={href} className="block h-full focus-ring rounded-lg">
+    <Link href={href} className="group block h-full focus-ring rounded-lg">
       {inner}
     </Link>
   );

@@ -10,6 +10,7 @@ const Patch = z.object({
   description: z.string().nullable().optional(),
   category: z.enum(['TECH', 'ONSITE', 'CENTER']).optional(),
   required: z.boolean().optional(),
+  year: z.number().int().min(2010).max(2100).nullable().optional(), // 西元;null=通用
 });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -23,6 +24,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         ...(body.description !== undefined ? { description: body.description || null } : {}),
         ...(body.category !== undefined ? { category: body.category } : {}),
         ...(body.required !== undefined ? { required: body.required } : {}),
+        ...(body.year !== undefined ? { year: body.year } : {}),
       },
     });
     await writeAuditLog({

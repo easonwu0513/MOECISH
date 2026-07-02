@@ -116,7 +116,7 @@ export function JourneyChecklist({
         const reminderCount = s.items.length - countable.length; // 純提醒項數(委員「到場查核」等軟性任務)
         const isOpen = open.has(s.stageKey);
         return (
-          <div key={s.id} className="rounded-lg border border-outline-variant/70 bg-surface-container-low overflow-hidden">
+          <div key={s.id} className="rounded-lg border border-outline-variant/60 bg-surface-container-low overflow-hidden">
             <button
               type="button"
               onClick={() => toggleOpen(s.stageKey)}

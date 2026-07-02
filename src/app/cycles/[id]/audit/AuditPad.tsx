@@ -146,6 +146,7 @@ function ScoreSection({
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   // debounce 儲存讀「最新」狀態,避免 setTimeout 捕捉到 stale 快照(連續改多格時漏存)
   const scoresRef = useRef(scores);
@@ -236,6 +237,7 @@ function ScoreSection({
       body: JSON.stringify({ locked: false }),
     });
     setLockBusy(false);
+    setUnlockConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
     toast.success('已解除鎖定', '已通知最高管理員有內容異動,您可再編輯。');
     router.refresh();
@@ -257,6 +259,15 @@ function ScoreSection({
         onConfirm={doConfirmDone}
         loading={lockBusy}
       />
+      <ConfirmDialog
+        open={unlockConfirmOpen}
+        onOpenChange={(o) => !lockBusy && !o && setUnlockConfirmOpen(false)}
+        title="解除鎖定?"
+        description="解除鎖定後,系統會通知最高管理員您的評分/發現有內容異動。請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。"
+        confirmLabel="解除鎖定"
+        onConfirm={unlock}
+        loading={lockBusy}
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
@@ -269,6 +280,16 @@ function ScoreSection({
           {canEdit && (
             <SaveStatus state={saveState === 'saved' ? 'idle' : saveState} dirtyLabel="未儲存" />
           )}
+          {/* 九構面進度點:一眼看出評到哪(已評=實心主色) */}
+          <span className="hidden sm:inline-flex items-center gap-1" aria-label={`九構面已評 ${filledCount} 項`} role="img">
+            {ALL_DIMS.map((d) => (
+              <span
+                key={d}
+                title={DIMENSION_LABELS[d]}
+                className={`h-1.5 w-1.5 rounded-full ${scores[d] !== null && scores[d] !== undefined ? 'bg-primary-600' : 'bg-outline-variant'}`}
+              />
+            ))}
+          </span>
           <Chip tone={filledCount > 0 ? 'primary' : 'neutral'} size="sm">
             已評 {filledCount} 項{filledCount > 0 ? `・小計 ${myTotal} 分` : ''}
           </Chip>
@@ -295,7 +316,7 @@ function ScoreSection({
           {locked && (
             <>
               <Chip tone="success" size="sm" dot>已確認填寫完畢</Chip>
-              <Button size="sm" variant="tonal" onClick={unlock} loading={lockBusy}>解除鎖定</Button>
+              <Button size="sm" variant="tonal" onClick={() => setUnlockConfirmOpen(true)} loading={lockBusy}>解除鎖定</Button>
             </>
           )}
         </div>
@@ -345,8 +366,17 @@ function ScoreSection({
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const v = scores[dim] ?? null;
               const issues = dimIssues[dim] ?? [];
+              // 等第色條:已評分的構面列以左側色條映射等第(優/良/佳/可/待改進),掃一眼即知分佈
+              const GRADE_BAR: Record<string, string> = {
+                success: 'border-l-success-500',
+                sage: 'border-l-sage-500',
+                primary: 'border-l-primary-500',
+                warning: 'border-l-warning-500',
+                danger: 'border-l-danger-500',
+              };
+              const gradeBar = v !== null ? GRADE_BAR[GRADE_TONE[gradeOf(dim, v)]] ?? 'border-l-transparent' : 'border-l-transparent';
               return (
-                <div key={dim} className="border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest px-5 py-3.5">
+                <div key={dim} className={`border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest px-5 py-3.5 border-l-[3px] transition-colors ${gradeBar}`}>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-body text-on-surface">
@@ -360,7 +390,7 @@ function ScoreSection({
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {/* 自繪 −/＋ 級進器:取代原生 number spinner(原生 spinner 點一下會卷動、無法連續按) */}
-                    <div className="inline-flex items-center rounded-md border border-outline-variant bg-surface overflow-hidden">
+                    <div className="inline-flex items-center rounded-md border border-outline-variant bg-surface overflow-hidden transition-colors focus-within:border-primary-400 focus-within:ring-1 focus-within:ring-primary-200">
                       <button
                         type="button"
                         aria-label={`${DIMENSION_LABELS[dim]} 減一分`}

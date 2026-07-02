@@ -110,16 +110,19 @@ export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
 // ════════════════════════════════════════════
 
 // 資料準備狀態機:
-//   EMPTY(未處理) → UPLOADED(待繳交/草稿,機關仍可改) → SUBMITTED(機關「確定繳交」,鎖定) → CONFIRMED(中心確認齊備)
+//   EMPTY(未處理) → UPLOADED(已處理・待確定繳交/草稿,機關仍可改) → SUBMITTED(機關「確定繳交」,鎖定待中心審核) → CONFIRMED(中心確認齊備)
 //   SUBMITTED/CONFIRMED →(中心退回補正)→ INSUFFICIENT(解鎖,機關補正後重新繳交)
 // 機關「已處理」一項 = 有檔案 或 已填「無相關文件理由」(二擇一)。委員僅見 CONFIRMED。
 export const PREP_STATUSES = ['EMPTY', 'UPLOADED', 'SUBMITTED', 'CONFIRMED', 'INSUFFICIENT'] as const;
 export type PrepStatus = (typeof PREP_STATUSES)[number];
 
+// 狀態徽章文案:兩個易錯位的狀態寫全,機關/中心兩端讀起來都正確——
+// UPLOADED 讓機關知道「上傳/敘明完還要按確定繳交」(已處理=有檔或已敘明,見上);
+// SUBMITTED 讓機關知道中心在審、讓中心知道待自己審。
 export const PREP_STATUS_LABELS: Record<PrepStatus, string> = {
   EMPTY: '尚未處理',
-  UPLOADED: '待繳交',
-  SUBMITTED: '已繳交',
+  UPLOADED: '已處理・待確定繳交',
+  SUBMITTED: '已繳交・待中心審核',
   CONFIRMED: '已確認齊備',
   INSUFFICIENT: '已退回',
 };
@@ -153,6 +156,7 @@ export function isCenterCategory(c: string): boolean {
  */
 export function auditorCanSeePrep(status: string, category: string, hasFiles: boolean, cycleStatus: string): boolean {
   if (prepCyclePhaseOpen(cycleStatus)) return false; // DRAFT / PREPARATION 期間一律不開放委員(含中心匯入)
+  if (cycleStatus === 'CLOSED') return false; // 結案後對委員鎖定(對齊 cycle.access;含 evidence 下載端點)
   if (category === 'CENTER') return status === 'CONFIRMED' && hasFiles; // 資料齊備起:中心已開放且有檔
   return status === 'CONFIRMED'; // 資料齊備起:機關區已確認齊備
 }
@@ -269,18 +273,19 @@ export const COMPLIANCE_LABELS: Record<ComplianceLevel, string> = {
   NOT_APPLICABLE: '不適用',
 };
 
-/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色) */
-export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral'> = {
+/** 符合度 → Chip 色調(填報頁與審閱頁共用,確保同符合度同色)。
+ *  不適用=主色藍:它是「刻意作答」的狀態,須與灰色的「未作答」明確區隔(UAT 回報兩者同灰易混淆)。 */
+export const COMPLIANCE_TONE: Record<ComplianceLevel, 'success' | 'warning' | 'danger' | 'neutral' | 'primary'> = {
   COMPLIANT: 'success',
   PARTIALLY_COMPLIANT: 'warning',
   NON_COMPLIANT: 'danger',
-  NOT_APPLICABLE: 'neutral',
+  NOT_APPLICABLE: 'primary',
 };
 
-/** 符合度 → 條狀標示底色(卡片頂條) */
+/** 符合度 → 條狀標示底色(卡片頂條;未作答的頂條為 bg-surface-container-high 灰,不適用須與之區隔) */
 export const COMPLIANCE_BAR: Record<ComplianceLevel, string> = {
   COMPLIANT: 'bg-success-500',
   PARTIALLY_COMPLIANT: 'bg-warning-500',
   NON_COMPLIANT: 'bg-danger-500',
-  NOT_APPLICABLE: 'bg-outline-variant',
+  NOT_APPLICABLE: 'bg-primary-300',
 };

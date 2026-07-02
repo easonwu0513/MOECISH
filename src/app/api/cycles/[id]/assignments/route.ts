@@ -90,10 +90,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   try {
     const user = await requireRole('SUPER_ADMIN');
     const body = PatchBody.parse(await req.json());
+
+    // 名單凍結同樣涵蓋「構面/召集委員」設定:彙整報告的領隊與各構面委員由 assignment 即時導出,
+    // 缺失發布後再改會改寫已發布報告的歷史歸屬(與新增/移除同一凍結閘)。
+    const cycle = await prisma.auditCycle.findUnique({ where: { id: params.id }, select: { status: true } });
+    if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
+    if (!canAssignAuditors(cycle.status as CycleStatus)) {
+      return NextResponse.json(
+        { error: '實地稽核階段已結束,委員名單已凍結,無法再調整負責構面或召集委員' },
+        { status: 409 },
+      );
+    }
+
     const exists = await prisma.auditorAssignment.findUnique({
       where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.auditorId } },
     });
     if (!exists) return NextResponse.json({ error: '該委員未指派此週期' }, { status: 404 });
+    // 定稿保護:委員已「確認填寫完畢」後,其構面歸屬即為報告內容的一部分,不可再改;須先退件解除定稿
+    if (exists.scoreLockedAt) {
+      return NextResponse.json(
+        { error: '該委員已確認填寫完畢(定稿),不可再調整其負責構面/角色。如確需調整,請先於「彙整報告」頁對其「退件」解除定稿' },
+        { status: 409 },
+      );
+    }
 
     // 指派負責構面(去重後存 JSON;空陣列 = 清空,視同全構面)
     if (body.dimensions !== undefined) {
@@ -152,9 +171,46 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const auditorId = url.searchParams.get('auditorId') ?? '';
     if (!auditorId) return NextResponse.json({ error: 'auditorId required' }, { status: 400 });
 
-    await prisma.auditorAssignment.deleteMany({
-      where: { cycleId: params.id, auditorId },
+    const cycle = await prisma.auditCycle.findUnique({
+      where: { id: params.id },
+      select: { status: true },
     });
+    if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
+    // 名單凍結雙向適用:實地稽核結束後(缺失發布中起)不得新增「也不得移除」指派,
+    // 否則稽核紀錄(誰參與本次稽核)可被事後改寫(對齊 POST 新增閘)。
+    if (!canAssignAuditors(cycle.status as CycleStatus)) {
+      // 補救文案須指向狀態機真實存在的路徑:REPORT_ISSUED 唯一回退目標是「開立中」(無回退至實地稽核的邊)
+      return NextResponse.json(
+        { error: '實地稽核階段已結束,委員名單已凍結,無法再移除指派。如確需調整,請將週期回退至「開立中」後處理(重大操作,請審慎)' },
+        { status: 409 },
+      );
+    }
+
+    const assignment = await prisma.auditorAssignment.findUnique({
+      where: { cycleId_auditorId: { cycleId: params.id, auditorId } },
+      select: { scoreLockedAt: true },
+    });
+    if (!assignment) return NextResponse.json({ error: '該委員未被指派於本週期' }, { status: 404 });
+    // 定稿保護:已「確認填寫完畢」(定稿)的委員不可直接移除——移除會刪掉其定稿紀錄、
+    // 並讓「全委員定稿才能完成年度稽核」的閘門失真;須先於彙整報告頁「退件」解除定稿。
+    if (assignment.scoreLockedAt) {
+      return NextResponse.json(
+        { error: '該委員已確認填寫完畢(定稿),不可直接移除。如確需移除,請先於「彙整報告」頁對其「退件」解除定稿後再移除' },
+        { status: 409 },
+      );
+    }
+
+    // 條件式刪除消除 check-then-delete race:委員在檢查與刪除之間按下「確認填寫完畢」時,
+    // 這裡會刪到 0 筆 → 回 409(與上面的定稿保護同語意),不會刪掉剛定稿的指派
+    const deleted = await prisma.auditorAssignment.deleteMany({
+      where: { cycleId: params.id, auditorId, scoreLockedAt: null },
+    });
+    if (deleted.count === 0) {
+      return NextResponse.json(
+        { error: '該委員剛完成定稿,未移除。如確需移除,請先於「彙整報告」頁對其「退件」解除定稿' },
+        { status: 409 },
+      );
+    }
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

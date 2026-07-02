@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 
-/** 待接受邀請的列操作:重寄(效期展延 14 天)/ 撤銷。 */
-export default function InviteRowActions({ inviteId, email }: { inviteId: string; email: string }) {
+/** 邀請列操作:重寄(效期展延 14 天;過期邀請亦可)/ 撤銷(僅待接受)。 */
+export default function InviteRowActions({ inviteId, email, canRevoke = true }: { inviteId: string; email: string; canRevoke?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -46,9 +46,11 @@ export default function InviteRowActions({ inviteId, email }: { inviteId: string
         <Button size="sm" variant="text" onClick={resend} disabled={busy}>
           重寄
         </Button>
-        <Button size="sm" variant="text" className="text-danger-600" onClick={() => setRevokeOpen(true)}>
-          撤銷
-        </Button>
+        {canRevoke && (
+          <Button size="sm" variant="text" className="text-danger-600" onClick={() => setRevokeOpen(true)}>
+            撤銷
+          </Button>
+        )}
       </div>
       <ConfirmDialog
         open={revokeOpen}

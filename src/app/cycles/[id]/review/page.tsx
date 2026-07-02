@@ -229,13 +229,13 @@ export default async function ReviewPage({
                           )}
                         </div>
                         {r?.description && (
-                          <div className="mt-3 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+                          <div className="mt-3 rounded-md bg-surface-container border border-outline-variant/60 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-on-surface-variant mb-1">機關說明(規範內容、執行方式、執行結果)</p>
                             {r.description}
                           </div>
                         )}
                         {r?.recordDocs && (
-                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
+                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/60 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                             <p className="text-caption font-medium text-on-surface-variant mb-1">紀錄文件</p>
                             {r.recordDocs}
                           </div>
@@ -247,7 +247,7 @@ export default async function ReviewPage({
                           </div>
                         )}
                         {r && (evidenceByResponse.get(r.id)?.length ?? 0) > 0 && (
-                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/70 p-3">
+                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/60 p-3">
                             <p className="text-caption font-medium text-on-surface-variant mb-1.5">佐證檔案</p>
                             <ul className="space-y-1">
                               {evidenceByResponse.get(r.id)!.map((e) => (

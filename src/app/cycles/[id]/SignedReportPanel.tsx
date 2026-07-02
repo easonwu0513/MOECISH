@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { FileText, Check } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
@@ -35,6 +36,9 @@ export default function SignedReportPanel({
   const toast = useToast();
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
+  // 不可逆動作改正式確認對話框(取代 window.confirm:易閃過、與全站慣例不一致)
+  const [pendingSubmit, setPendingSubmit] = useState<string | null>(null);
+  const [pendingReturn, setPendingReturn] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/cycles/${cycleId}/signed-reports`);
@@ -70,12 +74,12 @@ export default function SignedReportPanel({
 
   // 機關「確認繳交」→ 鎖定此掃描檔為正式版本 + 通知中心確認
   async function submit(reportId: string) {
-    if (!window.confirm('確認繳交後將鎖定此掃描檔為正式版本,並通知最高管理員確認,之後即不可再更換。確定要繳交嗎?')) return;
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/signed-reports?reportId=${reportId}&action=submit`, {
       method: 'PATCH',
     });
     setBusy(false);
+    setPendingSubmit(null);
     if (res.ok) {
       toast.success('已確認繳交用印掃描檔', '已通知最高管理員確認。');
       await load();
@@ -88,12 +92,12 @@ export default function SignedReportPanel({
 
   // 中心退回:解除鎖定,讓機關可重新上傳/繳交正確版本
   async function returnReport(reportId: string) {
-    if (!window.confirm('退回後將解除此掃描檔的鎖定,機關可重新上傳並繳交正確版本。確定要退回嗎?')) return;
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/signed-reports?reportId=${reportId}&action=return`, {
       method: 'PATCH',
     });
     setBusy(false);
+    setPendingReturn(null);
     if (res.ok) {
       toast.success('已退回用印掃描檔', '已解除鎖定,並站內通知機關重新上傳。');
       await load();
@@ -139,7 +143,7 @@ export default function SignedReportPanel({
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((it) => (
-                <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant px-4 py-3">
+                <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant/60 px-4 py-3">
                   <FileText size={18} className="text-on-surface-variant shrink-0" />
                   <div className="flex-1 min-w-0">
                     <a
@@ -166,7 +170,7 @@ export default function SignedReportPanel({
                         <Chip tone="primary" size="sm" dot>已繳交・待中心確認</Chip>
                       )
                     ) : role === 'ORG_ADMIN' && !locked ? (
-                      <Button size="sm" variant="filled" onClick={() => submit(it.id)} loading={busy} leadingIcon={<Check size={14} />}>
+                      <Button size="sm" variant="filled" onClick={() => setPendingSubmit(it.id)} loading={busy} leadingIcon={<Check size={14} />}>
                         確認繳交
                       </Button>
                     ) : (
@@ -174,7 +178,7 @@ export default function SignedReportPanel({
                     )}
                     {/* 中心退回(解除鎖定):機關已繳交或已確認、且週期未結案時可退回讓機關換版 */}
                     {canConfirm && it.submittedAt && !closed && (
-                      <Button size="sm" variant="text" onClick={() => returnReport(it.id)} loading={busy}>
+                      <Button size="sm" variant="text" onClick={() => setPendingReturn(it.id)} loading={busy}>
                         退回
                       </Button>
                     )}
@@ -205,6 +209,35 @@ export default function SignedReportPanel({
             </p>
           )}
         </div>
+
+        {/* 機關確認繳交(不可逆鎖定):分條列後果 */}
+        <ConfirmDialog
+          open={pendingSubmit !== null}
+          onOpenChange={(o) => !busy && !o && setPendingSubmit(null)}
+          title="確認繳交用印掃描檔"
+          description={
+            <ul className="mt-1 list-disc pl-5 space-y-1.5 text-body-sm text-on-surface-variant">
+              <li>此掃描檔將鎖定為<span className="font-medium text-on-surface">正式繳交版本</span>,不可再更換或重新上傳。</li>
+              <li>系統將以 Email 與站內通知請最高管理員確認,確認後即可結案。</li>
+              <li>如需更換版本,須聯繫中心「退回」解除鎖定後才能重新上傳。</li>
+            </ul>
+          }
+          confirmLabel="確認繳交"
+          onConfirm={() => { if (pendingSubmit) return submit(pendingSubmit); }}
+          loading={busy}
+        />
+
+        {/* 中心退回(解除鎖定) */}
+        <ConfirmDialog
+          open={pendingReturn !== null}
+          onOpenChange={(o) => !busy && !o && setPendingReturn(null)}
+          title="退回用印掃描檔"
+          description="退回後將解除此掃描檔的鎖定,機關可重新上傳並再次「確認繳交」;系統會以站內通知請機關重新處理。"
+          confirmLabel="退回"
+          tone="danger"
+          onConfirm={() => { if (pendingReturn) return returnReport(pendingReturn); }}
+          loading={busy}
+        />
       </Card>
   );
 }
