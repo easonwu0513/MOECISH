@@ -24,6 +24,7 @@ import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
+import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -638,6 +639,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 {rollbacks.map((t) => (
                   <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
                 ))}
+                {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
+                {cycle.status === 'DRAFT' && (
+                  <>
+                    <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />
+                    <DeleteCycleButton
+                      cycleId={cycle.id}
+                      orgName={cycle.organization.shortName ?? cycle.organization.name}
+                      yearROC={yearROC}
+                      redirectTo="/admin/cycles"
+                    />
+                  </>
+                )}
               </div>
             </Card>
           )}

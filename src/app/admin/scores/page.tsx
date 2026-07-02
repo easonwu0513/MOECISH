@@ -52,10 +52,10 @@ export default async function CrossOrgScoresPage({
     .map((c) => {
       const cells = DIMENSION_ORDER.map((dim) => dimAvg(c.auditScores, dim));
       const present = cells.filter((v): v is number => v !== null);
-      const total = present.length === DIMENSION_ORDER.length
-        ? Math.round(present.reduce((a, b) => a + b, 0) * 10) / 10
-        : null;
-      return { id: c.id, org: c.organization.name, yearROC: c.year - 1911, cells, total };
+      // 總分:九構面全評=正式總分;部分評分=已評構面小計(附 * 標註,避免看似未計算/壞掉)
+      const total = present.length ? Math.round(present.reduce((a, b) => a + b, 0) * 10) / 10 : null;
+      const complete = present.length === DIMENSION_ORDER.length;
+      return { id: c.id, org: c.organization.name, yearROC: c.year - 1911, cells, total, complete, scored: present.length };
     });
 
   // 全院各構面平均(找最弱面向)
@@ -130,7 +130,17 @@ export default async function CrossOrgScoresPage({
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-on-surface">{r.total ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-on-surface">
+                      {r.total === null ? (
+                        '—'
+                      ) : r.complete ? (
+                        r.total
+                      ) : (
+                        <span className="text-on-surface-variant font-medium" title={`僅含已評 ${r.scored}/${DIMENSION_ORDER.length} 構面之小計`}>
+                          {r.total}*
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -141,7 +151,14 @@ export default async function CrossOrgScoresPage({
                     <td key={i} className="px-2 py-2.5 text-center tabular-nums">{v ?? '—'}</td>
                   ))}
                   <td className="px-3 py-2.5 text-center tabular-nums">
-                    {colAvg.every((v) => v !== null) ? Math.round(colAvg.reduce((a, b) => a! + b!, 0)! * 10) / 10 : '—'}
+                    {(() => {
+                      const present = colAvg.filter((v): v is number => v !== null);
+                      if (present.length === 0) return '—';
+                      const sum = Math.round(present.reduce((a, b) => a + b, 0) * 10) / 10;
+                      return present.length === colAvg.length
+                        ? sum
+                        : <span className="text-on-surface-variant" title={`僅含已評 ${present.length}/${colAvg.length} 構面之小計`}>{sum}*</span>;
+                    })()}
                   </td>
                 </tr>
               </tfoot>
@@ -152,6 +169,7 @@ export default async function CrossOrgScoresPage({
 
       <p className="mt-4 text-caption text-on-surface-variant">
         註:此為螢幕比較工具;正式分數以各委員附件17 評分表為準。「九」為評核項(AuditScore.dimension),與缺失之三構面(策略/管理/技術)不同軸。
+        帶 * 之總分為「已評構面小計」(尚有構面未評分,九構面全評後即為正式總分)。
       </p>
       <Link href="/admin/cycles" className="mt-2 inline-block text-caption text-primary-700 hover:underline">← 回跨院週期總覽</Link>
     </AppShell>

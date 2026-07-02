@@ -102,6 +102,26 @@ export default function JourneyEditor({ data }: { data: EData }) {
     router.refresh();
   }
 
+  // 階段上移/下移:與相鄰階段交換 orderIndex(影響待辦卡「查看全部」與 /journey 的呈現順序;
+  // 週期頁進度條為週期七狀態的狀態機,不受範本順序影響)
+  async function moveStage(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
+    if (target < 0 || target >= stages.length) return;
+    setBusy(true);
+    const a = stages[idx];
+    const b = stages[target];
+    // 以陣列位置為準重排(既有 orderIndex 可能重複)
+    const r1 = await fetch(`/api/admin/journey/stages/${a.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ orderIndex: target }),
+    });
+    const r2 = await fetch(`/api/admin/journey/stages/${b.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ orderIndex: idx }),
+    });
+    setBusy(false);
+    if (!r1.ok || !r2.ok) { toast.error('調整順序失敗'); return; }
+    router.refresh();
+  }
+
   // ── 項目 ──
   function openAddItem(stageId: string) {
     setItemEditing(null);
@@ -184,7 +204,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
         </Card>
       ) : (
         <div className="flex flex-col gap-4">
-          {stages.map((s) => (
+          {stages.map((s, si) => (
             <Card key={s.id} padded={false} variant="elevated">
               <div className="p-4 border-b border-outline-variant/50 flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -196,6 +216,9 @@ export default function JourneyEditor({ data }: { data: EData }) {
                   {s.summary && <p className="mt-1 text-caption text-on-surface-variant">{s.summary}</p>}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
+                  {/* 階段排序:影響待辦卡「查看全部」與 /journey 呈現順序 */}
+                  <Button size="sm" variant="ghost" disabled={busy || si === 0} onClick={() => moveStage(si, -1)} aria-label={`上移階段 ${s.title}`}>↑</Button>
+                  <Button size="sm" variant="ghost" disabled={busy || si === stages.length - 1} onClick={() => moveStage(si, 1)} aria-label={`下移階段 ${s.title}`}>↓</Button>
                   <Button size="sm" variant="ghost" onClick={() => openEditStage(s)}>編輯</Button>
                   <Button size="sm" variant="text" onClick={() => setStageDeleting(s)}>刪除</Button>
                 </div>
