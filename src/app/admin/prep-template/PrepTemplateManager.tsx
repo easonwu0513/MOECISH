@@ -9,12 +9,13 @@ import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { Segmented } from '@/components/ui/Segmented';
+import { Select } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, FileText } from '@/components/icons';
 import { PREP_CATEGORY_LABELS, type PrepCategory } from '@/lib/types';
 
-type Item = { id: string; title: string; description: string | null; category: string; required: boolean };
+type Item = { id: string; title: string; description: string | null; category: string; required: boolean; year: number | null };
 const GROUP_ORDER: PrepCategory[] = ['TECH', 'ONSITE', 'CENTER'];
 
 export default function PrepTemplateManager({ initialItems }: { initialItems: Item[] }) {
@@ -23,18 +24,29 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
-  const [form, setForm] = useState<{ title: string; description: string; category: PrepCategory; required: boolean }>(
-    { title: '', description: '', category: 'ONSITE', required: true },
+  // year 表單值:'' = 通用;否則西元年字串(顯示為民國)
+  const [form, setForm] = useState<{ title: string; description: string; category: PrepCategory; required: boolean; year: string }>(
+    { title: '', description: '', category: 'ONSITE', required: true, year: '' },
   );
   const [deleting, setDeleting] = useState<Item | null>(null);
+  // 年度頁籤:'all' 全部 / 'generic' 通用 / 各年度(西元字串)
+  const [yearTab, setYearTab] = useState<string>('all');
+
+  // 年度選項:既有年度 ∪ 今明兩年(西元;顯示民國)
+  const thisYear = new Date().getFullYear();
+  const yearOptions = [...new Set([...initialItems.map((i) => i.year).filter((y): y is number => y != null), thisYear, thisYear + 1])].sort((a, b) => b - a);
+  const shownItems = initialItems.filter((i) =>
+    yearTab === 'all' ? true : yearTab === 'generic' ? i.year == null : i.year === Number(yearTab),
+  );
 
   function openAdd() {
-    setForm({ title: '', description: '', category: 'ONSITE', required: true });
+    // 新增預設帶目前頁籤的年度(在某年度頁籤下新增=直覺歸入該年度)
+    setForm({ title: '', description: '', category: 'ONSITE', required: true, year: yearTab !== 'all' && yearTab !== 'generic' ? yearTab : '' });
     setEditing(null);
     setOpen(true);
   }
   function openEdit(it: Item) {
-    setForm({ title: it.title, description: it.description ?? '', category: (it.category || 'ONSITE') as PrepCategory, required: it.required });
+    setForm({ title: it.title, description: it.description ?? '', category: (it.category || 'ONSITE') as PrepCategory, required: it.required, year: it.year != null ? String(it.year) : '' });
     setEditing(it);
     setOpen(true);
   }
@@ -51,6 +63,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         description: form.description.trim() || null,
         category: form.category,
         required: form.required,
+        year: form.year ? Number(form.year) : null,
       }),
     });
     setBusy(false);
@@ -76,11 +89,21 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* 年度頁籤(比照檢核表題庫):通用=每年都帶;各年度=只帶該年週期(同名覆寫通用) */}
+        <Segmented
+          value={yearTab}
+          onChange={(v) => setYearTab(v)}
+          options={[
+            { value: 'all', label: '全部' },
+            { value: 'generic', label: `通用 ${initialItems.filter((i) => i.year == null).length}` },
+            ...yearOptions.map((y) => ({ value: String(y), label: `${y - 1911} 年度 ${initialItems.filter((i) => i.year === y).length}` })),
+          ]}
+        />
         <Button size="sm" leadingIcon={<Plus size={15} />} onClick={openAdd}>新增項目</Button>
       </div>
 
-      {initialItems.length === 0 ? (
+      {shownItems.length === 0 ? (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
             <EmptyState
@@ -93,7 +116,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
       ) : (
         <div className="flex flex-col gap-6">
           {GROUP_ORDER.map((cat) => {
-            const g = initialItems.filter((i) => (i.category || 'ONSITE') === cat);
+            const g = shownItems.filter((i) => (i.category || 'ONSITE') === cat);
             if (g.length === 0) return null;
             return (
               <section key={cat}>
@@ -108,6 +131,9 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-title text-on-surface">{it.title}</p>
+                            {it.year != null
+                              ? <Chip tone="primary" size="sm">{it.year - 1911} 年度</Chip>
+                              : <Chip tone="neutral" size="sm">通用</Chip>}
                             {!it.required && <Chip tone="neutral" size="sm">選附</Chip>}
                           </div>
                           {it.description && (
@@ -153,6 +179,12 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               ]}
             />
           </div>
+          <Select label="適用年度" value={form.year} onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}>
+            <option value="">通用(每年都帶入)</option>
+            {yearOptions.map((y) => (
+              <option key={y} value={String(y)}>{y - 1911} 年度</option>
+            ))}
+          </Select>
           <TextField label="項目名稱" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:資通安全維護計畫" />
           <Textarea label="說明(選填)" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} placeholder="例:最新核定版本" />
           <label className="flex items-center gap-2 text-body-sm text-on-surface">

@@ -32,6 +32,7 @@ const Body = z.object({
   description: z.string().optional(),
   category: z.enum(['TECH', 'ONSITE', 'CENTER']).optional(),
   required: z.boolean().optional(),
+  year: z.number().int().min(2010).max(2100).nullable().optional(), // 西元;null=通用
 });
 
 export async function POST(req: Request) {
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
         description: body.description || null,
         category: body.category ?? 'ONSITE',
         required: body.required ?? true,
+        year: body.year ?? null,
         orderIndex: (max._max.orderIndex ?? -1) + 1,
       },
     });

@@ -293,6 +293,7 @@ model PrepTemplateItem {
   description String?
   required    Boolean @default(true)
   category    String  @default("ONSITE") // 同 PrepCategory(TECH/ONSITE/CENTER)
+  year        Int?    // 年度分類(西元,同 AuditCycle.year;null=通用逐年皆帶)。套用時取「該年度+通用」,年度同名優先
   orderIndex  Int
 }
 

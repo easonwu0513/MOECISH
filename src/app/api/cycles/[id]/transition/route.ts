@@ -101,7 +101,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 確保承辦端永遠有可上傳項目,避免空白頁卡關。失敗不影響狀態轉換本身。
     if (forward && to === 'PREPARATION') {
       try {
-        await ensureStandardPrepItems(cycle.id);
+        await ensureStandardPrepItems(cycle.id, cycle.year);
       } catch (e) {
         console.error('[transition] 自動套用標準資料準備清單失敗:', (e as Error).message);
       }

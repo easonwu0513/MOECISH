@@ -19,13 +19,21 @@ export const STANDARD_PREP_ITEMS: StdPrepItem[] = [
   { title: '資安事件通報紀錄', description: '由中心提供之本年度資安事件通報與處理紀錄', category: 'CENTER' },
 ];
 
-/** 取得標準清單:優先用全域模板(PrepTemplateItem active);模板為空則用內建預設。 */
-export async function getStandardItems(): Promise<StdPrepItem[]> {
+/**
+ * 取得標準清單(年度化):取「通用(year=null)+ 該週期年度(year=cycleYear)」項目,
+ * 年度項與通用項同標題時年度項優先(逐年覆寫);模板全空則用內建預設。
+ */
+export async function getStandardItems(cycleYear: number): Promise<StdPrepItem[]> {
   const tpl = await prisma.prepTemplateItem.findMany({
+    where: { OR: [{ year: null }, { year: cycleYear }] },
     orderBy: { orderIndex: 'asc' },
   });
   if (tpl.length === 0) return STANDARD_PREP_ITEMS;
-  return tpl.map((t) => ({
+  // 年度同名優先:先放年度項,再放未被同標題覆蓋的通用項(維持 orderIndex 相對順序)
+  const yearly = tpl.filter((t) => t.year === cycleYear);
+  const yearlyTitles = new Set(yearly.map((t) => t.title));
+  const generic = tpl.filter((t) => t.year == null && !yearlyTitles.has(t.title));
+  return [...yearly, ...generic].map((t) => ({
     title: t.title,
     description: t.description ?? '',
     category: t.category,
@@ -35,16 +43,16 @@ export async function getStandardItems(): Promise<StdPrepItem[]> {
 
 /**
  * 確保週期具備標準資料準備需求清單(冪等:已存在同標題者略過,並各建一筆空 submission)。
- * 供「套用標準清單」按鈕、與「轉入 PREPARATION 自動套用」共用;清單來源為全域模板(可由中心增刪)。
+ * 供「套用標準清單」按鈕、與「轉入 PREPARATION 自動套用」共用;清單來源為全域模板(可由中心增刪,年度化)。
  */
-export async function ensureStandardPrepItems(cycleId: string): Promise<number> {
+export async function ensureStandardPrepItems(cycleId: string, cycleYear: number): Promise<number> {
   const agg = await prisma.prepRequirement.aggregate({
     where: { cycleId },
     _max: { orderIndex: true },
   });
   let order = (agg._max.orderIndex ?? -1) + 1;
   let created = 0;
-  const items = await getStandardItems();
+  const items = await getStandardItems(cycleYear);
   for (const item of items) {
     const dup = await prisma.prepRequirement.findFirst({ where: { cycleId, title: item.title } });
     if (dup) continue;

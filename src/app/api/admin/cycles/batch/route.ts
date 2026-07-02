@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
       // 套用標準清單(含三區分類,來源為全域模板;模板空則內建後備)
       if (body.applyStandardPrep) {
-        await ensureStandardPrepItems(cycle.id);
+        await ensureStandardPrepItems(cycle.id, cycle.year);
       }
 
       created.push({ organizationId: orgId, name: org.shortName ?? org.name, cycleId: cycle.id });

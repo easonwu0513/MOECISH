@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // ?standard=1 → 一鍵套用標準清單(與「轉入 PREPARATION 自動套用」共用同一冪等函式)
     if (url.searchParams.get('standard') === '1') {
-      const created = await ensureStandardPrepItems(cycle.id);
+      const created = await ensureStandardPrepItems(cycle.id, cycle.year);
       await writeAuditLog({
         actorId: user.id, action: 'PREP_STANDARD_APPLY', entityType: 'AuditCycle',
         entityId: cycle.id, after: { created }, ...meta,
