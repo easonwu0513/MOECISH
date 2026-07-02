@@ -300,6 +300,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             <h2 className="mt-2.5 text-headline text-on-surface">{yearROC} 年度資通安全稽核</h2>
             <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">
               {cycle.organization.name}
+              {cycle.techCheckDate && <> · 技術檢測 {fmtROC(cycle.techCheckDate)}</>}
               {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
               {' · '}
               {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日尚未設定'}
