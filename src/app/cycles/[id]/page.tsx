@@ -156,7 +156,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const daysToDue = dueDay ? Math.round((dueDay.getTime() - today.getTime()) / 86400000) : 0;
 
   // 系統提醒(右欄):由當前階段 + 既有資料衍生的待辦訊號(角色相關)
-  const alerts: { tone: 'danger' | 'warning' | 'info'; title: string; desc: string }[] = [];
+  const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
+  // 機關完成時刻:全數缺失矯正通過 → 明確的成功訊號 + 下一步(用印上傳)
+  if (user.role === 'ORG_ADMIN' && stForMod === 'REMEDIATION' && facts.allPassed && total > 0) {
+    alerts.push({ tone: 'success', title: '全數缺失矯正通過!', desc: '請列印改善報告、機關用印後,於「用印報告」上傳並確認繳交。' });
+  }
   if (user.role !== 'AUDITOR' && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
     alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
   }
@@ -260,10 +264,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     .slice(0, 6)
     .map((l) => ({ id: l.id, who: l.actor?.name ?? '系統', what: ACTIVITY_LABELS[l.action], at: l.createdAt }));
 
-  const alertBox: Record<'danger' | 'warning' | 'info', string> = {
+  const alertBox: Record<'danger' | 'warning' | 'info' | 'success', string> = {
     danger: 'bg-danger-50 border-danger-100',
     warning: 'bg-warning-50 border-warning-100',
     info: 'bg-primary-50 border-primary-100',
+    success: 'bg-success-50 border-success-100',
   };
 
   return (

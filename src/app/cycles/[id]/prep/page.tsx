@@ -7,7 +7,7 @@ import { auditorCanSeePrep, auditorCanSeeCycle, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight } from '@/components/icons';
+import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check } from '@/components/icons';
 import PrepBoard from './PrepBoard';
 
 export default async function PrepPage({ params }: { params: { id: string } }) {
@@ -129,8 +129,21 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             </p>
           </header>
 
+          {/* 完成時刻:全數確認齊備時以完成卡取代讀數格,給承辦人明確的「做完了」儀式感 */}
+          {!isAuditor && total > 0 && confirmed === total && (
+            <div className="mb-5 flex items-center gap-3.5 rounded-lg border border-success-100 bg-success-50 px-4 py-3.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success-600 text-white">
+                <Check size={20} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-title text-success-700">資料全數確認齊備</p>
+                <p className="mt-0.5 text-caption text-on-surface-variant">{total} 項應備資料皆已由中心確認完成;請回工作台查看下一步。</p>
+              </div>
+            </div>
+          )}
+
           {/* 摘要統計(機關/中心):附件處理概況一目了然 */}
-          {!isAuditor && total > 0 && (
+          {!isAuditor && total > 0 && confirmed !== total && (
             <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: '要求項目', value: `${total}`, tone: '' },

@@ -284,18 +284,33 @@ export default async function HomePage() {
                 <span className="text-caption text-on-surface-variant">依緊急程度排序</span>
               </div>
               <ul className="divide-y divide-outline-variant/50">
-                {todos.slice(0, 8).map((t) => (
-                  <li key={t.key}>
-                    <Link href={t.href} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-container transition-colors focus-ring">
-                      <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
-                      <span className="min-w-0 flex-1 text-body-sm text-on-surface">{t.title}</span>
-                      <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
-                        {t.cta}
-                        <ChevronRight size={14} />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
+                {todos.slice(0, 8).map((t) => {
+                  // 網格化:院名固定欄 + 動作欄 + CTA 右對齊欄,逐列掃讀更快(窄螢幕退回單行 flex)
+                  const m = t.title.match(/^(.+?)[:：]\s*(.+)$/);
+                  return (
+                    <li key={t.key}>
+                      <Link
+                        href={t.href}
+                        className="group flex items-center gap-3 px-4 py-3 hover:bg-surface-container transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]"
+                      >
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
+                        <span className="sm:hidden min-w-0 flex-1 text-body-sm text-on-surface">{t.title}</span>
+                        {m ? (
+                          <>
+                            <span className="hidden sm:block text-body-sm font-medium text-on-surface truncate" title={m[1]}>{m[1]}</span>
+                            <span className="hidden sm:block min-w-0 text-body-sm text-on-surface-variant truncate">{m[2]}</span>
+                          </>
+                        ) : (
+                          <span className="hidden sm:block sm:col-span-2 min-w-0 text-body-sm text-on-surface truncate">{t.title}</span>
+                        )}
+                        <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 sm:justify-self-end">
+                          {t.cta}
+                          <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
               {todos.length > 8 && (
                 <div className="px-4 py-2.5 border-t border-outline-variant/60 text-caption text-on-surface-variant">
@@ -337,9 +352,9 @@ export default async function HomePage() {
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
-                          <Link href={n.href} className="shrink-0 inline-flex items-center gap-0.5 min-h-11 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
+                          <Link href={n.href} className="group shrink-0 inline-flex items-center justify-end gap-0.5 min-h-11 sm:min-w-[6.5rem] text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
                             {n.cta}
-                            <ChevronRight size={14} />
+                            <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                           </Link>
                         ) : n?.text ? (
                           <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-on-surface-variant">{n.text}</span>
