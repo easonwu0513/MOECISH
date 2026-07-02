@@ -15,8 +15,10 @@ export type JourneyItemView = {
   hint: string | null;
   role: Role | null;
   orderIndex: number;
-  /** CYCLE 無 autoKey 的「軟性」項(到場查核/逐題檢視…)= 純提醒:不勾選、不計分、不跳轉。 */
+  /** 純提醒項(informational 欄位):不勾選、不計分;可有跳轉。 */
   informational: boolean;
+  /** CYCLE「必做・手動勾選」項(無 autoKey 且非純提醒):完成靠 JourneyProgress 手動勾選。 */
+  manual: boolean;
   done: boolean;
   doneAt: Date | null;
   doneByName: string | null;
@@ -89,17 +91,20 @@ export async function loadJourney(opts: {
     const items: JourneyItemView[] = st.items
       .filter((it) => (role ? it.role == null || it.role === role : true))
       .map((it) => {
-        // CYCLE:依系統實況自動判定(不靠手動勾選);PROGRAMME:沿用手動 JourneyProgress。
+        // 完成判定三型(informational 欄位為 SoT,取代舊「無 autoKey 即純提醒」推導):
+        //   autoKey 非空 → 系統自動;autoKey 空 + informational=false → 必做・手動勾選;informational=true → 純提醒
         if (scope === 'CYCLE') {
-          // 無 autoKey = 無系統訊號可判定的「軟性」任務(到場查核 / 逐題檢視 / 熟悉背景…)
-          // → 純提醒:不顯示勾選框、不計入進度。但仍給快捷跳轉(有對應子頁時),方便委員一點即達。
-          const informational = it.autoKey == null;
-          const sub = cycleId ? journeyItemHref(st.stageKey, it.autoKey, it.title) : null;
+          const informational = it.informational;
+          const manual = !informational && it.autoKey == null;
+          // 跳轉:編輯器覆寫(it.href,''=週期主頁)優先,否則依 autoKey/標題/階段推導
+          const overridden = it.href != null;
+          const sub = cycleId ? (overridden ? it.href : journeyItemHref(st.stageKey, it.autoKey, it.title)) : null;
           const status = autoCtx?.facts.status;
           // 已到達該階段才連結到實際頁面;未到達者不連結,點擊改提示「尚未開放」(避免被導回週期頁誤解為壞掉)
           const reached = status ? cycleStageReached(st.stageKey, status) : true;
-          // 純提醒:僅在有具體子頁(非週期主頁)時才連,避免連回本頁無動作;一般任務維持原行為。
-          const linkable = reached && !!cycleId && (informational ? !!sub : true);
+          // 純提醒:推導值僅在有具體子頁時才連(避免連回本頁無動作);編輯器明示指定(含週期主頁)則尊重。
+          const linkable = reached && !!cycleId && (informational && !overridden ? !!sub : true);
+          const p = it.progress[0];
           return {
             id: it.id,
             title: it.title,
@@ -107,23 +112,30 @@ export async function loadJourney(opts: {
             role: (it.role as Role | null) ?? null,
             orderIndex: it.orderIndex,
             informational,
-            done: !informational && !!autoCtx && autoItemDone(st.stageKey, it.autoKey, autoCtx),
-            doneAt: null,
-            doneByName: null,
+            manual,
+            done: informational
+              ? false
+              : it.autoKey
+                ? !!autoCtx && autoItemDone(st.stageKey, it.autoKey, autoCtx)
+                : !!p?.done,
+            doneAt: manual ? p?.doneAt ?? null : null,
+            doneByName: manual ? p?.doneByName ?? null : null,
             note: null,
             href: linkable ? `/cycles/${cycleId}${sub ?? ''}` : null,
             lockedStageTitle: reached ? null : st.title,
           };
         }
         const p = it.progress[0];
+        const programmeInfo = it.informational;
         return {
           id: it.id,
           title: it.title,
           hint: it.hint,
           role: (it.role as Role | null) ?? null,
           orderIndex: it.orderIndex,
-          informational: false,
-          done: !!p?.done,
+          informational: programmeInfo,
+          manual: !programmeInfo,
+          done: !programmeInfo && !!p?.done,
           doneAt: p?.doneAt ?? null,
           doneByName: p?.doneByName ?? null,
           note: p?.note ?? null,
@@ -186,8 +198,8 @@ export function toClientStages(view: JourneyView, role: Role): JourneyClientStag
       href: it.href,
       informational: it.informational,
       lockedStageTitle: it.lockedStageTitle,
-      // CYCLE 為系統自動判定 → 一律唯讀;PROGRAMME 維持依角色可手動勾選。
-      canToggle: view.scope === 'CYCLE' ? false : canToggleJourneyItem(role, view.scope, it.role),
+      // 系統自動項與純提醒項唯讀;「必做・手動勾選」項(CYCLE/PROGRAMME 皆同)依角色可勾。
+      canToggle: it.manual && canToggleJourneyItem(role, view.scope, it.role),
     })),
   }));
 }

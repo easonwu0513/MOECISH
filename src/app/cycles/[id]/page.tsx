@@ -23,6 +23,7 @@ import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
+import JourneyTodoToggle from './JourneyTodoToggle';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -208,26 +209,54 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
   // 待辦列渲染(選定階段 / 全部階段共用)
   const renderTodo = (it: JourneyClientItem) => {
-    const row = (
-      <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface transition-colors group-hover:bg-surface-container">
-        <span
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
-            it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
-          }`}
-          aria-hidden
-        >
-          {it.done && <Check size={12} />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
-            {/* 中心視角:標示這項是哪個角色的工作(機關管理員/稽核委員/最高管理員;無標=全體) */}
-            {user.role === 'SUPER_ADMIN' && it.role && (
-              <Chip size="sm" tone={ROLE_TONE[it.role]}>{ROLE_LABELS[it.role]}</Chip>
+    const content = (
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
+          {/* 純提醒項標籤(對齊 JourneyChecklist;也讓輔助科技能區分提醒與任務) */}
+          {it.informational && <Chip size="sm" tone="neutral">提醒</Chip>}
+          {/* 中心視角:標示這項是哪個角色的工作(機關管理員/稽核委員/最高管理員;無標=全體) */}
+          {user.role === 'SUPER_ADMIN' && it.role && (
+            <Chip size="sm" tone={ROLE_TONE[it.role]}>{ROLE_LABELS[it.role]}</Chip>
+          )}
+        </div>
+        {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+      </div>
+    );
+    // 必做・手動勾選項:勾選框可互動(client),文字區另行連結(避免巢狀互動元素);
+    // 未到達的階段不給互動勾選框(與連結鎖定一致;後端亦擋),落到下方靜態列。
+    if (it.canToggle && !it.lockedStageTitle) {
+      return (
+        <li key={it.id}>
+          <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface">
+            <JourneyTodoToggle itemId={it.id} cycleId={cycle.id} done={it.done} title={it.title} />
+            {it.href && !it.lockedStageTitle ? (
+              <Link href={it.href} className="group flex min-w-0 flex-1 items-start gap-3 focus-ring rounded-md">
+                {content}
+                <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ) : (
+              content
             )}
           </div>
-          {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
-        </div>
+        </li>
+      );
+    }
+    const row = (
+      <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface transition-colors group-hover:bg-surface-container">
+        {it.informational ? (
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-outline-variant ml-1.5 mr-1.5" aria-hidden />
+        ) : (
+          <span
+            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+              it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
+            }`}
+            aria-hidden
+          >
+            {it.done && <Check size={12} />}
+          </span>
+        )}
+        {content}
         {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
     );
@@ -397,7 +426,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                       <div className="mb-2 flex items-center gap-2">
                         <p className="text-title text-on-surface">{stage.title}</p>
                         <span className="text-caption text-on-surface-variant tabular-nums">
-                          {stage.items.filter((it) => it.done).length}/{stage.items.length}
+                          {/* 進度分母排除純提醒項(與卡頭 doneCount/total 同基準,否則含提醒的階段永遠到不了滿) */}
+                          {stage.items.filter((it) => !it.informational && it.done).length}/{stage.items.filter((it) => !it.informational).length}
                         </span>
                         {stage.stageKey === cycle.status && <Chip tone="primary" size="sm" dot>進行中</Chip>}
                       </div>

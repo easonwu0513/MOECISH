@@ -546,9 +546,12 @@ model JourneyItem {
   title      String
   hint       String?  // 附註 / 文件位置 / 提示
   role       String?  // CYCLE：限定角色（null = 全體）；PROGRAMME：null
-  // CYCLE 專用:此項對應的「系統動作」鍵 → 由 lib/journey-auto.ts 規則依週期實況自動判定完成,
-  // 不靠手動勾選(null = 無對應動作,於當前階段顯示為進行中、階段過了才視為完成)。PROGRAMME 不用。
+  // CYCLE 專用:此項對應的「系統動作」鍵 → 由 lib/journey-auto.ts 規則依週期實況自動判定完成。
+  // 完成判定三型:autoKey 非空=系統自動;autoKey 空+informational=false=必做・手動勾選(JourneyProgress);
+  // informational=true=純提醒(不勾選不計分)。PROGRAMME 的 informational 亦適用。
   autoKey    String?
+  informational Boolean @default(false) // 純提醒項:不顯示勾選框、不計入進度
+  href       String?  // CYCLE 快捷跳轉覆寫(相對週期子路徑或錨點;null=依 journeyItemHref 系統推導)
   orderIndex Int
   progress   JourneyProgress[]
 

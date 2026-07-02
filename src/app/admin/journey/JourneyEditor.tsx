@@ -9,12 +9,25 @@ import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { Segmented } from '@/components/ui/Segmented';
+import { Select } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, CheckCircle } from '@/components/icons';
 import { ROLE_LABELS, JOURNEY_SCOPE_LABELS, type Role, type JourneyScope } from '@/lib/types';
+import { AUTO_KEY_OPTIONS, HREF_OPTIONS } from '@/lib/journey-auto';
 
-type EItem = { id: string; title: string; hint: string | null; role: Role | null };
+type EItem = {
+  id: string; title: string; hint: string | null; role: Role | null;
+  autoKey: string | null; informational: boolean; href: string | null;
+};
+/** 完成判定三型:AUTO=系統自動(綁訊號)、MANUAL=必做・手動勾選、INFO=純提醒(不勾選不計分) */
+type CheckKind = 'AUTO' | 'MANUAL' | 'INFO';
+const kindOf = (it: EItem): CheckKind => (it.autoKey ? 'AUTO' : it.informational ? 'INFO' : 'MANUAL');
+const KIND_OPTS = [
+  { value: 'AUTO', label: '系統自動判定' },
+  { value: 'MANUAL', label: '必做・手動勾選' },
+  { value: 'INFO', label: '純提醒(不勾選)' },
+];
 type EStage = { id: string; stageKey: string; title: string; summary: string | null; items: EItem[] };
 type EData = { CYCLE: EStage[]; PROGRAMME: EStage[] };
 
@@ -41,7 +54,9 @@ export default function JourneyEditor({ data }: { data: EData }) {
   const [itemOpen, setItemOpen] = useState(false);
   const [itemEditing, setItemEditing] = useState<EItem | null>(null);
   const [itemStageId, setItemStageId] = useState('');
-  const [itemForm, setItemForm] = useState({ title: '', hint: '', role: '' });
+  const [itemForm, setItemForm] = useState({ title: '', hint: '', role: '', kind: 'MANUAL' as CheckKind, autoKey: '', href: '' as string });
+  // href 表單值:'__auto__'=系統推導(存 null);''=週期主頁;其餘=子路徑/錨點
+  const HREF_AUTO = '__auto__';
   const [itemDeleting, setItemDeleting] = useState<EItem | null>(null);
 
   const stages = data[scope];
@@ -91,27 +106,46 @@ export default function JourneyEditor({ data }: { data: EData }) {
   function openAddItem(stageId: string) {
     setItemEditing(null);
     setItemStageId(stageId);
-    setItemForm({ title: '', hint: '', role: '' });
+    setItemForm({ title: '', hint: '', role: '', kind: 'MANUAL', autoKey: '', href: HREF_AUTO });
     setItemOpen(true);
   }
   function openEditItem(stageId: string, it: EItem) {
     setItemEditing(it);
     setItemStageId(stageId);
-    setItemForm({ title: it.title, hint: it.hint ?? '', role: it.role ?? '' });
+    setItemForm({
+      title: it.title,
+      hint: it.hint ?? '',
+      role: it.role ?? '',
+      kind: kindOf(it),
+      autoKey: it.autoKey ?? '',
+      href: it.href == null ? HREF_AUTO : it.href,
+    });
     setItemOpen(true);
   }
   async function submitItem() {
     if (itemForm.title.trim().length < 1) { toast.error('請輸入項目內容'); return; }
+    if (scope === 'CYCLE' && itemForm.kind === 'AUTO' && !itemForm.autoKey) {
+      toast.error('請選擇系統訊號', '「系統自動判定」需綁定一個完成訊號');
+      return;
+    }
     setBusy(true);
     const roleVal = scope === 'CYCLE' ? itemForm.role || null : null;
+    // 完成判定 → API 欄位:AUTO=帶 autoKey;MANUAL=兩者皆空;INFO=informational
+    const checkFields = scope === 'CYCLE'
+      ? {
+          autoKey: itemForm.kind === 'AUTO' ? itemForm.autoKey : null,
+          informational: itemForm.kind === 'INFO',
+          href: itemForm.href === HREF_AUTO ? null : itemForm.href,
+        }
+      : { informational: itemForm.kind === 'INFO' };
     const url = itemEditing ? `/api/admin/journey/items/${itemEditing.id}` : '/api/admin/journey/items';
     const res = await fetch(url, {
       method: itemEditing ? 'PATCH' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(
         itemEditing
-          ? { title: itemForm.title.trim(), hint: itemForm.hint.trim() || null, role: roleVal }
-          : { stageId: itemStageId, title: itemForm.title.trim(), hint: itemForm.hint.trim() || null, role: roleVal },
+          ? { title: itemForm.title.trim(), hint: itemForm.hint.trim() || null, role: roleVal, ...checkFields }
+          : { stageId: itemStageId, title: itemForm.title.trim(), hint: itemForm.hint.trim() || null, role: roleVal, ...checkFields },
       ),
     });
     setBusy(false);
@@ -176,6 +210,14 @@ export default function JourneyEditor({ data }: { data: EData }) {
                           {scope === 'CYCLE' && (
                             <Chip tone="neutral" size="sm">{it.role ? ROLE_LABELS[it.role] : '全體'}</Chip>
                           )}
+                          {/* 完成判定型態:系統自動(綁訊號)/必做手動勾/純提醒 */}
+                          {kindOf(it) === 'AUTO' ? (
+                            <Chip tone="primary" size="sm" title={AUTO_KEY_OPTIONS.find((o) => o.key === it.autoKey)?.label}>系統自動</Chip>
+                          ) : kindOf(it) === 'INFO' ? (
+                            <Chip tone="neutral" size="sm">提醒</Chip>
+                          ) : (
+                            <Chip tone="warning" size="sm">手動勾選</Chip>
+                          )}
                         </div>
                         {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant">{it.hint}</p>}
                       </div>
@@ -212,7 +254,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
           <TextField label="階段代碼" value={stageForm.stageKey} onChange={(e) => setStageForm((f) => ({ ...f, stageKey: e.target.value }))} placeholder={scope === 'CYCLE' ? '週期狀態,如 ONSITE' : '如 P2_CONSENSUS'} />
           {scope === 'CYCLE' && (
             <p className="-mt-2 text-caption text-on-surface-variant leading-relaxed">
-              週期精靈請填對應週期狀態(DRAFT / PREPARATION / READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED),才能在週期頁自動展開目前階段。
+              填對應週期狀態(DRAFT / PREPARATION / READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED)可在週期頁自動展開目前階段;也可自訂任意代碼(自訂階段照常顯示於「查看全部」,但不會自動對應目前階段)。
             </p>
           )}
           <Textarea label="階段說明(選填)" value={stageForm.summary} onChange={(e) => setStageForm((f) => ({ ...f, summary: e.target.value }))} rows={2} />
@@ -239,6 +281,39 @@ export default function JourneyEditor({ data }: { data: EData }) {
               <p className="text-caption font-medium text-on-surface-variant mb-1.5">負責角色</p>
               <Segmented value={itemForm.role} onChange={(v) => setItemForm((f) => ({ ...f, role: v }))} options={ROLE_OPTS} />
             </div>
+          )}
+
+          {/* 完成判定:系統自動(綁訊號)/必做手動/純提醒(CYCLE 三選;PROGRAMME 只分手動與提醒) */}
+          <div>
+            <p className="text-caption font-medium text-on-surface-variant mb-1.5">完成判定</p>
+            <Segmented
+              value={itemForm.kind}
+              onChange={(v) => setItemForm((f) => ({ ...f, kind: v as CheckKind }))}
+              options={scope === 'CYCLE' ? KIND_OPTS : KIND_OPTS.filter((o) => o.value !== 'AUTO')}
+            />
+            <p className="mt-1.5 text-caption text-on-surface-variant leading-relaxed">
+              {itemForm.kind === 'AUTO'
+                ? '由系統依週期實況自動打勾(選擇下方訊號)。'
+                : itemForm.kind === 'MANUAL'
+                  ? '需人工確認完成後手動打勾;計入進度。'
+                  : '僅提醒用途:不顯示勾選框、不計入進度。'}
+            </p>
+          </div>
+          {scope === 'CYCLE' && itemForm.kind === 'AUTO' && (
+            <Select label="系統訊號" value={itemForm.autoKey} onChange={(e) => setItemForm((f) => ({ ...f, autoKey: e.target.value }))}>
+              <option value="">選擇完成訊號…</option>
+              {AUTO_KEY_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </Select>
+          )}
+          {scope === 'CYCLE' && (
+            <Select label="快捷跳轉" value={itemForm.href} onChange={(e) => setItemForm((f) => ({ ...f, href: e.target.value }))}>
+              <option value={HREF_AUTO}>系統自動推導(依訊號/標題)</option>
+              {HREF_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
           )}
         </div>
       </Dialog>
