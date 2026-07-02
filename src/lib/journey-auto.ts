@@ -37,6 +37,9 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   // 自評檢核表「填報」以「已送出」為準(checklistSubmitted),非答了任一題就算完成。
   checklist_filled: (c) => c.facts.checklistSubmitted,
   prep_submitted: (c) => c.facts.mechAllSubmitted,
+  // 分類繳交(技術檢測/實地稽核截止日不同,可分次繳交 → 精靈拆兩項;該類無項目視為完成)
+  prep_submitted_tech: (c) => c.facts.mechTechAllSubmitted,
+  prep_submitted_onsite: (c) => c.facts.mechOnsiteAllSubmitted,
   prep_confirmed: (c) => c.facts.mechAllConfirmed,
   onsite_scheduled: (c) => !!c.facts.onsiteDate,
   deficiencies_published: (c) => c.facts.total > 0,
@@ -63,6 +66,8 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
     case 'checklist_filled': return '/checklist';
     case 'prep_uploaded':
     case 'prep_submitted':
+    case 'prep_submitted_tech':
+    case 'prep_submitted_onsite':
     case 'prep_confirmed':
     case 'center_data_released': return '/prep';
     case 'deficiencies_published':

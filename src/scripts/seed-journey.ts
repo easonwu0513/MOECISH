@@ -139,7 +139,8 @@ const CYCLE: SeedTemplate = {
       items: [
         { title: '上傳稽核前資料與佐證（或敘明無相關文件理由）', role: 'ORG_ADMIN', autoKey: 'prep_uploaded' },
         { title: '填報資安自評檢核表', role: 'ORG_ADMIN', autoKey: 'checklist_filled' },
-        { title: '確認資料齊全後按「確定繳交」分別送交各類資料（技術檢測與實地稽核可分次繳交）', role: 'ORG_ADMIN', autoKey: 'prep_submitted' },
+        { title: '技術檢測資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted_tech' },
+        { title: '實地稽核資料齊全後按「確定繳交」送交中心', role: 'ORG_ADMIN', autoKey: 'prep_submitted_onsite' },
         { title: '逐項確認機關繳交資料齊備或退回補正', role: 'SUPER_ADMIN', autoKey: 'prep_confirmed' },
         { title: '上傳中心匯入區資料並開放委員檢視', hint: '中心自行匯入的補充資料(如技檢報告);上傳後按「開放委員檢視」,委員於資料齊備後可看。', role: 'SUPER_ADMIN', autoKey: 'center_data_released' },
       ],

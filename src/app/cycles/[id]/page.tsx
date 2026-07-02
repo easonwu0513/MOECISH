@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -219,7 +219,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           {it.done && <Check size={12} />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
+            {/* 中心視角:標示這項是哪個角色的工作(機關管理員/稽核委員/最高管理員;無標=全體) */}
+            {user.role === 'SUPER_ADMIN' && it.role && (
+              <Chip size="sm" tone={ROLE_TONE[it.role]}>{ROLE_LABELS[it.role]}</Chip>
+            )}
+          </div>
           {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
         </div>
         {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}

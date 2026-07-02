@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
@@ -20,6 +21,8 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
   const [auditors, setAuditors] = useState<Auditor[]>([]);
   const [pick, setPick] = useState('');
   const [busy, setBusy] = useState(false);
+  // 移除指派為不可逆(刪除指派紀錄含負責構面/定稿狀態)→ 正式確認對話框防誤刪
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
 
   async function load() {
     const res = await fetch(`/api/cycles/${cycleId}/assignments`);
@@ -87,6 +90,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
       const res = await fetch(`/api/cycles/${cycleId}/assignments?auditorId=${auditorId}`, {
         method: 'DELETE',
       });
+      setPendingRemove(null);
       if (res.ok) {
         toast.success('已移除指派');
         await load();
@@ -149,7 +153,7 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(a.auditor.id)}
+                    onClick={() => setPendingRemove({ id: a.auditor.id, name: a.auditor.name })}
                     disabled={busy}
                     className="ml-auto shrink-0 text-caption text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
                     aria-label={`移除 ${a.auditor.name}`}
@@ -182,6 +186,22 @@ export default function AssignAuditorsPanel({ cycleId, canAssign }: { cycleId: s
           </p>
         )}
       </div>
+
+      {/* 移除指派確認(防誤刪):對齊全站不可逆動作一律 ConfirmDialog 的慣例 */}
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        onOpenChange={(o) => !busy && !o && setPendingRemove(null)}
+        title="移除委員指派"
+        description={
+          pendingRemove
+            ? `移除後「${pendingRemove.name}」將立即失去本週期的檢視與審查權限;其負責構面與定稿狀態的指派紀錄將一併刪除(已填寫的評分與稽核發現紀錄保留)。如僅需調整負責構面,直接點選構面即可,不必移除。確定要移除嗎?`
+            : undefined
+        }
+        confirmLabel="移除"
+        tone="danger"
+        onConfirm={() => { if (pendingRemove) return remove(pendingRemove.id); }}
+        loading={busy}
+      />
     </Card>
   );
 }
