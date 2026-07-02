@@ -21,8 +21,8 @@ export default function GlobalError({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f6f8fb',
-          color: '#0f151e',
+          background: '#f7f8fa',
+          color: '#1a2332',
           fontFamily: "system-ui, -apple-system, 'Microsoft JhengHei', 'PingFang TC', sans-serif",
           padding: 24,
         }}
@@ -56,7 +56,7 @@ export default function GlobalError({
             </svg>
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 8px' }}>系統發生嚴重錯誤</h1>
-          <p style={{ fontSize: 14, color: '#475060', margin: '0 0 20px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 14, color: '#57647a', margin: '0 0 20px', lineHeight: 1.6 }}>
             很抱歉，系統暫時無法顯示此頁。請重新整理，若持續發生請聯絡平台管理員。
           </p>
           <button
@@ -66,7 +66,7 @@ export default function GlobalError({
               padding: '0 20px',
               borderRadius: 9999,
               border: 'none',
-              background: '#2852a0',
+              background: '#2b57a6',
               color: '#fff',
               fontSize: 14,
               fontWeight: 500,
