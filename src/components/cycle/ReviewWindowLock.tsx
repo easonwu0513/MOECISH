@@ -11,18 +11,22 @@ export function ReviewWindowLockNotice({
   state,
   start,
   end,
+  stageEnded = false,
 }: {
   state: ReviewWindowState; // 'before' | 'after' | 'unset'(open 不會渲染此元件)
   start: Date | string | null;
   end: Date | string | null;
+  /** 實地稽核階段已結束(缺失發布起):優先顯示「稽核已結束」而非「未設定/尚未開始」(UAT 批69,合乎階段情境) */
+  stageEnded?: boolean;
 }) {
-  const msg =
-    state === 'before'
+  const msg = stageEnded
+    ? '實地稽核階段已結束,已不在委員審閱時段,不再開放檢視機關資料;如需再次檢視,請洽中心。'
+    : state === 'before'
       ? `委員審閱時段為 ${fmtROCDateTime(start)} 起;目前尚未開始,暫不開放檢視機關資料。`
       : state === 'after'
         ? `委員審閱時段至 ${fmtROCDateTime(end)} 止;審閱期已結束,不再開放檢視機關資料。`
         : '中心尚未設定委員審閱時間區間,暫未開放檢視機關資料;請洽中心設定審閱時段。';
-  const title = state === 'after' ? '審閱期已結束' : state === 'before' ? '審閱尚未開始' : '審閱尚未開放';
+  const title = stageEnded ? '非委員審閱時段' : state === 'after' ? '審閱期已結束' : state === 'before' ? '審閱尚未開始' : '審閱尚未開放';
   return (
     <Card variant="outlined">
       <div className="flex flex-col items-center text-center gap-3 py-12 px-6">

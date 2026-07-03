@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { auditorCanViewChecklistContent, auditorReviewWindowState, checklistOrgCanEdit, type Dimension } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorReviewWindowState, checklistOrgCanEdit, onsiteStageEnded, type Dimension } from '@/lib/types';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import ChecklistShell from './ChecklistShell';
 
@@ -57,7 +57,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
         ]}
       >
         <header className="mb-5"><h1 className="text-headline text-on-surface">資通安全檢核表</h1></header>
-        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
       </AppShell>
     );
   }

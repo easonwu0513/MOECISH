@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, onsiteStageEnded, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
@@ -73,7 +73,7 @@ export default async function ReviewPage({
         <header className="mb-5">
           <h1 className="text-headline text-on-surface">委員審閱</h1>
         </header>
-        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
       </AppShell>
     );
   }

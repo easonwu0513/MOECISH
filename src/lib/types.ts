@@ -222,6 +222,12 @@ export function auditorReviewWindowOpen(
   return now.getTime() >= s.getTime() && now.getTime() <= e.getTime();
 }
 
+/** 實地稽核階段是否已結束(缺失發布起):委員審閱窗口的鎖定提示於此後改顯
+ *  「實地稽核階段已結束,非審閱時段」——此時再提「中心尚未設定審閱時段」已不合情境(稽核已結束,無需再設)。 */
+export function onsiteStageEnded(cycleStatus: string): boolean {
+  return cycleStatus === 'REPORT_ISSUED' || cycleStatus === 'REMEDIATION' || cycleStatus === 'CLOSED';
+}
+
 /** 委員審閱窗口狀態(供 UI 顯示「尚未開始 / 已結束 / 未設定」的鎖定提示訊息)。 */
 export type ReviewWindowState = 'open' | 'before' | 'after' | 'unset';
 export function auditorReviewWindowState(

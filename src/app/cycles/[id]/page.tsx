@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, auditorReviewWindowState, onsiteStageEnded, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -123,8 +123,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/檢核表卡對委員鎖定+提示原因
   const reviewState = user.role === 'AUDITOR' ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
   const reviewLocked = reviewState !== 'open';
-  const reviewLockHint =
-    reviewState === 'before' ? '委員審閱時段尚未開始' : reviewState === 'after' ? '委員審閱時段已結束' : '中心尚未設定委員審閱時段';
+  // 實地稽核已結束(缺失發布起):改顯「實地稽核階段已結束,非審閱時段」——此時再提「未設定」不合情境(UAT 批69)
+  const reviewLockHint = onsiteStageEnded(cycle.status)
+    ? '實地稽核階段已結束,非審閱時段'
+    : reviewState === 'before' ? '委員審閱時段尚未開始' : reviewState === 'after' ? '委員審閱時段已結束' : '中心尚未設定委員審閱時段';
 
   // 階段聚焦:只有「當前階段相關」的入口維持高亮,其餘降權(仍可點),讓現在該做的最突出
   const stForMod = cycle.status as CycleStatus;

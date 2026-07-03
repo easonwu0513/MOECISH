@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep, auditorCanSeeCycle, auditorReviewWindowState, type Role } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle, auditorReviewWindowState, onsiteStageEnded, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
@@ -204,7 +204,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
           {isAuditor && reviewLocked ? (
             // 審閱時間區間閘(UAT 批67):不在窗口內→顯鎖定卡,不渲染任何機關資料
-            <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+            <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
           ) : isAuditor && visibleRequirements.length === 0 ? (
             <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
               目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
