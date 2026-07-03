@@ -20,8 +20,9 @@ export const STANDARD_PREP_ITEMS: StdPrepItem[] = [
 ];
 
 /**
- * 取得標準清單(年度化):取「通用(year=null)+ 該週期年度(year=cycleYear)」項目,
- * 年度項與通用項同標題時年度項優先(逐年覆寫);模板全空則用內建預設。
+ * 取得標準清單(年度化):取該週期年度(year=cycleYear)的項目;該年全空則用內建預設。
+ * 批70 起廢除「通用」概念(每年清單=代入上一年再小幅修正;year=null 已由遷移腳本改為年度項);
+ * 查詢仍向後相容納入 year=null(同名年度項優先),讓未跑遷移的環境行為不變。
  */
 export async function getStandardItems(cycleYear: number): Promise<StdPrepItem[]> {
   const tpl = await prisma.prepTemplateItem.findMany({
