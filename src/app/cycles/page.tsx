@@ -36,7 +36,7 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     where,
     include: {
       organization: true,
-      deficiencies: { select: { id: true, action: { select: { status: true } } } },
+      deficiencies: { select: { id: true, reviewerAuditorId: true, action: { select: { status: true } } } },
       // 委員視角:帶出本人於各週期受指派的構面(卡片標註負責構面);其他角色查無、回空陣列
       assignments: { where: { auditorId: user.id }, select: { dimensions: true } },
     },
@@ -99,8 +99,12 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {shown.map((c) => {
-            const total = c.deficiencies.length;
-            const passed = c.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
+            // 委員的卡片「矯正通過 X/Y」只計指派給本人審閱的缺失(UAT 批66,與週期頁/清單頁一致);中心/機關看全部
+            const cardDefs = user.role === 'AUDITOR'
+              ? c.deficiencies.filter((d) => d.reviewerAuditorId === user.id)
+              : c.deficiencies;
+            const total = cardDefs.length;
+            const passed = cardDefs.filter((d) => d.action?.status === 'PASSED').length;
             const orgName = c.organization.shortName?.trim() || c.organization.name;
             const auditorDims = user.role === 'AUDITOR'
               ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])

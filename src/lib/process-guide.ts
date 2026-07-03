@@ -76,17 +76,18 @@ export function fmtMD(d: Date | null | undefined): string | null {
 }
 
 export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), viewerAuditorId?: string): CycleFacts {
-  const count = (s: string) =>
-    c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === s).length;
+  // 委員視角(傳 viewerAuditorId):所有缺失衍生事實(待審/待填/退回/通過/總數/全通過)只計「指派給本人審閱」者
+  // (reviewer-aware);其餘角色(不傳)計全部,語意不變。UAT 批66:委員的儀表板 CTA/週期頁橫幅/建議下一步
+  // 皆須與缺失卡/構面進度同基準(只看自己審閱的缺失),否則會出現「自己 2/2 全通過」卻「等機關送審」的矛盾。
+  const defs = viewerAuditorId
+    ? c.deficiencies.filter((d) => d.reviewerAuditorId === viewerAuditorId)
+    : c.deficiencies;
+  const count = (s: string) => defs.filter((d) => (d.action?.status ?? 'PENDING') === s).length;
   const returned = count('RETURNED');
-  // 委員視角(傳 viewerAuditorId):待審(submitted)只計「指派給本人審閱」的送審缺失(reviewer-aware);
-  // 其餘角色(不傳)計全部,語意不變。避免委員在首頁/儀表板 CTA 看到非自己負責審的膨脹待審數。
-  const submitted = viewerAuditorId
-    ? c.deficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED' && d.reviewerAuditorId === viewerAuditorId).length
-    : count('SUBMITTED');
+  const submitted = count('SUBMITTED');
   const toFill = count('PENDING') + count('DRAFT');
   const passed = count('PASSED');
-  const total = c.deficiencies.length;
+  const total = defs.length;
   const allPassed = total > 0 && passed === total;
 
   const prepTotal = c.prepRequirements.length;

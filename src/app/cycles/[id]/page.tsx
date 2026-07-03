@@ -62,7 +62,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     include: {
       organization: true,
       assignments: { include: { auditor: { select: { name: true } } } },
-      deficiencies: { include: { action: { select: { id: true, status: true } } } },
+      deficiencies: { select: { id: true, aspect: true, reviewerAuditorId: true, action: { select: { id: true, status: true } } } },
       prepRequirements: { include: { submission: { select: { status: true } } } },
       signedReports: { select: { id: true, submittedAt: true, confirmedAt: true } },
       checklistVersion: { select: { _count: { select: { items: true } } } },
@@ -81,17 +81,24 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     ? parseAssignDimensions(myAssignment.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
     : [];
 
-  const total = cycle.deficiencies.length;
-  const byStatus = (s: string) => cycle.deficiencies.filter((d) => d.action?.status === s).length;
+  // 委員只見「指派給本人審閱」的缺失(UAT 批66:狀態卡/構面矯正進度/快捷統計皆以此為基準,不看其他委員的缺失);
+  // 中心/機關看全部。與缺失清單頁 myDeficiencies 同規則(reviewerAuditorId===本人)。
+  const myDeficiencies =
+    user.role === 'AUDITOR'
+      ? cycle.deficiencies.filter((d) => d.reviewerAuditorId === user.id)
+      : cycle.deficiencies;
+
+  const total = myDeficiencies.length;
+  const byStatus = (s: string) => myDeficiencies.filter((d) => d.action?.status === s).length;
   const passed = byStatus('PASSED');
   const submitted = byStatus('SUBMITTED');
   const returned = byStatus('RETURNED');
   const pendingCount = total - passed - submitted - returned ? total - passed - submitted - returned : 0;
 
-  // 構面數據資訊:各稽核構面(策略/管理/技術)的缺失矯正通過進度(逐構面 passed/total)
+  // 構面數據資訊:各稽核構面(策略/管理/技術)的缺失矯正通過進度(逐構面 passed/total;委員限本人審閱範圍)
   const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
   const aspectProgress = ASPECTS.map((asp) => {
-    const items = cycle.deficiencies.filter((d) => d.aspect === asp);
+    const items = myDeficiencies.filter((d) => d.aspect === asp);
     return { asp, passed: items.filter((d) => d.action?.status === 'PASSED').length, total: items.length };
   });
 
@@ -300,8 +307,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
   // 最近活動:本週期相關實體的稽核軌跡(白名單動作→中文);entityId 皆屬本週期,不跨租戶
   const assignmentIds = cycle.assignments.map((a) => a.id);
-  const deficiencyIds = cycle.deficiencies.map((d) => d.id);
-  const actionIds = cycle.deficiencies.map((d) => d.action?.id).filter((x): x is string => Boolean(x));
+  // 委員的活動流限本人審閱範圍的缺失(myDeficiencies),不觸及他人缺失的軌跡
+  const deficiencyIds = myDeficiencies.map((d) => d.id);
+  const actionIds = myDeficiencies.map((d) => d.action?.id).filter((x): x is string => Boolean(x));
   const signedReportIds = cycle.signedReports.map((r) => r.id);
   const rawLogs = await prisma.auditLog.findMany({
     where: {

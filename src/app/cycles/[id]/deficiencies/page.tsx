@@ -72,24 +72,26 @@ export default async function DeficienciesPage({
     STRATEGY: '一', MANAGEMENT: '二', TECHNICAL: '三',
   };
 
-  const total = cycle.deficiencies.length;
-  const passed = cycle.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
-  const returned = cycle.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
-  // 連續審查:委員只計/進入「指派給本人審閱」的送審缺失;中心(SUPER_ADMIN)可審全部送審。
-  // reviewer-aware,對齊詳情頁 canReview 與 review API 授權,避免膨脹待審數或導向不可審之缺失。
-  const reviewable = cycle.deficiencies.filter(
-    (d) =>
-      (d.action?.status ?? 'PENDING') === 'SUBMITTED' &&
-      (user.role !== 'AUDITOR' || d.reviewerAuditorId === user.id),
-  );
+  // 委員只見「指派給本人審閱」的缺失(UAT 批66:不看其他委員/全體的缺失);中心/機關看全部(機關本就同院)。
+  // reviewer-aware 一致於詳情頁 canReview、review API 授權與連續審查——清單/計數/篩選全以此為基準,不再膨脹。
+  const myDeficiencies =
+    user.role === 'AUDITOR'
+      ? cycle.deficiencies.filter((d) => d.reviewerAuditorId === user.id)
+      : cycle.deficiencies;
+
+  const total = myDeficiencies.length;
+  const passed = myDeficiencies.filter((d) => d.action?.status === 'PASSED').length;
+  const returned = myDeficiencies.filter((d) => d.action?.status === 'RETURNED').length;
+  // 連續審查:送審中且屬本人可見範圍(myDeficiencies 已 reviewer-aware);中心可審全部送審。
+  const reviewable = myDeficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
   const firstReviewable = reviewable[0];
   const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
 
-  // 套用狀態篩選
+  // 套用狀態篩選(基準=本人可見缺失)
   const statusOf = (d: (typeof cycle.deficiencies)[number]) => (d.action?.status ?? 'PENDING') as ActionStatus;
   const activeFilter = FILTERS.find((f) => f.key === (searchParams.status ?? 'all')) ?? FILTERS[0];
-  const filtered = cycle.deficiencies.filter((d) => activeFilter.match(statusOf(d)));
-  const countOf = (f: (typeof FILTERS)[number]) => cycle.deficiencies.filter((d) => f.match(statusOf(d))).length;
+  const filtered = myDeficiencies.filter((d) => activeFilter.match(statusOf(d)));
+  const countOf = (f: (typeof FILTERS)[number]) => myDeficiencies.filter((d) => f.match(statusOf(d))).length;
 
   return (
     <AppShell
@@ -161,7 +163,9 @@ export default async function DeficienciesPage({
               description={
                 user.role === 'SUPER_ADMIN'
                   ? '使用右上角「新增缺失」逐筆建立，或「Excel 匯入」一次帶入教育部範本。'
-                  : EMPTY.noDeficiencies.description
+                  : user.role === 'AUDITOR'
+                    ? '目前沒有指派給您審閱的缺失;其他委員負責審閱的缺失不會顯示於此。'
+                    : EMPTY.noDeficiencies.description
               }
             />
           </div>

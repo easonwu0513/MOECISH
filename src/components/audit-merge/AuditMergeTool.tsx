@@ -339,9 +339,11 @@ export function AuditMergeTool({
           table { width: 100%; border-collapse: collapse; }
           td { vertical-align: top; text-align: justify; padding-bottom: 6pt; }
           .finding-list { margin-left: 0 !important; padding-left: 0 !important; list-style-type: decimal; }
-          /* Word 匯出「稽核發現」段落設定:目標 = 使用者實機段落對話框(左縮排 3.4cm、凸排 0.63cm、左右對齊、最小行高 24pt)。
-             ⚠️ Word 匯入 HTML 編號清單時會自動加 +1.27cm(0.5")清單縮排,故 li margin-left 須設 2.13cm(=3.4-1.27)才會在 Word 顯示為左縮排 3.4cm;經 Word COM round-trip 實測 1~12 項皆得 左3.40/首行-0.63/左右對齊。勿改回 3.4cm(會變 4.67cm)。 */
-          .finding-item { margin-left: 2.13cm !important; text-indent: -0.63cm !important; text-align: justify; padding-left: 0 !important; }
+          /* Word 匯出「稽核發現」段落設定:目標 = 左縮排 3.4cm、凸排 0.63cm(首行落 2.77cm)、左右對齊、最小行高 24pt。
+             批66 修:批26 曾假設 Word 匯入 HTML 編號清單會自動加 +1.27cm 偏移,故設 li 2.13cm 期望顯示 3.4cm;
+             但使用者實機 Word 未套用該偏移,匯出後段落只落在 ~1.5cm(=2.13-0.63 首行)→ 與瀏覽器列印(audit-merge.css
+             直接 3.4cm)不一致。改為與列印路徑相同的 3.4cm 字面值,不再依賴版本相依的清單偏移補償。 */
+          .finding-item { margin-left: 3.4cm !important; text-indent: -0.63cm !important; text-align: justify; padding-left: 0 !important; }
         </style>
       </head>
       <body>

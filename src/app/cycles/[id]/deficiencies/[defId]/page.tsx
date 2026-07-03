@@ -54,6 +54,9 @@ export default async function DeficiencyDetailPage({
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員只可檢視/審核「指派給本人審閱」的缺失(UAT 批66:不得以 URL 開他人審閱之缺失詳情);
+  // 未指派審閱委員(reviewerAuditorId=null)之缺失,任一委員皆不可見(對齊清單/計數的 reviewer-aware 過濾)。
+  if (user.role === 'AUDITOR' && deficiency.reviewerAuditorId !== user.id) redirect(`/cycles/${params.id}/deficiencies`);
 
   const action = deficiency.action;
   const status = (action?.status ?? 'PENDING') as ActionStatus;
@@ -181,9 +184,15 @@ export default async function DeficiencyDetailPage({
   const nextDef = after ?? matching[0] ?? null;
   const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
 
-  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點,所有角色皆可用)
-  const prevDefNav = myIdx > 0 ? siblings[myIdx - 1] : null;
-  const nextDefNav = myIdx >= 0 && myIdx < siblings.length - 1 ? siblings[myIdx + 1] : null;
+  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點)。
+  // 委員只在「指派給本人審閱」的缺失間移動——否則箭頭會指向他人審閱之缺失,點了被上方 redirect 彈回=死連結、
+  // 且洩漏他人缺失存在/ID(UAT 批66 reviewer 隔離一致化,對齊上方 matching 的過濾基準)。
+  const navPool = user.role === 'AUDITOR'
+    ? siblings.filter((d) => d.reviewerAuditorId === user.id)
+    : siblings;
+  const navIdx = navPool.findIndex((d) => d.id === deficiency.id);
+  const prevDefNav = navIdx > 0 ? navPool[navIdx - 1] : null;
+  const nextDefNav = navIdx >= 0 && navIdx < navPool.length - 1 ? navPool[navIdx + 1] : null;
   const remaining = matching.length;
 
   // 最新一輪退回意見(機關視角置頂提示)
