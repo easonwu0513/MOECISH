@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle, auditorReviewWindowOpen } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -146,6 +146,16 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
   if (!cycleId) throw new AuthError(404, '佐證對象不存在');
 
   const { user, cycle } = await assertCycleAccess(cycleId);
+
+  // 委員審閱時間區間(UAT 批67):資料準備 + 機關檢核表佐證,委員僅在中心設定的審閱時段內可存取(API 層權威閘,
+  // 非僅畫面鎖定);未設區間一律不開放。缺失佐證(CORRECTIVE_ACTION)屬矯正階段、不在審閱窗口管制範圍。
+  if (
+    user.role === 'AUDITOR' &&
+    (targetType === 'PREP_SUBMISSION' || targetType === 'CHECKLIST_RESPONSE') &&
+    !auditorReviewWindowOpen(cycle.reviewWindowStart, cycle.reviewWindowEnd)
+  ) {
+    throw new AuthError(403, '目前不在委員審閱時間區間內,暫不開放檢視機關資料');
+  }
 
   // 資料準備佐證:委員僅能存取中心已確認齊備之機關區、或中心匯入區已有檔者(API 層強制,非僅畫面過濾)
   if (targetType === 'PREP_SUBMISSION' && user.role === 'AUDITOR') {

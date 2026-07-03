@@ -161,6 +161,10 @@ model AuditCycle {
   prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
   techCheckDate      DateTime?             // 技術檢測日(執行技術檢測之日期;通常早於實地稽核日)
   onsiteDate         DateTime?
+  // 委員審閱時間區間(UAT 批67):中心設定「開放委員檢視機關資料(資料準備+檢核表審閱)」的時段。
+  // 未設(任一端 null)→ 委員一律不可見(使用者裁定「沒設區間就不開放」);設了 → 僅 [start,end] 內開放。
+  reviewWindowStart  DateTime?
+  reviewWindowEnd    DateTime?
   closedAt           DateTime?
   version            Int @default(0)
 

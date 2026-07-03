@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { auditorCanViewChecklistContent, checklistOrgCanEdit, type Dimension } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorReviewWindowState, checklistOrgCanEdit, type Dimension } from '@/lib/types';
+import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
@@ -39,6 +40,26 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   // 委員一律於週期進入「資料齊備」後才可檢視機關檢核表內容(開立中/資料準備中不開放)
   if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
+  }
+  // 審閱時間區間閘(UAT 批67):委員不在窗口內(或未設)→ 早退顯鎖定頁,不渲染機關檢核表內容
+  const reviewState = user.role === 'AUDITOR'
+    ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd)
+    : 'open';
+  if (reviewState !== 'open') {
+    return (
+      <AppShell
+        user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
+        cycleId={cycle.id}
+        crumbs={[
+          { label: '總覽', href: '/dashboard' },
+          { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
+          { label: '檢核表' },
+        ]}
+      >
+        <header className="mb-5"><h1 className="text-headline text-on-surface">資通安全檢核表</h1></header>
+        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+      </AppShell>
+    );
   }
 
   const submitted = Boolean(cycle.checklistSubmittedAt);

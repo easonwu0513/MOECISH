@@ -15,6 +15,9 @@ const PatchBody = z.object({
   prepDueTech: DateStr.nullable().optional(),
   techCheckDate: DateStr.nullable().optional(),
   onsiteDate: DateStr.nullable().optional(),
+  // 委員審閱時間區間(UAT 批67):日粒度,start 取當日 00:00、end 取當日 23:59:59(含當日)
+  reviewWindowStart: DateStr.nullable().optional(),
+  reviewWindowEnd: DateStr.nullable().optional(),
 });
 
 /** 編輯週期日期(矯正截止/資料準備截止/實地稽核日)— SUPER_ADMIN 限定。 */
@@ -29,6 +32,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const body = PatchBody.parse(await req.json());
     const toDate = (s: string) => new Date(`${s}T00:00:00+08:00`);
+    const toDateEnd = (s: string) => new Date(`${s}T23:59:59+08:00`); // 審閱窗口迄=當日結束(含當日)
+
+    // 審閱時間區間順序驗證:兩端同時提供(且皆非清空)時,迄不可早於起
+    // (以「套用後的最終值」判定:未提供的沿用現值,提供 null=清空該端)
+    const finalWStart = body.reviewWindowStart === undefined ? cycle.reviewWindowStart : (body.reviewWindowStart ? toDate(body.reviewWindowStart) : null);
+    const finalWEnd = body.reviewWindowEnd === undefined ? cycle.reviewWindowEnd : (body.reviewWindowEnd ? toDateEnd(body.reviewWindowEnd) : null);
+    if (finalWStart && finalWEnd && finalWEnd.getTime() < finalWStart.getTime()) {
+      return NextResponse.json({ error: '審閱區間的截止不可早於開始' }, { status: 400 });
+    }
 
     const updated = await prisma.auditCycle.update({
       where: { id: cycle.id },
@@ -42,6 +54,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           body.techCheckDate === undefined ? undefined : body.techCheckDate ? toDate(body.techCheckDate) : null,
         onsiteDate:
           body.onsiteDate === undefined ? undefined : body.onsiteDate ? toDate(body.onsiteDate) : null,
+        reviewWindowStart:
+          body.reviewWindowStart === undefined ? undefined : body.reviewWindowStart ? toDate(body.reviewWindowStart) : null,
+        reviewWindowEnd:
+          body.reviewWindowEnd === undefined ? undefined : body.reviewWindowEnd ? toDateEnd(body.reviewWindowEnd) : null,
       },
     });
 

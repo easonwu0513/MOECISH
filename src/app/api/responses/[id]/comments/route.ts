@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { errorResponse } from '@/lib/api';
-import { auditorCanViewChecklistContent } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorReviewWindowOpen } from '@/lib/types';
 
 const Body = z.object({ content: z.string().min(1) });
 
@@ -32,6 +32,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 委員於「資料齊備」前不可留意見(資料準備中不開放委員審閱)
     if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(response.cycle.status)) {
       return NextResponse.json({ error: '資料準備階段尚未開放委員審閱留言' }, { status: 403 });
+    }
+    // 審閱時間區間閘(UAT 批67):不在窗口內(或未設)→ 委員不可審閱留言
+    if (user.role === 'AUDITOR' && !auditorReviewWindowOpen(response.cycle.reviewWindowStart, response.cycle.reviewWindowEnd)) {
+      return NextResponse.json({ error: '目前不在委員審閱時間區間內,暫不開放審閱' }, { status: 403 });
     }
 
     const nextRound = (response.comments[0]?.round ?? 0) + 1;

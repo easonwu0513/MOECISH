@@ -203,6 +203,41 @@ export function auditorCanSeeDeficiencies(cycleStatus: string): boolean {
   return canAccess('deficiencies.view', 'AUDITOR', cycleStatus);
 }
 
+/**
+ * 委員審閱時間區間閘(UAT 批67):中心設定的 reviewWindowStart/End 限制委員檢視機關資料
+ * (資料準備 + 資通安全檢核表審閱)的時段。此為「階段閘之外的額外時間閘」,僅作用於委員(AUDITOR):
+ *  - 未設區間(任一端為 null)→ 一律不開放(使用者裁定「沒設區間就不開放」,強制中心明確設定審閱時段);
+ *  - 設了 → 僅在 [start, end] 內開放,未到不可看、已過不可看。
+ * 中心/機關不受此限。與階段閘(auditorCanSeePrep / auditorCanViewChecklistContent)為「且」關係:兩者皆過才可見。
+ */
+export function auditorReviewWindowOpen(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!start || !end) return false;
+  const s = start instanceof Date ? start : new Date(start);
+  const e = end instanceof Date ? end : new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
+  return now.getTime() >= s.getTime() && now.getTime() <= e.getTime();
+}
+
+/** 委員審閱窗口狀態(供 UI 顯示「尚未開始 / 已結束 / 未設定」的鎖定提示訊息)。 */
+export type ReviewWindowState = 'open' | 'before' | 'after' | 'unset';
+export function auditorReviewWindowState(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+  now: Date = new Date(),
+): ReviewWindowState {
+  if (!start || !end) return 'unset';
+  const s = start instanceof Date ? start : new Date(start);
+  const e = end instanceof Date ? end : new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 'unset';
+  if (now.getTime() < s.getTime()) return 'before';
+  if (now.getTime() > e.getTime()) return 'after';
+  return 'open';
+}
+
 // ════════════════════════════════════════════
 // 前台公告（P3）
 // ════════════════════════════════════════════

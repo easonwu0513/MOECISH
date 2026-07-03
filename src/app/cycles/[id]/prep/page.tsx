@@ -3,14 +3,21 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep, auditorCanSeeCycle, type Role } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle, auditorReviewWindowState, type Role } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
+import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { Button } from '@/components/ui/Button';
 import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check, Download } from '@/components/icons';
 import { getTemplateFilesForYear } from '@/lib/prep-standard';
 import PrepBoard from './PrepBoard';
+import { ReviewWindowSetting } from './ReviewWindowSetting';
+
+/** 將 +08:00 儲存的 Date 還原為當地 yyyy-mm-dd(供 date input;窗口起=00:00、迄=23:59:59 皆落在同一當地日) */
+function isoDate(d: Date): string {
+  return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
 
 export default async function PrepPage({ params }: { params: { id: string } }) {
   const session = await auth();
@@ -43,6 +50,9 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const subWithFiles = new Set(allFiles.map((f) => f.targetId));
   // 委員可見:機關區(技術檢測/實地稽核)看中心已「確認齊備」者;中心匯入區看已有檔案者
   const isAuditor = user.role === 'AUDITOR';
+  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 顯鎖定卡,不渲染機關資料(資料不序列化至 client)
+  const reviewState = isAuditor ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
+  const reviewLocked = reviewState !== 'open';
   const visibleRequirements = isAuditor
     ? requirements.filter(
         (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id), cycle.status),
@@ -133,6 +143,15 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             </p>
           </header>
 
+          {/* 委員審閱時間區間設定(中心):設定委員可檢視資料準備+檢核表審閱的開放時段;未設不開放 */}
+          {user.role === 'SUPER_ADMIN' && (
+            <ReviewWindowSetting
+              cycleId={cycle.id}
+              initialStart={cycle.reviewWindowStart ? isoDate(cycle.reviewWindowStart) : null}
+              initialEnd={cycle.reviewWindowEnd ? isoDate(cycle.reviewWindowEnd) : null}
+            />
+          )}
+
           {/* 文件範本:中心提供之應備文件空白範本(Word/Excel 等),下載依式填寫後轉 PDF 上傳 */}
           {!isAuditor && templateFiles.length > 0 && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50/50 px-4 py-3.5">
@@ -177,13 +196,16 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               ))}
             </div>
           )}
-          {isAuditor && total > 0 && (
+          {isAuditor && !reviewLocked && total > 0 && (
             <p className="mb-4 text-caption text-on-surface-variant">
               僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
             </p>
           )}
 
-          {isAuditor && visibleRequirements.length === 0 ? (
+          {isAuditor && reviewLocked ? (
+            // 審閱時間區間閘(UAT 批67):不在窗口內→顯鎖定卡,不渲染任何機關資料
+            <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+          ) : isAuditor && visibleRequirements.length === 0 ? (
             <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
               目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
             </div>

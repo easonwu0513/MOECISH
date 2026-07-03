@@ -48,6 +48,8 @@ export default async function Att17PrintPage({
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
   // 委員於「資料齊備」前不可列印(評分表含機關檢核結果統計)
   if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
+  // 註(UAT 批67):實地稽核評分/附件17 屬委員 ONSITE 自身產出與工作台(來源頁 /audit 亦以 auditorCanScore 階段閘把關),
+  // 不納入「委員審閱時間區間」(該窗口僅管制資料準備 + 檢核表審閱兩區,對齊使用者裁定範圍),故此處不加窗口閘。
 
   // 要印哪些委員
   let targets: { id: string; name: string }[];

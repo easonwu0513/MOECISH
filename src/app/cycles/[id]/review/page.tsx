@@ -9,7 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
@@ -53,6 +54,28 @@ export default async function ReviewPage({
   // 委員一律於週期進入「資料齊備」後才可審閱機關檢核表(開立中/資料準備中不開放)
   if (session.user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
+  }
+  // 審閱時間區間閘(UAT 批67):委員不在窗口內(或未設)→ 早退顯鎖定頁,不載入任何機關資料
+  const reviewState = session.user.role === 'AUDITOR'
+    ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd)
+    : 'open';
+  if (reviewState !== 'open') {
+    return (
+      <AppShell
+        user={{ name: session.user.name, email: session.user.email, role: session.user.role, organizationName: session.user.organizationName }}
+        cycleId={cycle.id}
+        crumbs={[
+          { label: '總覽', href: '/dashboard' },
+          { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
+          { label: '委員審閱' },
+        ]}
+      >
+        <header className="mb-5">
+          <h1 className="text-headline text-on-surface">委員審閱</h1>
+        </header>
+        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} />
+      </AppShell>
+    );
   }
 
   // 委員意見隱私(UAT 批62):委員僅見「自己」填寫的意見——各委員獨立審查,

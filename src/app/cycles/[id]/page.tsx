@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -119,6 +119,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 流程位置與角色化下一步(與 dashboard 共用 process-guide)
   const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
   const next = nextActionForRole(user.role, facts);
+
+  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/檢核表卡對委員鎖定+提示原因
+  const reviewState = user.role === 'AUDITOR' ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
+  const reviewLocked = reviewState !== 'open';
+  const reviewLockHint =
+    reviewState === 'before' ? '委員審閱時段尚未開始' : reviewState === 'after' ? '委員審閱時段已結束' : '中心尚未設定委員審閱時段';
 
   // 階段聚焦:只有「當前階段相關」的入口維持高亮,其餘降權(仍可點),讓現在該做的最突出
   const stForMod = cycle.status as CycleStatus;
@@ -500,10 +506,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               href={`/cycles/${cycle.id}/prep`}
               muted={!modActive.prep}
               locked={
-                (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+                (user.role === 'AUDITOR' && (!auditorCanViewChecklistContent(cycle.status) || reviewLocked)) ||
                 (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
               }
-              lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員檢視'}
+              lockedHint={
+                user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報'
+                  : reviewLocked ? reviewLockHint : '資料齊備後開放委員檢視'
+              }
             />
             {/* 檢核表與委員審閱整併為一張:委員→審閱頁(含檢視)、機關/中心→檢核表頁 */}
             <StatusTile
@@ -520,10 +529,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               href={user.role === 'AUDITOR' ? `/cycles/${cycle.id}/review` : `/cycles/${cycle.id}/checklist`}
               muted={!(user.role === 'AUDITOR' ? modActive.review : modActive.checklist)}
               locked={
-                (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) ||
+                (user.role === 'AUDITOR' && (!auditorCanViewChecklistContent(cycle.status) || reviewLocked)) ||
                 (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
               }
-              lockedHint={user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報' : '資料齊備後開放委員審閱'}
+              lockedHint={
+                user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報'
+                  : reviewLocked ? reviewLockHint : '資料齊備後開放委員審閱'
+              }
             />
             {/* 委員視角留在主格;中心視角移至下方「委員」工作區(與委員指派同區) */}
             {user.role === 'AUDITOR' && (
