@@ -672,7 +672,8 @@ export default function PrepBoard({
             if (groupItems.length === 0) return null;
             const due = dueOf(cat);
             return (
-              <section key={cat}>
+              // id 錨點供側欄階層樹「資料準備分類」直達(#prep-tech/#prep-onsite/#prep-center)
+              <section key={cat} id={`prep-${cat.toLowerCase()}`} className="scroll-mt-24">
                 <div className="flex items-center gap-2 flex-wrap mb-2">
                   <h2 className="text-title-md text-on-surface">{PREP_CATEGORY_LABELS[cat]}</h2>
                   <Chip tone="neutral" size="sm">{groupItems.length}</Chip>

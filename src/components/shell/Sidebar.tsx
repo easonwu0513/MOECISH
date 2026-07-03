@@ -8,6 +8,7 @@ import { Wordmark } from '../brand/Logo';
 import { useNav } from './NavProgress';
 import { APP_VERSION, BUILD_REV } from '@/lib/version';
 import { sidebarGroups, navIcon } from './nav-map';
+import { CycleNavTree } from './CycleNavTree';
 
 /**
  * Material 3 Navigation Drawer.
@@ -15,11 +16,14 @@ import { sidebarGroups, navIcon } from './nav-map';
  */
 export function Sidebar({
   role,
+  userKey,
   collapsed,
   onClose,
   showBrand = true,
 }: {
   role: Role;
+  /** 使用者識別(email):稽核週期樹的 sessionStorage 快取/展開狀態以此分帳號,防換帳號殘留 */
+  userKey: string;
   collapsed?: boolean;
   onClose?: () => void;
   showBrand?: boolean;
@@ -53,6 +57,10 @@ export function Sidebar({
               )}
               <ul className="flex flex-col gap-0.5 px-3">
                 {items.map((i) => {
+                  // 「稽核週期」在展開模式換成階層樹(年度→醫院→工作區,直達目的地);收合模式維持原 icon 列
+                  if (i.href === '/cycles' && !collapsed) {
+                    return <CycleNavTree key={i.href} role={role} userKey={userKey} onClose={onClose} />;
+                  }
                   const active =
                     pathname === i.href ||
                     (i.href !== '/' && pathname.startsWith(i.href));

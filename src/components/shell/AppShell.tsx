@@ -74,7 +74,7 @@ export function AppShell({
     <div className="min-h-screen flex bg-surface">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex shrink-0">
-        <Sidebar role={user.role} />
+        <Sidebar role={user.role} userKey={user.email} />
       </div>
 
       {/* Mobile drawer */}
@@ -86,8 +86,10 @@ export function AppShell({
           aria-label="主選單"
         >
           <div className="absolute inset-0 scrim" onClick={() => setMobileOpen(false)} />
-          <div ref={drawerRef} tabIndex={-1} className="relative z-50 animate-slide-in-right shadow-elev-5 outline-none">
-            <Sidebar role={user.role} onClose={() => setMobileOpen(false)} />
+          {/* h-full flex:給 Sidebar 定高(外層 fixed inset-0=視窗高),否則 nav 的 overflow-y-auto
+              永不生效——週期樹展開後內容溢出視窗會完全按不到(三鏡審查 confirmed) */}
+          <div ref={drawerRef} tabIndex={-1} className="relative z-50 h-full flex animate-slide-in-right shadow-elev-5 outline-none">
+            <Sidebar role={user.role} userKey={user.email} onClose={() => setMobileOpen(false)} />
           </div>
         </div>
       )}
