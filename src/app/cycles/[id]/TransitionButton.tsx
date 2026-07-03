@@ -21,6 +21,7 @@ export default function TransitionButton({
   rollback = false,
   disabled = false,
   disabledHint,
+  warn,
 }: {
   cycleId: string;
   target: CycleStatus;
@@ -28,6 +29,8 @@ export default function TransitionButton({
   /** 前置條件未滿足時鎖定按鈕並顯示原因(後端 transition API 為權威閘,此為 UX 提示層) */
   disabled?: boolean;
   disabledHint?: string;
+  /** 前進推進的「軟性提醒」(UAT 批68):非阻擋,確認框顯警示、委員/中心可確認後仍推進(如未設矯正截止日) */
+  warn?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -128,9 +131,21 @@ export default function TransitionButton({
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="確認狀態轉換"
-        description={`確定要將稽核週期狀態推進至「${CYCLE_STATUS_LABELS[target]}」？`}
-        confirmLabel="確定推進"
+        title={warn ? '尚未設定矯正截止日期,仍要推進?' : '確認狀態轉換'}
+        description={
+          warn ? (
+            <div className="mt-2 flex flex-col gap-3">
+              <div className="rounded-md border border-warning-200 bg-warning-50 px-3.5 py-3 text-body-sm text-warning-800">
+                <p className="font-medium">矯正截止日尚未設定</p>
+                <p className="mt-1 text-caption text-warning-700 leading-relaxed">{warn}</p>
+              </div>
+              <p className="text-body-sm text-on-surface-variant">確定要將稽核週期狀態推進至「{CYCLE_STATUS_LABELS[target]}」?</p>
+            </div>
+          ) : (
+            `確定要將稽核週期狀態推進至「${CYCLE_STATUS_LABELS[target]}」？`
+          )
+        }
+        confirmLabel={warn ? '仍要推進' : '確定推進'}
         onConfirm={run}
         loading={loading}
       />

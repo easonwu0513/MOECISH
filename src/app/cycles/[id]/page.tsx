@@ -601,22 +601,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           {/* ── 分組:報告與匯出(機關視角;中心視角已併入上方「稽核作業」工作區) ── */}
           {user.role === 'ORG_ADMIN' && <SectionLabel>報告與匯出</SectionLabel>}
 
-          {/* 用印報告(可見性由 access-policy 決定) */}
-          {canAccess('signedReport.section', user.role as Role, cycle.status) && (
-            <section id="signed-report" className="mb-6 scroll-mt-20">
-              <SignedReportPanel
-                cycleId={cycle.id}
-                role={user.role}
-                locked={
-                  cycle.status === 'CLOSED' ||
-                  cycle.signedReports.some((r) => r.submittedAt || r.confirmedAt)
-                }
-                closed={cycle.status === 'CLOSED'}
-              />
-            </section>
-          )}
-
-          {/* 匯出:委員不需匯出功能;僅機關/中心顯示 */}
+          {/* 匯出:委員不需匯出功能;僅機關/中心顯示。
+              置於「用印掃描檔」之上(UAT 批68):流程=先由此匯出改善報告→機關用印→再將用印檔掃描上傳至下方,
+              報告來源在前才不會找不到要去哪列印。 */}
           {user.role !== 'AUDITOR' && (
             <Card className="mb-6">
               <CardTitle>匯出</CardTitle>
@@ -661,6 +648,21 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 )}
               </div>
             </Card>
+          )}
+
+          {/* 用印報告(可見性由 access-policy 決定);置於「匯出」之後=先產報告用印、再上傳掃描檔的順序 */}
+          {canAccess('signedReport.section', user.role as Role, cycle.status) && (
+            <section id="signed-report" className="mb-6 scroll-mt-20">
+              <SignedReportPanel
+                cycleId={cycle.id}
+                role={user.role}
+                locked={
+                  cycle.status === 'CLOSED' ||
+                  cycle.signedReports.some((r) => r.submittedAt || r.confirmedAt)
+                }
+                closed={cycle.status === 'CLOSED'}
+              />
+            </section>
           )}
 
           {/* ── 工作區:委員(評分與發現 + 指派與構面) ── */}
@@ -709,6 +711,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                     target={t}
                     disabled={t === 'READY' && readyBlockers.length > 0}
                     disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                    // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
+                    warn={
+                      !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
+                        ? '缺失發布後機關須依此日期填報矯正措施。建議先按右上「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                        : undefined
+                    }
                   />
                 ))}
                 {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
