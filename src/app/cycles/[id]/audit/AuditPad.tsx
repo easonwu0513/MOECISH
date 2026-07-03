@@ -146,6 +146,8 @@ function ScoreSection({
   const [saveState, setSaveState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>('idle');
   const [lockBusy, setLockBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // 確認視窗:非空=有「動過但沒填完」的構面,列出後詢問委員是否仍要送出(軟性提示);空=全部完整的一般確認
+  const [confirmProblems, setConfirmProblems] = useState<string[]>([]);
   const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false);
   // 解除鎖定前置:委員須先勾選「已告知中心工作人員」才可按(UAT 批63)
   const [unlockAck, setUnlockAck] = useState(false);
@@ -259,31 +261,29 @@ function ScoreSection({
     return (c.c1 ?? 0) + (c.c2 ?? 0) + (c.c3 ?? 0) + (c.c4 ?? 0);
   }
 
-  // 送出完整性(UAT 批63):負責構面(未指派=全構面)+任何已動筆的構面——
-  // 評分必填、判定數量合計須等於該構面題數。後端 lock API 為權威閘(同規則),此為即時回饋層。
-  function validateCompleteness(): { problems: string[]; byDim: Record<string, string> } {
-    const resp = new Set<Dimension>(
-      focusSet.size > 0 ? ALL_DIMS.filter((d) => focusSet.has(DIM_TO_ASPECT[d])) : ALL_DIMS,
-    );
-    for (const d of ALL_DIMS) {
-      if (scores[d] != null || countSum(d) != null) resp.add(d);
-    }
+  // 送出完整性(UAT:分工評分)——硬性下限=至少一個構面「完整」(評分 + 判定數量合計===題數);
+  // 其餘「動過但沒填完」的構面列為軟性提示(送出前確認視窗詢問,委員可自行決定仍要送出)。
+  // 後端 lock API 僅硬擋「無任何完整構面」;此為即時回饋 + 軟性提示清單。
+  function validateCompleteness(): { hardBlock: boolean; problems: string[]; byDim: Record<string, string> } {
     const problems: string[] = [];
     const byDim: Record<string, string> = {};
+    let completeCount = 0;
     for (const d of ALL_DIMS) {
-      if (!resp.has(d)) continue;
       const total = stats[d]?.total ?? 0;
       const sum = countSum(d);
+      const scoreOk = scores[d] != null;
+      const countOk = sum !== null && sum === total;
+      if (scoreOk && countOk) { completeCount++; continue; }
+      // 完全沒動筆的構面:分工下視為非本次職責,略過不提示
+      if (scores[d] == null && sum === null) continue;
       const issues: string[] = [];
-      if (scores[d] == null) issues.push('未填評分');
+      if (!scoreOk) issues.push('未填評分');
       // 四格全空=「未填」而非「合計 0」(誠實區分沒動筆與填了 0)
-      if ((sum ?? 0) !== total) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
-      if (issues.length) {
-        problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
-        byDim[d] = issues.join('、');
-      }
+      if (!countOk) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
+      problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
+      byDim[d] = issues.join('、');
     }
-    return { problems, byDim };
+    return { hardBlock: completeCount === 0, problems, byDim };
   }
 
   // 送出被擋的構面 → 行內常駐紅字(toast 只活 6 秒,錯誤要留在表上);修正該構面即清除
@@ -302,9 +302,26 @@ function ScoreSection({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !lockBusy && !o && setConfirmOpen(false)}
-        title="確認填寫完畢?"
-        description="將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。"
-        confirmLabel="確認並鎖定"
+        title={confirmProblems.length > 0 ? '部分構面尚未填寫完整,仍要送出?' : '確認填寫完畢?'}
+        description={
+          confirmProblems.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <div className="rounded-md border border-warning-200 bg-warning-50 px-3.5 py-3 text-body-sm text-warning-800">
+                <p className="font-medium">以下構面尚未填寫完整:</p>
+                <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                  {confirmProblems.slice(0, 9).map((p) => <li key={p}>{p}</li>)}
+                </ul>
+                <p className="mt-2 text-caption text-warning-700 leading-relaxed">
+                  分工評分下可僅送出您負責的構面;若確定其餘構面非本次職責,可直接送出。若為漏填,請取消後補齊。
+                </p>
+              </div>
+              <p>將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。</p>
+            </div>
+          ) : (
+            '將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。'
+          )
+        }
+        confirmLabel={confirmProblems.length > 0 ? '仍要送出並鎖定' : '確認並鎖定'}
         onConfirm={doConfirmDone}
         loading={lockBusy}
       />
@@ -340,12 +357,8 @@ function ScoreSection({
           <h2 className="text-title-lg text-on-surface">稽核評分</h2>
           <p className="text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
-            {focusSet.size > 0 ? (
-              <>可只評您負責的構面(未評的不計入您的小計);確認填寫完畢前,負責構面的評分與判定數量須填寫完整。</>
-            ) : (
-              // 未指派負責構面=視同全構面:須評滿九項才可確認填寫完畢(與鎖定閘一致,免得被擋時一頭霧水)
-              <>您未被指派特定負責構面(視同全構面):確認填寫完畢前須完成全部九項的評分與判定數量;如僅負責部分構面,請洽中心於委員指派設定。</>
-            )}
+            {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
+            確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
             同一構面多位委員評分時,報告以各構面平均彙整。
           </p>
         </div>
@@ -379,19 +392,19 @@ function ScoreSection({
                     toast.error('尚有稽核發現未儲存', '請先逐條按「儲存」或取消編輯,再確認填寫完畢。');
                     return;
                   }
-                  // 完整性驗證:負責構面評分未填/判定數量合計≠題數 → 不可送出(後端亦擋);
-                  // 問題構面同步行內標紅常駐(toast 只活 6 秒)
-                  const { problems, byDim } = validateCompleteness();
-                  if (problems.length > 0) {
+                  const { hardBlock, problems, byDim } = validateCompleteness();
+                  // 硬性下限:連一個完整構面都沒有 → 不可送出(後端亦擋);問題構面行內標紅常駐(toast 只活 6 秒)
+                  if (hardBlock) {
                     setProblemByDim(byDim);
-                    const helpNote = focusSet.size === 0 ? '(未指派負責構面時須評滿全部構面;如僅負責部分構面,請洽中心設定)' : '';
                     toast.error(
-                      '評分表尚未填寫完整,無法確認填寫完畢',
-                      `${problems.slice(0, 3).join(';')}${problems.length > 3 ? `…等共 ${problems.length} 個構面待補` : ''};已於下方表格標示。${helpNote}`,
+                      '尚無完整填寫的構面,無法確認填寫完畢',
+                      '請至少完整填寫一個構面(評分 + 判定數量合計符題數)後再送出;已於下方表格標示。',
                     );
                     return;
                   }
-                  setProblemByDim({});
+                  // 有「動過但沒填完」的構面 → 軟性提示:確認視窗列出並詢問是否仍要送出;否則直接一般確認
+                  setProblemByDim(problems.length > 0 ? byDim : {});
+                  setConfirmProblems(problems);
                   setConfirmOpen(true);
                 }}
               >

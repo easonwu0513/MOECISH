@@ -103,10 +103,12 @@ export async function loadJourney(opts: {
           const overridden = it.href != null;
           const sub = cycleId ? (overridden ? it.href : journeyItemHref(st.stageKey, it.autoKey, it.title)) : null;
           const status = autoCtx?.facts.status;
-          // 已到達該階段才連結到實際頁面;未到達者不連結,點擊改提示「尚未開放」(避免被導回週期頁誤解為壞掉)
+          // 尚未到達該階段:推導型 href 不連結(避免導到尚無意義的頁/週期主頁,誤以為功能壞掉)。
           const reached = status ? cycleStageReached(st.stageKey, status) : true;
-          // 純提醒:推導值僅在有具體子頁時才連(避免連回本頁無動作);編輯器明示指定(含週期主頁)則尊重。
-          const linkable = reached && !!cycleId && (informational && !overridden ? !!sub : true);
+          // linkable:編輯器「明示指定的快捷跳轉」(overridden)是中心刻意設定的目的地,一律尊重、不受階段到達影響
+          //   (UAT:自訂項設了快捷跳轉卻因未到階段而不可點=看起來像沒設成功);
+          //   推導型:純提醒需有具體子頁、手動/自動項需已到達該階段才連。
+          const linkable = !!cycleId && (overridden || (reached && (informational ? !!sub : true)));
           const p = it.progress[0];
           return {
             id: it.id,

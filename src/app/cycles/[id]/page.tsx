@@ -259,7 +259,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         <li key={it.id}>
           <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface">
             <JourneyTodoToggle itemId={it.id} cycleId={cycle.id} done={it.done} title={it.title} />
-            {it.href && !it.lockedStageTitle ? (
+            {it.href ? (
               <Link href={it.href} className="group flex min-w-0 flex-1 items-start gap-3 focus-ring rounded-md">
                 {content}
                 <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
@@ -286,12 +286,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           </span>
         )}
         {content}
-        {it.href && !it.lockedStageTitle && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
+        {it.href && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
     );
     return (
       <li key={it.id}>
-        {it.href && !it.lockedStageTitle
+        {it.href
           ? <Link href={it.href} className="group block focus-ring rounded-md">{row}</Link>
           : row}
       </li>

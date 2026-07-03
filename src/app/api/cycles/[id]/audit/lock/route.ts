@@ -6,8 +6,6 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditScoreLocked, notifyAuditScoreUnlocked } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
-import { ASPECT_DIMENSIONS, ASSIGN_TO_ASPECT, DIMENSION_NUM, parseAssignDimensions } from '@/lib/audit-score';
-import type { DeficiencyAspect, Dimension } from '@/lib/types';
 
 const Body = z.object({ locked: z.boolean() });
 
@@ -36,10 +34,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const { locked } = Body.parse(await req.json());
 
-    // 鎖定(確認填寫完畢)前置:評分表須填寫完整(UAT 批63;前端同規則即時回饋,此為權威閘)——
-    // 範圍=負責構面(未指定=全構面)∪ 任何已動筆的構面;每構面:評分必填、
-    // 「委員判定數量」四格合計須等於該構面檢核題數。
-    // 驗證+設鎖包進可序列化交易:防「驗證後、鎖定前」在途的評分 PUT 把資料改回不完整
+    // 鎖定(確認填寫完畢)前置硬性下限(UAT:管理面/技術面委員分工評分,不強制填滿負責/全部構面)——
+    // 只要求「至少一個構面完整」(有評分 + 委員判定數量四格合計等於該構面題數)即可鎖定,防止空表/半套鎖定;
+    // 其餘「動過但沒填完」的構面由前端確認視窗提示,委員自行決定是否仍要送出(此處不再逐構面硬擋)。
+    // 驗證+設鎖包進可序列化交易:防「驗證後、鎖定前」在途的評分 PUT 把唯一完整構面改回不完整
     // (check-then-act TOCTOU,與批54 check-then-delete 同類;scores PUT 亦已交易化,衝突方 P2034 重試/409)。
     if (locked) {
       try {
@@ -53,36 +51,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             tx.auditScore.findMany({ where: { cycleId: cycle.id, auditorId: user.id } }),
           ]);
           const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
-          const scoreByDim = new Map(myScores.map((s) => [s.dimension, s]));
-          const focusAspects = new Set<DeficiencyAspect>(
-            parseAssignDimensions(assignment.dimensions).map((a) => ASSIGN_TO_ASPECT[a]),
-          );
-          const aspects: DeficiencyAspect[] = focusAspects.size > 0
-            ? [...focusAspects]
-            : ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
-          const mustDims = new Set<string>(aspects.flatMap((a) => ASPECT_DIMENSIONS[a]));
-          for (const s of myScores) {
-            if (s.score != null || s.cntComply != null || s.cntPartial != null || s.cntNonComply != null || s.cntNa != null) {
-              mustDims.add(s.dimension);
-            }
-          }
-          const problems: string[] = [];
-          for (const d of mustDims) {
-            const total = totalByDim.get(d) ?? 0;
-            const s = scoreByDim.get(d);
-            const untouched = s == null || (s.cntComply == null && s.cntPartial == null && s.cntNonComply == null && s.cntNa == null);
-            const sum = (s?.cntComply ?? 0) + (s?.cntPartial ?? 0) + (s?.cntNonComply ?? 0) + (s?.cntNa ?? 0);
-            const issues: string[] = [];
-            if (s?.score == null) issues.push('未填評分');
-            // 四格全空=「未填」而非「合計 0」(誠實區分沒動筆與填了 0)
-            if (sum !== total) issues.push(untouched ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
-            if (issues.length) problems.push(`構面${DIMENSION_NUM[d as Dimension] ?? d} ${issues.join('、')}`);
-          }
-          if (problems.length > 0) {
-            const helpNote = focusAspects.size === 0 ? '(未指派負責構面時須評滿全部構面;如僅負責部分構面,請洽中心於委員指派設定)' : '';
-            throw new LockValidationError(
-              `評分表尚未填寫完整,無法確認填寫完畢:${problems.slice(0, 4).join(';')}${problems.length > 4 ? `…等共 ${problems.length} 個構面待補` : ''}${helpNote}`,
-            );
+          // 「完整」= 有評分 且 判定數量四格有填、合計等於該構面題數
+          const hasComplete = myScores.some((s) => {
+            const total = totalByDim.get(s.dimension) ?? 0;
+            const touched = s.cntComply != null || s.cntPartial != null || s.cntNonComply != null || s.cntNa != null;
+            const sum = (s.cntComply ?? 0) + (s.cntPartial ?? 0) + (s.cntNonComply ?? 0) + (s.cntNa ?? 0);
+            return s.score != null && touched && sum === total;
+          });
+          if (!hasComplete) {
+            throw new LockValidationError('請至少完整填寫一個構面(評分,且委員判定數量合計等於該構面題數)後,再確認填寫完畢。');
           }
           await tx.auditorAssignment.update({
             where: { id: assignment.id },
