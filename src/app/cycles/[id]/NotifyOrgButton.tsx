@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
@@ -20,6 +21,7 @@ export default function NotifyOrgButton({
   /** 是否已設定實地稽核日(時程已確定)。未確定前不開放寄送,避免寄出無時程的通知擾民。 */
   datesConfirmed: boolean;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,6 +38,9 @@ export default function NotifyOrgButton({
     const j = await res.json();
     toast.success('已寄送稽核作業通知', `共 ${j.recipientCount} 位填報人 / 主管`);
     setOpen(false);
+    // 待辦卡「通知機關填報人/主管」的自動打勾(orgNotified fact)是 server 端算的:
+    // 不 refresh 的話畫面停在舊資料,使用者以為沒生效(UAT 批71 圖1 根因)
+    router.refresh();
   }
 
   return (

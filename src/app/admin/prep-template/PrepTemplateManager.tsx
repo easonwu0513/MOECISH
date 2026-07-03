@@ -43,10 +43,18 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
   const [deleting, setDeleting] = useState<Item | null>(null);
 
   const thisYear = new Date().getFullYear();
-  // 主畫面(今年):今年年度項 + 尚未遷移的舊通用項(同名年度項優先;與 getStandardItems 同邏輯,過渡期防禦)
-  const yearlyNow = initialItems.filter((i) => i.year === thisYear);
-  const yearlyNowTitles = new Set(yearlyNow.map((i) => i.title));
-  const currentItems = [...yearlyNow, ...initialItems.filter((i) => i.year == null && !yearlyNowTitles.has(i.title))];
+  const nextYear = thisYear + 1;
+  // 編輯頁籤:本年度 / 下一年度(預備)——年底可預先建置明年清單(UAT 批71:先確定今年版本、預新增明年)
+  const [editYear, setEditYear] = useState<number>(thisYear);
+  // 各編輯年度的清單:今年=今年項+尚未遷移的舊通用項(同名年度項優先,與 getStandardItems 同邏輯,過渡期防禦);
+  // 明年(預備)=純明年年度項
+  function resolveEditYear(y: number): Item[] {
+    const yearly = initialItems.filter((i) => i.year === y);
+    if (y !== thisYear) return yearly;
+    const yearlyTitles = new Set(yearly.map((i) => i.title));
+    return [...yearly, ...initialItems.filter((i) => i.year == null && !yearlyTitles.has(i.title))];
+  }
+  const currentItems = resolveEditYear(editYear);
 
   // 歷年清單:近五年留存紀錄(唯讀);只列各年「年度專屬項」=當年凍結的清單
   const histYears = [1, 2, 3, 4, 5].map((d) => thisYear - d);
@@ -56,18 +64,18 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
   const isHistory = view === 'history';
   const shownItems = isHistory ? histItems : currentItems;
 
-  // 上一年度清單(今年為空時的「代入上一年度」引導)
-  const lastYearItems = initialItems.filter((i) => i.year === thisYear - 1);
+  // 編輯年度為空時的「代入前一年度」引導(今年空→代入去年留存;明年空→代入本年度)
+  const prevOfEdit = resolveEditYear(editYear - 1);
 
-  // 複製至今年:單筆 / 整年 / 代入上一年;後端冪等(今年已有同名年度項則跳過)+ Serializable 交易防並行同名
-  const [copying, setCopying] = useState<string | null>(null); // item id 或 'all' 或 'seed-last-year'
-  async function copyToThisYear(ids: string[], key: string) {
-    if (ids.length === 0) { toast.info('沒有可複製的項目', '此年度沒有留存的清單項目。'); return; }
+  // 複製到某編輯年度:單筆 / 整年 / 代入前一年;後端冪等(目標年已有同名年度項則跳過)+ Serializable 交易防並行同名
+  const [copying, setCopying] = useState<string | null>(null); // item id 或 'all' 或 'seed-prev'
+  async function copyToYear(ids: string[], targetYear: number, key: string) {
+    if (ids.length === 0) { toast.info('沒有可複製的項目', '來源年度沒有留存的清單項目。'); return; }
     setCopying(key);
     const res = await fetch('/api/admin/prep-template/copy-to-year', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ itemIds: ids, targetYear: thisYear }),
+      body: JSON.stringify({ itemIds: ids, targetYear }),
     }).catch(() => null);
     setCopying(null);
     if (!res || !res.ok) {
@@ -78,18 +86,21 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
     const r = (await res.json()) as { copied: number; skippedTitles: string[]; fileCopied: number; fileErrors: number };
     const detail = [
       r.fileCopied > 0 ? `含 ${r.fileCopied} 個文件範本` : null,
-      r.skippedTitles.length > 0 ? `${r.skippedTitles.length} 項因今年已有同名而跳過` : null,
-      r.fileErrors > 0 ? `${r.fileErrors} 個範本檔複製失敗(來源檔遺失),請於今年清單補上傳` : null,
+      r.skippedTitles.length > 0 ? `${r.skippedTitles.length} 項因目標年度已有同名而跳過` : null,
+      r.fileErrors > 0 ? `${r.fileErrors} 個範本檔複製失敗(來源檔遺失),請於目標年度清單補上傳` : null,
     ].filter(Boolean).join(';') || undefined;
     if (r.copied === 0 && r.skippedTitles.length > 0) {
-      toast.info('未複製任何項目', `今年已有同名項目:${r.skippedTitles.slice(0, 3).join('、')}${r.skippedTitles.length > 3 ? '…' : ''}`);
+      toast.info('未複製任何項目', `${targetYear - 1911} 年度已有同名項目:${r.skippedTitles.slice(0, 3).join('、')}${r.skippedTitles.length > 3 ? '…' : ''}`);
     } else if (r.fileErrors > 0) {
       // 有範本檔複製失敗:用 warning(role=alert)而非綠色成功,失敗訊息不埋在成功 toast 裡
       toast.warning(`已複製 ${r.copied} 項,但部分範本檔失敗`, detail);
     } else {
-      toast.success(`已複製 ${r.copied} 項至 ${thisYear - 1911} 年度`, detail);
+      toast.success(`已複製 ${r.copied} 項至 ${targetYear - 1911} 年度`, detail);
     }
-    if (r.copied > 0) setView('current');
+    if (r.copied > 0) {
+      setView('current');
+      setEditYear(targetYear === nextYear ? nextYear : thisYear);
+    }
     router.refresh();
   }
 
@@ -116,8 +127,8 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         description: form.description.trim() || null,
         category: form.category,
         required: form.required,
-        // 廢除通用:新增一律綁今年年度;編輯不動年度(主畫面只會編輯今年清單)
-        ...(editing ? {} : { year: thisYear }),
+        // 廢除通用:新增綁「目前編輯年度」(本年度或下一年度預備);編輯不動年度
+        ...(editing ? {} : { year: editYear }),
       }),
     });
     setBusy(false);
@@ -181,9 +192,16 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
       {/* 標頭列:今年檢視=標題+歷年清單/新增;歷年檢視=返回+年度頁籤+一鍵複製 */}
       {!isHistory ? (
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Chip tone="primary" size="sm">{thisYear - 1911} 年度(本年度)</Chip>
-            <span className="text-caption text-on-surface-variant">共 {currentItems.length} 項</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 本年度=當年確定版本(翌年轉唯讀留存);下一年度=年底預先建置(UAT 批71) */}
+            <Segmented
+              value={String(editYear)}
+              onChange={(v) => setEditYear(Number(v))}
+              options={[
+                { value: String(thisYear), label: `${thisYear - 1911} 年度(本年度)${resolveEditYear(thisYear).length}` },
+                { value: String(nextYear), label: `${nextYear - 1911} 年度(預備)${resolveEditYear(nextYear).length}` },
+              ]}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="tonal" leadingIcon={<History size={15} />} onClick={() => setView('history')}>
@@ -215,7 +233,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               loading={copying === 'all'}
               // 任一複製在途即鎖全部複製鈕:單筆與一鍵並行會撞同名 TOCTOU(後端交易為權威閘,此為第一道)
               disabled={copying !== null || histItems.length === 0}
-              onClick={() => copyToThisYear(histItems.map((i) => i.id), 'all')}
+              onClick={() => copyToYear(histItems.map((i) => i.id), thisYear, 'all')}
             >
               一鍵複製 {histYear - 1911} 年度清單至今年({histItems.length})
             </Button>
@@ -234,24 +252,24 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
           <div className="p-6">
             <EmptyState
               icon={<FileText size={28} />}
-              title={isHistory ? `${histYear - 1911} 年度沒有留存清單` : '本年度清單尚為空'}
+              title={isHistory ? `${histYear - 1911} 年度沒有留存清單` : `${editYear - 1911} 年度清單尚為空`}
               description={
                 isHistory
                   ? '該年度沒有留存的清單項目(年度化留存自建立年度項起累積)。歷年清單為唯讀;要新增項目請返回本年度。'
-                  : lastYearItems.length > 0
-                    ? '每年清單通常先代入上一年度再小幅修正;按下方按鈕一鍵帶入,或逐項新增。'
-                    : '新增項目後,各週期「套用標準清單」會帶入本年度清單;清單為空時帶入系統內建預設。'
+                  : prevOfEdit.length > 0
+                    ? '每年清單通常先代入前一年度再小幅修正;按下方按鈕一鍵帶入(含文件範本),或逐項新增。'
+                    : '新增項目後,各週期「套用標準清單」會帶入該年度清單;清單為空時帶入系統內建預設。'
               }
             />
-            {!isHistory && lastYearItems.length > 0 && (
+            {!isHistory && prevOfEdit.length > 0 && (
               <div className="mt-2 flex justify-center pb-2">
                 <Button
                   variant="tonal"
-                  loading={copying === 'seed-last-year'}
+                  loading={copying === 'seed-prev'}
                   disabled={copying !== null}
-                  onClick={() => copyToThisYear(lastYearItems.map((i) => i.id), 'seed-last-year')}
+                  onClick={() => copyToYear(prevOfEdit.map((i) => i.id), editYear, 'seed-prev')}
                 >
-                  代入 {thisYear - 1 - 1911} 年度清單({lastYearItems.length} 項,含文件範本)
+                  代入 {editYear - 1 - 1911} 年度清單({prevOfEdit.length} 項,含文件範本)
                 </Button>
               </div>
             )}
@@ -321,7 +339,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
                               variant="tonal"
                               loading={copying === it.id}
                               disabled={copying !== null}
-                              onClick={() => copyToThisYear([it.id], it.id)}
+                              onClick={() => copyToYear([it.id], thisYear, it.id)}
                             >
                               複製至今年
                             </Button>
@@ -345,8 +363,8 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
       <Dialog
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
-        title={editing ? '編輯標準清單項目' : `新增標準清單項目(${thisYear - 1911} 年度)`}
-        description="分區決定此項落在哪一繳交區(中心匯入由中心上傳);項目屬本年度清單,不影響歷年留存紀錄。"
+        title={editing ? '編輯標準清單項目' : `新增標準清單項目(${editYear - 1911} 年度)`}
+        description={`分區決定此項落在哪一繳交區(中心匯入由中心上傳);項目屬 ${editYear - 1911} 年度清單,不影響歷年留存紀錄。`}
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
@@ -397,7 +415,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         onOpenChange={(o) => !busy && !o && setDeleting(null)}
         title="刪除標準清單項目"
         description={deleting
-          ? `「${deleting.title}」將自本年度清單移除,之後套用標準清單不再帶入(不影響已開立週期與歷年留存)。`
+          ? `「${deleting.title}」將自 ${editYear - 1911} 年度清單移除,之後套用標準清單不再帶入(不影響已開立週期與歷年留存)。`
             + (deleting.files.length > 0 ? `其 ${deleting.files.length} 個文件範本將一併刪除。` : '')
             + '確定刪除?'
           : undefined}
