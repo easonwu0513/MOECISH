@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Logo } from '@/components/brand/Logo';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   CATEGORIES,
@@ -547,74 +548,79 @@ export function AuditMergeTool({
     <div className="amt-app">
       <div className="flex flex-col h-screen overflow-hidden no-print relative text-sm">
         {/* 頂部導航列 */}
-        <header className="glass-header text-slate-800 p-3 flex flex-wrap justify-between items-center gap-3 shrink-0 z-20 relative">
+        <header className="glass-header text-on-surface p-3 flex flex-wrap justify-between items-center gap-3 shrink-0 z-20 relative">
           <div className="flex items-center gap-3 ml-2">
-            <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-1.5 rounded-lg text-white font-bold text-xs shadow-md">Audit</div>
+            <Logo size={32} />
             <div>
-              <h1 className="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">稽核報告彙整工具</h1>
+              {/* MOECISH 品牌條/麵包屑:全螢幕工具不套 AppShell,於此補回導覽脈絡(#14 邊界縫合) */}
+              <nav className="flex items-center gap-1.5 text-caption text-on-surface-variant" aria-label="麵包屑">
+                <Link href="/dashboard" className="hover:text-on-surface transition-colors">管理</Link>
+                <span aria-hidden>/</span>
+                <span className="text-on-surface font-medium">報告彙整工具</span>
+              </nav>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500" />
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium">已暫存於 {lastSavedTime || '—'}</span>
+                <span className="text-[10px] text-on-surface-variant font-medium">已暫存於 {lastSavedTime || '—'}</span>
               </div>
             </div>
             <Link
               href={cycleId ? `/cycles/${cycleId}/audit/report` : '/dashboard'}
-              className="ml-2 text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-primary-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors"
+              className="ml-2 text-xs font-medium text-on-surface-variant hover:text-primary-700 bg-surface-container hover:bg-primary-50 border border-outline-variant px-3 py-1.5 rounded-full transition-colors"
             >
               {cycleId ? '← 回彙整報告' : '← 回管考平台'}
             </Link>
             {cycleId && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+              <span className="text-[10px] font-medium text-success-700 bg-success-50 border border-success-200 px-2.5 py-1 rounded-full">
                 週期模式:委員發現已自動帶入
               </span>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 pr-2">
-            <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 mr-1">
-              <button onClick={handleUndo} disabled={!canUndo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 (Ctrl+Z)">
+            <div className="flex bg-surface-container p-1 rounded-full border border-outline-variant mr-1">
+              <button onClick={handleUndo} disabled={!canUndo} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 (Ctrl+Z)">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                 復原
               </button>
-              <button onClick={handleRedo} disabled={!canRedo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 (Ctrl+Y)">
+              <button onClick={handleRedo} disabled={!canRedo} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 (Ctrl+Y)">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
                 重做
               </button>
             </div>
 
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportJson} className="hidden" />
-            <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
-              <button onClick={() => fileInputRef.current?.click()} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+            <div className="flex bg-surface-container p-1 rounded-full border border-outline-variant">
+              <button onClick={() => fileInputRef.current?.click()} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 匯入
               </button>
-              <button onClick={handleExportJson} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+              <button onClick={handleExportJson} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 備份
               </button>
             </div>
 
-            <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
+            <div className="w-px h-6 bg-outline-variant mx-1 hidden sm:block" />
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
-              <span className="text-[10px] text-slate-400 font-bold">預覽比</span>
+            <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-full border border-outline-variant shadow-sm">
+              <span className="text-[10px] text-on-surface-variant font-medium">預覽比</span>
               <input type="range" min={40} max={200} step={5} value={previewZoom} onChange={(e) => setPreviewZoom(parseInt(e.target.value, 10))} className="w-16 cursor-pointer accent-primary-600" />
-              <span className="text-[10px] text-slate-600 w-7 text-right font-mono font-bold">{previewZoom}%</span>
+              <span className="text-[10px] text-on-surface-variant w-7 text-right font-mono font-medium">{previewZoom}%</span>
             </div>
 
             {cycleId && (
               <button
                 onClick={saveMetaToSystem}
                 disabled={syncBusy}
-                className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1 disabled:opacity-50"
+                className="text-success-700 bg-success-50 hover:bg-success-100 border border-success-200 px-3 py-1.5 rounded-full font-medium transition-all text-xs ml-1 disabled:opacity-50"
                 title="把封面/基本資訊(日期、範圍、準則、稽核小組)存回系統,彙整報告頁同步"
               >
                 {syncBusy ? '儲存中…' : '存回系統'}
               </button>
             )}
-            <button onClick={() => setResetOpen(true)} className="text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1">
+            <button onClick={() => setResetOpen(true)} className="text-danger-600 bg-danger-50 hover:bg-danger-100 border border-danger-100 px-3 py-1.5 rounded-full font-medium transition-all text-xs ml-1">
               重置
             </button>
             <button onClick={exportToWord} className="btn-secondary px-4 py-1.5 text-xs ml-1 flex items-center gap-1">

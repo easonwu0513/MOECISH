@@ -15,8 +15,9 @@
   --amt-surface-50: #f8fafc;
   --amt-surface-100: #f1f5f9;
   --amt-surface-200: #e2e8f0;
-  --amt-text-main: #334155;
-  --amt-text-muted: #64748b;
+  /* 對齊系統 on-surface ink（原為 slate-700/500,文字與全站斷裂;#14 邊界縫合） */
+  --amt-text-main: var(--on-surface, #1a2332);
+  --amt-text-muted: var(--on-surface-variant, #57647a);
   background-color: var(--amt-surface-100);
   color: var(--amt-text-main);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
