@@ -8,6 +8,7 @@ import { canAccess } from '@/lib/access-policy';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
+import { TileIcon, StatusPill } from '@/components/cycle/tile';
 import { Button } from '@/components/ui/Button';
 import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check, Download } from '@/components/icons';
 import { getTemplateFilesForYear } from '@/lib/prep-standard';
@@ -115,13 +116,13 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               {shownNav.map((n) => {
                 const inner = (
                   <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${n.href === null ? 'bg-primary-50 border border-primary-100' : 'transition-colors hover:bg-surface-container'}`}>
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${n.href === null ? 'bg-white text-primary-700' : 'bg-surface-container text-on-surface-variant'}`}>
+                    <TileIcon size={32} className={n.href === null ? 'bg-white text-primary-700' : 'bg-surface-container text-on-surface-variant'}>
                       {n.icon}
-                    </span>
+                    </TileIcon>
                     <div className="min-w-0 flex-1">
                       <p className={`text-body-sm font-medium leading-tight ${n.href === null ? 'text-primary-800' : 'text-on-surface'}`}>{n.label}</p>
                       <p className="mt-0.5 text-caption text-on-surface-variant leading-tight">{n.sub}</p>
-                      <span className={`mt-1 inline-block rounded-full px-1.5 text-label-sm ${n.statusTone === 'success' ? 'bg-success-50 text-success-700' : 'bg-surface-container text-on-surface-variant'}`}>{n.status}</span>
+                      <StatusPill tone={n.statusTone === 'success' ? 'success' : 'neutral'} className="mt-1">{n.status}</StatusPill>
                     </div>
                     {n.href !== null && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
                   </div>

@@ -25,6 +25,7 @@ import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
 import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
+import { TileIcon, statusToneText } from '@/components/cycle/tile';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -851,22 +852,12 @@ function StatusTile({
   const iconBg = muted || locked
     ? 'bg-surface-container-high text-on-surface-variant'
     : toneClasses(tone).iconBg;
-  const statusColor = locked
-    ? 'text-on-surface-variant'
-    : statusTone === 'success'
-      ? 'text-success-700'
-      : statusTone === 'warning'
-        ? 'text-warning-600'
-        : statusTone === 'primary'
-          ? 'text-primary-700'
-          : 'text-on-surface';
+  const statusColor = locked ? 'text-on-surface-variant' : statusToneText[statusTone];
 
   const inner = (
     <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
       <div className="flex items-center gap-2.5">
-        <div className={`w-9 h-9 rounded-md ${iconBg} flex items-center justify-center shrink-0`}>
-          {icon}
-        </div>
+        <TileIcon className={iconBg}>{icon}</TileIcon>
         <p className="min-w-0 flex-1 text-body-sm font-medium text-on-surface leading-tight">{title}</p>
         {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
       </div>
