@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Logo } from '@/components/brand/Logo';
+import { AuthLayout } from '@/components/shell/AuthLayout';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Alert } from '@/components/ui/Alert';
-import { ChevronLeft, CheckCircle } from '@/components/icons';
+import { CheckCircle } from '@/components/icons';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -30,25 +30,11 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center px-4 py-10 bg-surface-container-low">
-      <Link
-        href="/login"
-        className="absolute top-5 left-5 sm:top-7 sm:left-7 inline-flex items-center gap-1 h-10 pl-2.5 pr-4 rounded-full text-body-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus-ring"
-      >
-        <ChevronLeft size={16} />
-        返回登入
-      </Link>
-
-      <div className="relative w-full max-w-[440px]">
-        <div className="flex flex-col items-center mb-8">
-          <Logo size={56} />
-          <h1 className="mt-4 text-headline text-on-surface">忘記密碼</h1>
-          <p className="mt-2 text-body-sm text-on-surface-variant text-center">
-            輸入您的帳號 Email,我們將寄送密碼重設連結(1 小時內有效)。
-          </p>
-        </div>
-
-        <div className="relative bg-surface-container-lowest border border-outline-variant/60 rounded-lg shadow-elev-2 p-7 sm:p-8">
+    <AuthLayout
+      title="忘記密碼"
+      subtitle="輸入您的帳號 Email,我們將寄送密碼重設連結(1 小時內有效)。"
+      back={{ href: '/login', label: '返回登入' }}
+    >
           {done ? (
             <div className="flex flex-col items-center gap-4 text-center py-2">
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-50 text-primary-700">
@@ -78,8 +64,6 @@ export default function ForgotPasswordPage() {
               </Button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

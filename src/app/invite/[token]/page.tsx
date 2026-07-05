@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db';
 import { inviteStatus } from '@/lib/invite';
-import { Logo } from '@/components/brand/Logo';
+import { AuthLayout } from '@/components/shell/AuthLayout';
 import { Chip } from '@/components/ui/Chip';
 import { AlertCircle } from '@/components/icons';
 import { ROLE_LABELS, type Role } from '@/lib/types';
@@ -16,21 +16,7 @@ export default async function InvitePage({ params }: { params: { token: string }
   const status = inv ? inviteStatus(inv) : 'revoked';
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-surface">
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'var(--auth-ambient)' }}
-        aria-hidden
-      />
-
-      <div className="relative w-full max-w-[440px]">
-        <div className="flex flex-col items-center mb-8">
-          <Logo size={56} />
-          <h1 className="mt-4 text-headline-sm text-on-surface">MOECISH</h1>
-          <p className="mt-1.5 text-body-sm text-on-surface-variant">資通安全稽核管考平台</p>
-        </div>
-
-        <div className="bg-surface-container-lowest rounded-md shadow-elev-1 p-7 sm:p-8 border border-outline-variant/60">
+    <AuthLayout title="MOECISH" subtitle="資通安全稽核管考平台">
           {!inv || status === 'revoked' || status === 'used' || status === 'expired' ? (
             <div className="text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-danger-50 text-danger-600 flex items-center justify-center mb-4">
@@ -69,8 +55,6 @@ export default async function InvitePage({ params }: { params: { token: string }
               <InviteAcceptForm token={params.token} email={inv.email} />
             </>
           )}
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }
