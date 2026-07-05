@@ -61,15 +61,16 @@ const variantStyles: Record<Variant, string> = {
   elevated:
     'bg-surface-container-low text-primary-700 shadow-elev-1 ' +
     'hover:bg-surface-container hover:shadow-elev-2 active:shadow-elev-1',
+  // 語意實心鈕對齊 TONE.solid=600 單一深淺基準(批72 filled 已 600,此三色補齊;批75 消最後色階漂移)
   danger:
-    'bg-danger-500 text-white shadow-elev-1 ' +
-    'hover:bg-danger-600 hover:shadow-elev-2 active:bg-danger-700',
+    'bg-danger-600 text-white shadow-elev-1 ' +
+    'hover:bg-danger-700 hover:shadow-elev-2 active:bg-danger-800',
   success:
-    'bg-success-500 text-white shadow-elev-1 ' +
-    'hover:bg-success-600 hover:shadow-elev-2 active:bg-success-700',
+    'bg-success-600 text-white shadow-elev-1 ' +
+    'hover:bg-success-700 hover:shadow-elev-2 active:bg-success-800',
   warning:
-    'bg-warning-500 text-white shadow-elev-1 ' +
-    'hover:bg-warning-600 hover:shadow-elev-2 active:bg-warning-700',
+    'bg-warning-600 text-white shadow-elev-1 ' +
+    'hover:bg-warning-700 hover:shadow-elev-2 active:bg-warning-800',
 };
 
 const sizeStyles: Record<Size, string> = {

@@ -13,8 +13,19 @@ import { cn } from '@/lib/cn';
  *     </tbody>
  *   </Table>
  */
-export function Table({ className, ...rest }: HTMLAttributes<HTMLTableElement>) {
-  return <table className={cn('w-full text-body-sm', className)} {...rest} />;
+export function Table({ ledger, className, ...rest }: HTMLAttributes<HTMLTableElement> & { ledger?: boolean }) {
+  // ledger(深藍憲章招牌;批75):列分隔線改用 --navy-ledger-line 編輯級規線,數值以 tabular-nums 對齊,
+  // 讓資料表成為「被設計過的數字骨架」而非「沒跑掉的數字」。搭配 Td numeric 右對齊小數點對齊。
+  return (
+    <table
+      className={cn(
+        'w-full text-body-sm',
+        ledger && 'tabular-nums [&_tbody_tr]:border-ledger-line [&_thead_th]:border-b [&_thead_th]:border-ledger-line',
+        className,
+      )}
+      {...rest}
+    />
+  );
 }
 
 /**
