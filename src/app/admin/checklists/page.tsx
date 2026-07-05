@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -30,12 +31,10 @@ export default async function ChecklistVersionsPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '檢核表題庫' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">檢核表題庫管理</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          管理各年度檢核表版本與題目內容(含法規對照);年度換版用「複製為新版」再編修,歷史週期不受影響。
-        </p>
-      </header>
+      <PageHeader
+        title="檢核表題庫管理"
+        subtitle="管理各年度檢核表版本與題目內容(含法規對照);年度換版用「複製為新版」再編修,歷史週期不受影響。"
+      />
 
       {versions.length === 0 ? (
         <Card>

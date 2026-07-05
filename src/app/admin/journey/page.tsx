@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import JourneyEditor from './JourneyEditor';
 import type { Role } from '@/lib/types';
 
@@ -48,13 +49,10 @@ export default async function AdminJourneyPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '精靈範本' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">引導式精靈範本</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          維護兩種精靈的階段與項目:「中心年度計畫執行」(跨院年度 SOP) 與「週期各階段」(每家醫院、分角色)。
-          此處修改即時套用到精靈;已勾選的進度不受影響。
-        </p>
-      </header>
+      <PageHeader
+        title="引導式精靈範本"
+        subtitle="維護兩種精靈的階段與項目:「中心年度計畫執行」(跨院年度 SOP) 與「週期各階段」(每家醫院、分角色)。此處修改即時套用到精靈;已勾選的進度不受影響。"
+      />
       <JourneyEditor data={{ CYCLE: byScope('CYCLE'), PROGRAMME: byScope('PROGRAMME') }} />
     </AppShell>
   );

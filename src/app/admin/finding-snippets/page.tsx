@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import SnippetManager from './SnippetManager';
 
 export const dynamic = 'force-dynamic';
@@ -22,13 +23,10 @@ export default async function FindingSnippetsPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '發現片語庫' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">稽核發現片語庫(剪貼簿)</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          維護委員實地稽核時常用的發現片語。可標註適用構面與類型(或設為通用);委員於「實地稽核 → 稽核發現」表單按「剪貼簿」時,
-          會依其當前構面/類型自動篩選並一鍵插入。
-        </p>
-      </header>
+      <PageHeader
+        title="稽核發現片語庫(剪貼簿)"
+        subtitle="維護委員實地稽核時常用的發現片語。可標註適用構面與類型(或設為通用);委員於「實地稽核 → 稽核發現」表單按「剪貼簿」時,會依其當前構面/類型自動篩選並一鍵插入。"
+      />
       <SnippetManager
         initial={snippets.map((s) => ({ id: s.id, aspect: s.aspect, kind: s.kind, text: s.text }))}
       />

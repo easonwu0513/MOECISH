@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
+import { FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -106,48 +108,43 @@ export default async function AuditLogPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '稽核軌跡' }]}
     >
-      <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-headline text-on-surface">稽核軌跡</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-            所有寫入操作之不可否認紀錄;顯示最近 200 筆。
-          </p>
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          <a href="/admin/audit-log">
-            <Chip tone={!entity ? 'primary' : 'neutral'} size="sm">全部</Chip>
-          </a>
-          {entityTypes.map((t) => (
-            <a key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`}>
-              <Chip tone={entity === t.entityType ? 'primary' : 'neutral'} size="sm">
-                {entityLabel(t.entityType)}({t._count})
-              </Chip>
+      <PageHeader
+        title="稽核軌跡"
+        subtitle="所有寫入操作之不可否認紀錄;顯示最近 200 筆。"
+        actions={
+          <div className="flex gap-1.5 flex-wrap">
+            <a href="/admin/audit-log">
+              <Chip tone={!entity ? 'primary' : 'neutral'} size="sm">全部</Chip>
             </a>
-          ))}
-        </div>
-      </header>
+            {entityTypes.map((t) => (
+              <a key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`}>
+                <Chip tone={entity === t.entityType ? 'primary' : 'neutral'} size="sm">
+                  {entityLabel(t.entityType)}({t._count})
+                </Chip>
+              </a>
+            ))}
+          </div>
+        }
+      />
 
       {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
       <form method="get" className="mb-5 flex items-end gap-2 flex-wrap">
         {entity && <input type="hidden" name="entity" value={entity} />}
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          操作者
-          <select name="actor" defaultValue={actorId ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring">
+        <FilterField label="操作者">
+          <FilterSelect name="actor" defaultValue={actorId ?? ''}>
             <option value="">全部</option>
             {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          起
-          <input type="date" name="from" defaultValue={from ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
-        </label>
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          迄
-          <input type="date" name="to" defaultValue={to ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
-        </label>
-        <button type="submit" className="h-9 px-4 rounded-md bg-primary-600 text-white text-body-sm focus-ring hover:bg-primary-700">套用</button>
+          </FilterSelect>
+        </FilterField>
+        <FilterField label="起">
+          <FilterInput type="date" name="from" defaultValue={from ?? ''} />
+        </FilterField>
+        <FilterField label="迄">
+          <FilterInput type="date" name="to" defaultValue={to ?? ''} />
+        </FilterField>
+        <Button type="submit" size="sm">套用</Button>
         {(actorId || from || to) && (
-          <a href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} className="h-9 inline-flex items-center px-3 text-body-sm text-on-surface-variant hover:text-on-surface">清除</a>
+          <Button href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} variant="ghost" size="sm">清除</Button>
         )}
       </form>
 

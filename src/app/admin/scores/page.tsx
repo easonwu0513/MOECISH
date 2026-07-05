@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -115,12 +116,12 @@ export default async function CrossOrgScoresPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '跨院評分比較' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">跨院評分比較</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-on-surface">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。
-        </p>
-      </header>
+      <PageHeader
+        title="跨院評分比較"
+        subtitle={
+          <>各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-on-surface">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。</>
+        }
+      />
 
       {years.length > 1 && (
         <div className="mb-5 flex items-center gap-2 flex-wrap">

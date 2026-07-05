@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { PageHeader } from '@/components/shell/PageHeader';
+import { FilterInput } from '@/components/ui/FilterField';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -91,13 +93,15 @@ export default async function EmailLogPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: 'Email' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">Email</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
-          寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
-        </p>
-      </header>
+      <PageHeader
+        title="Email"
+        subtitle={
+          <>
+            寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
+            寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
+          </>
+        }
+      />
 
       <ComposeTracking orgs={orgs} />
 
@@ -142,12 +146,12 @@ export default async function EmailLogPage({
         <form action="/admin/emails" method="get" className="flex items-center gap-2 max-w-sm">
           {kind && <input type="hidden" name="kind" value={kind} />}
           {status && <input type="hidden" name="status" value={status} />}
-          <input
+          <FilterInput
             type="search"
             name="q"
             defaultValue={q}
             placeholder="搜尋收件人或主旨…"
-            className="h-9 flex-1 rounded-md border border-outline-variant bg-surface px-3 text-body-sm focus-ring"
+            className="flex-1"
           />
         </form>
       </div>
