@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
+import { Table, THead, Th, Tr, Td, Truncate } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
 import { History } from '@/components/icons';
 import { EMPTY } from '@/lib/copy';
@@ -163,9 +163,9 @@ export default async function AuditLogPage({
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
-          <TableScroll>
+          <TableScroll maxHeight="70vh">
           <Table>
-            <THead>
+            <THead sticky>
                 <Th>時間</Th>
                 <Th>操作者</Th>
                 <Th>動作</Th>
@@ -193,9 +193,9 @@ export default async function AuditLogPage({
                   </Td>
                   <Td>
                     <span className="text-on-surface">{entityLabel(l.entityType)}</span>
-                    <span className="block text-caption font-mono text-on-surface-variant truncate max-w-[180px]">
+                    <Truncate className="text-caption font-mono text-on-surface-variant max-w-[180px]">
                       {l.entityId}
-                    </span>
+                    </Truncate>
                   </Td>
                   <Td className="text-caption font-mono text-on-surface-variant">
                     {l.ipAddress ?? '—'}

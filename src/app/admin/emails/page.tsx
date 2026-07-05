@@ -165,9 +165,9 @@ export default async function EmailLogPage({
         </Card>
       ) : (
         <Card padded={false} variant="outlined">
-          <TableScroll>
+          <TableScroll maxHeight="70vh">
           <Table>
-            <THead>
+            <THead sticky>
               <Th>時間</Th>
               <Th>類型</Th>
               <Th>狀態</Th>

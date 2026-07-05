@@ -167,11 +167,11 @@ export default async function CrossOrgScoresPage({
           </div>
 
           <Card padded={false} variant="outlined">
-            <TableScroll>
+            <TableScroll maxHeight="70vh">
               <table className="w-full text-body-sm border-collapse">
-                <thead className="text-label-sm text-on-surface-variant bg-surface-container-low">
+                <thead className="text-label-sm text-on-surface-variant bg-surface-container-low [&_th]:sticky [&_th]:top-0">
                   <tr>
-                    <SortableTh keyName="org" active={sortKey === 'org'} dir={dir} href={sortHref('org')} align="left" className="px-4 sticky left-0 bg-surface-container-low">機關</SortableTh>
+                    <SortableTh keyName="org" active={sortKey === 'org'} dir={dir} href={sortHref('org')} align="left" stickyCol className="px-4">機關</SortableTh>
                     <SortableTh keyName="year" active={sortKey === 'year'} dir={dir} href={sortHref('year')}>年度</SortableTh>
                     {DIMENSION_ORDER.map((dim, i) => (
                       <SortableTh
@@ -193,7 +193,7 @@ export default async function CrossOrgScoresPage({
                 <tbody>
                   {sorted.map((r) => (
                     <tr key={r.id} className="border-t border-outline-variant/60">
-                      <td className="px-4 py-2 text-on-surface whitespace-nowrap sticky left-0 bg-surface-container-lowest">{r.org}</td>
+                      <td className="px-4 py-2 text-on-surface whitespace-nowrap sticky left-0 z-10 bg-surface-container-lowest">{r.org}</td>
                       <td className="px-2 py-2 text-center tabular-nums text-on-surface-variant">{r.yearROC}</td>
                       {r.cells.map((v, i) => {
                         const dim = DIMENSION_ORDER[i] as Dimension;
@@ -235,7 +235,7 @@ export default async function CrossOrgScoresPage({
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-outline-variant bg-surface-container-low font-medium">
-                    <td className="px-4 py-2.5 sticky left-0 bg-surface-container-low" colSpan={2}>全院平均</td>
+                    <td className="px-4 py-2.5 sticky left-0 z-10 bg-surface-container-low" colSpan={2}>全院平均</td>
                     {colAvg.map((v, i) => (
                       <td key={i} className={cn('px-2 py-2.5 text-center tabular-nums', i === weakestCol && 'ring-1 ring-inset ring-danger-300 text-danger-700 font-semibold')}>
                         {v ?? '—'}
@@ -268,7 +268,7 @@ export default async function CrossOrgScoresPage({
   );
 }
 
-/** 可排序表頭:整格為連結、aria-sort 標記,焦點鍵盤可達;最弱構面欄加淡背景。 */
+/** 可排序表頭:整格為連結、aria-sort 標記,焦點鍵盤可達;最弱構面欄加淡背景;支援 sticky thead 與首欄凍結。 */
 function SortableTh({
   active,
   dir,
@@ -277,6 +277,7 @@ function SortableTh({
   align = 'center',
   title,
   weakest,
+  stickyCol,
   className,
 }: {
   keyName: string;
@@ -287,6 +288,7 @@ function SortableTh({
   align?: 'left' | 'center';
   title?: string;
   weakest?: boolean;
+  stickyCol?: boolean;
   className?: string;
 }) {
   return (
@@ -294,7 +296,14 @@ function SortableTh({
       scope="col"
       aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
       title={title}
-      className={cn('py-3 font-medium', align === 'left' ? 'text-left' : 'text-center', weakest && 'bg-danger-50/60', className)}
+      className={cn(
+        'py-3 font-medium',
+        align === 'left' ? 'text-left' : 'text-center',
+        // 單一 bg / z 類別(避免同格兩個同性質工具互相覆寫的不確定性)
+        weakest ? 'bg-danger-50/60' : 'bg-surface-container-low',
+        stickyCol ? 'sticky left-0 z-30' : 'z-20',
+        className,
+      )}
     >
       <Link
         href={href}
