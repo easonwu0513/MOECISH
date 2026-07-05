@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
 import { inviteStatus } from '@/lib/invite';
 import type { Role } from '@/lib/types';
 import InviteDialog from '@/components/admin/InviteDialog';
@@ -63,11 +62,17 @@ export default async function UsersPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '使用者' }]}
     >
-      <PageHeader
-        title="使用者管理"
-        subtitle="全系統帳號與邀請的單一入口:邀請 → 待接受(過期可重寄)→ 啟用 → 停用,同一張表管到底。"
-        actions={<InviteDialog orgs={orgs} triggerLabel="邀請人員" />}
-      />
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">使用者管理</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+            全系統帳號與邀請的單一入口:邀請 → 待接受(過期可重寄)→ 啟用 → 停用,同一張表管到底。
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap shrink-0">
+          <InviteDialog orgs={orgs} triggerLabel="邀請人員" />
+        </div>
+      </header>
 
       <UsersDirectory invites={inviteRows} users={userRows} orgs={orgs} />
     </AppShell>

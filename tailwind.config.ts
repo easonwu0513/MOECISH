@@ -157,9 +157,9 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)'],
         mono: ['var(--font-mono)'],
-        /* 文件襯線 voice(靜謐文件工作坊)——僅供文件大標與章序號承載公文莊重感。
-           單一來源 globals.css --font-serif(next/font Noto Serif TC + 中文系統襯線 fallback)。 */
-        serif: ['var(--font-serif)'],
+        /* serif:僅 audit-merge 逗號字符等零星用途;用系統襯線(免 web font)。
+           文件大標依使用者裁定改回黑體(font-sans),不再以襯線呈現。 */
+        serif: ['"Songti TC"', 'PMingLiU', 'MingLiU', 'Georgia', '"Times New Roman"', 'serif'],
       },
       fontSize: {
         'label-sm':      ['0.6875rem', { lineHeight: '1rem',     letterSpacing: '0.5px',  fontWeight: '500' }],

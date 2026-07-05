@@ -63,7 +63,7 @@
 | `border-rule-strong` | `#d4dbe3` | 章節 / 強分隔 |
 | `border-rule-active` | = `primary-600` | 當前文件左緣規線 / 焦點 |
 | `bg-focus-wash` | = `primary-50` | 段落聚焦極淡藍底 |
-| `font-serif` | 系統襯線堆疊 | **僅**文件大標與章序號(公文莊重呼吸);其餘一律 `font-sans` |
+| 文件大標 | `font-sans`(黑體) | 使用者裁定:大標維持黑體(不用襯線),以「放大 text-headline-lg + 公文式底規線(border-b border-rule)」承載文件感。`font-serif` 僅 audit-merge 逗號等零星用途,不載 web font。 |
 
 > 語意色沿用既有 `success/warning/danger`(calm 的 通過=`success-700`、退回/待補=`warning-700`、逾期=`danger-600`,底色用各 `-50`)。角色 accent:中心=`primary-600`、委員=`sage-700`、機關=`warning-700`。
 > **三修正紀律**(承使用者裁定「這版對了」的互動試用版):①密集資料(評分矩陣/87 題/紀錄)一律**全寬帳冊附件**承載,不塞窄讀欄;②段落聚焦=**加亮當前**(`border-rule-active`+`bg-focus-wash`)**不壓暗其餘**(勿用 opacity 降透明,傷對照與對比);③襯線僅限大標,逾期/退回用**實心左條+文字雙載**,前景背景逐對過 WCAG AA。

@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
 import PrepTemplateManager from './PrepTemplateManager';
 
 export const dynamic = 'force-dynamic';
@@ -26,18 +25,18 @@ export default async function PrepTemplatePage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '資料準備清單' }]}
     >
-      <PageHeader
-        title="資料準備標準清單"
-        subtitle={
-          <>
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">資料準備標準清單</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
             本頁維護「本年度」與「下一年度(預備)」的標準清單(分技術檢測 / 實地稽核 / 中心匯入三區):
             各年度週期「套用標準清單」帶入該年度項目,套用後仍可逐案調整;清單為空時帶入系統內建預設。
             本年度清單即為當年確定版本,翌年自動轉入「歷年清單」唯讀留存(近五年);修改任一年度都不會動到歷年紀錄。
             年底可於「下一年度(預備)」預先建置明年清單(一鍵代入本年度再小幅修正)。
             各項目可上傳「文件範本」(僅此處接受 Word/Excel 等可編輯格式)供機關於資料準備頁下載依式填寫。
-          </>
-        }
-      />
+          </p>
+        </div>
+      </header>
       <PrepTemplateManager
         initialItems={items.map((i) => ({
           id: i.id,

@@ -112,7 +112,7 @@ export default async function CrossOrgScoresPage({
       crumbs={[{ label: '管理' }, { label: '跨院評分比較' }]}
     >
       <header className="mb-9 pb-5 border-b border-rule">
-        <h1 className="font-serif text-headline-lg text-ink-900 tracking-tight">跨院評分比較</h1>
+        <h1 className="text-headline-lg text-ink-900 tracking-tight">跨院評分比較</h1>
         <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
           各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-ink-700">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。
         </p>

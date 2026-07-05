@@ -118,7 +118,7 @@ export default async function AdminCyclesPage({
       {/* ── 文件大標(襯線)+ 動作;公文式底規線 ── */}
       <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="font-serif text-headline-lg text-ink-900 tracking-tight">跨院週期總覽</h1>
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">跨院週期總覽</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-xl leading-relaxed">
             跨機關年度稽核進度總覽:一眼掌握誰在辦、誰落後、矯正完成率。
           </p>
@@ -145,7 +145,7 @@ export default async function AdminCyclesPage({
 
       {/* ── 當前態勢:三讀數卡 ── */}
       <section className="mb-8">
-        <div className="mb-3 font-serif text-title text-ink-500">當前態勢</div>
+        <div className="mb-3 text-title text-ink-500">當前態勢</div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Readout label="進行中週期" value={String(activeCount)} sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
           <Readout label="落後(逾期 / 停滯)" value={String(behindCount)} sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} tone={behindCount > 0 ? 'danger' : undefined} />
@@ -156,7 +156,7 @@ export default async function AdminCyclesPage({
       {/* ── 週期清單:篩選 + 髮絲帳冊表 ── */}
       <section>
         <div className="mb-3 flex items-end justify-between gap-3 flex-wrap">
-          <div className="font-serif text-title text-ink-500">{behindOnly ? '落後段落' : '週期清單'}</div>
+          <div className="text-title text-ink-500">{behindOnly ? '落後段落' : '週期清單'}</div>
           <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
             <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
             <FilterChipLink href={behindHref(true)} selected={behindOnly}>

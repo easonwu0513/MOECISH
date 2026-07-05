@@ -2,16 +2,11 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
 import { FilterBar, FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
-import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { Table, THead, Th, Tr, Td, Truncate } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { History } from '@/components/icons';
 import { EMPTY } from '@/lib/copy';
 import { fmtROCDateTimeSec } from '@/lib/date';
 
@@ -109,10 +104,14 @@ export default async function AuditLogPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '稽核軌跡' }]}
     >
-      <PageHeader
-        title="稽核軌跡"
-        subtitle="所有寫入操作之不可否認紀錄;顯示最近 200 筆。"
-      />
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">稽核軌跡</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+            所有寫入操作之不可否認紀錄;顯示最近 200 筆。
+          </p>
+        </div>
+      </header>
 
       {/* 統一 FilterBar 版位(批85):物件類型 chips + 操作者/日期表單,不再塞進 header actions */}
       <FilterBar>
@@ -147,63 +146,67 @@ export default async function AuditLogPage({
       </FilterBar>
 
       {logs.length === 0 ? (
-        <Card>
+        <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
           {entity || actorId || from || to ? (
-            <EmptyState
-              icon={<History size={28} />}
-              title={EMPTY.noResults.title}
-              description="此條件區間查無操作紀錄;請調整或清除篩選後再試。"
-              action={<Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button>}
-            />
+            <>
+              <p className="text-title text-ink-700">{EMPTY.noResults.title}</p>
+              <p className="mt-1.5 text-body-sm text-ink-500">此條件區間查無操作紀錄;請調整或清除篩選後再試。</p>
+              <div className="mt-4"><Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button></div>
+            </>
           ) : (
-            <EmptyState icon={<History size={28} />} title="尚無紀錄" description="系統操作後將自動留存軌跡。" />
+            <>
+              <p className="text-title text-ink-700">尚無紀錄</p>
+              <p className="mt-1.5 text-body-sm text-ink-500">系統操作後將自動留存軌跡。</p>
+            </>
           )}
-        </Card>
+        </div>
       ) : (
-        <Card padded={false} variant="outlined">
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
           <TableScroll maxHeight="70vh">
-          <Table ledger density="compact">
-            <THead sticky>
-                <Th>時間</Th>
-                <Th>操作者</Th>
-                <Th>動作</Th>
-                <Th>對象</Th>
-                <Th>IP</Th>
-            </THead>
-            <tbody>
-              {logs.map((l) => (
-                <Tr key={l.id} className="align-top">
-                  <Td className="text-on-surface-variant whitespace-nowrap tabular-nums">
-                    {fmtROCDateTimeSec(l.createdAt)}
-                  </Td>
-                  <Td>
-                    {l.actor ? (
-                      <>
-                        <span className="text-on-surface">{l.actor.name}</span>
-                        <span className="block text-caption font-mono text-on-surface-variant">{l.actor.email}</span>
-                      </>
-                    ) : (
-                      <span className="text-on-surface-variant">系統</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
-                  </Td>
-                  <Td>
-                    <span className="text-on-surface">{entityLabel(l.entityType)}</span>
-                    <Truncate className="text-caption font-mono text-on-surface-variant max-w-[180px]">
-                      {l.entityId}
-                    </Truncate>
-                  </Td>
-                  <Td className="text-caption font-mono text-on-surface-variant">
-                    {l.ipAddress ?? '—'}
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+            <table className="w-full text-body-sm">
+              <thead>
+                <tr className="border-b border-rule-strong bg-paper-sunk text-left text-caption text-ink-500 [&_th]:sticky [&_th]:top-0 [&_th]:bg-paper-sunk">
+                  <th className="px-4 py-2.5 font-medium">時間</th>
+                  <th className="px-4 py-2.5 font-medium">操作者</th>
+                  <th className="px-4 py-2.5 font-medium">動作</th>
+                  <th className="px-4 py-2.5 font-medium">對象</th>
+                  <th className="px-4 py-2.5 font-medium">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => (
+                  <tr key={l.id} className="border-b border-rule last:border-b-0 align-top hover:bg-paper-sunk transition-colors">
+                    <td className="px-4 py-3 text-ink-500 whitespace-nowrap tabular-nums">
+                      {fmtROCDateTimeSec(l.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {l.actor ? (
+                        <>
+                          <span className="text-ink-900">{l.actor.name}</span>
+                          <span className="block text-caption font-mono text-ink-500">{l.actor.email}</span>
+                        </>
+                      ) : (
+                        <span className="text-ink-500">系統</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-ink-900">{entityLabel(l.entityType)}</span>
+                      <span className="block truncate text-caption font-mono text-ink-500 max-w-[180px]">
+                        {l.entityId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-caption font-mono text-ink-500">
+                      {l.ipAddress ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </TableScroll>
-        </Card>
+        </div>
       )}
     </AppShell>
   );

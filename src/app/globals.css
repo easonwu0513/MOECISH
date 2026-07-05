@@ -49,10 +49,6 @@
   --font-sans: var(--font-inter), var(--font-noto), 'Roboto', ui-sans-serif, system-ui,
     -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-mono: var(--font-jetbrains), 'Roboto Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  /* 文件襯線(靜謐文件工作坊;僅文件大標/章序號)——先 next/font Noto Serif TC,
-     再中文系統襯線 fallback(Mac 宋體/Windows 新細明體·細明體),確保無 web font 時仍以明體顯示公文感 */
-  --font-serif: var(--font-noto-serif), 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC',
-    'PMingLiU', 'MingLiU', Georgia, 'Times New Roman', serif;
 
   /* Full color scales (CSS variables for inline style usage) */
   --primary-50:  #f0f5fc; --primary-100: #dde8f8; --primary-200: #bcd2ef;

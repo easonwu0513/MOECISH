@@ -1,16 +1,11 @@
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
 import { FilterBar, FilterInput } from '@/components/ui/FilterField';
 import { EmailBodyButton } from './EmailBodyButton';
-import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { FileText } from '@/components/icons';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { fmtROCDateTime } from '@/lib/date';
 import ComposeTracking from './ComposeTracking';
 import ResendButton from './ResendButton';
@@ -94,15 +89,16 @@ export default async function EmailLogPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: 'Email' }]}
     >
-      <PageHeader
-        title="Email"
-        subtitle={
-          <>
+      {/* ── 文件大標(黑體)+ 公文式底規線 ── */}
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">Email</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
             寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
             寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
-          </>
-        }
-      />
+          </p>
+        </div>
+      </header>
 
       <ComposeTracking orgs={orgs} />
 
@@ -158,68 +154,72 @@ export default async function EmailLogPage({
       </FilterBar>
 
       {logs.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<FileText size={28} />}
-            title={kind || status || q ? '沒有符合條件的紀錄' : '尚無郵件紀錄'}
-          />
-        </Card>
+        <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
+          <p className="text-title text-ink-700">
+            {kind || status || q ? '沒有符合條件的紀錄' : '尚無郵件紀錄'}
+          </p>
+          <p className="mt-1.5 text-body-sm text-ink-500">
+            {kind || status || q ? '試試調整篩選條件或搜尋關鍵字。' : '寄出追蹤信或系統通知後,紀錄會列於此。'}
+          </p>
+        </div>
       ) : (
-        <Card padded={false} variant="outlined">
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
           <TableScroll maxHeight="70vh">
-          <Table ledger density="compact">
-            <THead sticky>
-              <Th>時間</Th>
-              <Th>類型</Th>
-              <Th>狀態</Th>
-              <Th>收件者</Th>
-              <Th>主旨</Th>
-              <Th numeric>操作</Th>
-            </THead>
-            <tbody>
-              {logs.map((l) => {
-                const k = kindLabel[l.kind] ?? kindLabel.other;
-                const s = statusOf(l);
-                const d = deliveryMeta[s];
-                return (
-                  <Tr key={l.id} hover={false} className="align-top">
-                    <Td className="text-caption text-on-surface-variant tabular-nums whitespace-nowrap">
-                      {fmtROCDateTime(l.sentAt)}
-                    </Td>
-                    <Td>
-                      <Chip size="sm" tone={k.tone}>{k.label}</Chip>
-                    </Td>
-                    <Td>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Chip size="sm" tone={d.tone} dot>{d.label}</Chip>
-                        {l.retryCount > 0 && (
-                          <span className="text-caption text-on-surface-variant tabular-nums">已重試 {l.retryCount} 次</span>
-                        )}
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="font-medium">{l.toName ?? '—'}</div>
-                      <div className="text-caption font-mono text-on-surface-variant">{l.toEmail}</div>
-                    </Td>
-                    <Td>
-                      <div className="text-on-surface">{l.subject}</div>
-                      <EmailBodyButton
-                        subject={l.subject}
-                        body={l.body}
-                        to={l.toName ? `${l.toName}（${l.toEmail}）` : l.toEmail}
-                        sentAt={fmtROCDateTime(l.sentAt)}
-                      />
-                    </Td>
-                    <Td className="text-right">
-                      {(s === 'failed' || s === 'dead-letter') && <ResendButton logId={l.id} />}
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
+            <table className="w-full text-body-sm">
+              <thead>
+                <tr className="border-b border-rule-strong bg-paper-sunk text-left text-caption text-ink-500 [&_th]:sticky [&_th]:top-0 [&_th]:bg-paper-sunk">
+                  <th className="px-4 py-2.5 font-medium">時間</th>
+                  <th className="px-4 py-2.5 font-medium">類型</th>
+                  <th className="px-4 py-2.5 font-medium">狀態</th>
+                  <th className="px-4 py-2.5 font-medium">收件者</th>
+                  <th className="px-4 py-2.5 font-medium">主旨</th>
+                  <th className="px-4 py-2.5 font-medium text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => {
+                  const k = kindLabel[l.kind] ?? kindLabel.other;
+                  const s = statusOf(l);
+                  const d = deliveryMeta[s];
+                  return (
+                    <tr key={l.id} className="border-b border-rule last:border-b-0 hover:bg-paper-sunk transition-colors align-top">
+                      <td className="px-4 py-3 text-caption text-ink-500 tabular-nums whitespace-nowrap">
+                        {fmtROCDateTime(l.sentAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Chip size="sm" tone={k.tone}>{k.label}</Chip>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Chip size="sm" tone={d.tone} dot>{d.label}</Chip>
+                          {l.retryCount > 0 && (
+                            <span className="text-caption text-ink-500 tabular-nums">已重試 {l.retryCount} 次</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-ink-900">{l.toName ?? <span className="text-ink-500">—</span>}</div>
+                        <div className="text-caption font-mono text-ink-500">{l.toEmail}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-ink-900">{l.subject}</div>
+                        <EmailBodyButton
+                          subject={l.subject}
+                          body={l.body}
+                          to={l.toName ? `${l.toName}（${l.toEmail}）` : l.toEmail}
+                          sentAt={fmtROCDateTime(l.sentAt)}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {(s === 'failed' || s === 'dead-letter') && <ResendButton logId={l.id} />}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </TableScroll>
-        </Card>
+        </div>
       )}
     </AppShell>
   );
