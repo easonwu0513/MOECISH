@@ -279,7 +279,7 @@ export default async function HomePage() {
 
           {/* 中心:今日待辦 —— 逐週期可點擊待辦(原本只算件數不渲染;依緊急度排序,直達對應頁) */}
           {isSuper && todos.length > 0 && (
-            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest shadow-elev-1 overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">今日待辦 · {todos.length} 件</p>
                 <span className="text-caption text-on-surface-variant">依緊急程度排序</span>
@@ -323,7 +323,7 @@ export default async function HomePage() {
 
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
-            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest shadow-elev-1 overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院週期總覽 · {cycles.length} 個週期</p>
                 <span className="text-caption text-on-surface-variant">左色條 = 階段;逾期以紅標示</span>
@@ -339,9 +339,10 @@ export default async function HomePage() {
                       <li
                         key={e.c.id}
                         className={cn(
-                          'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-4 px-4 py-3',
-                          toneClasses(tone).border,
-                          e.overdue && 'bg-danger-50/50',
+                          // 逾期=最高語意優先級→最高視覺權重(批78 P0):實心 danger-600 左框 + 實心 danger-50 底,
+                          // 取代原 border=階段色+bg-danger-50/50 弱訊號。左色條 hover 4→6px=克制招牌微互動。
+                          'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-4 px-4 py-3 transition-[border-left-width] duration-200 ease-standard hover:border-l-[6px]',
+                          e.overdue ? 'border-l-danger-600 bg-danger-50' : toneClasses(tone).border,
                         )}
                       >
                         {e.overdue && <span className="sr-only">已逾期;</span>}
@@ -349,7 +350,7 @@ export default async function HomePage() {
                           <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
                           <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
                         </Link>
-                        {e.overdue && <Chip tone="danger" size="sm">逾期</Chip>}
+                        {e.overdue && <Chip tone="danger" size="sm" variant="filled">逾期</Chip>}
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
                         {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
                         {n?.href && n?.cta ? (
@@ -485,7 +486,8 @@ export default async function HomePage() {
                       key={c.id}
                       href={`/cycles/${c.id}`}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg border border-outline-variant border-l-4 bg-surface-container-lowest px-4 py-3.5 hover:bg-surface-container transition-colors focus-ring',
+                        // 邊框透明度與上方鎖定卡齊平(批78:同類卡片 /60 vs 全實心漂移收斂)
+                        'flex items-center gap-3 rounded-lg border border-outline-variant/60 border-l-4 bg-surface-container-lowest px-4 py-3.5 hover:bg-surface-container transition-colors focus-ring',
                         border,
                       )}
                     >
