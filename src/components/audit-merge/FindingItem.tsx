@@ -77,14 +77,14 @@ export const FindingItem = memo(function FindingItem({
         </div>
       )}
 
-      <div className="flex flex-col items-center justify-center pt-2 cursor-grab text-slate-300 hover:text-slate-500 transition-colors shrink-0" title="拖曳以手動排序">
+      <div className="flex flex-col items-center justify-center pt-2 cursor-grab text-neutral-300 hover:text-neutral-500 transition-colors shrink-0" title="拖曳以手動排序">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16" /></svg>
       </div>
 
       <div className="flex flex-col gap-1 shrink-0 transition-all duration-200" style={{ width: dynamicWidth, maxWidth: '100%' }}>
         <textarea
           id={`code-${item.id}`}
-          className={`input-elegant w-full font-mono text-center resize-none overflow-hidden leading-relaxed min-w-0 ${formatError ? 'border-red-500 bg-red-50 text-red-900 duplicate-warning-high' : showOrangeWarning ? 'border-orange-400 bg-orange-50 text-orange-900' : ''}`}
+          className={`input-elegant w-full font-mono text-center resize-none overflow-hidden leading-relaxed min-w-0 ${formatError ? 'border-danger-500 bg-danger-50 text-danger-900 duplicate-warning-high' : showOrangeWarning ? 'border-warning-400 bg-warning-50 text-warning-900' : ''}`}
           placeholder="編號"
           value={item.code}
           rows={1}
@@ -147,23 +147,23 @@ export const FindingItem = memo(function FindingItem({
               }
             }, 0);
           }}
-          className="text-[10px] bg-slate-100 text-slate-500 hover:bg-primary-100 hover:text-primary-700 py-0.5 rounded font-bold transition-colors shadow-sm border border-slate-200 mt-0.5"
+          className="text-[10px] bg-surface-container text-on-surface-variant hover:bg-primary-100 hover:text-primary-700 py-0.5 rounded font-bold transition-colors shadow-sm border border-outline-variant mt-0.5"
           title="快速插入 OT- (快捷鍵：在編號框內按鍵盤 'o')"
         >
           + OT-
         </button>
 
         {formatError ? (
-          <span className="text-[10px] text-red-600 font-bold px-1 animate-pulse text-center">🚨 {formatError}</span>
+          <span className="text-[10px] text-danger-700 font-bold px-1 animate-pulse text-center">{formatError}</span>
         ) : isDuplicate ? (
           <div className="flex flex-col items-center gap-1 mt-0.5">
-            <span className="text-[10px] text-orange-600 font-bold px-1 text-center">⚠️整併確認</span>
-            <label className="text-[10px] text-slate-500 flex items-center justify-center gap-1 cursor-pointer hover:text-slate-700 transition-colors">
+            <span className="text-[10px] text-warning-700 font-bold px-1 text-center">整併確認</span>
+            <label className="text-[10px] text-on-surface-variant flex items-center justify-center gap-1 cursor-pointer hover:text-on-surface transition-colors">
               <input
                 type="checkbox"
                 checked={item.duplicateAcknowledged || false}
                 onChange={(e) => onUpdate(cat, sec, item.id, 'duplicateAcknowledged', e.target.checked)}
-                className="accent-orange-500 w-3 h-3 cursor-pointer"
+                className="accent-warning-500 w-3 h-3 cursor-pointer"
               />
               確認不整併
             </label>
@@ -184,12 +184,12 @@ export const FindingItem = memo(function FindingItem({
         onBlur={() => onFocus(item.id, 'text', null)}
       />
 
-      <div className="flex sm:flex-col flex-row gap-1 sm:border-l sm:pl-2 sm:border-t-0 border-t pt-2 sm:pt-0 border-slate-100 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-        <button onClick={togglePageBreak} className={`p-1.5 rounded transition-colors flex items-center gap-1 text-xs ${item.pageBreakBefore ? 'bg-primary-100 text-primary-600 hover:bg-primary-200' : 'text-slate-400 hover:text-primary-500 hover:bg-slate-100'}`} title={item.pageBreakBefore ? '取消換頁' : '在此項目之前插入換頁線'}>
+      <div className="flex sm:flex-col flex-row gap-1 sm:border-l sm:pl-2 sm:border-t-0 border-t pt-2 sm:pt-0 border-outline-variant/60 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
+        <button onClick={togglePageBreak} className={`p-1.5 rounded transition-colors flex items-center gap-1 text-xs ${item.pageBreakBefore ? 'bg-primary-100 text-primary-600 hover:bg-primary-200' : 'text-on-surface-variant hover:text-primary-600 hover:bg-surface-container'}`} title={item.pageBreakBefore ? '取消換頁' : '在此項目之前插入換頁線'}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           <span className="sm:hidden font-bold">換頁線</span>
         </button>
-        <button onClick={() => onRemove(cat, sec, item.id)} className="p-1.5 text-red-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors flex items-center gap-1 text-xs" title="刪除項目">
+        <button onClick={() => onRemove(cat, sec, item.id)} className="p-1.5 text-danger-300 hover:text-danger-600 hover:bg-danger-50 rounded transition-colors flex items-center gap-1 text-xs" title="刪除項目">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           <span className="sm:hidden font-bold">刪除</span>
         </button>
