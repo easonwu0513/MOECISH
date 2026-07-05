@@ -30,6 +30,8 @@ import { cn } from '@/lib/cn';
 import { fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
+import { ReturnsInbox } from '@/components/dashboard/ReturnsInbox';
+import { getOpenReturns } from '@/lib/returns';
 import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
@@ -96,6 +98,9 @@ export default async function HomePage() {
       }
     }
   }
+
+  // 退回收件匣(W4):散落各頁的「退回待補正」收斂為單一區塊(機關看自家、中心看全機關)
+  const openReturns = await getOpenReturns({ role: user.role, organizationId: user.organizationId });
 
   type Enriched = (typeof enriched)[number];
 
@@ -247,6 +252,9 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      {/* 退回收件匣:散落各頁的退回待補正收斂於此(機關 / 中心;無退回則不顯示) */}
+      <ReturnsInbox items={openReturns} showOrg={isSuper} />
 
       {cycles.length === 0 ? (
         <Card variant="outlined" padded={false}>
