@@ -13,6 +13,7 @@ import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, aud
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
+import { NoteBox } from '@/components/cycle/NoteBox';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import SubmissionBanner from '../checklist/SubmissionBanner';
@@ -260,27 +261,25 @@ export default async function ReviewPage({
                             </Chip>
                           )}
                         </div>
+                        {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點 */}
                         {r?.description && (
-                          <div className="mt-3 rounded-md bg-surface-container border border-outline-variant/60 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                            <p className="text-caption font-medium text-on-surface-variant mb-1">機關說明(規範內容、執行方式、執行結果)</p>
-                            {r.description}
-                          </div>
+                          <NoteBox prominent label="機關說明(規範內容、執行方式、執行結果)" className="mt-3">
+                            <p className="text-body text-on-surface leading-relaxed whitespace-pre-wrap">{r.description}</p>
+                          </NoteBox>
                         )}
                         {r?.recordDocs && (
-                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/60 p-3 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                            <p className="text-caption font-medium text-on-surface-variant mb-1">紀錄文件</p>
-                            {r.recordDocs}
-                          </div>
+                          <NoteBox label="紀錄文件" className="mt-2">
+                            <p className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{r.recordDocs}</p>
+                          </NoteBox>
                         )}
+                        {/* 層2 往返對話:機關補正回應以 primary tone 承載 */}
                         {r?.orgRevisionNote && (
-                          <div className="mt-2 rounded-md bg-primary-50/50 border border-primary-100 p-3 text-body-sm text-primary-900 leading-relaxed whitespace-pre-wrap">
-                            <p className="text-caption font-medium text-primary-800 mb-1">機關補正回應(針對委員意見)</p>
-                            {r.orgRevisionNote}
-                          </div>
+                          <NoteBox tone="primary" label="機關補正回應(針對委員意見)" className="mt-2">
+                            <p className="text-body-sm text-primary-900 leading-relaxed whitespace-pre-wrap">{r.orgRevisionNote}</p>
+                          </NoteBox>
                         )}
                         {r && (evidenceByResponse.get(r.id)?.length ?? 0) > 0 && (
-                          <div className="mt-2 rounded-md bg-surface-container border border-outline-variant/60 p-3">
-                            <p className="text-caption font-medium text-on-surface-variant mb-1.5">佐證檔案</p>
+                          <NoteBox label="佐證檔案" className="mt-2">
                             <ul className="space-y-1">
                               {evidenceByResponse.get(r.id)!.map((e) => (
                                 <li key={e.id}>
@@ -293,7 +292,7 @@ export default async function ReviewPage({
                                 </li>
                               ))}
                             </ul>
-                          </div>
+                          </NoteBox>
                         )}
 
                         {/* 法規對照:委員審查時即時對照稽核依據 */}
@@ -315,21 +314,18 @@ export default async function ReviewPage({
                         {r && r.comments.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {r.comments.map((cm) => (
-                              <div
+                              <NoteBox
                                 key={cm.id}
-                                className={
-                                  'rounded-md p-3 border text-body-sm ' +
-                                  (cm.resolvedAt
-                                    ? 'bg-success-50 border-success-100'
-                                    : 'bg-warning-50 border-warning-100')
+                                tone={cm.resolvedAt ? 'success' : 'warning'}
+                                header={
+                                  <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
+                                    <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
+                                    {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
+                                  </div>
                                 }
                               >
-                                <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
-                                  <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
-                                  {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
-                                </div>
-                                <p className="whitespace-pre-wrap text-on-surface-variant leading-relaxed">{cm.content}</p>
-                              </div>
+                                <p className="whitespace-pre-wrap text-body-sm text-on-surface-variant leading-relaxed">{cm.content}</p>
+                              </NoteBox>
                             ))}
                           </div>
                         )}
