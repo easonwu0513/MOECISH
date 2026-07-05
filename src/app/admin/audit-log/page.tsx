@@ -164,7 +164,7 @@ export default async function AuditLogPage({
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll maxHeight="70vh">
-          <Table ledger>
+          <Table ledger density="compact">
             <THead sticky>
                 <Th>時間</Th>
                 <Th>操作者</Th>

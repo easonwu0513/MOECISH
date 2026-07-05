@@ -205,7 +205,7 @@ export default async function CrossOrgScoresPage({
                             className={cn(
                               'px-2 py-2 text-center align-middle',
                               tone === 'neutral' ? 'text-on-surface-variant' : toneClasses(tone).iconBg,
-                              i === weakestCol && 'ring-1 ring-inset ring-danger-200/70',
+                              i === weakestCol && 'ring-1 ring-inset ring-danger-300',
                             )}
                           >
                             {v === null ? (

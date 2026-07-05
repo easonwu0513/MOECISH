@@ -13,14 +13,23 @@ import { cn } from '@/lib/cn';
  *     </tbody>
  *   </Table>
  */
-export function Table({ ledger, className, ...rest }: HTMLAttributes<HTMLTableElement> & { ledger?: boolean }) {
+export function Table({
+  ledger,
+  density = 'comfortable',
+  className,
+  ...rest
+}: HTMLAttributes<HTMLTableElement> & { ledger?: boolean; density?: 'comfortable' | 'compact' | 'dense' }) {
   // ledger(深藍憲章招牌;批75):列分隔線改用 --navy-ledger-line 編輯級規線,數值以 tabular-nums 對齊,
   // 讓資料表成為「被設計過的數字骨架」而非「沒跑掉的數字」。搭配 Td numeric 右對齊小數點對齊。
+  // density(批84):資料密集長表可調列高。comfortable=預設 Td px-5 py-3;compact/dense 收緊(以 [&_td]/[&_th] 覆寫,
+  // 特異性高於 Td 內建 padding 類)。
   return (
     <table
       className={cn(
         'w-full text-body-sm',
         ledger && 'tabular-nums [&_tbody_tr]:border-ledger-line [&_thead_th]:border-b [&_thead_th]:border-ledger-line',
+        density === 'compact' && '[&_tbody_td]:px-4 [&_tbody_td]:py-2 [&_thead_th]:px-4 [&_thead_th]:py-2.5',
+        density === 'dense' && '[&_tbody_td]:px-3 [&_tbody_td]:py-1.5 [&_thead_th]:px-3 [&_thead_th]:py-2',
         className,
       )}
       {...rest}
