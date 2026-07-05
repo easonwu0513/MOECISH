@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { PageHeader } from '@/components/shell/PageHeader';
 import { FilterBar, FilterInput } from '@/components/ui/FilterField';
+import { EmailBodyButton } from './EmailBodyButton';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -166,7 +167,7 @@ export default async function EmailLogPage({
       ) : (
         <Card padded={false} variant="outlined">
           <TableScroll maxHeight="70vh">
-          <Table ledger>
+          <Table ledger density="compact">
             <THead sticky>
               <Th>時間</Th>
               <Th>類型</Th>
@@ -202,10 +203,12 @@ export default async function EmailLogPage({
                     </Td>
                     <Td>
                       <div className="text-on-surface">{l.subject}</div>
-                      <details className="mt-1 text-caption text-on-surface-variant">
-                        <summary className="cursor-pointer hover:text-primary-700">內文</summary>
-                        <pre className="mt-2 p-3 bg-surface-container-low rounded-md whitespace-pre-wrap font-sans text-body-sm text-on-surface-variant leading-relaxed">{l.body}</pre>
-                      </details>
+                      <EmailBodyButton
+                        subject={l.subject}
+                        body={l.body}
+                        to={l.toName ? `${l.toName}（${l.toEmail}）` : l.toEmail}
+                        sentAt={fmtROCDateTime(l.sentAt)}
+                      />
                     </Td>
                     <Td className="text-right">
                       {(s === 'failed' || s === 'dead-letter') && <ResendButton logId={l.id} />}
