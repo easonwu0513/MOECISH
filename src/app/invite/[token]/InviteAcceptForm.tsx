@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
-import { AlertCircle } from '@/components/icons';
+import { Alert } from '@/components/ui/Alert';
+import { AlertCircle, Eye, EyeOff } from '@/components/icons';
 
 export default function InviteAcceptForm({ token, email }: { token: string; email: string }) {
   const router = useRouter();
@@ -13,6 +14,19 @@ export default function InviteAcceptForm({ token, email }: { token: string; emai
   const [confirm, setConfirm] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  // 密碼顯示/隱藏切換鈕(與 login/reset 一致;批77 補齊 invite 缺的 affordance)
+  const pwToggle = (
+    <button
+      type="button"
+      onClick={() => setShowPw((v) => !v)}
+      className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
+      aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
+    >
+      {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
+    </button>
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +65,7 @@ export default function InviteAcceptForm({ token, email }: { token: string; emai
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={submit} className="flex flex-col gap-5">
       <TextField
         label="Email"
         value={email}
@@ -59,24 +73,25 @@ export default function InviteAcceptForm({ token, email }: { token: string; emai
       />
       <TextField
         label="設定密碼（至少 8 字元）"
-        type="password"
+        type={showPw ? 'text' : 'password'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
         autoFocus
+        autoComplete="new-password"
+        trailingIcon={pwToggle}
       />
       <TextField
         label="再次輸入密碼"
-        type="password"
+        type={showPw ? 'text' : 'password'}
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         required
+        autoComplete="new-password"
+        trailingIcon={pwToggle}
       />
       {err && (
-        <div className="flex items-start gap-2 rounded-md bg-danger-50 text-danger-700 px-3 py-2.5 text-body-sm animate-fade-in">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" />
-          <span>{err}</span>
-        </div>
+        <Alert tone="danger" role="alert" icon={<AlertCircle size={18} />}>{err}</Alert>
       )}
       <Button type="submit" loading={loading} fullWidth size="lg">
         啟用帳號並登入

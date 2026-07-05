@@ -42,14 +42,17 @@ export function AuthLayout({
         </Link>
       )}
 
-      <div className="relative w-full max-w-[440px]">
+      {/* 克制的整體進場(批77);reduced-motion 由 globals.css 全域降級 */}
+      <div className="relative w-full max-w-[440px] animate-slide-up">
         <div className="flex flex-col items-center text-center mb-8">
           <Logo size={60} />
           <h1 className="mt-4 text-headline text-on-surface">{title}</h1>
-          {subtitle && <p className="mt-2 text-body-sm text-on-surface-variant">{subtitle}</p>}
+          {/* 副標由 body-sm 提為 body,緩和 headline(28)→13 的字級斷崖 */}
+          {subtitle && <p className="mt-2 text-body text-on-surface-variant text-pretty">{subtitle}</p>}
         </div>
 
-        <div className="relative bg-surface-container-lowest border border-outline-variant/60 rounded-lg shadow-elev-2 p-7 sm:p-8">
+        {/* 卡片頂緣 ledger 品牌記號(border-t-2 primary-200):像公文信箋的抬頭規線,讓入口卡有記憶點 */}
+        <div className="relative bg-surface-container-lowest border border-outline-variant/60 border-t-2 border-t-primary-200 rounded-lg shadow-elev-2 p-7 sm:p-8">
           {children}
         </div>
 

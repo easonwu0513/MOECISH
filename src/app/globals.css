@@ -67,9 +67,11 @@
 
   /* Auth 頁 ambient 漸層(login/invite 共用單一來源;以現行 primary-600 #2b57a6=rgb(43,87,166) 為基,
      批72 修:原各頁硬編 rgba(40,82,160)=精緻化前舊 primary,晨霧藍換色後脫鉤) */
+  /* 批77:0.11/0.055 在晨霧藍低彩度底上近乎不可辨 → 拉到 0.15/0.06 並收成一道有方向性的結構光(左上→),
+     讓登入頁從灰白平面變有記憶點的品牌面(firstImpression 最大單點);甜蜜點窄,勿過 0.18 滑向消費級 hero。 */
   --auth-ambient:
-    radial-gradient(ellipse 65% 55% at 15% 20%, rgba(43, 87, 166, 0.11), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 85% 85%, rgba(43, 87, 166, 0.055), transparent 70%);
+    radial-gradient(ellipse 72% 62% at 12% 6%, rgba(43, 87, 166, 0.15), transparent 64%),
+    radial-gradient(ellipse 55% 46% at 90% 94%, rgba(43, 87, 166, 0.06), transparent 70%);
 
   /* ── 深藍憲章招牌 token(設計精緻化 #14;批74)——收編前台/映象面最大版面的手抄漸層與規線 ──
      用意:讓「每個像素都有 token 依據」。三者皆對齊既有 primary 色階,非新色相。 */

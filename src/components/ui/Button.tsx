@@ -105,6 +105,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     '[@media(pointer:coarse)]:min-h-11',
     'transition-all duration-200 ease-standard focus-ring',
     'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
+    // loading:維持滿色 + 進行游標,讀作「處理中」而非「停用」(批77:優於原本一律降 40% 像失效)
+    loading && 'disabled:!opacity-90 disabled:!cursor-progress disabled:!shadow-elev-1',
     '[&:active:not(:disabled)]:scale-[0.985]',
     variantStyles[variant],
     sizeStyles[size],
@@ -139,6 +141,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <button
       ref={ref}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={classes}
       {...rest}
     >
