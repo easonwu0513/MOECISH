@@ -9,6 +9,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { TileIcon, StatusPill } from '@/components/cycle/tile';
+import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
 import { FileText, ClipboardCheck, Eye, AlertTriangle, ChevronRight, Check, Download } from '@/components/icons';
 import { getTemplateFilesForYear } from '@/lib/prep-standard';
@@ -155,7 +156,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
           {/* 文件範本:中心提供之應備文件空白範本(Word/Excel 等),下載依式填寫後轉 PDF 上傳 */}
           {!isAuditor && templateFiles.length > 0 && (
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50/50 px-4 py-3.5">
+            <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg ${SURFACE_INFO} px-4 py-3.5`}>
               <div className="min-w-0">
                 <p className="text-body-sm font-medium text-on-surface">文件範本({templateFiles.length} 檔)</p>
                 <p className="mt-0.5 text-caption text-on-surface-variant leading-relaxed">

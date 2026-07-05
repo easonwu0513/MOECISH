@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Segmented } from '@/components/ui/Segmented';
@@ -349,7 +350,7 @@ export default function ChecklistItemCard({
           <Tabs tabs={tabs} />
           {/* 法規對照:填報者最需照法規填,故展開即顯眼(與委員審閱頁同範式),不再藏在分頁 */}
           {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
-            <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
+            <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
               <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
                 法規對照(稽核依據・稽核重點・應備文件)
               </summary>
@@ -470,7 +471,7 @@ function EvidenceBlock({
         <span className="text-caption text-on-surface-variant">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
       </div>
       {expectedEvidence && (
-        <div className="mb-3 rounded-sm bg-primary-50/60 border border-primary-100 px-3 py-2">
+        <div className={`mb-3 rounded-sm ${SURFACE_INFO} px-3 py-2`}>
           <p className="text-caption font-medium text-primary-800 mb-0.5">本題應備文件參考</p>
           <p className="text-caption text-primary-800/80 whitespace-pre-wrap leading-relaxed">{expectedEvidence}</p>
         </div>

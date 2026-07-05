@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -239,7 +240,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
             </Button>
           </div>
           {/* 歷年=唯讀留存紀錄:改今年不會動到這裡;沿用舊範本用「複製至今年」 */}
-          <div className="rounded-md border border-primary-100 bg-primary-50/60 px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+          <div className={`rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed`}>
             <span className="font-medium text-primary-800">歷年清單為留存紀錄(唯讀)</span>
             ——保存近五年各年度的清單與文件範本,僅供檢閱與下載,不可編輯或刪除。
             每年度的清單請以「複製至今年」代入後,於本年度清單小幅修正;修改今年不會動到歷年紀錄。

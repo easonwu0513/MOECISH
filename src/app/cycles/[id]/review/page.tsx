@@ -14,6 +14,7 @@ import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { NoteBox } from '@/components/cycle/NoteBox';
+import { SURFACE_INFO } from '@/lib/tone';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import SubmissionBanner from '../checklist/SubmissionBanner';
@@ -297,7 +298,7 @@ export default async function ReviewPage({
 
                         {/* 法規對照:委員審查時即時對照稽核依據 */}
                         {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
-                          <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
+                          <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
                               法規對照(稽核依據・稽核重點・應備文件)
                             </summary>
