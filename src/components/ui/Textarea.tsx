@@ -29,13 +29,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
       <div
         className={cn(
           'group relative rounded-t-md overflow-hidden transition-all duration-200 ease-standard',
-          'bg-surface-container',
+          'bg-paper-sunk',
           hasError
             ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-danger-500'
             : focused
             ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-primary-600'
-            : 'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-outline',
-          !focused && !hasError && 'hover:bg-surface-container-high',
+            : 'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-neutral-400',
+          !focused && !hasError && 'hover:bg-rule',
           disabled && 'opacity-50',
         )}
       >
@@ -45,8 +45,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
           <div
             aria-hidden
             className={cn(
-              'absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-md bg-surface-container',
-              !focused && !hasError && 'group-hover:bg-surface-container-high',
+              'absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-md bg-paper-sunk',
+              !focused && !hasError && 'group-hover:bg-rule',
             )}
           />
         )}
@@ -58,7 +58,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
               raised
                 ? 'top-2 text-caption'
                 : 'top-3 text-body',
-              hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-on-surface-variant',
+              hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-ink-500',
             )}
           >
             {label}
@@ -77,7 +77,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
           onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           className={cn(
             'block w-full bg-transparent px-3.5 py-3 pt-6 text-body outline-none resize-y leading-relaxed',
-            'placeholder:text-on-surface-variant disabled:cursor-not-allowed',
+            'placeholder:text-ink-500 disabled:cursor-not-allowed',
             !label && 'pt-3',
           )}
           {...rest}
@@ -86,7 +86,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, Props>(function Textarea
       {hasError ? (
         <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+        <p id={descId} className="text-caption text-ink-500 px-3.5">{helperText}</p>
       ) : null}
     </div>
   );

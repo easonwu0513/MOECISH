@@ -11,8 +11,8 @@ import { ChevronDown } from '../icons';
  */
 
 const CONTROL =
-  'h-9 rounded-md border border-outline-variant bg-surface px-2.5 text-body-sm text-on-surface ' +
-  'transition-colors hover:border-outline focus-ring';
+  'h-9 rounded-md border border-neutral-400 bg-card px-2.5 text-body-sm text-ink-900 ' +
+  'transition-colors hover:border-neutral-500 focus-ring';
 
 /**
  * 篩選列版位容器(設計精緻化;批85)——固定置於 PageHeader 下方,統一各後台頁的篩選擺放:
@@ -34,7 +34,7 @@ export function FilterField({
   className?: string;
 }) {
   return (
-    <label className={cn('flex flex-col gap-1 text-caption text-on-surface-variant', className)}>
+    <label className={cn('flex flex-col gap-1 text-caption text-ink-500', className)}>
       {label}
       {children}
     </label>
@@ -51,7 +51,7 @@ export function FilterSelect({ className, children, ...rest }: SelectHTMLAttribu
       <select className={cn(CONTROL, 'w-full appearance-none pr-8', className)} {...rest}>
         {children}
       </select>
-      <ChevronDown size={15} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+      <ChevronDown size={15} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" />
     </div>
   );
 }

@@ -92,8 +92,8 @@ export function Menu({
   }
 
   const itemCls =
-    'flex items-center gap-2.5 w-full text-left px-3.5 h-9 text-body-sm text-on-surface ' +
-    'hover:bg-surface-container focus:bg-surface-container outline-none focus-ring rounded-sm ' +
+    'flex items-center gap-2.5 w-full text-left px-3.5 h-9 text-body-sm text-ink-900 ' +
+    'hover:bg-paper-sunk focus:bg-paper-sunk outline-none focus-ring rounded-sm ' +
     'disabled:opacity-40 disabled:pointer-events-none';
 
   return (
@@ -118,7 +118,7 @@ export function Menu({
           aria-label={typeof label === 'string' ? label : undefined}
           onKeyDown={onMenuKey}
           className={cn(
-            'absolute z-50 mt-1 min-w-[13rem] rounded-md border border-outline-variant bg-surface-container-lowest shadow-elev-3 p-1',
+            'absolute z-50 mt-1 min-w-[13rem] rounded-md border border-rule bg-card shadow-elev-3 p-1',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >
@@ -130,7 +130,7 @@ export function Menu({
             };
             const body = (
               <>
-                {it.icon && <span className="shrink-0 text-on-surface-variant">{it.icon}</span>}
+                {it.icon && <span className="shrink-0 text-ink-500">{it.icon}</span>}
                 <span className="min-w-0 flex-1 truncate">{it.label}</span>
               </>
             );

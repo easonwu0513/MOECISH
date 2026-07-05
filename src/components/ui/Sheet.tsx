@@ -43,13 +43,13 @@ export function Sheet({
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          'absolute right-0 top-0 bottom-0 w-full bg-surface-container-high shadow-elev-5 flex flex-col outline-none',
+          'absolute right-0 top-0 bottom-0 w-full bg-paper-sunk shadow-elev-5 flex flex-col outline-none',
           leaving ? 'animate-slide-out-right' : 'animate-slide-in-right',
           w,
         )}
       >
-        <div className="flex items-center justify-between border-b border-outline-variant px-5 py-3.5">
-          <h2 id={titleId} className="text-title-lg text-on-surface">{title}</h2>
+        <div className="flex items-center justify-between border-b border-rule px-5 py-3.5">
+          <h2 id={titleId} className="text-title-lg text-ink-900">{title}</h2>
           <IconButton icon={<X size={18} />} label="關閉" onClick={() => onOpenChange(false)} />
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-thin p-5">{children}</div>

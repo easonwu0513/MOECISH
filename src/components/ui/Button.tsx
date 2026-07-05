@@ -47,20 +47,20 @@ const variantStyles: Record<Variant, string> = {
     'hover:bg-primary-700 hover:shadow-elev-2 ' +
     'active:bg-primary-800 active:shadow-elev-1',
   tonal:
-    'bg-primary-container text-on-primary-container ' +
+    'bg-focus-wash text-primary-700 ' +
     'hover:bg-primary-200 active:bg-primary-300',
   outlined:
-    'bg-transparent text-primary-700 border border-outline-variant ' +
-    'hover:bg-primary-50/60 hover:border-outline active:bg-primary-100',
+    'bg-transparent text-primary-700 border border-neutral-400 ' +
+    'hover:bg-primary-50/60 hover:border-neutral-500 active:bg-primary-100',
   text:
     'bg-transparent text-primary-700 ' +
     'hover:bg-primary-50/80 active:bg-primary-100',
   ghost:
-    'bg-transparent text-on-surface-variant ' +
-    'hover:bg-surface-container active:bg-surface-container-high',
+    'bg-transparent text-ink-500 ' +
+    'hover:bg-paper-sunk active:bg-rule-strong',
   elevated:
-    'bg-surface-container-low text-primary-700 shadow-elev-1 ' +
-    'hover:bg-surface-container hover:shadow-elev-2 active:shadow-elev-1',
+    'bg-paper-sunk text-primary-700 shadow-elev-1 ' +
+    'hover:bg-rule-strong hover:shadow-elev-2 active:shadow-elev-1',
   // 語意實心鈕對齊 TONE.solid=600 單一深淺基準(批72 filled 已 600,此三色補齊;批75 消最後色階漂移)
   danger:
     'bg-danger-600 text-white shadow-elev-1 ' +
