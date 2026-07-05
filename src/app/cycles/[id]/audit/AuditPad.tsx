@@ -21,6 +21,8 @@ import {
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
 } from '@/lib/audit-score';
 import { toFullWidthPunct } from '@/lib/fullwidth-punct';
+import { toneClasses } from '@/lib/stage';
+import { SURFACE_INFO } from '@/lib/tone';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 /** 委員手填之檢核結果數量(符/部分/不符/不適用;null=空白) */
@@ -109,7 +111,7 @@ export default function AuditPad({
         {itemRefs.map((r) => <option key={r} value={r} />)}
       </datalist>
       {assignedLabels.length > 0 && (
-        <div className="flex items-start gap-2.5 rounded-md border border-primary-200 bg-primary-50 px-4 py-3 text-body-sm text-primary-800">
+        <div className={`flex items-start gap-2.5 rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-primary-800`}>
           <Check size={16} className="mt-0.5 shrink-0" />
           <span>
             您本次負責構面:<span className="font-medium">{assignedLabels.join('、')}</span>
@@ -466,15 +468,9 @@ function ScoreSection({
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const v = scores[dim] ?? null;
               const issues = dimIssues[dim] ?? [];
-              // 等第色條:已評分的構面列以左側色條映射等第(優/良/佳/可/待改進),掃一眼即知分佈
-              const GRADE_BAR: Record<string, string> = {
-                success: 'border-l-success-500',
-                sage: 'border-l-sage-500',
-                primary: 'border-l-primary-500',
-                warning: 'border-l-warning-500',
-                danger: 'border-l-danger-500',
-              };
-              const gradeBar = v !== null ? GRADE_BAR[GRADE_TONE[gradeOf(dim, v)]] ?? 'border-l-transparent' : 'border-l-transparent';
+              // 等第色條:已評分的構面列以左側色條映射等第(優/良/佳/可/待改進),掃一眼即知分佈。
+              // 批82:刪本地 GRADE_BAR map,改由 stage.ts toneClasses(單一來源,與缺失列/矩陣同語彙)派生左框色。
+              const gradeBar = v !== null ? toneClasses(GRADE_TONE[gradeOf(dim, v)]).border : 'border-l-transparent';
               return (
                 <div key={dim} className={`border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest px-5 py-3.5 border-l-[3px] transition-colors ${gradeBar}`}>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3">
