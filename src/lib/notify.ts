@@ -665,6 +665,86 @@ export async function notifyPrepReturned(opts: {
   return { recipientCount: recipients.length };
 }
 
+/**
+ * 中心「一鍵寄追蹤信」:對落後(逾期/停滯)週期之機關管理員寄出進度追蹤提醒,並以 EmailLog(獨立 kind=track-remind,
+ * relatedCycleId 綁定)構成該週期的「催辦軌跡」(不與一般 tracking / 自動催繳排程混淆)。提醒內容依週期階段給對應待辦焦點與直達連結。
+ * 同一週期 24h 內對同一收件人只寄一次(dedupeKey),避免重複點擊轟炸;此為中心主動動作,非狀態轉換,故不受 notify-policy 約束。
+ */
+export async function notifyCycleTrackReminder(opts: {
+  cycleId: string;
+  triggeredById: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, deficiencies: { include: { action: { select: { status: true } } } } },
+  });
+  if (!cycle) return { recipientCount: 0, sentCount: 0, skippedCount: 0, remindCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+  });
+
+  const yearROC = cycle.year - 1911;
+  // overdue 與 admin/cycles 落後列同義:REMEDIATION 且尚未全數通過且已過矯正截止(對齊避免對已完成週期誤稱「已逾期」)
+  const total = cycle.deficiencies.length;
+  const allPassed = total > 0 && cycle.deficiencies.every((d) => (d.action?.status ?? 'PENDING') === 'PASSED');
+  const overdue = cycle.status === 'REMEDIATION' && !allPassed && !!cycle.dueDate && new Date(cycle.dueDate) < new Date();
+  // 依階段給待辦焦點與直達連結;不誇稱未查詢的細目,只點出該階段機關應辦事項。
+  let focus: { hint: string; path: string };
+  switch (cycle.status) {
+    case 'PREPARATION':
+      focus = { hint: '請儘速完成稽核前應備文件上傳與資通安全檢核表填報。', path: '/prep' };
+      break;
+    case 'REMEDIATION':
+      focus = {
+        hint: overdue
+          ? `缺失矯正措施填報已逾期(截止 ${fmtROC(cycle.dueDate)}),請儘速完成矯正措施填報與佐證上傳。`
+          : '請完成缺失矯正措施填報與佐證上傳。',
+        path: '/deficiencies',
+      };
+      break;
+    case 'REPORT_ISSUED':
+      focus = { hint: '稽核報告已產出,後續缺失矯正開放後請儘速辦理。', path: '' };
+      break;
+    default:
+      focus = { hint: '貴機關本年度稽核作業仍有待辦事項,請登入平台查看後續進度。', path: '' };
+  }
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}${focus.path}`;
+  const results = await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${yearROC} 年度資通安全稽核 進度追蹤提醒`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核仍有待辦事項,謹此提醒。\n\n` +
+          `${focus.hint}\n\n` +
+          `請登入平台查看並辦理:\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'track-remind',
+        relatedCycleId: cycle.id,
+        // 同一週期 24h 內對同一收件人只寄一次(防連續點擊重複轟炸;不同週期各自獨立)
+        dedupeKey: `track-remind-${cycle.id}`,
+        context: { phase: 'track-remind', triggeredBy: opts.triggeredById, status: cycle.status },
+      }),
+    ),
+  );
+  // 誠實回報:24h 內重複點擊會被 sendEmail 去重(status=skipped),故區分「實際寄出」與「今日已提醒過而略過」。
+  const sentCount = results.filter((r) => r.status === 'sent' || r.status === 'simulated').length;
+  const skippedCount = results.filter((r) => r.status === 'skipped').length;
+
+  // 催辦軌跡:此週期累計實際寄出(sent/simulated)之「一鍵催辦」信封數(含本次;24h 內去重的重複點擊不計入)。
+  // 用獨立 kind='track-remind' 查詢,不與一般 tracking 追蹤信 / 自動催繳排程(run-tracking)/ 手動群發混淆。
+  const remindCount = await prisma.emailLog.count({
+    where: { relatedCycleId: cycle.id, kind: 'track-remind', status: { in: ['sent', 'simulated'] } },
+  });
+
+  return { cycleId: cycle.id, recipientCount: recipients.length, sentCount, skippedCount, remindCount };
+}
+
 /** 週期狀態推進(forward 轉換)時通知機關管理員;依新狀態給對應訊息與連結。 */
 export async function notifyCycleStatusChange(opts: {
   cycleId: string;

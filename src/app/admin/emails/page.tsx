@@ -14,6 +14,7 @@ const kindLabel: Record<string, { label: string; tone: 'primary' | 'sage' | 'neu
   invitation:            { label: '邀請',         tone: 'primary' },
   'cycle-notify':        { label: '週期通知',     tone: 'sage' },
   tracking:              { label: '追蹤信',       tone: 'warning' },
+  'track-remind':        { label: '催辦追蹤',     tone: 'warning' },
   'password-reset':      { label: '重設密碼',     tone: 'warning' },
   'review-request':      { label: '送審通知',     tone: 'primary' },
   'action-returned':     { label: '退回補正',     tone: 'warning' },

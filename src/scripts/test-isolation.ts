@@ -236,6 +236,13 @@ async function main() {
   await expectStatus('B管理員 建檢核表版本', jarB, 'POST', '/api/admin/checklist-versions', [403], { name: 'X', year: 2099 });
   await expectStatus('委員X 建機關', jarX, 'POST', '/api/admin/organizations', [403], { code: 'X', name: 'X' });
 
+  console.log('\n── 中心催辦追蹤信(僅最高管理員可用)──');
+  // 皆於 requireRole('SUPER_ADMIN') 即被擋(403/401),不會走到寄信,故無 email 副作用。
+  await expectStatus('B管理員 催辦A週期(非中心)', jarB, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [403]);
+  await expectStatus('指派委員Y 催辦A週期(非中心)', jarY, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [403]);
+  await expectStatus('未指派委員X 催辦A週期(非中心)', jarX, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [403]);
+  await expectStatus('匿名 催辦A週期', null, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [401]);
+
   console.log('\n── 未登入 ──');
   await expectStatus('匿名 匯出檢核表', null, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [401]);
   await expectStatus('匿名 填檢核表', null, 'PUT', itemPath(cycleA.id), [401], putBody);

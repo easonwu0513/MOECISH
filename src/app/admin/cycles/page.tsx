@@ -12,6 +12,7 @@ import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
 import BatchAssignAuditors from './BatchAssignAuditors';
+import RemindButton from './RemindButton';
 
 /* 靜謐文件工作坊(批 B2)——跨院巡檢台重塑為活文件:襯線大標 + calm 讀數卡 + 髮絲帳冊表。
    落後列以實心左緣規線 + 文字雙載(逾期/停滯 N 天)秒辨,不再靠 chip 海。功能與 IA 全保留、不新增端點。 */
@@ -58,6 +59,22 @@ export default async function AdminCyclesPage({
       orderBy: { name: 'asc' },
     }),
   ]);
+
+  // 催辦軌跡:各週期已寄出(sent/simulated)之「一鍵催辦」信封數與最近一次寄送時間(供落後列就地顯示)。
+  // 用獨立 kind='track-remind' 查詢,不混入一般 tracking 追蹤信 / 自動催繳排程 / 手動群發。
+  const trailRows = await prisma.emailLog.groupBy({
+    by: ['relatedCycleId'],
+    where: {
+      relatedCycleId: { in: cycles.map((c) => c.id) },
+      kind: 'track-remind',
+      status: { in: ['sent', 'simulated'] },
+    },
+    _count: { _all: true },
+    _max: { sentAt: true },
+  });
+  const trailMap = new Map(
+    trailRows.map((r) => [r.relatedCycleId, { count: r._count._all, last: r._max.sentAt }]),
+  );
 
   const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
   const yearFilter = searchParams.year ? parseInt(searchParams.year, 10) : null;
@@ -204,6 +221,7 @@ export default async function AdminCyclesPage({
                 <tbody>
                   {shown.map((r) => {
                     const { c, total, passed, returned, allPassed, overdue, stalled, stallDays } = r;
+                    const trail = trailMap.get(c.id);
                     const leftRule = overdue ? 'border-l-[3px] border-l-danger-600' : stalled ? 'border-l-[3px] border-l-warning-600' : 'border-l-[3px] border-l-transparent';
                     return (
                       <tr key={c.id} className="border-b border-rule last:border-b-0 hover:bg-paper-sunk transition-colors">
@@ -240,8 +258,19 @@ export default async function AdminCyclesPage({
                             <span className="text-ink-500">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <Link href={`/cycles/${c.id}`} className="font-medium text-primary-700 hover:underline">開啟</Link>
+                        <td className="px-4 py-3 text-right align-top">
+                          <div className="inline-flex flex-col items-end gap-2">
+                            {r.behind && (
+                              <RemindButton
+                                cycleId={c.id}
+                                orgName={c.organization.name}
+                                yearLabel={String(c.year - 1911)}
+                                lastLabel={trail?.last ? fmtROC(trail.last) : null}
+                                remindCount={trail?.count ?? 0}
+                              />
+                            )}
+                            <Link href={`/cycles/${c.id}`} className="font-medium text-primary-700 hover:underline">開啟</Link>
+                          </div>
                         </td>
                       </tr>
                     );

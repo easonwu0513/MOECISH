@@ -8,6 +8,7 @@ export type EmailKind =
   | 'invitation'
   | 'cycle-notify'
   | 'tracking'
+  | 'track-remind'     // 中心落後列一鍵催辦(有別於一般 tracking / 自動催繳排程,故獨立 kind 以構成純淨的 per-cycle 催辦軌跡)
   | 'password-reset'
   | 'review-request'   // 機關送審 → 通知委員
   | 'action-returned'  // 委員退回 → 通知機關
