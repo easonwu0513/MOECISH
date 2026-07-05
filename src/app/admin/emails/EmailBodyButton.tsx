@@ -26,7 +26,7 @@ export function EmailBodyButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1 inline-flex items-center gap-1 text-caption text-on-surface-variant hover:text-primary-700 focus-ring rounded transition-colors"
+        className="mt-1 inline-flex items-center gap-1 text-caption text-ink-500 hover:text-primary-700 focus-ring rounded transition-colors"
       >
         <FileText size={13} />
         檢視內文
@@ -34,16 +34,16 @@ export function EmailBodyButton({
       <Sheet open={open} onOpenChange={setOpen} title="郵件內文" width="lg">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-body-sm">
-            <span className="text-caption text-on-surface-variant pt-0.5">收件者</span>
-            <span className="text-on-surface break-words">{to}</span>
-            <span className="text-caption text-on-surface-variant pt-0.5">寄送</span>
-            <span className="text-on-surface tabular-nums">{sentAt}</span>
-            <span className="text-caption text-on-surface-variant pt-0.5">主旨</span>
-            <span className="text-on-surface font-medium break-words">{subject}</span>
+            <span className="text-caption text-ink-500 pt-0.5">收件者</span>
+            <span className="text-ink-900 break-words">{to}</span>
+            <span className="text-caption text-ink-500 pt-0.5">寄送</span>
+            <span className="text-ink-900 tabular-nums">{sentAt}</span>
+            <span className="text-caption text-ink-500 pt-0.5">主旨</span>
+            <span className="text-ink-900 font-medium break-words">{subject}</span>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-caption text-on-surface-variant">內文</span>
-            <pre className="p-4 bg-surface-container-lowest border border-outline-variant/60 rounded-md whitespace-pre-wrap font-sans text-body-sm text-on-surface leading-relaxed">{body}</pre>
+            <span className="text-caption text-ink-500">內文</span>
+            <pre className="p-4 bg-card border border-rule rounded-md whitespace-pre-wrap font-sans text-body-sm text-ink-900 leading-relaxed">{body}</pre>
           </div>
         </div>
       </Sheet>

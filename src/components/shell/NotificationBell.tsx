@@ -100,19 +100,19 @@ export function NotificationBell() {
           <div
             role="dialog"
             aria-label="通知"
-            className="absolute right-0 mt-2 w-[min(22rem,90vw)] z-50 rounded-lg border border-outline-variant bg-surface-container-lowest shadow-elev-3 overflow-hidden"
+            className="absolute right-0 mt-2 w-[min(22rem,90vw)] z-50 rounded-lg border border-rule bg-card shadow-elev-3 overflow-hidden"
           >
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-outline-variant/60">
-              <span className="text-title-md text-on-surface">通知</span>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-rule">
+              <span className="text-title-md text-ink-900">通知</span>
               {unread > 0 && (
                 <button onClick={markAll} className="text-caption text-primary-700 hover:underline focus-ring rounded px-1">
                   全部標為已讀
                 </button>
               )}
             </div>
-            <ul className="max-h-[60vh] overflow-y-auto divide-y divide-outline-variant/40">
+            <ul className="max-h-[60vh] overflow-y-auto divide-y divide-rule">
               {items.length === 0 ? (
-                <li className="px-4 py-8 text-center text-body-sm text-on-surface-variant">目前沒有通知</li>
+                <li className="px-4 py-8 text-center text-body-sm text-ink-500">目前沒有通知</li>
               ) : (
                 items.map((n) => (
                   <li key={n.id}>
@@ -120,7 +120,7 @@ export function NotificationBell() {
                       type="button"
                       onClick={() => openItem(n)}
                       className={cn(
-                        'w-full text-left px-4 py-3 hover:bg-surface-container focus-ring flex gap-3',
+                        'w-full text-left px-4 py-3 hover:bg-paper-sunk focus-ring flex gap-3',
                         !n.readAt && 'bg-primary-50/40',
                       )}
                     >
@@ -129,9 +129,9 @@ export function NotificationBell() {
                         aria-hidden
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-body-sm font-medium text-on-surface">{n.title}</span>
-                        {n.body && <span className="block mt-0.5 text-caption text-on-surface-variant line-clamp-2">{n.body}</span>}
-                        <span className="block mt-1 text-label-sm text-on-surface-variant">{relTime(n.createdAt)}</span>
+                        <span className="block text-body-sm font-medium text-ink-900">{n.title}</span>
+                        {n.body && <span className="block mt-0.5 text-caption text-ink-500 line-clamp-2">{n.body}</span>}
+                        <span className="block mt-1 text-label-sm text-ink-500">{relTime(n.createdAt)}</span>
                       </span>
                     </button>
                   </li>

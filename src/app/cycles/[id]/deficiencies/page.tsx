@@ -112,8 +112,8 @@ export default async function DeficienciesPage({
       />
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-headline text-on-surface">缺失與矯正管考</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <h1 className="text-headline text-ink-900">缺失與矯正管考</h1>
+          <p className="mt-1 text-body-sm text-ink-500">
             {yearROC} 年度 · {cycle.organization.name} · 共 {total} 項
             {/* 通過/待審/退回 分項數字由下方可點擊的篩選 chip 承擔,header 不重述 */}
           </p>
@@ -188,7 +188,7 @@ export default async function DeficienciesPage({
             const types: DeficiencyType[] = ['IMPROVE', 'SUGGEST'];
             return (
               <section key={aspect}>
-                <h2 className="text-title-lg text-on-surface mb-4">
+                <h2 className="text-title-lg text-ink-900 mb-4">
                   {aspectNumber[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
                 </h2>
                 <div className="flex flex-col gap-6">
@@ -197,7 +197,7 @@ export default async function DeficienciesPage({
                     if (items.length === 0) return null;
                     return (
                       <div key={type}>
-                        <p className="text-label text-on-surface-variant mb-3">
+                        <p className="text-label text-ink-500 mb-3">
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
                         <div className="flex flex-col gap-2.5">
@@ -214,21 +214,21 @@ export default async function DeficienciesPage({
                                       aria-hidden
                                     />
                                     <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">
-                                    <span className="w-9 h-9 rounded-md bg-surface-container flex items-center justify-center text-title text-on-surface-variant tabular-nums shrink-0">
+                                    <span className="w-9 h-9 rounded-md bg-paper-sunk flex items-center justify-center text-title text-ink-500 tabular-nums shrink-0">
                                       {d.itemNo}
                                     </span>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-body-sm text-on-surface-variant leading-relaxed line-clamp-2">
+                                      <p className="text-body-sm text-ink-500 leading-relaxed line-clamp-2">
                                         {d.description}
                                       </p>
                                       <div className="mt-1.5 flex items-center gap-2">
                                         {d.checklistRef && (
-                                          <span className="text-caption font-mono text-on-surface-variant">
+                                          <span className="text-caption font-mono text-ink-500">
                                             檢核項 {d.checklistRef}
                                           </span>
                                         )}
                                         {round > 1 && (
-                                          <span className="text-caption text-on-surface-variant">
+                                          <span className="text-caption text-ink-500">
                                             第 {round} 輪
                                           </span>
                                         )}
@@ -237,7 +237,7 @@ export default async function DeficienciesPage({
                                     <Chip tone={actionStatusTone(status)} size="sm" dot>
                                       {ACTION_STATUS_LABELS[status]}
                                     </Chip>
-                                    <ChevronRight size={16} className="text-on-surface-variant shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                    <ChevronRight size={16} className="text-ink-500 shrink-0 transition-transform group-hover:translate-x-0.5" />
                                     </div>
                                   </div>
                                 </Card>

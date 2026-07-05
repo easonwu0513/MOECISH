@@ -225,7 +225,7 @@ export default async function HomePage() {
       {/* 身分帶 + 主行動橫幅(③ 工作台頂部) */}
       <section className="mb-6">
         <h1 className="sr-only">總覽工作台</h1>
-        <p className="text-caption text-on-surface-variant tracking-wide mb-2">{today}</p>
+        <p className="text-caption text-ink-500 tracking-wide mb-2">{today}</p>
         {/* 早安身分帶 與「建議的下一步」整併為同一列(有週期時並排;無週期時身分帶滿版) */}
         <div className={cn('grid gap-4 items-stretch', cycles.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1')}>
           <IdentityBand
@@ -236,8 +236,8 @@ export default async function HomePage() {
             right={
               todos.length > 0 ? (
                 <>
-                  <div className="text-title-md text-on-surface-variant tabular-nums leading-none">{todos.length}</div>
-                  <div className="text-label-sm text-on-surface-variant mt-1">件待辦</div>
+                  <div className="text-title-md text-ink-500 tabular-nums leading-none">{todos.length}</div>
+                  <div className="text-label-sm text-ink-500 mt-1">件待辦</div>
                 </>
               ) : undefined
             }
@@ -280,12 +280,12 @@ export default async function HomePage() {
 
           {/* 中心:今日待辦 —— 逐週期可點擊待辦(原本只算件數不渲染;依緊急度排序,直達對應頁) */}
           {isSuper && todos.length > 0 && (
-            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest shadow-elev-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">今日待辦 · {todos.length} 件</p>
-                <span className="text-caption text-on-surface-variant">依緊急程度排序</span>
+            <section className="mb-6 rounded-lg border border-rule bg-card shadow-elev-1 overflow-hidden">
+              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-rule">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">今日待辦 · {todos.length} 件</p>
+                <span className="text-caption text-ink-500">依緊急程度排序</span>
               </div>
-              <ul className="divide-y divide-outline-variant/50">
+              <ul className="divide-y divide-rule">
                 {todos.slice(0, 8).map((t) => {
                   // 網格化:院名固定欄 + 動作欄 + CTA 右對齊欄,逐列掃讀更快(窄螢幕退回單行 flex)
                   const m = t.title.match(/^(.+?)[:：]\s*(.+)$/);
@@ -293,17 +293,17 @@ export default async function HomePage() {
                     <li key={t.key}>
                       <Link
                         href={t.href}
-                        className="group flex items-center gap-3 px-4 py-3 hover:bg-surface-container transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]"
+                        className="group flex items-center gap-3 px-4 py-3 hover:bg-paper-sunk transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]"
                       >
                         <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
-                        <span className="sm:hidden min-w-0 flex-1 text-body-sm text-on-surface">{t.title}</span>
+                        <span className="sm:hidden min-w-0 flex-1 text-body-sm text-ink-900">{t.title}</span>
                         {m ? (
                           <>
-                            <span className="hidden sm:block text-body-sm font-medium text-on-surface truncate" title={m[1]}>{m[1]}</span>
-                            <span className="hidden sm:block min-w-0 text-body-sm text-on-surface-variant truncate">{m[2]}</span>
+                            <span className="hidden sm:block text-body-sm font-medium text-ink-900 truncate" title={m[1]}>{m[1]}</span>
+                            <span className="hidden sm:block min-w-0 text-body-sm text-ink-500 truncate">{m[2]}</span>
                           </>
                         ) : (
-                          <span className="hidden sm:block sm:col-span-2 min-w-0 text-body-sm text-on-surface truncate">{t.title}</span>
+                          <span className="hidden sm:block sm:col-span-2 min-w-0 text-body-sm text-ink-900 truncate">{t.title}</span>
                         )}
                         <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700 sm:justify-self-end">
                           {t.cta}
@@ -315,7 +315,7 @@ export default async function HomePage() {
                 })}
               </ul>
               {todos.length > 8 && (
-                <div className="px-4 py-2.5 border-t border-outline-variant/60 text-caption text-on-surface-variant">
+                <div className="px-4 py-2.5 border-t border-rule text-caption text-ink-500">
                   另有 {todos.length - 8} 件較不緊急的待辦,可由下方「跨院週期總覽」逐院處理。
                 </div>
               )}
@@ -324,12 +324,12 @@ export default async function HomePage() {
 
           {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
           {isSuper && (
-            <section className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest shadow-elev-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-outline-variant/60">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">跨院週期總覽 · {cycles.length} 個週期</p>
-                <span className="text-caption text-on-surface-variant">左色條 = 階段;逾期以紅標示</span>
+            <section className="mb-6 rounded-lg border border-rule bg-card shadow-elev-1 overflow-hidden">
+              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-rule">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">跨院週期總覽 · {cycles.length} 個週期</p>
+                <span className="text-caption text-ink-500">左色條 = 階段;逾期以紅標示</span>
               </div>
-              <ul className="divide-y divide-outline-variant/50">
+              <ul className="divide-y divide-rule">
                 {[...enriched]
                   .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.step - b.step)
                   .slice(0, 8)
@@ -348,8 +348,8 @@ export default async function HomePage() {
                       >
                         {e.overdue && <span className="sr-only">已逾期;</span>}
                         <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
-                          <span className="text-body-sm text-on-surface">{e.c.organization.name}</span>
-                          <span className="text-caption text-on-surface-variant"> · {e.c.year - 1911} 年度</span>
+                          <span className="text-body-sm text-ink-900">{e.c.organization.name}</span>
+                          <span className="text-caption text-ink-500"> · {e.c.year - 1911} 年度</span>
                         </Link>
                         {e.overdue && <Chip tone="danger" size="sm" variant="filled">逾期</Chip>}
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
@@ -360,14 +360,14 @@ export default async function HomePage() {
                             <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                           </Link>
                         ) : n?.text ? (
-                          <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-on-surface-variant">{n.text}</span>
+                          <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-ink-500">{n.text}</span>
                         ) : null}
                       </li>
                     );
                   })}
               </ul>
               {(overdueCount > 0 || enriched.length > 8) && (
-                <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-outline-variant/60">
+                <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-rule">
                   {overdueCount > 0 ? (
                     <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="inline-flex items-center min-h-11 -my-1 text-caption text-danger-700 hover:underline focus-ring rounded">
                       ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
@@ -407,10 +407,10 @@ export default async function HomePage() {
                           <Card interactive className="flex items-center gap-4 h-full">
                             <ProgressRing value={pc.mechConfirmed} max={pc.mechTotal} size={76} tone="primary" label={`${pc.mechConfirmed}/${pc.mechTotal}`} sublabel="已齊備" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-title-md text-on-surface">稽核前資料準備</p>
-                              <p className="mt-1 text-body-sm text-on-surface-variant">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
+                              <p className="text-title-md text-ink-900">稽核前資料準備</p>
+                              <p className="mt-1 text-body-sm text-ink-500">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
                               {(pc.c.prepDueTech || pc.c.prepDueDate) && (
-                                <p className="mt-0.5 text-caption text-on-surface-variant">
+                                <p className="mt-0.5 text-caption text-ink-500">
                                   {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
                                 </p>
                               )}
@@ -423,10 +423,10 @@ export default async function HomePage() {
                         <Link href={`/cycles/${pc.c.id}/checklist`} className="block focus-ring rounded-lg">
                           <Card interactive className="h-full">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-title-md text-on-surface">資安自評檢核表</p>
+                              <p className="text-title-md text-ink-900">資安自評檢核表</p>
                               <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
                             </div>
-                            <p className="mt-1 mb-3 text-body-sm text-on-surface-variant tabular-nums">
+                            <p className="mt-1 mb-3 text-body-sm text-ink-500 tabular-nums">
                               {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
                             </p>
                             <StackedBar
@@ -445,7 +445,7 @@ export default async function HomePage() {
                 })()}
 
               <div className="flex items-baseline justify-between mb-3 px-1">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">
                   {user.role === 'AUDITOR' ? `我負責的週期 · ${enriched.length} 個機關` : '我的稽核週期'}
                 </p>
                 <Link href="/cycles" className="text-caption text-primary-700 hover:underline">查看全部</Link>
@@ -467,17 +467,17 @@ export default async function HomePage() {
                         key={c.id}
                         aria-disabled
                         className={cn(
-                          'flex items-center gap-3 rounded-lg border border-outline-variant/60 border-l-4 bg-surface-container-low px-4 py-3.5 cursor-not-allowed',
+                          'flex items-center gap-3 rounded-lg border border-rule border-l-4 bg-paper-sunk px-4 py-3.5 cursor-not-allowed',
                           border,
                         )}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
+                            <span className="text-body-sm font-medium text-ink-900 truncate">{c.organization.name}</span>
                             <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
-                            <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                            <span className="text-caption text-ink-500 tabular-nums">{c.year - 1911} 年度</span>
                           </div>
-                          <p className="mt-1 text-caption text-on-surface-variant">本週期已結案,資料已鎖定。</p>
+                          <p className="mt-1 text-caption text-ink-500">本週期已結案,資料已鎖定。</p>
                         </div>
                       </div>
                     );
@@ -488,20 +488,20 @@ export default async function HomePage() {
                       href={`/cycles/${c.id}`}
                       className={cn(
                         // 邊框透明度與上方鎖定卡齊平(批78:同類卡片 /60 vs 全實心漂移收斂)
-                        'flex items-center gap-3 rounded-lg border border-outline-variant/60 border-l-4 bg-surface-container-lowest px-4 py-3.5 hover:bg-surface-container transition-colors focus-ring',
+                        'flex items-center gap-3 rounded-lg border border-rule border-l-4 bg-card px-4 py-3.5 hover:bg-paper-sunk transition-colors focus-ring',
                         border,
                       )}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-body-sm font-medium text-on-surface truncate">{c.organization.name}</span>
+                          <span className="text-body-sm font-medium text-ink-900 truncate">{c.organization.name}</span>
                           <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
-                          <span className="text-caption text-on-surface-variant tabular-nums">{c.year - 1911} 年度</span>
+                          <span className="text-caption text-ink-500 tabular-nums">{c.year - 1911} 年度</span>
                           {auditorDims.length > 0 && (
                             <span className="text-caption text-primary-700">負責構面:{auditorDims.join('、')}</span>
                           )}
                         </div>
-                        {next?.text && <p className="mt-1 text-caption text-on-surface-variant truncate">{next.text}</p>}
+                        {next?.text && <p className="mt-1 text-caption text-ink-500 truncate">{next.text}</p>}
                       </div>
                       {next?.cta && (
                         <span className="shrink-0 inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
@@ -521,22 +521,22 @@ export default async function HomePage() {
 
           {/* ════ 流程指引:四步驟 × 我的角色工作 ════ */}
           {!isSuper && (
-          <section className="mb-8 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
+          <section className="mb-8 rounded-lg border border-rule bg-card overflow-hidden">
             <div className="flex items-center gap-3 px-5 pt-5 pb-1 flex-wrap">
               <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
               <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>
-              <span className="text-caption text-on-surface-variant">
+              <span className="text-caption text-ink-500">
                 你在每一階段的工作;標亮 = 有週期正在該階段
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant/40 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-rule mt-3">
               {PROCESS_STEPS.map((s, i) => {
                 const active = stepCycleCounts[i] > 0;
                 return (
-                  <div key={s.no} className={`p-5 ${active ? 'bg-primary-50/50' : 'bg-surface-container-lowest'}`}>
+                  <div key={s.no} className={`p-5 ${active ? 'bg-primary-50/50' : 'bg-card'}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <IndexBadge n={s.no} state={active ? 'active' : 'default'} size="sm" shape="circle" />
-                      <p className={`text-label-lg ${active ? 'text-primary-800 font-semibold' : 'text-on-surface'}`}>
+                      <p className={`text-label-lg ${active ? 'text-primary-800 font-semibold' : 'text-ink-900'}`}>
                         {s.title}
                       </p>
                       {active && (
@@ -545,7 +545,7 @@ export default async function HomePage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-caption text-on-surface-variant leading-relaxed">{duties[i]}</p>
+                    <p className="text-caption text-ink-500 leading-relaxed">{duties[i]}</p>
                   </div>
                 );
               })}

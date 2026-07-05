@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-Hant" className={`${inter.variable} ${mono.variable} ${noto.variable}`}>
-      <body className="min-h-screen bg-surface text-neutral-900 antialiased">
+      <body className="min-h-screen bg-paper-sunk text-neutral-900 antialiased">
         {/* 「跳到主要內容」skip-link 統一由 AppShell 提供(#main-content 在 AppShell 內),
             此處不再重複,避免雙重 skip-link 與導航時誤現。 */}
         <Providers>

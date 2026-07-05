@@ -36,17 +36,17 @@ export default async function NewsPage({
   const totalCount = catCounts.reduce((s, c) => s + c._count, 0);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="min-h-screen bg-paper-sunk flex flex-col">
       <PortalHeader authed={!!session} />
 
       <main className="flex-1 max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <header className="mb-6">
-          <h1 className="text-headline-lg text-on-surface">資安資訊</h1>
-          <p className="mt-1 text-body text-on-surface-variant">平台公告、資安情資、漏洞警訊與活動訊息。</p>
+          <h1 className="text-headline-lg text-ink-900">資安資訊</h1>
+          <p className="mt-1 text-body text-ink-500">平台公告、資安情資、漏洞警訊與活動訊息。</p>
         </header>
 
         {/* 分類 tabs(統一 FilterChip + 計數,與系統內篩選同語彙) */}
-        <div className="flex gap-1.5 flex-wrap mb-6 border-b border-outline-variant/60 pb-3" role="group" aria-label="篩選分類">
+        <div className="flex gap-1.5 flex-wrap mb-6 border-b border-rule pb-3" role="group" aria-label="篩選分類">
           <FilterChipLink href="/news" selected={!category}>
             全部 <FilterChipCount selected={!category}>{totalCount}</FilterChipCount>
           </FilterChipLink>
@@ -65,7 +65,7 @@ export default async function NewsPage({
           <div className="flex flex-col gap-2.5">
             {posts.map((p) => (
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
-                <article className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
+                <article className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 rounded-lg border border-rule bg-card px-5 py-4 transition-all duration-200 ease-standard group-hover:border-rule-strong group-hover:shadow-elev-1">
                   <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                     <Chip tone={POST_CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
                       {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
@@ -73,11 +73,11 @@ export default async function NewsPage({
                     {p.important && <Chip tone="danger" size="sm">重要</Chip>}
                     {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
                   </div>
-                  <h2 className="flex-1 min-w-0 text-body font-medium text-on-surface sm:truncate group-hover:text-primary-700 transition-colors">
+                  <h2 className="flex-1 min-w-0 text-body font-medium text-ink-900 sm:truncate group-hover:text-primary-700 transition-colors">
                     {p.title}
                   </h2>
                   <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <span className="text-caption text-on-surface-variant tabular-nums">
+                    <span className="text-caption text-ink-500 tabular-nums">
                       <span className="hidden sm:inline">
                         {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
                       </span>
@@ -85,7 +85,7 @@ export default async function NewsPage({
                         {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : ''}
                       </span>
                     </span>
-                    <ChevronRight size={16} className="text-on-surface-variant" />
+                    <ChevronRight size={16} className="text-ink-500" />
                   </div>
                 </article>
               </Link>

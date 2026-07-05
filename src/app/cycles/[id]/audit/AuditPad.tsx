@@ -338,7 +338,7 @@ function ScoreSection({
               請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。
             </p>
             {/* 前置勾選(UAT 批63):委員須先告知工作人員,勾選後才可按「解除鎖定」 */}
-            <label className="flex items-start gap-2 rounded-md border border-outline-variant/60 bg-surface-container-low px-3 py-2.5 text-body-sm text-on-surface cursor-pointer">
+            <label className="flex items-start gap-2 rounded-md border border-rule bg-paper-sunk px-3 py-2.5 text-body-sm text-ink-900 cursor-pointer">
               <input
                 type="checkbox"
                 checked={unlockAck}
@@ -356,8 +356,8 @@ function ScoreSection({
       />
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
-          <h2 className="text-title-lg text-on-surface">稽核評分</h2>
-          <p className="text-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
+          <h2 className="text-title-lg text-ink-900">稽核評分</h2>
+          <p className="text-body-sm text-ink-500 mt-0.5 leading-relaxed">
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
             {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
             確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
@@ -374,7 +374,7 @@ function ScoreSection({
               <span
                 key={d}
                 title={DIMENSION_LABELS[d]}
-                className={`h-1.5 w-1.5 rounded-full ${scores[d] !== null && scores[d] !== undefined ? 'bg-primary-600' : 'bg-outline-variant'}`}
+                className={`h-1.5 w-1.5 rounded-full ${scores[d] !== null && scores[d] !== undefined ? 'bg-primary-600' : 'bg-rule-strong'}`}
               />
             ))}
           </span>
@@ -424,43 +424,43 @@ function ScoreSection({
         </div>
       </div>
 
-      <details open className="mb-4 rounded-lg border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
-        <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-on-surface hover:bg-surface-container-low">
+      <details open className="mb-4 rounded-lg border border-rule bg-card overflow-hidden">
+        <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
           五等第評分標準說明(依檢核結果「符合 / 部分符合 / 不符合」數量評定等第與分數;不適用項目不計)
         </summary>
         <div className="px-5 pb-4 overflow-x-auto">
           <table className="w-full text-caption border-collapse min-w-[30rem]">
             <thead>
-              <tr className="text-on-surface-variant">
-                <th className="text-left font-medium py-1.5 pr-3 border-b border-outline-variant/60">檢核結果數量</th>
-                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">等第</th>
-                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">配分 10 分</th>
-                <th className="text-center font-medium py-1.5 px-2 border-b border-outline-variant/60">配分 20 分</th>
+              <tr className="text-ink-500">
+                <th className="text-left font-medium py-1.5 pr-3 border-b border-rule">檢核結果數量</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-rule">等第</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-rule">配分 10 分</th>
+                <th className="text-center font-medium py-1.5 px-2 border-b border-rule">配分 20 分</th>
               </tr>
             </thead>
             <tbody>
               {GRADE_STANDARD.map((r) => (
-                <tr key={r.grade} className="border-b border-outline-variant/40 last:border-b-0">
-                  <td className="py-1.5 pr-3 text-on-surface">{r.cond}</td>
+                <tr key={r.grade} className="border-b border-rule last:border-b-0">
+                  <td className="py-1.5 pr-3 text-ink-900">{r.cond}</td>
                   <td className="text-center py-1.5 px-2"><Chip size="sm" tone={r.tone}>{r.grade}</Chip></td>
-                  <td className="text-center py-1.5 px-2 tabular-nums text-on-surface-variant">{r.s10}</td>
-                  <td className="text-center py-1.5 px-2 tabular-nums text-on-surface-variant">{r.s20}</td>
+                  <td className="text-center py-1.5 px-2 tabular-nums text-ink-500">{r.s10}</td>
+                  <td className="text-center py-1.5 px-2 tabular-nums text-ink-500">{r.s20}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-2.5 text-caption text-on-surface-variant leading-relaxed">
+          <p className="mt-2.5 text-caption text-ink-500 leading-relaxed">
             「執行良好」包括:① 優於規定(如驗證範圍涵蓋全機關);② 對檢核項目要求執行完整確實(如資安績效指標完整且高標準);③ 記錄完整(相關執行紀錄如期如實表現)。
           </p>
         </div>
       </details>
 
-      <div className="rounded-md border border-outline-variant/60 overflow-hidden">
+      <div className="rounded-md border border-rule overflow-hidden">
         {ASPECTS.map((aspect) => {
           const focused = focusSet.has(aspect);
           return (
           <div key={aspect}>
-            <div className={`px-5 py-2 text-label border-b border-outline-variant/40 flex items-center gap-2 ${focused ? 'bg-primary-50 text-primary-800' : 'bg-surface-container-low text-on-surface-variant'}`}>
+            <div className={`px-5 py-2 text-label border-b border-rule flex items-center gap-2 ${focused ? 'bg-primary-50 text-primary-800' : 'bg-paper-sunk text-ink-500'}`}>
               {DEFICIENCY_ASPECT_LABELS[aspect]}
               {focused && <Chip size="sm" tone="primary">您負責</Chip>}
             </div>
@@ -472,27 +472,27 @@ function ScoreSection({
               // 批82:刪本地 GRADE_BAR map,改由 stage.ts toneClasses(單一來源,與缺失列/矩陣同語彙)派生左框色。
               const gradeBar = v !== null ? toneClasses(GRADE_TONE[gradeOf(dim, v)]).border : 'border-l-transparent';
               return (
-                <div key={dim} className={`border-b border-outline-variant/40 last:border-b-0 bg-surface-container-lowest px-5 py-3.5 border-l-[3px] transition-colors ${gradeBar}`}>
+                <div key={dim} className={`border-b border-rule last:border-b-0 bg-card px-5 py-3.5 border-l-[3px] transition-colors ${gradeBar}`}>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-body text-on-surface">
+                    <div className="text-body text-ink-900">
                       {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
                       {DIMENSION_LABELS[dim]}
-                      <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]} 分)</span>
+                      <span className="text-ink-500">({DIMENSION_MAX_SCORE[dim]} 分)</span>
                       {/* 以項目數量評分,於標題標示本構面共幾項,方便委員判定數量 */}
-                      {st.total > 0 && <span className="text-on-surface-variant">・共 {st.total} 項</span>}
+                      {st.total > 0 && <span className="text-ink-500">・共 {st.total} 項</span>}
                     </div>
-                    <div className="text-caption text-on-surface-variant mt-1 leading-relaxed">{gradeHint(dim)}</div>
+                    <div className="text-caption text-ink-500 mt-1 leading-relaxed">{gradeHint(dim)}</div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {/* 自繪 −/＋ 級進器:取代原生 number spinner(原生 spinner 點一下會卷動、無法連續按) */}
-                    <div className="inline-flex items-center rounded-md border border-outline-variant bg-surface overflow-hidden transition-colors focus-within:border-primary-400 focus-within:ring-1 focus-within:ring-primary-200">
+                    <div className="inline-flex items-center rounded-md border border-neutral-400 bg-card overflow-hidden transition-colors focus-within:border-primary-400 focus-within:ring-1 focus-within:ring-primary-200">
                       <button
                         type="button"
                         aria-label={`${DIMENSION_LABELS[dim]} 減一分`}
                         disabled={!canEdit || (v ?? 0) <= 0}
                         onClick={() => setScore(dim, String((v ?? 0) - 1))}
-                        className="w-11 h-11 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                        className="w-11 h-11 flex items-center justify-center text-title text-ink-500 hover:bg-paper-sunk disabled:opacity-40 focus-ring"
                       >
                         −
                       </button>
@@ -505,14 +505,14 @@ function ScoreSection({
                         onChange={(e) => setScore(dim, e.target.value)}
                         disabled={!canEdit}
                         aria-label={`${DIMENSION_LABELS[dim]} 評分(0-${DIMENSION_MAX_SCORE[dim]})`}
-                        className="w-12 h-11 border-x border-outline-variant bg-surface px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                        className="w-12 h-11 border-x border-neutral-400 bg-card px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-paper-sunk disabled:text-ink-500"
                       />
                       <button
                         type="button"
                         aria-label={`${DIMENSION_LABELS[dim]} 加一分`}
                         disabled={!canEdit || (v ?? 0) >= DIMENSION_MAX_SCORE[dim]}
                         onClick={() => setScore(dim, String((v ?? 0) + 1))}
-                        className="w-11 h-11 flex items-center justify-center text-title text-on-surface-variant hover:bg-surface-container disabled:opacity-40 focus-ring"
+                        className="w-11 h-11 flex items-center justify-center text-title text-ink-500 hover:bg-paper-sunk disabled:opacity-40 focus-ring"
                       >
                         ＋
                       </button>
@@ -526,9 +526,9 @@ function ScoreSection({
                 </div>
                 {/* 委員手填檢核結果數量(預設空白);機關自評僅供參考,不自動帶入 */}
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="text-caption text-on-surface-variant">委員判定數量:</span>
+                  <span className="text-caption text-ink-500">委員判定數量:</span>
                   {COUNT_FIELDS.map(({ key, label }) => (
-                    <label key={key} className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
+                    <label key={key} className="inline-flex items-center gap-1 text-caption text-ink-500">
                       {label}
                       <input
                         type="number"
@@ -538,11 +538,11 @@ function ScoreSection({
                         onChange={(e) => setCount(dim, key, e.target.value)}
                         disabled={!canEdit}
                         aria-label={`${DIMENSION_LABELS[dim]} ${label} 題數`}
-                        className="w-12 h-11 rounded-md border border-outline-variant bg-surface px-1 text-body-sm text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                        className="w-12 h-11 rounded-md border border-neutral-400 bg-card px-1 text-body-sm text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-paper-sunk disabled:text-ink-500"
                       />
                     </label>
                   ))}
-                  <span className="text-caption text-on-surface-variant/70">
+                  <span className="text-caption text-ink-500">
                     機關自評供參:{st.total} 題(符{st.c1}/部{st.c2}/不{st.c3}/適{st.c4})
                   </span>
                   {/* 即時合計回饋:動筆後合計≠題數標紅(唯讀改中性描述);送出被擋的構面常駐標紅到修正為止 */}
@@ -559,21 +559,21 @@ function ScoreSection({
                     return canEdit ? (
                       <span className="text-caption font-medium text-danger-600 tabular-nums">合計 {sum}/{st.total},須等於題數</span>
                     ) : (
-                      <span className="text-caption text-on-surface-variant tabular-nums">合計 {sum}/{st.total},與題數不符</span>
+                      <span className="text-caption text-ink-500 tabular-nums">合計 {sum}/{st.total},與題數不符</span>
                     );
                   })()}
                 </div>
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">
-                    <summary className="cursor-pointer text-caption text-on-surface-variant hover:underline select-none">
+                    <summary className="cursor-pointer text-caption text-ink-500 hover:underline select-none">
                       參考—查看審閱意見({issues.length} 項部分符合/不符合)
                     </summary>
-                    <p className="mt-2 text-caption text-on-surface-variant/80 leading-relaxed">
+                    <p className="mt-2 text-caption text-ink-500 leading-relaxed">
                       以下為實地稽核前之審閱筆記,僅供參考;經現場稽核後可能有異動,委員判定數量請依現場結果填寫,不受此限。
                     </p>
                     <ul className="mt-2 space-y-1.5">
                       {issues.map((it) => (
-                        <li key={it.itemNo} className="flex gap-2 text-caption text-on-surface-variant">
+                        <li key={it.itemNo} className="flex gap-2 text-caption text-ink-500">
                           <Chip size="sm" tone={it.level === 'NON_COMPLIANT' ? 'danger' : 'warning'} className="shrink-0 font-mono">{it.itemNo}</Chip>
                           <span className="leading-relaxed">{it.content}</span>
                         </li>
@@ -587,9 +587,9 @@ function ScoreSection({
           </div>
           );
         })}
-        <div className="flex items-center justify-end gap-3 px-5 py-3 bg-surface-container-low">
-          <span className="text-body-sm text-on-surface-variant">您的評分小計(已評 {filledCount} 項;週期彙整得分見報告頁,以各構面平均計算)</span>
-          <span className="text-title-lg text-on-surface tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
+        <div className="flex items-center justify-end gap-3 px-5 py-3 bg-paper-sunk">
+          <span className="text-body-sm text-ink-500">您的評分小計(已評 {filledCount} 項;週期彙整得分見報告頁,以各構面平均計算)</span>
+          <span className="text-title-lg text-ink-900 tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
         </div>
       </div>
     </section>
@@ -861,9 +861,9 @@ function FindingSection({
       />
 
       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-        <h2 className="text-title-lg text-on-surface">稽核發現</h2>
+        <h2 className="text-title-lg text-ink-900">稽核發現</h2>
       </div>
-      <p className="text-body-sm text-on-surface-variant mb-4">
+      <p className="text-body-sm text-ink-500 mb-4">
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
       </p>
 
@@ -872,15 +872,15 @@ function FindingSection({
         const issues = Object.entries(dimIssues).flatMap(([dim, items]) => items.map((it) => ({ ...it, dim })));
         if (issues.length === 0) return null;
         return (
-          <details className="mb-4 rounded-md border border-outline-variant/60 bg-surface-container-lowest overflow-hidden">
-            <summary className="cursor-pointer select-none px-4 py-3 text-body-sm font-medium text-on-surface hover:bg-surface-container-low">
+          <details className="mb-4 rounded-md border border-rule bg-card overflow-hidden">
+            <summary className="cursor-pointer select-none px-4 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
               從檢核表「部分符合/不符合」題帶入發現({issues.length})
             </summary>
-            <ul className="divide-y divide-outline-variant/40">
+            <ul className="divide-y divide-rule">
               {issues.map((it) => (
                 <li key={it.itemNo} className="flex items-start gap-3 px-4 py-3">
                   <Chip size="sm" tone={it.level === 'NON_COMPLIANT' ? 'danger' : 'warning'} className="shrink-0 font-mono">{it.itemNo}</Chip>
-                  <span className="flex-1 min-w-0 text-body-sm text-on-surface-variant leading-relaxed">{it.content}</span>
+                  <span className="flex-1 min-w-0 text-body-sm text-ink-500 leading-relaxed">{it.content}</span>
                   <Button
                     size="sm"
                     variant="tonal"
@@ -902,11 +902,11 @@ function FindingSection({
           const mine = findings.filter((f) => f.kind === kind);
           const draft = drafts[kind];
           return (
-            <div key={kind} className="rounded-md border border-outline-variant/60 bg-surface-container-lowest">
-              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-outline-variant/40">
+            <div key={kind} className="rounded-md border border-rule bg-card">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-rule">
                 <div>
-                  <span className="text-title text-on-surface">{FINDING_KIND_LABELS[kind]}</span>
-                  <span className="ml-2 text-caption text-on-surface-variant/90">{FINDING_KIND_HINTS[kind]}</span>
+                  <span className="text-title text-ink-900">{FINDING_KIND_LABELS[kind]}</span>
+                  <span className="ml-2 text-caption text-ink-500">{FINDING_KIND_HINTS[kind]}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Chip size="sm" tone="neutral">{mine.length} 條</Chip>
@@ -918,9 +918,9 @@ function FindingSection({
                 </div>
               </div>
 
-              <div className="flex flex-col divide-y divide-outline-variant/40">
+              <div className="flex flex-col divide-y divide-rule">
                 {mine.length === 0 && !draft && (
-                  <div className="px-5 py-4 text-body-sm text-on-surface-variant">尚無內容</div>
+                  <div className="px-5 py-4 text-body-sm text-ink-500">尚無內容</div>
                 )}
                 {mine.map((f) => (
                   <div key={f.id} className="px-5 py-4 flex flex-col gap-2.5">
@@ -1026,7 +1026,7 @@ function FindingSection({
 
       {/* 底部操作列:全部填完後一鍵排序 / 全部儲存(取代原本置於標頭的排序鈕) */}
       {findings.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-outline-variant/40 flex flex-wrap items-center justify-end gap-2">
+        <div className="mt-5 pt-4 border-t border-rule flex flex-wrap items-center justify-end gap-2">
           {findings.length > 1 && (
             <Button size="sm" variant="text" onClick={sortByRef}>依項次排序</Button>
           )}
@@ -1057,7 +1057,7 @@ function FindingSection({
                       expectedEvidence={itemLaw[r].expectedEvidence}
                     />
                   ) : (
-                    <p className="text-body-sm text-on-surface-variant py-2">查無項次「{r}」的法規對照資料,請確認項次編號。</p>
+                    <p className="text-body-sm text-ink-500 py-2">查無項次「{r}」的法規對照資料,請確認項次編號。</p>
                   )}
                 </div>
               ))}
@@ -1072,7 +1072,7 @@ function FindingSection({
         const shown = clipShowAll ? snippets : matched;
         const toggleCls = (active: boolean) =>
           `inline-flex items-center min-h-8 px-3 rounded-full text-label-sm tabular-nums transition-colors ${
-            active ? 'bg-primary-container text-on-primary-container font-medium' : 'text-on-surface-variant hover:bg-surface-container'
+            active ? 'bg-focus-wash text-primary-700 font-medium' : 'text-ink-500 hover:bg-paper-sunk'
           }`;
         return (
           <Dialog
@@ -1083,7 +1083,7 @@ function FindingSection({
             description="點選片語即插入「發現內容」游標所在處。"
           >
             {snippets.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant py-2">尚無片語。請最高管理員至「管理 → 發現片語庫」新增。</p>
+              <p className="text-body-sm text-ink-500 py-2">尚無片語。請最高管理員至「管理 → 發現片語庫」新增。</p>
             ) : (
               <>
                 {/* 篩選切換:符合目前構面/類型 ↔ 全部 */}
@@ -1096,7 +1096,7 @@ function FindingSection({
                   </button>
                 </div>
                 {shown.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant py-2">此構面/類型尚無對應片語;可切換「全部」,或至「發現片語庫」新增/設為通用。</p>
+                  <p className="text-body-sm text-ink-500 py-2">此構面/類型尚無對應片語;可切換「全部」,或至「發現片語庫」新增/設為通用。</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {shown.map((s) => (
@@ -1105,7 +1105,7 @@ function FindingSection({
                         type="button"
                         title={s.text}
                         onClick={() => { clip.insert(s.text); setClip(null); toast.success('已插入片語'); }}
-                        className="text-left rounded-md border border-outline-variant/60 bg-surface-container-lowest hover:bg-surface-container-low hover:border-primary-300 transition-colors px-2.5 py-1.5 text-body-sm text-on-surface-variant max-w-[18rem]"
+                        className="text-left rounded-md border border-neutral-400 bg-card hover:bg-paper-sunk hover:border-primary-300 transition-colors px-2.5 py-1.5 text-body-sm text-ink-500 max-w-[18rem]"
                       >
                         <span className="line-clamp-2 break-words whitespace-pre-wrap">{s.text}</span>
                       </button>
@@ -1136,13 +1136,13 @@ function RefChips({ value, onChange, disabled }: { value: string; onChange: (nex
   }
   return (
     <div className="flex flex-col gap-0.5 min-w-[10rem]">
-      <span className="text-caption text-on-surface-variant px-1">對應項次(選填)</span>
-      <div className="flex flex-wrap items-center gap-1 rounded-md border border-outline-variant bg-surface px-2 py-1 min-h-9">
+      <span className="text-caption text-ink-500 px-1">對應項次(選填)</span>
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-neutral-400 bg-card px-2 py-1 min-h-9">
         {refs.map((r) => (
-          <span key={r} className="inline-flex items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-caption text-on-surface">
+          <span key={r} className="inline-flex items-center gap-1 rounded-full bg-paper-sunk px-2 py-0.5 text-caption text-ink-900">
             {r}
             {!disabled && (
-              <button type="button" aria-label={`移除 ${r}`} onClick={() => onChange(sortRefsString(refs.filter((x) => x !== r).join('、')))} className="text-on-surface-variant hover:text-danger-700 leading-none">×</button>
+              <button type="button" aria-label={`移除 ${r}`} onClick={() => onChange(sortRefsString(refs.filter((x) => x !== r).join('、')))} className="text-ink-500 hover:text-danger-700 leading-none">×</button>
             )}
           </span>
         ))}
@@ -1154,7 +1154,7 @@ function RefChips({ value, onChange, disabled }: { value: string; onChange: (nex
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
               placeholder="項次"
-              className="w-14 h-6 bg-transparent text-caption outline-none placeholder:text-on-surface-variant/60"
+              className="w-14 h-6 bg-transparent text-caption outline-none placeholder:text-ink-500"
             />
             <button type="button" onClick={add} className="text-caption text-primary-700 whitespace-nowrap">+ 新增</button>
           </span>
@@ -1175,7 +1175,7 @@ function RefSummary({ refStr, itemContent }: { refStr: string; itemContent: Reco
     <div className="flex flex-col gap-1">
       {refs.map((r) =>
         itemContent[r] ? (
-          <p key={r} className="text-caption text-on-surface-variant leading-relaxed bg-surface-container rounded-sm px-3 py-1.5">
+          <p key={r} className="text-caption text-ink-500 leading-relaxed bg-paper-sunk rounded-sm px-3 py-1.5">
             對應檢核項【{r}】{itemContent[r]}
           </p>
         ) : (
@@ -1199,7 +1199,7 @@ function AspectSelect({
       onChange={(e) => onChange(e.target.value as DeficiencyAspect)}
       disabled={disabled}
       aria-label="稽核構面"
-      className="h-10 rounded-md border border-outline-variant bg-surface px-3 text-body-sm focus-ring disabled:bg-surface-container-low disabled:text-on-surface-variant"
+      className="h-10 rounded-md border border-neutral-400 bg-card px-3 text-body-sm focus-ring disabled:bg-paper-sunk disabled:text-ink-500"
     >
       {ASPECTS.map((a) => (
         <option key={a} value={a}>{DEFICIENCY_ASPECT_LABELS[a]}</option>

@@ -80,7 +80,7 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
+                  className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
                   aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
                 >
                   {showPw ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -102,10 +102,10 @@ function LoginForm() {
           </div>
 
           {SHOW_DEMO && (
-          <div className="mt-7 pt-6 border-t border-outline-variant">
+          <div className="mt-7 pt-6 border-t border-rule">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-label-lg text-on-surface-variant">快速測試帳號</p>
-              <span className="text-caption text-on-surface-variant">
+              <p className="text-label-lg text-ink-500">快速測試帳號</p>
+              <span className="text-caption text-ink-500">
                 演示密碼 <code className="font-mono">demo1234</code>
               </span>
             </div>
@@ -120,14 +120,14 @@ function LoginForm() {
                     className={
                       'group text-left rounded-sm px-3.5 py-2.5 transition-colors duration-200 ease-standard focus-ring ' +
                       (isSelected
-                        ? 'bg-primary-container text-on-primary-container'
-                        : 'bg-surface-container hover:bg-surface-container-high')
+                        ? 'bg-focus-wash text-primary-700'
+                        : 'bg-card border border-rule hover:bg-paper-sunk')
                     }
                   >
                     <div className="flex items-center gap-1.5 mb-1">
                       <Chip tone={a.tone} size="sm" dot>{a.label}</Chip>
                     </div>
-                    <div className="text-caption font-mono text-on-surface-variant truncate">
+                    <div className="text-caption font-mono text-ink-500 truncate">
                       {a.email}
                     </div>
                   </button>

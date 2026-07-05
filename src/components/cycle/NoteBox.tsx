@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn';
 export type NoteTone = 'neutral' | 'primary' | 'success' | 'warning';
 
 const NOTE: Record<NoteTone, { box: string; label: string }> = {
-  neutral: { box: 'bg-surface-container border-outline-variant/60', label: 'text-on-surface-variant' },
+  neutral: { box: 'bg-paper-sunk border-rule', label: 'text-ink-500' },
   primary: { box: 'bg-primary-50/50 border-primary-100',           label: 'text-primary-800' },
   success: { box: 'bg-success-50 border-success-100',              label: 'text-success-800' },
   warning: { box: 'bg-warning-50 border-warning-100',              label: 'text-warning-800' },
@@ -44,13 +44,13 @@ export function NoteBox({
     <div
       className={cn(
         'rounded-md border p-3',
-        prominent ? 'bg-surface-container-high border-outline-variant/60' : t.box,
+        prominent ? 'bg-paper-sunk border-rule' : t.box,
         className,
       )}
     >
       {header}
       {label && (
-        <p className={cn('text-caption font-medium mb-1', prominent ? 'text-on-surface' : t.label)}>{label}</p>
+        <p className={cn('text-caption font-medium mb-1', prominent ? 'text-ink-900' : t.label)}>{label}</p>
       )}
       {children}
     </div>

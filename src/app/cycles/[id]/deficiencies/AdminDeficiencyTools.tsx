@@ -193,7 +193,7 @@ export default function AdminDeficiencyTools({
         }
       >
         <div className="flex flex-col gap-4 pt-2">
-          <label className="inline-flex items-center gap-2 h-12 px-4 rounded-md bg-surface-container border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors w-fit">
+          <label className="inline-flex items-center gap-2 h-12 px-4 rounded-md bg-paper-sunk border border-dashed border-primary-400 text-primary-700 hover:bg-primary-50 cursor-pointer focus-ring transition-colors w-fit">
             <input
               ref={fileRef}
               type="file"
@@ -209,26 +209,26 @@ export default function AdminDeficiencyTools({
           </label>
 
           {preview && (
-            <div className="max-h-72 overflow-y-auto rounded-md border border-outline-variant">
+            <div className="max-h-72 overflow-y-auto rounded-md border border-rule">
               {preview.length === 0 ? (
-                <p className="p-4 text-body-sm text-on-surface-variant">未解析到缺失</p>
+                <p className="p-4 text-body-sm text-ink-500">未解析到缺失</p>
               ) : (
-                <ul className="divide-y divide-outline-variant">
+                <ul className="divide-y divide-rule">
                   {preview.map((p, i) => (
                     <li key={i} className="p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-caption font-medium text-primary-700">
                           {DEFICIENCY_ASPECT_LABELS[p.aspect as keyof typeof DEFICIENCY_ASPECT_LABELS] ?? p.aspect}
                         </span>
-                        <span className="text-caption text-on-surface-variant">
+                        <span className="text-caption text-ink-500">
                           {DEFICIENCY_TYPE_LABELS[p.type as keyof typeof DEFICIENCY_TYPE_LABELS] ?? p.type}
                           {' '}#{p.itemNo}
                         </span>
                         {p.checklistRef && (
-                          <span className="text-caption font-mono text-on-surface-variant">({p.checklistRef})</span>
+                          <span className="text-caption font-mono text-ink-500">({p.checklistRef})</span>
                         )}
                       </div>
-                      <p className="text-body-sm text-on-surface line-clamp-2">{p.description}</p>
+                      <p className="text-body-sm text-ink-900 line-clamp-2">{p.description}</p>
                     </li>
                   ))}
                 </ul>

@@ -73,7 +73,7 @@ export default async function ReviewPage({
         ]}
       >
         <header className="mb-5">
-          <h1 className="text-headline text-on-surface">委員審閱</h1>
+          <h1 className="text-headline text-ink-900">委員審閱</h1>
         </header>
         <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
       </AppShell>
@@ -166,11 +166,11 @@ export default async function ReviewPage({
       ]}
     >
       <header className="mb-5">
-        <h1 className="text-headline text-on-surface">委員審閱</h1>
-        <p className="text-body-sm text-on-surface-variant mt-1 leading-relaxed">
+        <h1 className="text-headline text-ink-900">委員審閱</h1>
+        <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
           逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心。
         </p>
-        <p className="text-body-sm text-on-surface-variant mt-1">
+        <p className="text-body-sm text-ink-500 mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
           {/* 已作答 N/總 · 意見待補 N 由下方篩選 chip 承擔,header 不重述 */}
         </p>
@@ -187,8 +187,8 @@ export default async function ReviewPage({
 
       {/* 中心:委員審閱完成進度 */}
       {session.user.role === 'SUPER_ADMIN' && cycle.checklistSubmittedAt && reviewDoneList.length > 0 && (
-        <div className="mb-5 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-3">
-          <p className="text-body-sm text-on-surface">
+        <div className="mb-5 rounded-md border border-rule bg-card px-5 py-3">
+          <p className="text-body-sm text-ink-900">
             委員審閱進度:<span className="font-semibold tabular-nums">{reviewDoneCount}</span> / {reviewDoneList.length} 已完成意見
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -235,7 +235,7 @@ export default async function ReviewPage({
         grouped.map(({ dim, items }) => (
           <section key={dim} className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="text-title-md text-on-surface">{DIMENSION_LABELS[dim as Dimension]}</h2>
+              <h2 className="text-title-md text-ink-900">{DIMENSION_LABELS[dim as Dimension]}</h2>
               <Chip tone="neutral" size="sm">{items.length}</Chip>
             </div>
             <div className="flex flex-col gap-3">
@@ -247,7 +247,7 @@ export default async function ReviewPage({
                     <div className="flex items-start gap-3">
                       <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">{item.itemNo}</Chip>
                       <div className="flex-1 min-w-0">
-                        <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
+                        <p className="text-body text-ink-900 leading-relaxed">{item.content}</p>
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                           {c ? (
                             <Chip tone={complianceTone[c]} size="sm" dot>
@@ -265,12 +265,12 @@ export default async function ReviewPage({
                         {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點 */}
                         {r?.description && (
                           <NoteBox prominent label="機關說明(規範內容、執行方式、執行結果)" className="mt-3">
-                            <p className="text-body text-on-surface leading-relaxed whitespace-pre-wrap">{r.description}</p>
+                            <p className="text-body text-ink-900 leading-relaxed whitespace-pre-wrap">{r.description}</p>
                           </NoteBox>
                         )}
                         {r?.recordDocs && (
                           <NoteBox label="紀錄文件" className="mt-2">
-                            <p className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{r.recordDocs}</p>
+                            <p className="text-body-sm text-ink-500 leading-relaxed whitespace-pre-wrap">{r.recordDocs}</p>
                           </NoteBox>
                         )}
                         {/* 層2 往返對話:機關補正回應以 primary tone 承載 */}
@@ -302,7 +302,7 @@ export default async function ReviewPage({
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
                               法規對照(稽核依據・稽核重點・應備文件)
                             </summary>
-                            <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
+                            <div className="px-3 pb-3 pt-1 bg-card">
                               <LawPanel
                                 auditBasis={item.auditBasis}
                                 auditFocus={item.auditFocus}
@@ -319,13 +319,13 @@ export default async function ReviewPage({
                                 key={cm.id}
                                 tone={cm.resolvedAt ? 'success' : 'warning'}
                                 header={
-                                  <div className="text-caption text-on-surface-variant mb-1 flex items-center gap-2">
+                                  <div className="text-caption text-ink-500 mb-1 flex items-center gap-2">
                                     <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
                                     {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
                                   </div>
                                 }
                               >
-                                <p className="whitespace-pre-wrap text-body-sm text-on-surface-variant leading-relaxed">{cm.content}</p>
+                                <p className="whitespace-pre-wrap text-body-sm text-ink-500 leading-relaxed">{cm.content}</p>
                               </NoteBox>
                             ))}
                           </div>
@@ -336,7 +336,7 @@ export default async function ReviewPage({
                             <CommentForm responseId={r.id} />
                           </div>
                         ) : (
-                          <p className="mt-2 text-caption text-on-surface-variant">（填報人尚未作答，暫無法留言）</p>
+                          <p className="mt-2 text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
                         )}
                       </div>
                     </div>

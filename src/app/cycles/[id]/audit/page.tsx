@@ -107,8 +107,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-headline text-on-surface">實地稽核評分與發現</h1>
-          <p className="text-body-sm text-on-surface-variant mt-1">
+          <h1 className="text-headline text-ink-900">實地稽核評分與發現</h1>
+          <p className="text-body-sm text-ink-500 mt-1">
             {cycle.organization.name} · {cycle.year - 1911} 年度 ·{' '}
             {user.role === 'AUDITOR'
               ? canEdit
@@ -145,8 +145,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           initialFindings={findings}
         />
       ) : (
-        <div className="rounded-md border border-outline-variant/60 bg-surface-container-lowest px-5 py-5">
-          <p className="text-body-sm text-on-surface-variant leading-relaxed">
+        <div className="rounded-md border border-rule bg-card px-5 py-5">
+          <p className="text-body-sm text-ink-500 leading-relaxed">
             評分與發現由受指派之稽核委員登入填寫;請用右上角「彙整報告」即時檢視全體委員的整合結果、列印,
             並一鍵將待改善事項與建議事項轉入缺失管考。
           </p>

@@ -38,7 +38,7 @@ export function ProtectedFileLink({
     <>
       <Paperclip size={14} className="shrink-0" />
       <span className="truncate">{name}</span>
-      {sizeKB != null && <span className="text-caption text-on-surface-variant tabular-nums shrink-0">({sizeKB} KB)</span>}
+      {sizeKB != null && <span className="text-caption text-ink-500 tabular-nums shrink-0">({sizeKB} KB)</span>}
     </>
   );
 
@@ -83,7 +83,7 @@ export function ProtectedFileLink({
               <iframe
                 src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
                 title={name}
-                className="w-full h-full min-h-[82vh] rounded-sm bg-white"
+                className="w-full h-full min-h-[82vh] rounded-sm bg-card"
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -92,7 +92,7 @@ export function ProtectedFileLink({
                 alt={name}
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
-                className="max-w-full h-auto select-none rounded-sm bg-white"
+                className="max-w-full h-auto select-none rounded-sm bg-card"
               />
             )}
           </div>

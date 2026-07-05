@@ -257,7 +257,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     const content = (
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>{it.title}</p>
+          <p className={`text-body-sm font-medium leading-snug ${it.done ? 'text-ink-500 line-through' : 'text-ink-900'}`}>{it.title}</p>
           {/* 純提醒項標籤(對齊 JourneyChecklist;也讓輔助科技能區分提醒與任務) */}
           {it.informational && <Chip size="sm" tone="neutral">提醒</Chip>}
           {/* 中心視角:標示這項是哪個角色的工作(機關管理員/稽核委員/最高管理員;無標=全體) */}
@@ -265,7 +265,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             <Chip size="sm" tone={ROLE_TONE[it.role]}>{ROLE_LABELS[it.role]}</Chip>
           )}
         </div>
-        {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant leading-snug">{it.hint}</p>}
+        {it.hint && <p className="mt-0.5 text-caption text-ink-500 leading-snug">{it.hint}</p>}
       </div>
     );
     // 必做・手動勾選項:勾選框可互動(client),文字區另行連結(避免巢狀互動元素);
@@ -273,12 +273,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     if (it.canToggle && !it.lockedStageTitle) {
       return (
         <li key={it.id}>
-          <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface">
+          <div className="flex items-start gap-3 rounded-md border border-rule px-3.5 py-3 bg-card">
             <JourneyTodoToggle itemId={it.id} cycleId={cycle.id} done={it.done} title={it.title} />
             {it.href ? (
               <Link href={it.href} className="group flex min-w-0 flex-1 items-start gap-3 focus-ring rounded-md">
                 {content}
-                <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />
+                <ChevronRight size={16} className="mt-0.5 shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />
               </Link>
             ) : (
               content
@@ -288,13 +288,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       );
     }
     const row = (
-      <div className="flex items-start gap-3 rounded-md border border-outline-variant/60 px-3.5 py-3 bg-surface transition-colors group-hover:bg-surface-container">
+      <div className="flex items-start gap-3 rounded-md border border-rule px-3.5 py-3 bg-card transition-colors group-hover:bg-paper-sunk">
         {it.informational ? (
-          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-outline-variant ml-1.5 mr-1.5" aria-hidden />
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rule-strong ml-1.5 mr-1.5" aria-hidden />
         ) : (
           <span
             className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
-              it.done ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant'
+              it.done ? 'border-success-600 bg-success-600 text-white' : 'border-rule-strong'
             }`}
             aria-hidden
           >
@@ -302,7 +302,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           </span>
         )}
         {content}
-        {it.href && <ChevronRight size={16} className="mt-0.5 shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
+        {it.href && <ChevronRight size={16} className="mt-0.5 shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />}
       </div>
     );
     return (
@@ -366,14 +366,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       <div id="setup" className="scroll-mt-24" aria-hidden />
 
       {/* HERO:目前階段 + 完成度 + 橫向階段流程 */}
-      <section className="mb-5 rounded-2xl border border-primary-100 bg-gradient-to-br from-surface to-primary-50/40 p-6 sm:p-7">
+      <section className="mb-5 rounded-2xl border border-primary-100 bg-gradient-to-br from-card to-primary-50/40 p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
               目前階段:{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
             </Chip>
-            <h2 className="mt-2.5 text-headline text-on-surface">{yearROC} 年度資通安全稽核</h2>
-            <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">
+            <h2 className="mt-2.5 text-headline text-ink-900">{yearROC} 年度資通安全稽核</h2>
+            <p className="mt-1.5 text-body-sm text-ink-500 leading-relaxed">
               {cycle.organization.name}
               {cycle.techCheckDate && <> · 技術檢測 {fmtROC(cycle.techCheckDate)}</>}
               {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
@@ -404,12 +404,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             )}
             <div className="text-right">
               <p className="text-headline-lg font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
-              <p className="mt-1 text-caption text-on-surface-variant">流程完成度</p>
+              <p className="mt-1 text-caption text-ink-500">流程完成度</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-surface-container-high">
+        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-paper-sunk">
           <div className="h-full rounded-full bg-primary-600 transition-all duration-700" style={{ width: `${donePct}%` }} />
         </div>
 
@@ -424,10 +424,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
       {/* 系統建議的下一步 */}
       {bannerNext && bannerNext.text && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-outline-variant/60 border-l-4 border-l-primary-600 bg-surface px-5 py-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-rule border-l-4 border-l-primary-600 bg-card px-5 py-4">
           <div className="min-w-0">
-            <p className="text-caption text-on-surface-variant">系統建議的下一步</p>
-            <p className="mt-1 text-title-md font-medium text-on-surface">{bannerNext.text}</p>
+            <p className="text-caption text-ink-500">系統建議的下一步</p>
+            <p className="mt-1 text-title-md font-medium text-ink-900">{bannerNext.text}</p>
           </div>
           {bannerNext.href && bannerNext.cta && (
             <Link href={bannerNext.href} className="shrink-0">
@@ -448,14 +448,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 <div className="min-w-0">
                   <CardTitle>{viewAllStages ? '所有階段待辦進度' : `${selectedStage?.title ?? '此階段'}待完成事項`}</CardTitle>
                   {!viewAllStages && selectedStageKey !== cycle.status && (
-                    <p className="mt-0.5 text-caption text-on-surface-variant">
+                    <p className="mt-0.5 text-caption text-ink-500">
                       正在檢視其他階段 · <Link href={`/cycles/${cycle.id}`} className="text-primary-700 hover:underline">回當前階段</Link>
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {journeyView && journeyView.total > 0 && (
-                    <span className="text-caption text-on-surface-variant tabular-nums">{journeyView.doneCount}/{journeyView.total} 完成</span>
+                    <span className="text-caption text-ink-500 tabular-nums">{journeyView.doneCount}/{journeyView.total} 完成</span>
                   )}
                   <Link
                     href={viewAllStages ? `/cycles/${cycle.id}` : `/cycles/${cycle.id}?stage=all`}
@@ -471,15 +471,15 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   {journeyStages.map((stage) => (
                     <div key={stage.id}>
                       <div className="mb-2 flex items-center gap-2">
-                        <p className="text-title text-on-surface">{stage.title}</p>
-                        <span className="text-caption text-on-surface-variant tabular-nums">
+                        <p className="text-title text-ink-900">{stage.title}</p>
+                        <span className="text-caption text-ink-500 tabular-nums">
                           {/* 進度分母排除純提醒項(與卡頭 doneCount/total 同基準,否則含提醒的階段永遠到不了滿) */}
                           {stage.items.filter((it) => !it.informational && it.done).length}/{stage.items.filter((it) => !it.informational).length}
                         </span>
                         {stage.stageKey === cycle.status && <Chip tone="primary" size="sm" dot>進行中</Chip>}
                       </div>
                       {stage.items.length === 0 ? (
-                        <p className="text-caption text-on-surface-variant">(此階段無待辦項)</p>
+                        <p className="text-caption text-ink-500">(此階段無待辦項)</p>
                       ) : (
                         <ul className="flex flex-col gap-2">{stage.items.map(renderTodo)}</ul>
                       )}
@@ -487,7 +487,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   ))}
                 </div>
               ) : todoItems.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">此階段目前沒有待完成事項。</p>
+                <p className="text-body-sm text-ink-500">此階段目前沒有待完成事項。</p>
               ) : (
                 <ul className="flex flex-col gap-2">{todoItems.map(renderTodo)}</ul>
               )}
@@ -574,12 +574,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             <Card className="mb-6">
               <div className="flex items-end justify-between gap-3 mb-4">
                 <div>
-                  <p className="text-title-md text-on-surface">構面矯正進度</p>
-                  <p className="text-body-sm text-on-surface-variant mt-0.5">各稽核構面的缺失矯正通過情形</p>
+                  <p className="text-title-md text-ink-900">構面矯正進度</p>
+                  <p className="text-body-sm text-ink-500 mt-0.5">各稽核構面的缺失矯正通過情形</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-headline text-on-surface tabular-nums leading-none">{Math.round((passed / total) * 100)}%</p>
-                  <p className="text-caption text-on-surface-variant mt-1">整體 {passed}/{total}</p>
+                  <p className="text-headline text-ink-900 tabular-nums leading-none">{Math.round((passed / total) * 100)}%</p>
+                  <p className="text-caption text-ink-500 mt-1">整體 {passed}/{total}</p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -588,10 +588,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   return (
                     <div key={asp}>
                       <div className="flex justify-between items-baseline text-body-sm mb-1.5">
-                        <span className="font-medium text-on-surface">{DEFICIENCY_ASPECT_LABELS[asp]}</span>
-                        <span className="text-on-surface-variant tabular-nums">{t > 0 ? `${p}/${t}` : '—'}</span>
+                        <span className="font-medium text-ink-900">{DEFICIENCY_ASPECT_LABELS[asp]}</span>
+                        <span className="text-ink-500 tabular-nums">{t > 0 ? `${p}/${t}` : '—'}</span>
                       </div>
-                      <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
+                      <div className="h-2 rounded-full bg-paper-sunk overflow-hidden">
                         <div className="h-full rounded-full bg-primary-600 transition-all duration-500" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
@@ -722,14 +722,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                     }
                   />
                 ))}
-                {rollbacks.length > 0 && <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />}
+                {rollbacks.length > 0 && <span className="w-px h-5 bg-rule-strong mx-1" aria-hidden />}
                 {rollbacks.map((t) => (
                   <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
                 ))}
                 {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
                 {cycle.status === 'DRAFT' && (
                   <>
-                    <span className="w-px h-5 bg-outline-variant mx-1" aria-hidden />
+                    <span className="w-px h-5 bg-rule-strong mx-1" aria-hidden />
                     <DeleteCycleButton
                       cycleId={cycle.id}
                       orgName={cycle.organization.shortName ?? cycle.organization.name}
@@ -746,19 +746,19 @@ export default async function CyclePage({ params, searchParams }: { params: { id
         {/* 右欄:系統提醒 / 快捷統計 / 最近活動 */}
         <aside className="mt-2 lg:mt-0 lg:sticky lg:top-6 flex flex-col gap-4">
           {/* 系統提醒 */}
-          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-rule bg-card p-4">
             <div className="mb-3 flex items-center gap-2">
-              <Bell size={16} className="text-on-surface-variant" />
-              <h3 className="text-title font-medium text-on-surface">系統提醒</h3>
+              <Bell size={16} className="text-ink-500" />
+              <h3 className="text-title font-medium text-ink-900">系統提醒</h3>
             </div>
             {shownAlerts.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">目前無待處理提醒。</p>
+              <p className="text-body-sm text-ink-500">目前無待處理提醒。</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {shownAlerts.map((a, i) => (
                   <div key={i} className={`rounded-md border px-3.5 py-2.5 ${alertBox[a.tone]}`}>
-                    <p className="text-body-sm font-medium text-on-surface">{a.title}</p>
-                    <p className="mt-0.5 text-caption text-on-surface-variant">{a.desc}</p>
+                    <p className="text-body-sm font-medium text-ink-900">{a.title}</p>
+                    <p className="mt-0.5 text-caption text-ink-500">{a.desc}</p>
                   </div>
                 ))}
               </div>
@@ -767,13 +767,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
           {/* 快捷統計 */}
           {quickStats.length > 0 && (
-            <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
-              <h3 className="mb-3 text-title-sm font-medium text-on-surface">快捷統計</h3>
+            <div className="rounded-lg border border-rule bg-card p-4">
+              <h3 className="mb-3 text-title-sm font-medium text-ink-900">快捷統計</h3>
               <div className="grid grid-cols-2 gap-2">
                 {quickStats.map((s) => (
-                  <div key={s.label} className="rounded-md bg-surface-container-lowest px-3 py-2.5">
-                    <p className="text-caption text-on-surface-variant">{s.label}</p>
-                    <p className={`mt-1 text-title-md font-medium tabular-nums ${s.tone === 'success' ? 'text-success-700' : 'text-on-surface'}`}>{s.value}</p>
+                  <div key={s.label} className="rounded-md bg-paper-sunk px-3 py-2.5">
+                    <p className="text-caption text-ink-500">{s.label}</p>
+                    <p className={`mt-1 text-title-md font-medium tabular-nums ${s.tone === 'success' ? 'text-success-700' : 'text-ink-900'}`}>{s.value}</p>
                   </div>
                 ))}
               </div>
@@ -781,23 +781,23 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           )}
 
           {/* 最近活動(稽核軌跡) */}
-          <div className="rounded-lg border border-outline-variant/60 bg-surface p-4">
+          <div className="rounded-lg border border-rule bg-card p-4">
             <div className="mb-3 flex items-center gap-2">
-              <History size={16} className="text-on-surface-variant" />
-              <h3 className="text-title font-medium text-on-surface">最近活動</h3>
+              <History size={16} className="text-ink-500" />
+              <h3 className="text-title font-medium text-ink-900">最近活動</h3>
             </div>
             {activities.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">尚無活動紀錄。</p>
+              <p className="text-body-sm text-ink-500">尚無活動紀錄。</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {activities.map((a) => (
                   <li key={a.id} className="flex gap-2.5">
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500" aria-hidden />
                     <div className="min-w-0">
-                      <p className="text-body-sm text-on-surface leading-snug">
+                      <p className="text-body-sm text-ink-900 leading-snug">
                         <span className="font-medium">{a.who}</span> {a.what}
                       </p>
-                      <p className="mt-0.5 text-caption text-on-surface-variant">{fmtROCDateTime(a.at)}</p>
+                      <p className="mt-0.5 text-caption text-ink-500">{fmtROCDateTime(a.at)}</p>
                     </div>
                   </li>
                 ))}
@@ -814,9 +814,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 function SectionLabel({ children, desc }: { children: React.ReactNode; desc?: string }) {
   return (
     <div className="mt-3 mb-3 flex items-center gap-3">
-      <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant whitespace-nowrap">{children}</h2>
-      {desc && <span className="hidden sm:inline text-caption text-on-surface-variant whitespace-nowrap">{desc}</span>}
-      <span className="h-px flex-1 bg-outline-variant/50" aria-hidden />
+      <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500 whitespace-nowrap">{children}</h2>
+      {desc && <span className="hidden sm:inline text-caption text-ink-500 whitespace-nowrap">{desc}</span>}
+      <span className="h-px flex-1 bg-rule" aria-hidden />
     </div>
   );
 }
@@ -850,19 +850,19 @@ function StatusTile({
   lockedHint?: string;
 }) {
   const iconBg = muted || locked
-    ? 'bg-surface-container-high text-on-surface-variant'
+    ? 'bg-paper-sunk text-ink-500'
     : toneClasses(tone).iconBg;
-  const statusColor = locked ? 'text-on-surface-variant' : statusToneText[statusTone];
+  const statusColor = locked ? 'text-ink-500' : statusToneText[statusTone];
 
   const inner = (
-    <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-surface-container-low' : ''}`}>
+    <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-paper-sunk' : ''}`}>
       <div className="flex items-center gap-2.5">
         <TileIcon className={iconBg}>{icon}</TileIcon>
-        <p className="min-w-0 flex-1 text-body-sm font-medium text-on-surface leading-tight">{title}</p>
-        {!locked && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
+        <p className="min-w-0 flex-1 text-body-sm font-medium text-ink-900 leading-tight">{title}</p>
+        {!locked && <ChevronRight size={16} className="shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />}
       </div>
       {locked ? (
-        <p className="mt-3 text-body-sm text-on-surface-variant">🔒 {lockedHint}</p>
+        <p className="mt-3 text-body-sm text-ink-500">🔒 {lockedHint}</p>
       ) : (
         <>
           {/* n/N 型狀態:大數字 + 小單位分排(排印精緻化);其餘照原樣 */}
@@ -873,7 +873,7 @@ function StatusTile({
                 {m ? (
                   <>
                     {m[1]}
-                    <span className="text-caption font-normal text-on-surface-variant"> /{m[2]}</span>
+                    <span className="text-caption font-normal text-ink-500"> /{m[2]}</span>
                   </>
                 ) : (
                   status
@@ -881,7 +881,7 @@ function StatusTile({
               </p>
             );
           })()}
-          {caption && <p className="mt-1.5 text-caption text-on-surface-variant leading-tight">{caption}</p>}
+          {caption && <p className="mt-1.5 text-caption text-ink-500 leading-tight">{caption}</p>}
         </>
       )}
     </Card>

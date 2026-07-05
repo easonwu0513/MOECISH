@@ -201,8 +201,8 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
     cn(
       'flex items-center gap-2 min-h-10 pr-3 text-label transition-colors duration-200 ease-standard focus-ring rounded-full',
       active
-        ? 'bg-primary-container text-on-primary-container font-medium'
-        : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
+        ? 'bg-focus-wash text-primary-700 font-medium'
+        : 'text-ink-500 hover:bg-paper-sunk hover:text-ink-900',
       extra,
     );
 
@@ -217,7 +217,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
       aria-label={`${expanded.has(key) ? '收合' : '展開'}${label}`}
       aria-expanded={expanded.has(key)}
       onClick={onToggle ?? (() => toggle(key))}
-      className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface focus-ring"
+      className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full text-ink-500 hover:bg-paper-sunk hover:text-ink-900 focus-ring"
     >
       {chevron(expanded.has(key))}
     </button>
@@ -235,7 +235,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
           if (href.includes('#')) { onClose?.(); return; }
           go(e, href);
         }}
-        className={rowCls(active, cn('flex-1 min-w-0', opts?.indent, opts?.dim && 'text-on-surface-variant/80'))}
+        className={rowCls(active, cn('flex-1 min-w-0', opts?.indent, opts?.dim && 'text-ink-500'))}
       >
         <span className="truncate">{label}</span>
       </Link>
@@ -253,11 +253,11 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
           className={cn(
             'group relative flex flex-1 min-w-0 items-center gap-3 h-14 px-4 text-label-lg transition-all duration-200 ease-standard focus-ring rounded-full',
             rootActive
-              ? 'bg-primary-container text-on-primary-container font-medium'
-              : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface',
+              ? 'bg-focus-wash text-primary-700 font-medium'
+              : 'text-ink-500 hover:bg-paper-sunk hover:text-ink-900',
           )}
         >
-          <span className={cn('transition-colors', rootActive ? 'text-on-primary-container' : 'text-on-surface-variant group-hover:text-on-surface')}>
+          <span className={cn('transition-colors', rootActive ? 'text-primary-700' : 'text-ink-500 group-hover:text-ink-900')}>
             {navIcon('cycles', 20)}
           </span>
           <span>稽核週期</span>
@@ -281,7 +281,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
                 >
                   {chevron(yOpen)}
                   <span className="tabular-nums">{year - 1911} 年度</span>
-                  <span className="text-label-sm text-on-surface-variant/70 tabular-nums">{list.length}</span>
+                  <span className="text-label-sm text-ink-500 tabular-nums">{list.length}</span>
                 </button>
                 {yOpen && (
                   <ul className="flex flex-col gap-0.5">
@@ -298,10 +298,10 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
                               href={`/cycles/${c.id}`}
                               aria-current={cycleActive ? 'page' : undefined}
                               onClick={(e) => go(e, `/cycles/${c.id}`)}
-                              className={rowCls(cycleActive, cn('flex-1 min-w-0 pl-9', closed && 'text-on-surface-variant/70'))}
+                              className={rowCls(cycleActive, cn('flex-1 min-w-0 pl-9', closed && 'text-ink-500'))}
                             >
                               <span className="truncate">{c.orgName}</span>
-                              {closed && <span className="shrink-0 text-label-sm text-on-surface-variant/60">結案</span>}
+                              {closed && <span className="shrink-0 text-label-sm text-ink-500">結案</span>}
                             </Link>
                             {ws.length > 0 && toggleBtn(cKey, c.orgName)}
                           </div>

@@ -111,21 +111,21 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
       {/* master-detail:左=稽核作業項目導覽;右=稽核前資料準備明細 */}
       <div className="lg:grid lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-6 lg:items-start">
         <aside className="mb-5 lg:mb-0 lg:sticky lg:top-6">
-          <div className="rounded-lg border border-outline-variant/60 bg-surface p-2">
-            <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-on-surface-variant">稽核作業項目</p>
+          <div className="rounded-lg border border-rule bg-card p-2">
+            <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">稽核作業項目</p>
             <div className="flex flex-col gap-0.5">
               {shownNav.map((n) => {
                 const inner = (
-                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${n.href === null ? 'bg-primary-50 border border-primary-100' : 'transition-colors hover:bg-surface-container'}`}>
-                    <TileIcon size={32} className={n.href === null ? 'bg-white text-primary-700' : 'bg-surface-container text-on-surface-variant'}>
+                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${n.href === null ? 'bg-focus-wash border border-primary-100' : 'transition-colors hover:bg-paper-sunk'}`}>
+                    <TileIcon size={32} className={n.href === null ? 'bg-card text-primary-700' : 'bg-paper-sunk text-ink-500'}>
                       {n.icon}
                     </TileIcon>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-body-sm font-medium leading-tight ${n.href === null ? 'text-primary-800' : 'text-on-surface'}`}>{n.label}</p>
-                      <p className="mt-0.5 text-caption text-on-surface-variant leading-tight">{n.sub}</p>
+                      <p className={`text-body-sm font-medium leading-tight ${n.href === null ? 'text-primary-700' : 'text-ink-900'}`}>{n.label}</p>
+                      <p className="mt-0.5 text-caption text-ink-500 leading-tight">{n.sub}</p>
                       <StatusPill tone={n.statusTone === 'success' ? 'success' : 'neutral'} className="mt-1">{n.status}</StatusPill>
                     </div>
-                    {n.href !== null && <ChevronRight size={16} className="shrink-0 text-on-surface-variant transition-transform group-hover:translate-x-0.5" />}
+                    {n.href !== null && <ChevronRight size={16} className="shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />}
                   </div>
                 );
                 return n.href === null
@@ -138,8 +138,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
         <div className="min-w-0">
           <header className="mb-5">
-            <h1 className="text-headline text-on-surface">稽核前資料準備</h1>
-            <p className="mt-1 text-body-sm text-on-surface-variant">
+            <h1 className="text-headline text-ink-900">稽核前資料準備</h1>
+            <p className="mt-1 text-body-sm text-ink-500">
               {yearROC} 年度 · {cycle.organization.name}
               {cycle.prepDueDate && <> · 截止 {fmtROC(cycle.prepDueDate)}</>}
             </p>
@@ -158,8 +158,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           {!isAuditor && templateFiles.length > 0 && (
             <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg ${SURFACE_INFO} px-4 py-3.5`}>
               <div className="min-w-0">
-                <p className="text-body-sm font-medium text-on-surface">文件範本({templateFiles.length} 檔)</p>
-                <p className="mt-0.5 text-caption text-on-surface-variant leading-relaxed">
+                <p className="text-body-sm font-medium text-ink-900">文件範本({templateFiles.length} 檔)</p>
+                <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
                   中心提供之應備文件範本(Word/Excel 等);請下載依式填寫,完成後轉存 PDF 再上傳對應項目。
                 </p>
               </div>
@@ -177,7 +177,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               </span>
               <div className="min-w-0">
                 <p className="text-title text-success-700">資料全數確認齊備</p>
-                <p className="mt-0.5 text-caption text-on-surface-variant">{total} 項應備資料皆已由中心確認完成;請回工作台查看下一步。</p>
+                <p className="mt-0.5 text-caption text-ink-500">{total} 項應備資料皆已由中心確認完成;請回工作台查看下一步。</p>
               </div>
             </div>
           )}
@@ -191,15 +191,15 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
                 { label: '審核中', value: `${submittedN}`, tone: '' },
                 { label: '待補正/未繳', value: `${pendingN}`, tone: pendingN > 0 ? 'text-warning-700' : '' },
               ].map((s) => (
-                <div key={s.label} className="rounded-lg border border-outline-variant/60 bg-surface px-4 py-3">
-                  <p className="text-caption text-on-surface-variant">{s.label}</p>
+                <div key={s.label} className="rounded-lg border border-rule bg-card px-4 py-3">
+                  <p className="text-caption text-ink-500">{s.label}</p>
                   <p className={`mt-1 text-headline-sm font-medium tabular-nums leading-none ${s.tone}`}>{s.value}</p>
                 </div>
               ))}
             </div>
           )}
           {isAuditor && !reviewLocked && total > 0 && (
-            <p className="mb-4 text-caption text-on-surface-variant">
+            <p className="mb-4 text-caption text-ink-500">
               僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
             </p>
           )}
@@ -208,7 +208,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             // 審閱時間區間閘(UAT 批67):不在窗口內→顯鎖定卡,不渲染任何機關資料
             <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
           ) : isAuditor && visibleRequirements.length === 0 ? (
-            <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-8 text-center text-body-sm text-on-surface-variant">
+            <div className="rounded-lg border border-rule bg-paper-sunk p-8 text-center text-body-sm text-ink-500">
               目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
             </div>
           ) : (

@@ -23,7 +23,7 @@ export function IdentityBand({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 flex-wrap rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3.5',
+        'flex items-center gap-3 flex-wrap rounded-lg border border-rule bg-card px-4 py-3.5',
         className,
       )}
     >
@@ -34,10 +34,10 @@ export function IdentityBand({
       )}
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-title-md text-on-surface">{title}</span>
+          <span className="text-title-md text-ink-900">{title}</span>
           {roleChip}
         </div>
-        {subtitle && <p className="mt-0.5 text-body-sm text-on-surface-variant">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-body-sm text-ink-500">{subtitle}</p>}
       </div>
       {right && <div className="ml-auto text-right shrink-0">{right}</div>}
     </div>

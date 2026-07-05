@@ -138,7 +138,7 @@ export default function AssignAuditorsPanel({
 
       <div className="mt-4 flex flex-col gap-3">
         {assignments.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">尚未指派任何委員</p>
+          <p className="text-body-sm text-ink-500">尚未指派任何委員</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {assignments.map((a) => {
@@ -149,7 +149,7 @@ export default function AssignAuditorsPanel({
               return (
                 <div
                   key={a.id}
-                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-outline-variant/60 bg-surface-container-lowest px-3 py-2"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-rule bg-card px-3 py-2"
                 >
                   <Chip tone="neutral" size="sm" dot className="shrink-0">{a.auditor.name}</Chip>
                   {finalized && <Chip tone="success" size="sm" className="shrink-0">已定稿</Chip>}
@@ -168,7 +168,7 @@ export default function AssignAuditorsPanel({
                             'px-2 py-0.5 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
                             on
                               ? 'bg-primary-600 border-primary-600 text-white'
-                              : 'border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container',
+                              : 'border-neutral-400 bg-card text-ink-500 hover:bg-paper-sunk hover:border-neutral-500',
                           )}
                         >
                           {ASSIGN_ASPECT_LABELS[asp]}
@@ -176,11 +176,11 @@ export default function AssignAuditorsPanel({
                       );
                     })}
                     {dims.length === 0 && (
-                      <span className="text-caption text-on-surface-variant">全構面</span>
+                      <span className="text-caption text-ink-500">全構面</span>
                     )}
                   </div>
                   {rowLocked ? (
-                    <span className="ml-auto shrink-0 text-caption text-on-surface-variant" title={finalized ? '如確需移除,請先於彙整報告頁「退件」解除定稿' : undefined}>
+                    <span className="ml-auto shrink-0 text-caption text-ink-500" title={finalized ? '如確需移除,請先於彙整報告頁「退件」解除定稿' : undefined}>
                       {finalized ? '已定稿・不可移除' : ''}
                     </span>
                   ) : (
@@ -188,7 +188,7 @@ export default function AssignAuditorsPanel({
                       type="button"
                       onClick={() => setPendingRemove({ id: a.auditor.id, name: a.auditor.name })}
                       disabled={busy}
-                      className="ml-auto shrink-0 text-caption text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
+                      className="ml-auto shrink-0 text-caption text-ink-500 hover:text-danger-700 focus-ring rounded-sm px-1"
                       aria-label={`移除 ${a.auditor.name}`}
                     >
                       移除
@@ -215,7 +215,7 @@ export default function AssignAuditorsPanel({
             </Button>
           </div>
         ) : (
-          <p className="rounded-md border border-outline-variant/60 bg-surface-container px-3 py-2.5 text-body-sm text-on-surface-variant">
+          <p className="rounded-md border border-rule bg-paper-sunk px-3 py-2.5 text-body-sm text-ink-500">
             實地稽核階段已結束,委員名單已凍結,無法再新增或移除指派、亦不可調整構面。如確需調整,請將週期回退至「開立中」後處理(重大操作,請審慎)。
           </p>
         )}

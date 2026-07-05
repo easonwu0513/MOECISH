@@ -209,11 +209,11 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
               <option key={c} value={c}>{POST_CATEGORY_LABELS[c]}</option>
             ))}
           </Select>
-          <label className="inline-flex items-center gap-2 text-body-sm text-on-surface cursor-pointer h-14">
+          <label className="inline-flex items-center gap-2 text-body-sm text-ink-900 cursor-pointer h-14">
             <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} className="accent-primary-600" />
             置頂
           </label>
-          <label className="inline-flex items-center gap-2 text-body-sm text-on-surface cursor-pointer h-14">
+          <label className="inline-flex items-center gap-2 text-body-sm text-ink-900 cursor-pointer h-14">
             <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} className="accent-primary-600" />
             標記重要(前台紅色橫幅)
           </label>
@@ -229,11 +229,11 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
         />
 
         {/* 附件與圖片:不限檔案格式(下載端 attachment+nosniff);圖片可嵌入內文 */}
-        <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-4">
+        <div className="rounded-lg border border-rule bg-paper-sunk p-4">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <p className="text-title text-on-surface">附件與圖片</p>
-              <p className="mt-0.5 text-caption text-on-surface-variant leading-relaxed">
+              <p className="text-title text-ink-900">附件與圖片</p>
+              <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
                 不限檔案格式,單檔 ≤ 20MB。圖片可點「插入內文」嵌入 Markdown 顯示;所有附件都會在前台公告底部列為可下載檔案。
               </p>
             </div>
@@ -242,18 +242,18 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
             )}
           </div>
           {isNew ? (
-            <p className="mt-3 text-body-sm text-on-surface-variant">先按「儲存草稿」建立公告後,即可上傳附件與圖片。</p>
+            <p className="mt-3 text-body-sm text-ink-500">先按「儲存草稿」建立公告後,即可上傳附件與圖片。</p>
           ) : attachments.length === 0 ? (
-            <p className="mt-3 text-body-sm text-on-surface-variant">尚無附件。</p>
+            <p className="mt-3 text-body-sm text-ink-500">尚無附件。</p>
           ) : (
             <ul className="mt-3 flex flex-col gap-1.5">
               {attachments.map((a) => (
                 <li key={a.id} className="flex items-center gap-2 text-body-sm min-w-0">
-                  <FileText size={14} className="shrink-0 text-on-surface-variant" />
+                  <FileText size={14} className="shrink-0 text-ink-500" />
                   <a href={`/api/post-attachments/${a.id}/download`} className="text-primary-700 hover:underline truncate">
                     {a.fileName}
                   </a>
-                  <span className="shrink-0 text-caption text-on-surface-variant tabular-nums">{fmtSize(a.sizeBytes)}</span>
+                  <span className="shrink-0 text-caption text-ink-500 tabular-nums">{fmtSize(a.sizeBytes)}</span>
                   {/^image\//i.test(a.mimeType) && (
                     <button
                       type="button"
@@ -266,7 +266,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
                   <button
                     type="button"
                     onClick={() => setDeletingAtt(a)}
-                    className="shrink-0 text-caption text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
+                    className="shrink-0 text-caption text-ink-500 hover:text-danger-700 focus-ring rounded-sm px-1"
                   >
                     刪除
                   </button>

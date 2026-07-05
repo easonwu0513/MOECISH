@@ -63,8 +63,8 @@ export function ReviewWindowSetting({
       <div className="flex items-start gap-2.5">
         <span className={`mt-0.5 shrink-0 ${isSet ? 'text-primary-700' : 'text-warning-700'}`}><Eye size={18} /></span>
         <div className="min-w-0 flex-1">
-          <p className="text-body-sm font-medium text-on-surface">委員審閱時間區間</p>
-          <p className="mt-0.5 text-caption text-on-surface-variant leading-relaxed">
+          <p className="text-body-sm font-medium text-ink-900">委員審閱時間區間</p>
+          <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
             設定委員可檢視「資料準備」與「資通安全檢核表審閱」的開放時段;
             {isSet ? '未到不可看、超過不可看。' : <span className="text-warning-700 font-medium">目前未設定,委員無法檢視機關資料——請設定開始與截止日期。</span>}
           </p>

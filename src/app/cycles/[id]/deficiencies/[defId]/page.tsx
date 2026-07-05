@@ -140,14 +140,14 @@ export default async function DeficiencyDetailPage({
         h.action?.rootCause || measures.length ? (
           <div className="space-y-1.5">
             {h.action?.rootCause && (
-              <p className="leading-relaxed"><span className="text-on-surface-variant">當年根因:</span>{h.action.rootCause}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年根因:</span>{h.action.rootCause}</p>
             )}
             {measures.length > 0 && (
-              <p className="leading-relaxed"><span className="text-on-surface-variant">當年矯正:</span>{measures.join('；')}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年矯正:</span>{measures.join('；')}</p>
             )}
           </div>
         ) : (
-          <span className="text-on-surface-variant">當年未留存根因/矯正紀錄</span>
+          <span className="text-ink-500">當年未留存根因/矯正紀錄</span>
         ),
     };
   });
@@ -224,7 +224,7 @@ export default async function DeficiencyDetailPage({
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-headline text-on-surface">
+            <h1 className="text-headline text-ink-900">
               {DEFICIENCY_ASPECT_LABELS[deficiency.aspect as DeficiencyAspect]}・
               {DEFICIENCY_TYPE_LABELS[deficiency.type as DeficiencyType]} 第 {deficiency.itemNo} 項
             </h1>
@@ -235,7 +235,7 @@ export default async function DeficiencyDetailPage({
               <Chip tone="neutral" size="md">第 {action!.round} 輪</Chip>
             )}
           </div>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-ink-500">
             {yearROC} 年度 · {cycle.organization.name}
             {deficiency.checklistRef && (
               <> · 檢核項 <span className="font-mono">{deficiency.checklistRef}</span></>
@@ -262,7 +262,7 @@ export default async function DeficiencyDetailPage({
         <CardTitle>
           {deficiency.type === 'IMPROVE' ? '待改善事項' : '建議事項'}
         </CardTitle>
-        <p className="mt-3 text-body text-on-surface leading-relaxed whitespace-pre-wrap">
+        <p className="mt-3 text-body text-ink-900 leading-relaxed whitespace-pre-wrap">
           {deficiency.description}
         </p>
       </Card>
@@ -271,11 +271,11 @@ export default async function DeficiencyDetailPage({
       {sourceItem && (
         <Card className="mb-6" variant="outlined">
           <CardTitle>來源檢核項 {deficiency.checklistRef}</CardTitle>
-          <p className="mt-3 text-body-sm text-on-surface leading-relaxed">{sourceItem.content}</p>
+          <p className="mt-3 text-body-sm text-ink-900 leading-relaxed">{sourceItem.content}</p>
           {sourceResponse?.compliance && (
-            <p className="mt-2 text-caption text-on-surface-variant leading-relaxed">
+            <p className="mt-2 text-caption text-ink-500 leading-relaxed">
               機關當初填報:
-              <span className="font-medium text-on-surface">
+              <span className="font-medium text-ink-900">
                 {COMPLIANCE_LABELS[sourceResponse.compliance as ComplianceLevel] ?? sourceResponse.compliance}
               </span>
               {sourceResponse.description && ` — ${sourceResponse.description}`}
@@ -297,7 +297,7 @@ export default async function DeficiencyDetailPage({
               <Chip size="sm" tone="warning">{historyNodes.length}</Chip>
             </span>
           </CardTitle>
-          <p className="mt-2 mb-4 text-caption text-on-surface-variant leading-relaxed">
+          <p className="mt-2 mb-4 text-caption text-ink-500 leading-relaxed">
             本機關於往年(近 3 年)曾在
             {deficiency.checklistRef ? <> 同一檢核項 <span className="font-mono">{deficiency.checklistRef}</span></> : <> 同一構面</>}
             發生過下列缺失,供根因分析與矯正措施參考。重複出現代表問題未根治,請從源頭改善。
@@ -328,7 +328,7 @@ export default async function DeficiencyDetailPage({
 
       {/* 機關唯讀原因說明 */}
       {orgReadonlyReason && (
-        <div className="mb-6 flex items-start gap-2.5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+        <div className="mb-6 flex items-start gap-2.5 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500">
           <Info size={16} className="mt-0.5 shrink-0" />
           <span>{orgReadonlyReason}</span>
         </div>
@@ -336,15 +336,15 @@ export default async function DeficiencyDetailPage({
 
       {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心) */}
       {(user.role === 'SUPER_ADMIN' || isDefReviewer || assignedReviewer) && (
-        <div className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
-          <p className="text-title-md text-on-surface mb-1">審閱委員</p>
-          <p className="text-body-sm text-on-surface-variant mb-3">
+        <div className="mb-6 rounded-lg border border-rule bg-card px-5 py-4">
+          <p className="text-title-md text-ink-900 mb-1">審閱委員</p>
+          <p className="text-body-sm text-ink-500 mb-3">
             此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
           </p>
           {user.role === 'SUPER_ADMIN' ? (
             <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
           ) : (
-            <p className="text-body-sm text-on-surface">
+            <p className="text-body-sm text-ink-900">
               {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}
             </p>
           )}
@@ -402,11 +402,11 @@ export default async function DeficiencyDetailPage({
 
       {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點) */}
       {(prevDefNav || nextDefNav) && (
-        <nav className="mt-8 pt-5 border-t border-outline-variant/40 flex items-center justify-between gap-3">
+        <nav className="mt-8 pt-5 border-t border-rule flex items-center justify-between gap-3">
           {prevDefNav ? (
             <Link
               href={`/cycles/${cycle.id}/deficiencies/${prevDefNav.id}`}
-              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
               <ChevronLeft size={17} aria-hidden />
               上一筆缺失
@@ -416,14 +416,14 @@ export default async function DeficiencyDetailPage({
           )}
           <Link
             href={`/cycles/${cycle.id}/deficiencies`}
-            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus-ring"
+            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors focus-ring"
           >
             回缺失與矯正列表
           </Link>
           {nextDefNav ? (
             <Link
               href={`/cycles/${cycle.id}/deficiencies/${nextDefNav.id}`}
-              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
               下一筆缺失
               <ChevronRight size={17} aria-hidden />

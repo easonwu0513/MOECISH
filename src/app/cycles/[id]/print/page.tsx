@@ -48,7 +48,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
   return (
     <>
       <PrintTrigger />
-      <div className="print-report mx-auto max-w-[210mm] bg-white text-slate-900 p-10 print:p-0 print:max-w-none">
+      <div className="print-report mx-auto max-w-[210mm] bg-card text-slate-900 p-10 print:p-0 print:max-w-none">
         <style>{`
           /* 公文字體:與彙整工具報告同一套(標楷體 + Times New Roman),
              同一份正式報告不能一邊標楷一邊黑體 */

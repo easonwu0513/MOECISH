@@ -84,7 +84,7 @@ export default function CreateCycleButton({
             value={year}
             onChange={(e) => setYear(e.target.value)}
           />
-          <p className="text-caption text-on-surface-variant leading-relaxed">
+          <p className="text-caption text-ink-500 leading-relaxed">
             建立後請至週期頁設定各項日期,確認時程後再按「通知機關」正式通知填報人 / 主管。
           </p>
         </div>

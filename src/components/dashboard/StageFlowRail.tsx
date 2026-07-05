@@ -96,7 +96,7 @@ export function StageFlowRail({
             >
               {i > 0 && (
                 <span
-                  className={cn('absolute top-5 -left-1/2 w-full h-0.5', nodeReached(n) ? 'bg-success-500' : 'bg-outline-variant')}
+                  className={cn('absolute top-5 -left-1/2 w-full h-0.5', nodeReached(n) ? 'bg-success-500' : 'bg-rule')}
                   aria-hidden
                 />
               )}
@@ -105,7 +105,7 @@ export function StageFlowRail({
                   'relative z-10 rounded-full flex items-center justify-center shrink-0',
                   state === 'now' && 'w-9 h-9 bg-primary-700 text-white ring-4 ring-primary-100',
                   state === 'done' && 'w-8 h-8 bg-success-50 text-success-700 border-2 border-success-500',
-                  state === 'todo' && 'w-8 h-8 bg-surface-container text-on-surface-variant border-2 border-outline-variant',
+                  state === 'todo' && 'w-8 h-8 bg-paper-sunk text-ink-500 border-2 border-rule',
                 )}
                 aria-hidden
               >
@@ -114,7 +114,7 @@ export function StageFlowRail({
               <span
                 className={cn(
                   'mt-1.5 text-caption leading-tight whitespace-nowrap',
-                  state === 'now' ? 'text-primary-800 font-medium' : 'text-on-surface-variant',
+                  state === 'now' ? 'text-primary-800 font-medium' : 'text-ink-500',
                 )}
               >
                 {CYCLE_STATUS_LABELS[s]}
@@ -141,7 +141,7 @@ export function StageFlowRail({
           >
             {i > 0 && (
               <span
-                className={cn('absolute top-5 -left-1/2 w-full h-0.5', nodeReached(n) ? 'bg-success-500' : 'bg-outline-variant')}
+                className={cn('absolute top-5 -left-1/2 w-full h-0.5', nodeReached(n) ? 'bg-success-500' : 'bg-rule')}
                 aria-hidden
               />
             )}
@@ -150,13 +150,13 @@ export function StageFlowRail({
                 'relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0',
                 n.done
                   ? 'bg-success-50 text-success-700 border-2 border-success-500'
-                  : 'bg-surface text-on-surface-variant border-2 border-dashed border-outline-variant',
+                  : 'bg-card text-ink-500 border-2 border-dashed border-rule',
               )}
               aria-hidden
             >
-              {n.done ? <Check size={14} /> : <span className="h-1.5 w-1.5 rounded-full bg-outline-variant" />}
+              {n.done ? <Check size={14} /> : <span className="h-1.5 w-1.5 rounded-full bg-rule" />}
             </span>
-            <span className="mt-1.5 text-caption leading-tight whitespace-nowrap text-on-surface-variant">
+            <span className="mt-1.5 text-caption leading-tight whitespace-nowrap text-ink-500">
               {n.title}
               <span className="sr-only">（自訂階段{n.done ? '・已完成' : ''}）</span>
             </span>

@@ -40,7 +40,7 @@ export default function UserRowActions({
   const [resetBusy, setResetBusy] = useState(false);
 
   if (isSelf) {
-    return <span className="text-caption text-on-surface-variant">本人</span>;
+    return <span className="text-caption text-ink-500">本人</span>;
   }
 
   async function patch(data: { isActive?: boolean; role?: Role; reason?: string }, okMsg: string) {
@@ -176,7 +176,7 @@ export default function UserRowActions({
             ))}
           </Select>
           {!hasOrganization && (
-            <p className="mt-1.5 text-caption text-on-surface-variant">
+            <p className="mt-1.5 text-caption text-ink-500">
               此帳號未隸屬機關,不可改為機關管理員。
             </p>
           )}
@@ -200,7 +200,7 @@ export default function UserRowActions({
               readOnly
               value={resetLink}
               onFocus={(e) => e.currentTarget.select()}
-              className="flex-1 min-w-0 rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-caption font-mono"
+              className="flex-1 min-w-0 rounded-md border border-neutral-400 bg-paper-sunk px-3 py-2 text-caption font-mono"
             />
             <Button
               size="sm"
@@ -213,7 +213,7 @@ export default function UserRowActions({
               複製
             </Button>
           </div>
-          <p className="text-caption text-on-surface-variant">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
+          <p className="text-caption text-ink-500">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
         </div>
       </Dialog>
     </>

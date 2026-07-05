@@ -78,7 +78,7 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
 
       <div className="mt-4 flex flex-col gap-4">
         <div>
-          <p className="text-label text-on-surface mb-2">收件機關({selected.size} 已選)</p>
+          <p className="text-label text-ink-900 mb-2">收件機關({selected.size} 已選)</p>
           <div className="flex flex-wrap gap-2">
             {orgs.map((o) => (
               <FilterChipButton key={o.id} selected={selected.has(o.id)} onClick={() => toggle(o.id)}>

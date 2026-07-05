@@ -45,7 +45,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success-50 text-success-700">
           <CheckCircle size={26} />
         </span>
-        <p className="text-body text-on-surface">密碼已重設完成,請以新密碼登入。</p>
+        <p className="text-body text-ink-900">密碼已重設完成,請以新密碼登入。</p>
         <Link href="/login">
           <Button variant="filled">前往登入</Button>
         </Link>
@@ -67,7 +67,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
-            className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
+            className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
             aria-label={show ? '隱藏密碼' : '顯示密碼'}
           >
             {show ? <EyeOff size={17} /> : <Eye size={17} />}

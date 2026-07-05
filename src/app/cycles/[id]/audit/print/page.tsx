@@ -69,7 +69,7 @@ export default async function Att17PrintPage({
   const stats = computeDimStats(cycle.checklistVersion.items, cycle.responses);
 
   return (
-    <main className="mx-auto max-w-[210mm] bg-white px-[16mm] py-[12mm] text-black">
+    <main className="mx-auto max-w-[210mm] bg-card px-[16mm] py-[12mm] text-black">
       <PrintTrigger />
       <style>{`@media print { .att17-break { page-break-before: always; } }`}</style>
       {targets.map((auditor, idx) => (

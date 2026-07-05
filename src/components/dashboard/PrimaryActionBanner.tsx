@@ -22,7 +22,7 @@ export function PrimaryActionBanner({
   if (!next) {
     return (
       <section
-        className={`rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4 text-body-sm text-on-surface-variant ${className}`}
+        className={`rounded-lg border border-rule bg-card px-5 py-4 text-body-sm text-ink-500 ${className}`}
       >
         {doneText}
       </section>
@@ -34,8 +34,8 @@ export function PrimaryActionBanner({
       <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-primary-700 mb-1.5">{eyebrow}</p>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
-          <h2 className="text-title-lg text-on-surface leading-snug">{next.text}</h2>
-          {subtext && <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{subtext}</p>}
+          <h2 className="text-title-lg text-ink-900 leading-snug">{next.text}</h2>
+          {subtext && <p className="mt-1 text-body-sm text-ink-500 leading-relaxed">{subtext}</p>}
         </div>
         {hasCta && (
           <PrimaryActionCta

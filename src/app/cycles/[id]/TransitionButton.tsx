@@ -74,7 +74,7 @@ export default function TransitionButton({
           size="sm"
           onClick={() => { setReason(''); setOpen(true); }}
           leadingIcon={<ChevronLeft size={14} />}
-          className="text-on-surface-variant"
+          className="text-ink-500"
         >
           回退至{CYCLE_STATUS_LABELS[target]}
         </Button>
@@ -84,7 +84,7 @@ export default function TransitionButton({
           title="回退週期狀態"
           description={
             <div className="mt-2 flex flex-col gap-3">
-              <p className="text-body-sm text-on-surface-variant">
+              <p className="text-body-sm text-ink-500">
                 將狀態回退至「{CYCLE_STATUS_LABELS[target]}」。回退不會刪除任何已填資料,
                 但機關與委員看到的階段會跟著改變。理由將記入稽核軌跡。
               </p>
@@ -113,7 +113,7 @@ export default function TransitionButton({
         <Button variant="filled" size="sm" disabled trailingIcon={<ChevronRight size={14} />}>
           {CYCLE_STATUS_LABELS[target]}
         </Button>
-        {disabledHint && <span className="text-caption text-on-surface-variant">{disabledHint}</span>}
+        {disabledHint && <span className="text-caption text-ink-500">{disabledHint}</span>}
       </span>
     );
   }
@@ -139,7 +139,7 @@ export default function TransitionButton({
                 <p className="font-medium">矯正截止日尚未設定</p>
                 <p className="mt-1 text-caption text-warning-700 leading-relaxed">{warn}</p>
               </div>
-              <p className="text-body-sm text-on-surface-variant">確定要將稽核週期狀態推進至「{CYCLE_STATUS_LABELS[target]}」?</p>
+              <p className="text-body-sm text-ink-500">確定要將稽核週期狀態推進至「{CYCLE_STATUS_LABELS[target]}」?</p>
             </div>
           ) : (
             `確定要將稽核週期狀態推進至「${CYCLE_STATUS_LABELS[target]}」？`

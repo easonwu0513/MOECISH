@@ -29,13 +29,13 @@ export function AuthLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen relative flex items-center justify-center px-4 py-10 overflow-hidden bg-surface-container-low">
+    <div className="min-h-screen relative flex items-center justify-center px-4 py-10 overflow-hidden bg-paper-sunk">
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--auth-ambient)' }} aria-hidden />
 
       {back && (
         <Link
           href={back.href}
-          className="absolute top-5 left-5 sm:top-7 sm:left-7 inline-flex items-center gap-1 h-10 pl-2.5 pr-4 rounded-full text-body-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors duration-200 ease-standard focus-ring"
+          className="absolute top-5 left-5 sm:top-7 sm:left-7 inline-flex items-center gap-1 h-10 pl-2.5 pr-4 rounded-full text-body-sm text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors duration-200 ease-standard focus-ring"
         >
           <ChevronLeft size={16} />
           {back.label}
@@ -46,18 +46,18 @@ export function AuthLayout({
       <div className="relative w-full max-w-[440px] animate-slide-up">
         <div className="flex flex-col items-center text-center mb-8">
           <Logo size={60} />
-          <h1 className="mt-4 text-headline text-on-surface">{title}</h1>
+          <h1 className="mt-4 text-headline text-ink-900">{title}</h1>
           {/* 副標由 body-sm 提為 body,緩和 headline(28)→13 的字級斷崖 */}
-          {subtitle && <p className="mt-2 text-body text-on-surface-variant text-pretty">{subtitle}</p>}
+          {subtitle && <p className="mt-2 text-body text-ink-500 text-pretty">{subtitle}</p>}
         </div>
 
         {/* 卡片頂緣 ledger 品牌記號(border-t-2 primary-200):像公文信箋的抬頭規線,讓入口卡有記憶點 */}
-        <div className="relative bg-surface-container-lowest border border-outline-variant/60 border-t-2 border-t-primary-200 rounded-lg shadow-elev-2 p-7 sm:p-8">
+        <div className="relative bg-card border border-rule border-t-2 border-t-primary-200 rounded-lg shadow-elev-2 p-7 sm:p-8">
           {children}
         </div>
 
         {footer && (
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-caption text-on-surface-variant">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-caption text-ink-500">
             {footer}
           </div>
         )}

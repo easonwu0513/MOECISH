@@ -120,20 +120,20 @@ export function JourneyChecklist({
         const reminderCount = s.items.length - countable.length; // 純提醒項數(委員「到場查核」等軟性任務)
         const isOpen = open.has(s.stageKey);
         return (
-          <div key={s.id} className="rounded-lg border border-outline-variant/60 bg-surface-container-low overflow-hidden">
+          <div key={s.id} className="rounded-lg border border-rule/60 bg-paper-sunk overflow-hidden">
             <button
               type="button"
               onClick={() => toggleOpen(s.stageKey)}
               aria-expanded={isOpen}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-container focus-ring"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-card focus-ring"
             >
               <ChevronRight
                 size={16}
-                className={cn('shrink-0 text-on-surface-variant transition-transform', isOpen && 'rotate-90')}
+                className={cn('shrink-0 text-ink-500 transition-transform', isOpen && 'rotate-90')}
                 aria-hidden
               />
               <span className="flex-1 min-w-0">
-                <span className="text-title-md text-on-surface">{s.title}</span>
+                <span className="text-title-md text-ink-900">{s.title}</span>
                 {/* 排程(PROGRAMME):何時開始做、何時之前要完成 */}
                 {(s.startDate || s.dueDate) && (
                   <span className="block mt-0.5 text-caption font-medium text-primary-700 tabular-nums">
@@ -142,7 +142,7 @@ export function JourneyChecklist({
                     {s.dueDate && <>截止 {fmtROC(s.dueDate)}</>}
                   </span>
                 )}
-                {s.summary && <span className="block mt-0.5 text-caption text-on-surface-variant">{s.summary}</span>}
+                {s.summary && <span className="block mt-0.5 text-caption text-ink-500">{s.summary}</span>}
               </span>
               {total > 0 ? (
                 <Chip tone={allDone ? 'success' : 'neutral'} size="sm">
@@ -154,25 +154,25 @@ export function JourneyChecklist({
             </button>
 
             {isOpen && (
-              <ul className="border-t border-outline-variant/60 divide-y divide-outline-variant/40">
+              <ul className="border-t border-rule/60 divide-y divide-rule/40">
                 {s.items.length === 0 ? (
-                  <li className="px-4 py-3 text-caption text-on-surface-variant">此階段尚無項目</li>
+                  <li className="px-4 py-3 text-caption text-ink-500">此階段尚無項目</li>
                 ) : (
                   s.items.map((it) => {
                     const rowClass = cn(
                       'w-full flex items-start gap-3 px-4 py-2.5 text-left min-h-11',
-                      it.canToggle || it.href || it.lockedStageTitle ? 'hover:bg-surface-container focus-ring cursor-pointer' : 'cursor-default',
+                      it.canToggle || it.href || it.lockedStageTitle ? 'hover:bg-card focus-ring cursor-pointer' : 'cursor-default',
                     );
                     const inner = (
                       <>
                         {it.informational ? (
                           // 純提醒:小圓點(非勾選框)——不可勾、不計分、不跳轉
-                          <span className="mt-[7px] shrink-0 w-1.5 h-1.5 rounded-full bg-outline-variant" aria-hidden />
+                          <span className="mt-[7px] shrink-0 w-1.5 h-1.5 rounded-full bg-rule" aria-hidden />
                         ) : (
                           <span
                             className={cn(
                               'mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors',
-                              it.done ? 'bg-primary-600 border-primary-600 text-white' : 'border-outline bg-surface',
+                              it.done ? 'bg-primary-600 border-primary-600 text-white' : 'border-neutral-400 bg-card',
                               !it.canToggle && !it.done && 'opacity-60',
                             )}
                             aria-hidden
@@ -186,10 +186,10 @@ export function JourneyChecklist({
                               className={cn(
                                 'text-body-sm',
                                 it.informational
-                                  ? 'text-on-surface-variant'
+                                  ? 'text-ink-500'
                                   : it.done
-                                    ? 'text-on-surface-variant line-through'
-                                    : 'text-on-surface',
+                                    ? 'text-ink-500 line-through'
+                                    : 'text-ink-900',
                               )}
                             >
                               {it.title}
@@ -198,18 +198,18 @@ export function JourneyChecklist({
                               <Chip tone={ROLE_TONE[it.role]} size="sm">{ROLE_LABELS[it.role]}</Chip>
                             )}
                             {it.informational && (
-                              <span className="text-label-sm text-on-surface-variant">提醒</span>
+                              <span className="text-label-sm text-ink-500">提醒</span>
                             )}
                           </span>
-                          {it.hint && <span className="block mt-0.5 text-caption text-on-surface-variant">{it.hint}</span>}
+                          {it.hint && <span className="block mt-0.5 text-caption text-ink-500">{it.hint}</span>}
                           {!it.informational && it.done && it.doneByName && (
                             <span className="block mt-0.5 text-label-sm text-success-700">已完成 · {it.doneByName}</span>
                           )}
                         </span>
                         {it.lockedStageTitle ? (
-                          <span className="self-center shrink-0 text-label-sm text-on-surface-variant">尚未開放</span>
+                          <span className="self-center shrink-0 text-label-sm text-ink-500">尚未開放</span>
                         ) : it.href ? (
-                          <ChevronRight size={15} className="self-center shrink-0 text-on-surface-variant" aria-hidden />
+                          <ChevronRight size={15} className="self-center shrink-0 text-ink-500" aria-hidden />
                         ) : null}
                       </>
                     );

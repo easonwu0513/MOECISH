@@ -65,8 +65,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
             <ChevronLeft size={16} aria-hidden />
             {isAdmin ? '返回週期' : '返回評分與發現'}
           </Link>
-          <h1 className="text-headline text-on-surface">實地稽核彙整報告</h1>
-          <p className="text-body-sm text-on-surface-variant mt-1">
+          <h1 className="text-headline text-ink-900">實地稽核彙整報告</h1>
+          <p className="text-body-sm text-ink-500 mt-1">
             {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名
           </p>
         </div>
@@ -109,10 +109,10 @@ export default async function AuditReportPage({ params }: { params: { id: string
                 <span
                   key={a.auditor.id}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-caption tabular-nums ${
-                    locked ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-outline-variant bg-surface-container text-on-surface-variant'
+                    locked ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-rule bg-paper-sunk text-ink-500'
                   }`}
                 >
-                  <span className="font-medium text-on-surface">{a.auditor.name}</span>
+                  <span className="font-medium text-ink-900">{a.auditor.name}</span>
                   已評 {sc} 構面 · 發現 {fc} 條
                   {locked && (
                     <span className="inline-flex items-center gap-1 font-medium text-primary-700">
@@ -126,15 +126,15 @@ export default async function AuditReportPage({ params }: { params: { id: string
         )}
         {/* 最高管理員逐委員:列印附件17 評分表(交付紙本簽名)+ 已定稿者可「退件」供重新編輯;委員端不再自印 */}
         {isAdmin && data.assignments.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-outline-variant/40">
-            <p className="text-label-sm font-medium text-on-surface-variant mb-2">
+          <div className="mt-4 pt-4 border-t border-rule">
+            <p className="text-label-sm font-medium text-ink-500 mb-2">
               各委員評分表(附件17):列印後交付委員紙本簽名;已定稿者可「退件」解除鎖定供其重新編輯
             </p>
             <div className="flex flex-wrap gap-2">
               {data.assignments.map((a) => (
                 <div
                   key={a.auditor.id}
-                  className="inline-flex items-center gap-0.5 rounded-md border border-outline-variant/60 bg-surface-container-lowest pl-1 pr-1.5 py-0.5"
+                  className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-card pl-1 pr-1.5 py-0.5"
                 >
                   <Link
                     href={`/cycles/${data.id}/audit/print?auditorId=${a.auditor.id}`}
@@ -171,13 +171,13 @@ export default async function AuditReportPage({ params }: { params: { id: string
 
       {/* 正式報告預覽(Word 版式) */}
       <Card padded={false} className="overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/60">
+        <div className="px-6 py-4 border-b border-rule">
           <CardTitle>報告預覽</CardTitle>
           <CardDescription>
             全體委員發現即時彙整;封面與基本資訊請按「報告設定」於彙整工具中編輯後存回系統
           </CardDescription>
         </div>
-        <div className="px-8 py-6 bg-white">
+        <div className="px-8 py-6 bg-card">
           <AssembledReport data={report} />
         </div>
       </Card>

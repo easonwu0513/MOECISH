@@ -120,7 +120,7 @@ export default function EditCycleDialog({
             value={prepDue}
             onChange={(e) => setPrepDue(e.target.value)}
           />
-          <p className="-mt-1 text-caption text-on-surface-variant leading-relaxed">
+          <p className="-mt-1 text-caption text-ink-500 leading-relaxed">
             中心匯入區資料由中心自行上傳、無機關繳交截止。
           </p>
           <TextField
@@ -129,7 +129,7 @@ export default function EditCycleDialog({
             value={due}
             onChange={(e) => setDue(e.target.value)}
           />
-          <p className="-mt-1 text-caption text-on-surface-variant leading-relaxed">
+          <p className="-mt-1 text-caption text-ink-500 leading-relaxed">
             矯正填報截止建議於實地稽核、發文改善報告給機關後再設定;留空表示尚未確定。
           </p>
         </div>

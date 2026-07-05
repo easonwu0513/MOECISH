@@ -22,8 +22,8 @@ export default async function DesignSystemPage() {
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '設計系統' }]}
     >
       <header className="mb-8">
-        <h1 className="text-headline text-on-surface">設計系統展示</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed max-w-3xl">
+        <h1 className="text-headline text-ink-900">設計系統展示</h1>
+        <p className="mt-1 text-body-sm text-ink-500 leading-relaxed max-w-3xl">
           統一的色調(Tone)單一來源與元件模板實物對照。所有元件的 tone→class 一律取自 <span className="font-mono">lib/tone</span> 的
           <span className="font-mono"> TONE</span> map(六面向 soft／solid／fill／outlined／text／dot),角色色一律由 <span className="font-mono">ROLE_TONE</span> 派生。
           改任何色調或元件前先來此對照;規則細節見 <span className="font-mono">docs/DESIGN-SYSTEM.md</span>。

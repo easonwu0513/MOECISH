@@ -29,8 +29,8 @@ function Section({ id, title, sub, children }: { id: string; title: string; sub?
   return (
     <section id={id} className="scroll-mt-24">
       <div className="mb-4">
-        <h2 className="text-title-lg text-on-surface">{title}</h2>
-        {sub && <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{sub}</p>}
+        <h2 className="text-title-lg text-ink-900">{title}</h2>
+        {sub && <p className="mt-1 text-body-sm text-ink-500 leading-relaxed">{sub}</p>}
       </div>
       {children}
     </section>
@@ -52,19 +52,19 @@ export default function DesignGallery() {
           <div className="overflow-x-auto">
             <table className="w-full text-body-sm border-collapse min-w-[720px]">
               <thead>
-                <tr className="text-label-sm text-on-surface-variant bg-surface-container-low">
-                  <th className="text-left font-medium px-4 py-2.5 border-b border-outline-variant/60">tone</th>
+                <tr className="text-label-sm text-ink-500 bg-paper-sunk">
+                  <th className="text-left font-medium px-4 py-2.5 border-b border-rule">tone</th>
                   {FACETS.map((f) => (
-                    <th key={f.key} className="text-left font-medium px-3 py-2.5 border-b border-outline-variant/60">
-                      <div className="font-mono text-on-surface">.{f.label}</div>
+                    <th key={f.key} className="text-left font-medium px-3 py-2.5 border-b border-rule">
+                      <div className="font-mono text-ink-900">.{f.label}</div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {TONES.map((t) => (
-                  <tr key={t} className="border-b border-outline-variant/40 last:border-b-0">
-                    <td className="px-4 py-3 font-mono text-caption text-on-surface">{t}</td>
+                  <tr key={t} className="border-b border-rule last:border-b-0">
+                    <td className="px-4 py-3 font-mono text-caption text-ink-900">{t}</td>
                     {FACETS.map((f) => (
                       <td key={f.key} className="px-3 py-3">
                         {f.key === 'text' ? (
@@ -83,9 +83,9 @@ export default function DesignGallery() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-outline-variant/50 flex flex-wrap gap-x-5 gap-y-1 text-caption text-on-surface-variant">
+          <div className="px-4 py-3 border-t border-rule flex flex-wrap gap-x-5 gap-y-1 text-caption text-ink-500">
             {FACETS.map((f) => (
-              <span key={f.key}><span className="font-mono text-on-surface">.{f.label}</span> {f.desc}</span>
+              <span key={f.key}><span className="font-mono text-ink-900">.{f.label}</span> {f.desc}</span>
             ))}
           </div>
         </Card>
@@ -107,7 +107,7 @@ export default function DesignGallery() {
                   {ROLE_LABELS[r].slice(0, 1)}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-body-sm font-medium text-on-surface">{ROLE_LABELS[r]}</p>
+                  <p className="text-body-sm font-medium text-ink-900">{ROLE_LABELS[r]}</p>
                   <div className="mt-1"><Chip tone={roleTone(r)} size="sm" dot>{ROLE_TONE[r]}</Chip></div>
                 </div>
               </div>
@@ -121,7 +121,7 @@ export default function DesignGallery() {
         <div className="flex flex-col gap-4">
           {(['soft', 'outlined', 'filled'] as const).map((v) => (
             <div key={v}>
-              <p className="text-label text-on-surface-variant mb-2">variant=<span className="font-mono text-on-surface">{v}</span></p>
+              <p className="text-label text-ink-500 mb-2">variant=<span className="font-mono text-ink-900">{v}</span></p>
               <div className="flex flex-wrap gap-2">
                 {TONES.map((t) => (
                   <Chip key={t} tone={t} variant={v} dot={v === 'soft'}>{t}</Chip>
@@ -148,7 +148,7 @@ export default function DesignGallery() {
             <CardTitle>ProgressBar</CardTitle>
             {CHROMATIC.map((t) => (
               <div key={t} className="flex items-center gap-3">
-                <span className="w-16 text-caption text-on-surface-variant font-mono">{t}</span>
+                <span className="w-16 text-caption text-ink-500 font-mono">{t}</span>
                 <div className="flex-1"><ProgressBar value={t === 'danger' ? 25 : t === 'warning' ? 55 : 80} tone={t as Exclude<Tone, 'neutral'>} label={`${t} 進度`} /></div>
               </div>
             ))}
@@ -188,7 +188,7 @@ export default function DesignGallery() {
                 { value: 'c', label: '待補正', tone: 'warning' },
               ]}
             />
-            <p className="text-caption text-on-surface-variant">選中:<span className="font-mono text-on-surface">{seg}</span></p>
+            <p className="text-caption text-ink-500">選中:<span className="font-mono text-ink-900">{seg}</span></p>
           </Card>
           <Card>
             <CardTitle>Timeline</CardTitle>

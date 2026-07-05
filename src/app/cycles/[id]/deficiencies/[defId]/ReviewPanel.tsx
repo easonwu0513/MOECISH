@@ -111,7 +111,7 @@ export default function ReviewPanel({
         title="審核通過"
         description={
           <div className="mt-2 flex flex-col gap-3">
-            <p className="text-body-sm text-on-surface-variant">確認本項矯正措施已符合要求？</p>
+            <p className="text-body-sm text-ink-500">確認本項矯正措施已符合要求？</p>
             <Textarea
               label="審查意見（選填）"
               value={comment}
@@ -124,7 +124,7 @@ export default function ReviewPanel({
                   key={p}
                   type="button"
                   onClick={() => appendPhrase(p)}
-                  className="text-caption px-2.5 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-outline hover:text-on-surface hover:bg-surface-container transition-colors"
+                  className="text-caption px-2.5 py-1 rounded-full border border-neutral-400 text-ink-500 hover:border-neutral-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors"
                 >
                   + {p}
                 </button>
@@ -156,7 +156,7 @@ export default function ReviewPanel({
                   key={p}
                   type="button"
                   onClick={() => appendPhrase(p)}
-                  className="text-caption px-2.5 py-1 rounded-full border border-outline-variant text-on-surface-variant hover:border-outline hover:text-on-surface hover:bg-surface-container transition-colors"
+                  className="text-caption px-2.5 py-1 rounded-full border border-neutral-400 text-ink-500 hover:border-neutral-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors"
                 >
                   + {p.slice(0, 12)}…
                 </button>

@@ -162,23 +162,23 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
     data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
 
   return (
-    <div className="overflow-x-auto rounded-md border border-outline-variant/60">
+    <div className="overflow-x-auto rounded-md border border-rule">
       <table className="w-full text-body-sm border-collapse">
         <thead>
-          <tr className="bg-surface-container-low text-label-sm text-on-surface-variant">
-            <th className="px-3 py-2.5 text-left font-medium border-b border-outline-variant/60">構面</th>
-            <th className="px-3 py-2.5 text-left font-medium border-b border-outline-variant/60">稽核項目(配分)</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">題數</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">符合</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">部分</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">不符</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">不適</th>
+          <tr className="bg-paper-sunk text-label-sm text-ink-500">
+            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">構面</th>
+            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">稽核項目(配分)</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">題數</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">符合</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">部分</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">不符</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">不適</th>
             {auditors.map((a) => (
-              <th key={a.id} className="px-3 py-2.5 text-center font-medium border-b border-outline-variant/60 whitespace-nowrap">
+              <th key={a.id} className="px-3 py-2.5 text-center font-medium border-b border-rule whitespace-nowrap">
                 {a.name}
               </th>
             ))}
-            <th className="px-3 py-2.5 text-center font-medium border-b border-outline-variant/60">平均</th>
+            <th className="px-3 py-2.5 text-center font-medium border-b border-rule">平均</th>
           </tr>
         </thead>
         <tbody>
@@ -187,16 +187,16 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const avg = avgOf(dim);
               return (
-                <tr key={dim} className="border-b border-outline-variant/40 last:border-b-0">
+                <tr key={dim} className="border-b border-rule last:border-b-0">
                   {i === 0 && (
-                    <td rowSpan={3} className="px-3 py-2.5 align-middle text-on-surface font-medium border-r border-outline-variant/40 whitespace-nowrap">
+                    <td rowSpan={3} className="px-3 py-2.5 align-middle text-ink-900 font-medium border-r border-rule whitespace-nowrap">
                       {DEFICIENCY_ASPECT_LABELS[aspect]}
                     </td>
                   )}
-                  <td className="px-3 py-2.5 text-on-surface">
+                  <td className="px-3 py-2.5 text-ink-900">
                     {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
                     {DIMENSION_LABELS[dim]}
-                    <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]})</span>
+                    <span className="text-ink-500">({DIMENSION_MAX_SCORE[dim]})</span>
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.total}</td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.c1}</td>
@@ -212,7 +212,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
                   <td className="px-3 py-2.5 text-center tabular-nums font-medium">
                     {avg ?? '—'}
                     {avg !== null && (
-                      <span className="ml-1 text-caption text-on-surface-variant">
+                      <span className="ml-1 text-caption text-ink-500">
                         {gradeOf(dim, Math.round(avg))}
                       </span>
                     )}
@@ -221,7 +221,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               );
             }),
           )}
-          <tr className="bg-surface-container-low font-medium">
+          <tr className="bg-paper-sunk font-medium">
             <td colSpan={7} className="px-3 py-2.5 text-right">得分(滿分 100)</td>
             {auditors.map((a) => {
               const t = totalOf(a.id);
@@ -231,7 +231,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               return (
                 <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">
                   {t}
-                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-on-surface-variant">({filled} 構面)</span>}
+                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-ink-500">({filled} 構面)</span>}
                 </td>
               );
             })}
@@ -275,7 +275,7 @@ export function AuditorStateChangeLog({
   events: StateChange[];
 }) {
   if (assignments.length === 0) {
-    return <p className="text-body-sm text-on-surface-variant">尚無受指派委員。</p>;
+    return <p className="text-body-sm text-ink-500">尚無受指派委員。</p>;
   }
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -302,21 +302,21 @@ export function AuditorStateChangeLog({
                 ? 'border-primary-200 bg-primary-50'
                 : tone === 'warning'
                   ? 'border-warning-200 bg-warning-50'
-                  : 'border-outline-variant bg-surface-container'
+                  : 'border-rule bg-paper-sunk'
             }`}
           >
             <div className="flex items-center gap-2">
               <span className="shrink-0">
                 {tone === 'locked'
                   ? <Check size={15} className="text-primary-700" />
-                  : <AlertTriangle size={15} className={tone === 'warning' ? 'text-warning-700' : 'text-on-surface-variant'} />}
+                  : <AlertTriangle size={15} className={tone === 'warning' ? 'text-warning-700' : 'text-ink-500'} />}
               </span>
-              <span className="font-medium text-on-surface">{a.auditor?.name ?? '稽核委員'} 委員</span>
+              <span className="font-medium text-ink-900">{a.auditor?.name ?? '稽核委員'} 委員</span>
             </div>
             <p className={`mt-0.5 text-body-sm ${
-              tone === 'locked' ? 'text-primary-800' : tone === 'warning' ? 'text-warning-800' : 'text-on-surface-variant'
+              tone === 'locked' ? 'text-primary-800' : tone === 'warning' ? 'text-warning-800' : 'text-ink-500'
             }`}>{label}</p>
-            <p className="mt-0.5 text-caption text-on-surface-variant tabular-nums">{when ? fmtROCDateTime(when) : '—'}</p>
+            <p className="mt-0.5 text-caption text-ink-500 tabular-nums">{when ? fmtROCDateTime(when) : '—'}</p>
           </div>
         );
       })}

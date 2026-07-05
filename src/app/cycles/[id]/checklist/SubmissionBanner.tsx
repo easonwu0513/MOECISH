@@ -109,8 +109,8 @@ export default function SubmissionBanner({
             原本標題與正文皆 warning-700/600=兩級斷崖且整段黃染難讀。 */}
         <div className="min-w-0">
           <div className="text-title-md text-warning-800">填報被退回,請補正後重新送出</div>
-          <p className="mt-1.5 text-body text-on-surface whitespace-pre-wrap leading-relaxed">{reopenNote}</p>
-          <p className="mt-1.5 text-caption text-on-surface-variant">補正後於下方重新送出;機關僅能看到此退回原因,看不到委員逐題意見。</p>
+          <p className="mt-1.5 text-body text-ink-900 whitespace-pre-wrap leading-relaxed">{reopenNote}</p>
+          <p className="mt-1.5 text-caption text-ink-500">補正後於下方重新送出;機關僅能看到此退回原因,看不到委員逐題意見。</p>
         </div>
       </div>
     );

@@ -3,8 +3,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 /** 公告詳情載入骨架。 */
 export default function NewsDetailLoading() {
   return (
-    <div className="min-h-screen bg-surface">
-      <div className="h-16 border-b border-outline-variant/60 bg-surface/90" />
+    <div className="min-h-screen bg-paper-sunk">
+      <div className="h-16 border-b border-rule bg-card/90" />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Skeleton className="h-4 w-28" />
         <Skeleton className="mt-8 h-6 w-20 rounded-full" />

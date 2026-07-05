@@ -30,13 +30,13 @@ export function ReviewWindowLockNotice({
   return (
     <Card variant="outlined">
       <div className="flex flex-col items-center text-center gap-3 py-12 px-6">
-        <div className="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant" aria-hidden>
+        <div className="w-14 h-14 rounded-full bg-paper-sunk flex items-center justify-center text-ink-500" aria-hidden>
           <EyeOff size={28} />
         </div>
-        <p className="text-title-md text-on-surface">{title}</p>
-        <p className="text-body-sm text-on-surface-variant max-w-md leading-relaxed">{msg}</p>
+        <p className="text-title-md text-ink-900">{title}</p>
+        <p className="text-body-sm text-ink-500 max-w-md leading-relaxed">{msg}</p>
         {state !== 'unset' && start && end && (
-          <p className="text-caption text-on-surface-variant/80 tabular-nums">
+          <p className="text-caption text-ink-500 tabular-nums">
             審閱時段:{fmtROCDateTime(start)} ～ {fmtROCDateTime(end)}
           </p>
         )}

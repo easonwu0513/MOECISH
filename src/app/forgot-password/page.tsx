@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-50 text-primary-700">
                 <CheckCircle size={26} />
               </span>
-              <p className="text-body text-on-surface">
+              <p className="text-body text-ink-900">
                 若該 Email 對應到有效帳號,我們已寄出密碼重設連結。請至信箱查收(可能需稍候並檢查垃圾信件匣)。
               </p>
               <Link href="/login">

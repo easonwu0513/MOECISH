@@ -168,7 +168,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-label text-on-surface-variant mb-2">符合情形</label>
+            <label className="block text-label text-ink-500 mb-2">符合情形</label>
             <Segmented<ComplianceLevel>
               value={compliance}
               onChange={(v) => { setCompliance(v); save(v, description); }}
@@ -218,7 +218,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="space-y-2">
           {(response?.comments ?? []).length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant">本題尚無委員意見。</p>
+            <p className="text-body-sm text-ink-500">本題尚無委員意見。</p>
           ) : (
             response!.comments.map((c) => (
               <div
@@ -229,7 +229,7 @@ export default function ChecklistItemCard({
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-caption text-on-surface-variant">
+                  <span className="text-caption text-ink-500">
                     {c.authorName ? `${c.authorName} · ` : ''}{fmtROCDateTime(c.createdAt)}
                   </span>
                   {c.resolvedAt ? (
@@ -240,7 +240,7 @@ export default function ChecklistItemCard({
                     </Button>
                   ) : null}
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
+                <p className="mt-1 whitespace-pre-wrap text-ink-500 leading-relaxed">{c.content}</p>
               </div>
             ))
           )}
@@ -251,7 +251,7 @@ export default function ChecklistItemCard({
                 <CommentForm responseId={response.id} />
               </div>
             ) : (
-              <p className="text-caption text-on-surface-variant">(機關尚未作答,暫無法留言)</p>
+              <p className="text-caption text-ink-500">(機關尚未作答,暫無法留言)</p>
             ))}
         </div>
       ),
@@ -283,17 +283,17 @@ export default function ChecklistItemCard({
     <div
       data-item-id={item.id}
       className={cn(
-        'relative bg-surface-container-lowest rounded-md border transition-all duration-200 ease-standard overflow-hidden',
-        focused ? 'border-primary-400 shadow-elev-2' : 'border-outline-variant/60',
+        'relative bg-card rounded-md border transition-all duration-200 ease-standard overflow-hidden',
+        focused ? 'border-primary-400 shadow-elev-2' : 'border-rule',
         !focused && expanded && 'shadow-elev-1',
-        !focused && !expanded && 'hover:border-outline-variant',
+        !focused && !expanded && 'hover:border-rule-strong',
       )}
     >
       {/* top compliance stripe — replaces the old full-height left bar */}
       <span
         className={cn(
           'block h-[3px]',
-          compliance ? complianceColor[compliance] : 'bg-surface-container-high',
+          compliance ? complianceColor[compliance] : 'bg-paper-sunk',
         )}
         aria-hidden
       />
@@ -308,7 +308,7 @@ export default function ChecklistItemCard({
           {item.itemNo}
         </Chip>
         <div className="flex-1 min-w-0">
-          <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
+          <p className="text-body text-ink-900 leading-relaxed">{item.content}</p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             {compliance ? (
               <Chip tone={complianceTone(compliance)} size="sm" dot>
@@ -321,7 +321,7 @@ export default function ChecklistItemCard({
               <Chip tone="neutral" size="sm">委員意見 {commentCount}</Chip>
             )}
             {evidenceCount > 0 && (
-              <span className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
+              <span className="inline-flex items-center gap-1 text-caption text-ink-500">
                 <Paperclip size={12} className="shrink-0" />{evidenceCount}
               </span>
             )}
@@ -332,21 +332,21 @@ export default function ChecklistItemCard({
               />
             )}
             {response && (description || compliance) && !canEdit && (
-              <span className="text-caption text-on-surface-variant">唯讀</span>
+              <span className="text-caption text-ink-500">唯讀</span>
             )}
           </div>
         </div>
         <ChevronDown
           size={18}
           className={cn(
-            'text-on-surface-variant mt-1 transition-transform shrink-0',
+            'text-ink-500 mt-1 transition-transform shrink-0',
             expanded && 'rotate-180',
           )}
         />
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-outline-variant/60">
+        <div className="px-4 pb-4 pt-1 border-t border-rule">
           <Tabs tabs={tabs} />
           {/* 法規對照:填報者最需照法規填,故展開即顯眼(與委員審閱頁同範式),不再藏在分頁 */}
           {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
@@ -354,7 +354,7 @@ export default function ChecklistItemCard({
               <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
                 法規對照(稽核依據・稽核重點・應備文件)
               </summary>
-              <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
+              <div className="px-3 pb-3 pt-1 bg-card">
                 <LawPanel
                   auditBasis={item.auditBasis}
                   auditFocus={item.auditFocus}
@@ -467,8 +467,8 @@ function EvidenceBlock({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-label text-on-surface-variant">紀錄佐證上傳</p>
-        <span className="text-caption text-on-surface-variant">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
+        <p className="text-label text-ink-500">紀錄佐證上傳</p>
+        <span className="text-caption text-ink-500">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
       </div>
       {expectedEvidence && (
         <div className={`mb-3 rounded-sm ${SURFACE_INFO} px-3 py-2`}>
@@ -477,7 +477,7 @@ function EvidenceBlock({
         </div>
       )}
       {files.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant mb-3">尚未上傳任何佐證文件</p>
+        <p className="text-body-sm text-ink-500 mb-3">尚未上傳任何佐證文件</p>
       ) : (
         <ul className="mb-3 space-y-1">
           {files.map((f) => (
@@ -490,7 +490,7 @@ function EvidenceBlock({
       {canEdit && (
         <div>
           <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} accept={ORG_UPLOAD_ACCEPT} />
-          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
+          <p className="mt-1 text-caption text-ink-500">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
         </div>
       )}
     </div>

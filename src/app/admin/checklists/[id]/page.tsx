@@ -47,14 +47,14 @@ export default async function ChecklistVersionDetailPage({ params }: { params: {
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-headline text-on-surface">{version.name}</h1>
+            <h1 className="text-headline text-ink-900">{version.name}</h1>
             {version.isActive
               ? <Chip size="sm" tone="success" dot>啟用中</Chip>
               : <Chip size="sm" tone="neutral">停用</Chip>}
           </div>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-ink-500">
             {version.year - 1911} 年度 · 共 {version.items.length} 題 ·
-            法規對照已建 <span className="tabular-nums font-medium text-on-surface">{withLaw}</span> 題
+            法規對照已建 <span className="tabular-nums font-medium text-ink-900">{withLaw}</span> 題
             {withLaw < version.items.length && (
               <span className="text-warning-700">(尚有 {version.items.length - withLaw} 題待補,點「編輯」填入)</span>
             )}
@@ -66,20 +66,20 @@ export default async function ChecklistVersionDetailPage({ params }: { params: {
 
       {grouped.map(({ dim, items }) => (
         <section key={dim} className="mb-6">
-          <h2 className="text-title text-on-surface mb-3">{DIMENSION_LABELS[dim as Dimension]}</h2>
+          <h2 className="text-title text-ink-900 mb-3">{DIMENSION_LABELS[dim as Dimension]}</h2>
           <Card padded={false} variant="outlined">
-            <ul className="divide-y divide-outline-variant/60">
+            <ul className="divide-y divide-rule">
               {items.map((it) => (
-                <li key={it.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-surface-container-low transition-colors">
+                <li key={it.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-paper-sunk transition-colors">
                   <Chip tone="neutral" size="sm" className="font-mono shrink-0 mt-0.5">{it.itemNo}</Chip>
                   <div className="flex-1 min-w-0">
-                    <p className="text-body-sm text-on-surface leading-relaxed line-clamp-2">{it.content}</p>
+                    <p className="text-body-sm text-ink-900 leading-relaxed line-clamp-2">{it.content}</p>
                     <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                       {it.auditBasis
                         ? <Chip size="sm" tone="success">法規對照 ✓</Chip>
                         : <Chip size="sm" tone="warning">法規對照待補</Chip>}
                       {it._count.responses > 0 && (
-                        <span className="text-caption text-on-surface-variant">已有 {it._count.responses} 筆作答</span>
+                        <span className="text-caption text-ink-500">已有 {it._count.responses} 筆作答</span>
                       )}
                     </div>
                   </div>

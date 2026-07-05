@@ -59,7 +59,7 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
   const yearTab = (active: boolean) =>
     cn(
       'inline-flex items-center min-h-9 px-3.5 rounded-full text-label-lg focus-ring transition-colors tabular-nums',
-      active ? 'bg-primary-container text-on-primary-container font-medium' : 'text-on-surface-variant hover:bg-surface-container',
+      active ? 'bg-focus-wash text-primary-700 font-medium' : 'text-ink-500 hover:bg-paper-sunk',
     );
 
   return (
@@ -68,13 +68,13 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '稽核週期' }]}
     >
       <header className="mb-4 flex items-baseline justify-between">
-        <h1 className="text-headline text-on-surface">稽核週期</h1>
-        <span className="text-caption text-on-surface-variant">共 {shown.length} 筆</span>
+        <h1 className="text-headline text-ink-900">稽核週期</h1>
+        <span className="text-caption text-ink-500">共 {shown.length} 筆</span>
       </header>
 
       {years.length > 0 && (
         <div className="mb-6 flex items-center gap-2 flex-wrap">
-          <span className="text-caption text-on-surface-variant mr-0.5">年度</span>
+          <span className="text-caption text-ink-500 mr-0.5">年度</span>
           <Link href="/cycles" aria-current={selYear === null ? 'page' : undefined} className={yearTab(selYear === null)}>
             全部
           </Link>
@@ -112,10 +112,10 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
             // 委員於結案後不可再進入(access-policy cycle.access);清單顯示已結案、卡片鎖定不可點
             const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
             const card = (
-                <Card interactive={!lockedForAuditor} variant="elevated" className={lockedForAuditor ? 'bg-surface-container-low' : undefined}>
+                <Card interactive={!lockedForAuditor} variant="elevated" className={lockedForAuditor ? 'bg-paper-sunk' : undefined}>
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div className="min-w-0">
-                      <p className="text-title text-on-surface truncate" title={c.organization.name}>
+                      <p className="text-title text-ink-900 truncate" title={c.organization.name}>
                         {orgName}
                       </p>
                       {/* 稽核時程(非文件繳交期限):實地稽核日期為主要識別,做明顯;技術檢測次之 */}
@@ -123,13 +123,13 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                         {c.onsiteDate ? (
                           <span className="font-medium text-primary-700 tabular-nums">實地稽核 {fmtROC(c.onsiteDate)}</span>
                         ) : (
-                          <span className="text-on-surface-variant">實地稽核日期未定</span>
+                          <span className="text-ink-500">實地稽核日期未定</span>
                         )}
                         {c.techCheckDate && (
-                          <span className="text-on-surface-variant tabular-nums"> · 技術檢測 {fmtROC(c.techCheckDate)}</span>
+                          <span className="text-ink-500 tabular-nums"> · 技術檢測 {fmtROC(c.techCheckDate)}</span>
                         )}
                       </p>
-                      <p className="text-caption text-on-surface-variant mt-0.5">
+                      <p className="text-caption text-ink-500 mt-0.5">
                         {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
                       {auditorDims.length > 0 && (
@@ -147,21 +147,21 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                     <>
                       <ProgressBar value={passed} max={total} tone="primary" size="sm" />
                       <div className="mt-2 flex items-center justify-between text-caption">
-                        <span className="text-on-surface-variant">
+                        <span className="text-ink-500">
                           矯正通過{' '}
-                          <span className="font-semibold text-on-surface tabular-nums">{passed}</span>
+                          <span className="font-semibold text-ink-900 tabular-nums">{passed}</span>
                           <span> / {total}</span>
                         </span>
-                        <span className="text-on-surface-variant tabular-nums">
+                        <span className="text-ink-500 tabular-nums">
                           {Math.round((passed / total) * 100)}%
                         </span>
                       </div>
                     </>
                   ) : (
-                    <p className="text-caption text-on-surface-variant">尚未發布缺失</p>
+                    <p className="text-caption text-ink-500">尚未發布缺失</p>
                   )}
                   {lockedForAuditor && (
-                    <p className="mt-2 text-caption text-on-surface-variant">本週期已結案,資料已鎖定,委員無法再進入檢視。</p>
+                    <p className="mt-2 text-caption text-ink-500">本週期已結案,資料已鎖定,委員無法再進入檢視。</p>
                   )}
                 </Card>
             );

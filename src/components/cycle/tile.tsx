@@ -17,7 +17,7 @@ export function TileIcon({
   children,
 }: {
   size?: number;
-  /** 顏色配方(如 bg-primary-50 text-primary-700 / bg-surface-container-high …) */
+  /** 顏色配方(如 bg-primary-50 text-primary-700 / bg-paper-sunk …) */
   className?: string;
   children: ReactNode;
 }) {
@@ -34,7 +34,7 @@ export function TileIcon({
 /** 大字狀態值配色:done→綠、需注意→琥珀、當前→主色、其餘→中性。 */
 export type StatusTextTone = 'default' | 'success' | 'warning' | 'primary';
 export const statusToneText: Record<StatusTextTone, string> = {
-  default: 'text-on-surface',
+  default: 'text-ink-900',
   success: 'text-success-700',
   warning: 'text-warning-600',
   primary: 'text-primary-700',
@@ -43,7 +43,7 @@ export const statusToneText: Record<StatusTextTone, string> = {
 /** 小型狀態膠囊(側欄導覽列)。 */
 export type PillTone = 'neutral' | 'success' | 'warning' | 'primary';
 const PILL: Record<PillTone, string> = {
-  neutral: 'bg-surface-container text-on-surface-variant',
+  neutral: 'bg-paper-sunk text-ink-500',
   success: 'bg-success-50 text-success-700',
   warning: 'bg-warning-50 text-warning-700',
   primary: 'bg-primary-50 text-primary-700',

@@ -415,7 +415,7 @@ export default function PrepBoard({
             <IndexBadge n={idx + 1} state={confirmedLook ? 'done' : 'default'} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-title text-on-surface">{item.title}</p>
+                <p className="text-title text-ink-900">{item.title}</p>
                 {!item.required && !isCenter && <Chip tone="neutral" size="sm">選附</Chip>}
                 {isCenter ? (
                   <Chip
@@ -432,7 +432,7 @@ export default function PrepBoard({
                 )}
               </div>
               {item.description && (
-                <p className="mt-1.5 text-body-sm text-on-surface-variant leading-relaxed">{item.description}</p>
+                <p className="mt-1.5 text-body-sm text-ink-500 leading-relaxed">{item.description}</p>
               )}
 
               {!isCenter && status === 'INSUFFICIENT' && sub?.reviewNote && (
@@ -442,7 +442,7 @@ export default function PrepBoard({
                 </div>
               )}
               {!isCenter && status === 'SUBMITTED' && (
-                <p className="mt-2 text-caption text-on-surface-variant">
+                <p className="mt-2 text-caption text-ink-500">
                   已繳交{sub?.submittedAt ? `(${fmtROCDateTime(sub.submittedAt)})` : ''},等待中心審核;如需修改請洽中心退回。
                 </p>
               )}
@@ -463,7 +463,7 @@ export default function PrepBoard({
                   </div>
                 </div>
               ) : !isCenter && sub?.noFileReason ? (
-                <div className="mt-2 flex items-start gap-2 rounded-sm bg-surface-container text-on-surface-variant px-3 py-2 text-body-sm">
+                <div className="mt-2 flex items-start gap-2 rounded-sm bg-paper-sunk text-ink-500 px-3 py-2 text-body-sm">
                   <FileText size={16} className="mt-0.5 shrink-0" />
                   <span className="flex-1">其他說明:{sub.noFileReason}</span>
                   {orgItemEditable && (
@@ -491,7 +491,7 @@ export default function PrepBoard({
                         <button
                           type="button"
                           onClick={() => setPendingFile({ id: f.id, name: f.originalName })}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
                           aria-label={`刪除檔案 ${f.originalName}`}
                           title="刪除這個檔案"
                         >
@@ -521,7 +521,7 @@ export default function PrepBoard({
                         其他說明
                       </Button>
                     )}
-                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
 
@@ -536,7 +536,7 @@ export default function PrepBoard({
                       multiple
                       accept={ORG_UPLOAD_ACCEPT}
                     />
-                    <span className="text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
                 {/* 中心匯入區:開放委員檢視 / 收回(釋出前委員看不到、載不到) */}
@@ -552,7 +552,7 @@ export default function PrepBoard({
                   )
                 )}
                 {isCenter && !adminCanImport && files.length === 0 && (
-                  <span className="text-caption text-on-surface-variant">
+                  <span className="text-caption text-ink-500">
                     {isAdmin ? '週期已結案,無法再匯入' : '由中心匯入,尚未上傳'}
                   </span>
                 )}
@@ -570,7 +570,7 @@ export default function PrepBoard({
                   <Button size="sm" variant="text" onClick={() => { setReturnOpen(sub.id); setReturnNote(''); }}>退回重審</Button>
                 )}
                 {!isCenter && adminCanReview && sub && (status === 'EMPTY' || status === 'UPLOADED' || status === 'INSUFFICIENT') && (
-                  <span className="text-caption text-on-surface-variant">
+                  <span className="text-caption text-ink-500">
                     {status === 'INSUFFICIENT' ? '已退回,待機關補正後重新繳交' : status === 'UPLOADED' ? '機關編輯中,尚未確定繳交' : '機關尚未上傳或敘明'}
                   </span>
                 )}
@@ -597,13 +597,13 @@ export default function PrepBoard({
   return (
     <div className="flex flex-col gap-4">
       {phaseNotOpen && isOrg && (
-        <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+        <div className="flex items-start gap-2 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500 leading-relaxed">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
           <span>此階段(開立中)尚未開放資料準備。待中心將週期推進至「資料準備中」後,即可上傳文件或敘明無相關文件並「確定繳交」。目前各項僅供檢視。</span>
         </div>
       )}
       {phaseNotOpen && isAdmin && (
-        <div className="flex items-start gap-2 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed">
+        <div className="flex items-start gap-2 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500 leading-relaxed">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
           <span>此階段(開立中)資料準備尚未對機關開放。您可先設定需求清單、匯入中心資料;待推進至「資料準備中」後,機關才能上傳並繳交、您才能逐項審核確認齊備。</span>
         </div>
@@ -619,7 +619,7 @@ export default function PrepBoard({
       {/* 機關:分別確定繳交(技術檢測 / 實地稽核 截止日不同,可各自獨立繳交) */}
       {isOrg && cycleStatus === 'PREPARATION' && mechItems.length > 0 && (
         <Card padded={false} variant="filled">
-          <div className="p-4 flex flex-col divide-y divide-outline-variant/50">
+          <div className="p-4 flex flex-col divide-y divide-rule">
             {orgCats
               .filter((cat) => mechItems.some((it) => catOf(it) === cat))
               .map((cat) => {
@@ -628,11 +628,11 @@ export default function PrepBoard({
                 return (
                   <div key={cat} className="flex items-center justify-between gap-4 flex-wrap py-3 first:pt-0 last:pb-0">
                     <div className="min-w-0">
-                      <p className="text-title text-on-surface">
+                      <p className="text-title text-ink-900">
                         {PREP_CATEGORY_LABELS[cat]}・確定繳交
-                        {due && <span className="ml-2 text-caption text-on-surface-variant">截止 {fmtROC(due)}</span>}
+                        {due && <span className="ml-2 text-caption text-ink-500">截止 {fmtROC(due)}</span>}
                       </p>
-                      <p className="mt-0.5 text-body-sm text-on-surface-variant leading-relaxed">
+                      <p className="mt-0.5 text-body-sm text-ink-500 leading-relaxed">
                         {st.requiredUnaddressed.length > 0
                           ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
                           : st.draftCount > 0
@@ -670,12 +670,12 @@ export default function PrepBoard({
               // id 錨點供側欄階層樹「資料準備分類」直達(#prep-tech/#prep-onsite/#prep-center)
               <section key={cat} id={`prep-${cat.toLowerCase()}`} className="scroll-mt-24">
                 <div className="flex items-center gap-2 flex-wrap mb-2">
-                  <h2 className="text-title-md text-on-surface">{PREP_CATEGORY_LABELS[cat]}</h2>
+                  <h2 className="text-title-md text-ink-900">{PREP_CATEGORY_LABELS[cat]}</h2>
                   <Chip tone="neutral" size="sm">{groupItems.length}</Chip>
                   {cat === 'CENTER' ? (
-                    <span className="text-caption text-on-surface-variant">由中心上傳匯入,供委員審閱(無機關繳交)</span>
+                    <span className="text-caption text-ink-500">由中心上傳匯入,供委員審閱(無機關繳交)</span>
                   ) : due ? (
-                    <span className="text-caption text-on-surface-variant">繳交截止 {fmtROC(due)}</span>
+                    <span className="text-caption text-ink-500">繳交截止 {fmtROC(due)}</span>
                   ) : null}
                   {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
                   {isAdmin && cat !== 'CENTER' && (
@@ -713,7 +713,7 @@ export default function PrepBoard({
       >
         <div className="flex flex-col gap-4 pt-2">
           <div>
-            <p className="text-caption font-medium text-on-surface-variant mb-1.5">分區</p>
+            <p className="text-caption font-medium text-ink-500 mb-1.5">分區</p>
             <Segmented
               value={addCat}
               onChange={(v) => setAddCat(v as PrepCategory)}

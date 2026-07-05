@@ -21,7 +21,7 @@ export default function InviteAcceptForm({ token, email }: { token: string; emai
     <button
       type="button"
       onClick={() => setShowPw((v) => !v)}
-      className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
+      className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors focus-ring before:absolute before:content-[''] before:-inset-1.5"
       aria-label={showPw ? '隱藏密碼' : '顯示密碼'}
     >
       {showPw ? <EyeOff size={17} /> : <Eye size={17} />}

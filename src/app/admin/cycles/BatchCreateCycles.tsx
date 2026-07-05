@@ -133,14 +133,14 @@ export default function BatchCreateCycles({
           </div>
 
           <div>
-            <p className="text-label text-on-surface mb-2">機關({selected.size} 已選)</p>
-            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md border border-outline-variant p-2">
+            <p className="text-label text-ink-900 mb-2">機關({selected.size} 已選)</p>
+            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md border border-rule p-2">
               {eligible.map((o) => (
                 <label
                   key={o.id}
                   className={cn(
                     'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-body-sm transition-colors',
-                    o.has ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-container',
+                    o.has ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-paper-sunk',
                   )}
                 >
                   <input
@@ -150,14 +150,14 @@ export default function BatchCreateCycles({
                     disabled={o.has}
                     onChange={() => toggle(o.id)}
                   />
-                  <span className="flex-1 min-w-0 truncate text-on-surface">{o.name}</span>
-                  {o.has && <span className="text-caption text-on-surface-variant shrink-0">已有該年度</span>}
+                  <span className="flex-1 min-w-0 truncate text-ink-900">{o.name}</span>
+                  {o.has && <span className="text-caption text-ink-500 shrink-0">已有該年度</span>}
                 </label>
               ))}
             </div>
           </div>
 
-          <label className="flex items-center gap-2.5 cursor-pointer text-body-sm text-on-surface">
+          <label className="flex items-center gap-2.5 cursor-pointer text-body-sm text-ink-900">
             <input
               type="checkbox"
               className="accent-primary-600"

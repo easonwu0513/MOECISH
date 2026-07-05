@@ -39,7 +39,7 @@ export default function ReviewerAssign({
   }
 
   if (authors.length === 0) {
-    return <p className="text-body-sm text-on-surface-variant">此缺失查無對應的開立委員,無法指派審閱委員。</p>;
+    return <p className="text-body-sm text-ink-500">此缺失查無對應的開立委員,無法指派審閱委員。</p>;
   }
 
   return (

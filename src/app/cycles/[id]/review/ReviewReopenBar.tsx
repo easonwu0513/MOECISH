@@ -46,10 +46,10 @@ export default function ReviewReopenBar({
   }
 
   return (
-    <div className="mt-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mt-8 rounded-md border border-rule bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <p className="text-title-md text-on-surface">{reviewDone ? '已標記:意見填寫完成' : '完成審閱'}</p>
-        <p className="text-body-sm text-on-surface-variant mt-0.5">
+        <p className="text-title-md text-ink-900">{reviewDone ? '已標記:意見填寫完成' : '完成審閱'}</p>
+        <p className="text-body-sm text-ink-500 mt-0.5">
           {reviewDone
             ? '中心已收到你完成審閱的通知。如需補充意見,可取消後再留言。'
             : openComments > 0

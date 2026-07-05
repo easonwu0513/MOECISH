@@ -52,11 +52,11 @@ function SnapshotDetails({ snapshot }: { snapshot: string }) {
       <summary className="text-caption text-primary-700 cursor-pointer hover:underline select-none">
         檢視該輪填報內容
       </summary>
-      <dl className="mt-1.5 rounded-sm bg-surface-container p-2.5 space-y-1">
+      <dl className="mt-1.5 rounded-sm bg-paper-sunk p-2.5 space-y-1">
         {rows.map((r) => (
           <div key={r.label} className="text-caption leading-relaxed">
-            <dt className="inline font-medium text-on-surface">{r.label}:</dt>{' '}
-            <dd className="inline text-on-surface-variant whitespace-pre-wrap">{r.value}</dd>
+            <dt className="inline font-medium text-ink-900">{r.label}:</dt>{' '}
+            <dd className="inline text-ink-500 whitespace-pre-wrap">{r.value}</dd>
           </div>
         ))}
       </dl>
@@ -367,7 +367,7 @@ export default function ActionForm({
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
         {/* 左:審查歷程 */}
         <div>
-          <p className="text-label text-on-surface-variant mb-3">審查歷程</p>
+          <p className="text-label text-ink-500 mb-3">審查歷程</p>
           <Timeline nodes={timelineNodes} />
         </div>
 
@@ -386,7 +386,7 @@ export default function ActionForm({
 
           {/* 改善措施(可複選,三類) */}
           <div>
-            <p className="text-label text-on-surface mb-2">改善措施（可複選）</p>
+            <p className="text-label text-ink-900 mb-2">改善措施（可複選）</p>
             <div className="flex flex-col gap-3">
               {MEASURE_DEFS.map((m) => {
                 const st = measures[m.key];
@@ -395,7 +395,7 @@ export default function ActionForm({
                     key={m.key}
                     className={cn(
                       'rounded-md border p-4 transition-colors',
-                      st.on ? 'border-primary-400 bg-primary-50/40' : 'border-outline-variant',
+                      st.on ? 'border-primary-400 bg-primary-50/40' : 'border-neutral-400',
                     )}
                   >
                     <label className="flex items-start gap-2.5 cursor-pointer">
@@ -413,8 +413,8 @@ export default function ActionForm({
                         className="mt-0.5 accent-primary-600"
                       />
                       <span className="min-w-0">
-                        <span className="text-body-sm font-medium text-on-surface">{m.label}</span>
-                        <span className="mt-0.5 block text-caption text-on-surface-variant leading-relaxed">{m.hint}</span>
+                        <span className="text-body-sm font-medium text-ink-900">{m.label}</span>
+                        <span className="mt-0.5 block text-caption text-ink-500 leading-relaxed">{m.hint}</span>
                       </span>
                     </label>
                     {st.on && (
@@ -460,14 +460,14 @@ export default function ActionForm({
 
           {/* 執行情形(範本四選一) */}
           <div>
-            <p className="text-label text-on-surface mb-2">執行情形</p>
+            <p className="text-label text-ink-900 mb-2">執行情形</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {EXEC_STATUSES.map((s) => (
                 <label
                   key={s}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md border px-4 py-3 cursor-pointer transition-colors',
-                    execStatus === s ? 'border-primary-400 bg-primary-50/40' : 'border-outline-variant hover:bg-surface-container',
+                    execStatus === s ? 'border-primary-400 bg-primary-50/40' : 'border-neutral-400 hover:bg-paper-sunk',
                     readonly && 'cursor-not-allowed opacity-70',
                   )}
                 >
@@ -479,13 +479,13 @@ export default function ActionForm({
                     onChange={() => changeExecStatus(s)}
                     className="accent-primary-600"
                   />
-                  <span className="text-body-sm text-on-surface">{EXEC_STATUS_LABELS[s]}</span>
+                  <span className="text-body-sm text-ink-900">{EXEC_STATUS_LABELS[s]}</span>
                 </label>
               ))}
             </div>
 
             {(needActual || needExtended || needReason) && (
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md bg-surface-container p-4">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md bg-paper-sunk p-4">
                 {needActual && (
                   <TextField
                     label="實際完成日期"
@@ -522,14 +522,14 @@ export default function ActionForm({
           {/* 佐證 */}
           {action && (
             <div>
-              <p className="text-label text-on-surface mb-2">佐證文件</p>
+              <p className="text-label text-ink-900 mb-2">佐證文件</p>
               {evLoading ? (
                 <div className="mb-2 space-y-1.5" aria-label="佐證載入中">
-                  <div className="h-4 w-48 rounded bg-surface-container-high animate-pulse" />
-                  <div className="h-4 w-36 rounded bg-surface-container-high animate-pulse" />
+                  <div className="h-4 w-48 rounded bg-paper-sunk animate-pulse" />
+                  <div className="h-4 w-36 rounded bg-paper-sunk animate-pulse" />
                 </div>
               ) : evidences.length === 0 ? (
-                <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-surface-container-low/50 px-3.5 py-2.5 text-body-sm text-on-surface-variant">
+                <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-rule bg-paper-sunk/50 px-3.5 py-2.5 text-body-sm text-ink-500">
                   <Paperclip size={15} className="shrink-0 opacity-70" />
                   尚未上傳佐證{editable ? '，可使用下方按鈕新增' : ''}
                 </div>
@@ -542,7 +542,7 @@ export default function ActionForm({
                         <button
                           type="button"
                           onClick={() => setPendingEv({ id: f.id, name: f.originalName })}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
                           aria-label={`刪除佐證 ${f.originalName}`}
                           title="刪除這個佐證檔"
                         >
@@ -562,7 +562,7 @@ export default function ActionForm({
                     multiple
                     accept={ORG_UPLOAD_ACCEPT}
                   />
-                  <p className="mt-1.5 text-caption text-on-surface-variant">
+                  <p className="mt-1.5 text-caption text-ink-500">
                     僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
                   </p>
                 </>

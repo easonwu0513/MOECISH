@@ -122,9 +122,9 @@ export default function InviteDialog({
               <CheckCircle size={18} />
               <span className="text-body font-medium">邀請信已寄出</span>
             </div>
-            <div className="rounded-md bg-surface-container-low border border-outline-variant/60 p-3 mb-3">
-              <p className="text-caption text-on-surface-variant mb-1">邀請連結(14 天內有效)</p>
-              <p className="text-body-sm font-mono break-all text-on-surface">{link}</p>
+            <div className="rounded-md bg-paper-sunk border border-rule/60 p-3 mb-3">
+              <p className="text-caption text-ink-500 mb-1">邀請連結(14 天內有效)</p>
+              <p className="text-body-sm font-mono break-all text-ink-900">{link}</p>
             </div>
             <Button variant="tonal" onClick={copyLink} leadingIcon={<Paperclip size={14} />}>
               複製連結
@@ -140,7 +140,7 @@ export default function InviteDialog({
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </Select>
-              {roleHint && <p className="mt-1.5 text-caption text-on-surface-variant">{roleHint}</p>}
+              {roleHint && <p className="mt-1.5 text-caption text-ink-500">{roleHint}</p>}
             </div>
             {role === 'ORG_ADMIN' && (
               <Select label="所屬醫院" value={orgId} onChange={(e) => setOrgId(e.target.value)} disabled={lockOrg}>

@@ -50,7 +50,7 @@ export function UserMenu({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 h-10 pl-1 pr-2 rounded-full hover:bg-surface-container focus-ring transition-colors duration-200"
+        className="flex items-center gap-2 h-10 pl-1 pr-2 rounded-full hover:bg-paper-sunk focus-ring transition-colors duration-200"
         aria-label="使用者選單"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -65,18 +65,18 @@ export function UserMenu({
           {initials}
         </span>
         <span className="hidden md:flex flex-col items-start leading-tight">
-          <span className="text-body-sm text-on-surface">{name}</span>
-          <span className="text-caption text-on-surface-variant">{ROLE_LABELS[role]}</span>
+          <span className="text-body-sm text-ink-900">{name}</span>
+          <span className="text-caption text-ink-500">{ROLE_LABELS[role]}</span>
         </span>
-        <ChevronDown size={16} className="text-on-surface-variant hidden md:block" />
+        <ChevronDown size={16} className="text-ink-500 hidden md:block" />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-72 bg-surface-container-high rounded-md shadow-elev-3 overflow-hidden animate-fade-in z-40"
+          className="absolute right-0 top-full mt-2 w-72 bg-paper-sunk rounded-md shadow-elev-3 overflow-hidden animate-fade-in z-40"
         >
-          <div className="p-5 border-b border-outline-variant">
+          <div className="p-5 border-b border-rule">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
@@ -87,14 +87,14 @@ export function UserMenu({
                 {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-body font-medium text-on-surface truncate">{name}</p>
-                <p className="text-caption text-on-surface-variant truncate">{email}</p>
+                <p className="text-body font-medium text-ink-900 truncate">{name}</p>
+                <p className="text-caption text-ink-500 truncate">{email}</p>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-1.5">
               <Chip tone={ROLE_TONE[role]} size="sm">{ROLE_LABELS[role]}</Chip>
               {organizationName && (
-                <span className="text-caption text-on-surface-variant truncate">{organizationName}</span>
+                <span className="text-caption text-ink-500 truncate">{organizationName}</span>
               )}
             </div>
           </div>
@@ -103,17 +103,17 @@ export function UserMenu({
               href="/account"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="w-full flex items-center gap-3 px-5 h-12 text-body-sm text-on-surface hover:bg-surface-container transition-colors"
+              className="w-full flex items-center gap-3 px-5 h-12 text-body-sm text-ink-900 hover:bg-card transition-colors"
             >
-              <User size={18} className="text-on-surface-variant" />
+              <User size={18} className="text-ink-500" />
               <span>個人資料</span>
             </Link>
             <button
               role="menuitem"
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="w-full flex items-center gap-3 px-5 h-12 text-body-sm text-on-surface hover:bg-surface-container transition-colors"
+              className="w-full flex items-center gap-3 px-5 h-12 text-body-sm text-ink-900 hover:bg-card transition-colors"
             >
-              <LogOut size={18} className="text-on-surface-variant" />
+              <LogOut size={18} className="text-ink-500" />
               <span>登出</span>
             </button>
           </div>

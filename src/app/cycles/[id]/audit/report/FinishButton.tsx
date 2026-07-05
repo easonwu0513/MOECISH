@@ -52,7 +52,7 @@ export default function FinishButton({
         <Button size="sm" leadingIcon={<CheckCircle size={15} />} disabled title={`${blockReason},尚無法完成年度稽核`}>
           已完成年度稽核
         </Button>
-        <span className="text-caption text-on-surface-variant text-right max-w-[16rem]">{blockReason},尚無法完成</span>
+        <span className="text-caption text-ink-500 text-right max-w-[16rem]">{blockReason},尚無法完成</span>
       </span>
     );
   }

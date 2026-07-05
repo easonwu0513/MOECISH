@@ -15,20 +15,20 @@ export function LawBasisText({ text, className }: { text: string; className?: st
       {lines.map((line, i) => {
         if (/^[一二三四五六七八九十]+、/.test(line)) {
           return (
-            <p key={i} className="text-body-sm font-semibold text-on-surface pt-2 first:pt-0">
+            <p key={i} className="text-body-sm font-semibold text-ink-900 pt-2 first:pt-0">
               {line}
             </p>
           );
         }
         if (/^\d+\.\s*/.test(line)) {
           return (
-            <p key={i} className="text-body-sm text-on-surface-variant leading-relaxed pl-4 border-l-2 border-primary-200">
+            <p key={i} className="text-body-sm text-ink-500 leading-relaxed pl-4 border-l-2 border-primary-200">
               {line}
             </p>
           );
         }
         return (
-          <p key={i} className="text-body-sm text-on-surface-variant leading-relaxed">
+          <p key={i} className="text-body-sm text-ink-500 leading-relaxed">
             {line}
           </p>
         );
@@ -43,7 +43,7 @@ export function NumberedList({ text, className }: { text: string; className?: st
   return (
     <ul className={cn('space-y-1.5', className)}>
       {lines.map((line, i) => (
-        <li key={i} className="text-body-sm text-on-surface-variant leading-relaxed">
+        <li key={i} className="text-body-sm text-ink-500 leading-relaxed">
           {line}
         </li>
       ))}
@@ -62,7 +62,7 @@ export function LawPanel({
   expectedEvidence: string | null;
 }) {
   if (!auditBasis && !auditFocus && !expectedEvidence) {
-    return <p className="text-body-sm text-on-surface-variant py-2">本題尚未建立法規對照資料。</p>;
+    return <p className="text-body-sm text-ink-500 py-2">本題尚未建立法規對照資料。</p>;
   }
   return (
     <div className="flex flex-col gap-4">
@@ -81,7 +81,7 @@ export function LawPanel({
       {auditBasis && (
         <div>
           <p className="text-label text-primary-800 mb-1.5">稽核依據(法規條文逐字引錄)</p>
-          <div className="rounded-md bg-surface-container-low border border-outline-variant/50 p-3.5 max-h-96 overflow-y-auto">
+          <div className="rounded-md bg-paper-sunk border border-rule/50 p-3.5 max-h-96 overflow-y-auto">
             <LawBasisText text={auditBasis} />
           </div>
         </div>
