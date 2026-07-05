@@ -26,6 +26,8 @@ import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
 import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 import { TileIcon, statusToneText } from '@/components/cycle/tile';
+import { DocumentProgressRail } from '@/components/cycle/DocumentProgressRail';
+import { deriveDocumentChapters } from '@/lib/document-progress';
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -176,6 +178,29 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 委員評分完成度(快捷統計 + 系統提醒用;scoreLockedAt 已由 include 帶回)
   const committeeTotal = cycle.assignments.length;
   const committeeScored = cycle.assignments.filter((a) => a.scoreLockedAt).length;
+
+  // 七章文件進度尺(W2,機關視角):由 lib/document-progress 單一 SoT 派生,取代散落的 StatusTile。
+  // 技術檢測 = TECH;實地稽核 = 其餘機關區(非 CENTER 且非 TECH)——兩章聯集 === mechTotal 的非 CENTER 宇集,
+  // 避免非典型 category 字串(category 為自由字串)落在 mechTotal 卻從兩章雙雙漏計而低報。
+  const prepCounts = (pred: (cat: string) => boolean) => {
+    const reqs = cycle.prepRequirements.filter((r) => pred(r.category));
+    return { confirmed: reqs.filter((r) => r.submission?.status === 'CONFIRMED').length, total: reqs.length };
+  };
+  const docChapters =
+    user.role === 'ORG_ADMIN'
+      ? deriveDocumentChapters({
+          cycleId: cycle.id,
+          status: cycle.status as CycleStatus,
+          prepTech: prepCounts((c) => c === 'TECH'),
+          prepOnsite: prepCounts((c) => c !== 'CENTER' && c !== 'TECH'),
+          checklist: { answered: facts.checklistAnswered, total: facts.checklistTotal, submitted: checklistSubmitted },
+          deficiency: { passed, total },
+          report: {
+            submitted: cycle.signedReports.some((r) => r.submittedAt),
+            confirmed: cycle.signedReports.some((r) => r.confirmedAt),
+          },
+        })
+      : null;
 
   // 矯正截止天數(本地日界,與追蹤信一致)
   const dueDay = cycle.dueDate ? new Date(cycle.dueDate) : null;
@@ -497,7 +522,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           {/* ── 工作區:稽核作業(中心視角四大工作區之一;評分發現卡移入下方「委員」工作區) ── */}
           {user.role === 'SUPER_ADMIN' && <SectionLabel desc="檢核表、佐證資料、改善報告與匯出">稽核作業</SectionLabel>}
 
-          {/* 模組入口:精簡狀態卡(標題 + 狀態值 + 一句話);圖示統一主色 */}
+          {/* 機關:七章文件進度尺(W2,單一 SoT 派生,取代散落 StatusTile);中心/委員維持模組狀態卡 */}
+          {user.role === 'ORG_ADMIN' && docChapters ? (
+            <DocumentProgressRail chapters={docChapters} />
+          ) : (
           <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'AUDITOR' ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <StatusTile
               icon={<FileText size={18} />}
@@ -568,6 +596,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               lockedHint={user.role === 'ORG_ADMIN' ? '矯正執行階段開放填報' : '缺失發布後開放'}
             />
           </section>
+          )}
 
           {/* 構面矯正進度(有缺失時顯示) */}
           {total > 0 && (
