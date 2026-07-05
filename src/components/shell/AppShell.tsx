@@ -13,8 +13,10 @@ import type { Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
 import { CommandPalette, useCommandHotkey, type Command } from '../ui/CommandPalette';
 import { useDialogA11y } from '../ui/useDialogA11y';
+import { ConfirmDialog } from '../ui/Dialog';
+import { useToast } from '../ui/Toast';
 import { NavProvider } from './NavProgress';
-import { AlertTriangle, Eye, LogOut, Shield } from '../icons';
+import { AlertTriangle, Eye, LogOut, Megaphone, Shield } from '../icons';
 import { navCommandRoutes, navIcon } from './nav-map';
 
 export function AppShell({
@@ -32,10 +34,34 @@ export function AppShell({
   watermark?: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   useCommandHotkey(setCmdOpen);
   const drawerRef = useDialogA11y(mobileOpen, () => setMobileOpen(false));
+
+  // ⌘K 動詞執行:有副作用的動作(如寄信)先經確認對話框,再實際呼叫 API。
+  const [confirm, setConfirm] = useState<
+    { title: string; description: string; confirmLabel: string; run: () => Promise<void> } | null
+  >(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  async function remindCycle() {
+    if (!cycleId) return;
+    const res = await fetch(`/api/cycles/${cycleId}/track-remind`, { method: 'POST' });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '催辦失敗' }));
+      toast.error('催辦失敗', j.error);
+      return;
+    }
+    const j = await res.json();
+    if (j.sentCount === 0 && j.skippedCount > 0) {
+      toast.info('今日已提醒過', `${j.skippedCount} 位機關管理員今日已收到提醒,未重複寄送`);
+    } else {
+      toast.success('已寄送追蹤提醒', `已通知 ${j.sentCount} 位機關管理員 · 本週期累計催辦 ${j.remindCount} 封`);
+    }
+    router.refresh();
+  }
 
   const commands: Command[] = [
     // 導覽 + 管理:由 nav-map SoT 派生(與側欄同一份清單,杜絕兩處漂移)
@@ -59,6 +85,50 @@ export function AppShell({
           { id: 'cycle', group: '導覽', label: '稽核週期首頁', hint: '回到本週期', action: () => router.push(`/cycles/${cycleId}`) } as Command,
         ]
       : []),
+    // 動作(可執行的動詞,非僅導覽;有副作用者先經確認對話框)
+    ...(cycleId && user.role === 'SUPER_ADMIN'
+      ? [
+          {
+            id: 'act-remind',
+            group: '動作',
+            label: '寄追蹤信給機關(本週期)',
+            icon: <Megaphone size={16} />,
+            keywords: '催辦 追蹤 提醒 remind',
+            action: () =>
+              setConfirm({
+                title: '寄送進度追蹤提醒',
+                description:
+                  '將以 email 通知本週期的機關管理員仍有待辦事項,並記錄於催辦軌跡。同一天重複點擊不會重複寄送。',
+                confirmLabel: '寄送提醒',
+                run: remindCycle,
+              }),
+          } as Command,
+        ]
+      : []),
+    {
+      id: 'act-copy',
+      group: '動作',
+      label: '複製本頁連結',
+      keywords: '分享 連結 link copy',
+      action: async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          toast.success('已複製本頁連結');
+        } catch {
+          toast.error('複製失敗', '瀏覽器未允許存取剪貼簿');
+        }
+      },
+    } as Command,
+    {
+      id: 'act-refresh',
+      group: '動作',
+      label: '重新整理本頁',
+      keywords: '刷新 refresh reload',
+      action: () => {
+        router.refresh();
+        toast.info('已重新整理');
+      },
+    } as Command,
     { id: 'password', group: '帳號', label: '變更密碼', icon: <Shield size={16} />, action: () => router.push('/account/password') },
     { id: 'logout', group: '帳號', label: '登出', icon: <LogOut size={16} />, action: () => signOut({ callbackUrl: '/login' }) },
   ];
@@ -109,6 +179,26 @@ export function AppShell({
       </div>
 
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} commands={commands} />
+      {/* ⌘K 有副作用動詞的確認框(如寄追蹤信);確認後才實際呼叫 API */}
+      {confirm && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => { if (!o) setConfirm(null); }}
+          title={confirm.title}
+          description={confirm.description}
+          confirmLabel={confirm.confirmLabel}
+          loading={confirmLoading}
+          onConfirm={async () => {
+            setConfirmLoading(true);
+            try {
+              await confirm.run();
+            } finally {
+              setConfirmLoading(false);
+              setConfirm(null);
+            }
+          }}
+        />
+      )}
       {/* 浮水印只在機關上傳資料的檢視頁套用(資料準備/檢核表審閱/缺失矯正),非全站 */}
       {watermark && <ScreenWatermark name={user.name} email={user.email} />}
       {/* AI 小幫手:NEXT_PUBLIC_AI_ASSISTANT=1 才掛載;未接 LLM 時後端回 503,旗標關則整個隱藏 */}
