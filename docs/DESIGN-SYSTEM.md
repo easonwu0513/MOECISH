@@ -31,11 +31,20 @@
 
 | Token | 用途 |
 |---|---|
-| `surface` | App 背景(冷白 #f6f8fb) |
+| `surface` | App 背景(晨霧近白 #f7f8fa) |
 | `surface-container-lowest` → `-highest` | 卡片/面板由淺到深的層級 |
 | `on-surface` / `on-surface-variant` | 主要 / 次要文字 |
 | `outline` / `outline-variant` | 邊框 / 淺邊框 |
 | `primary-container` / `on-primary-container` | tonal 元件底色 / 其上文字 |
+
+**深藍憲章招牌 token**(批74,設計精緻化 #14 —— 收編映象面手抄漸層與規線):
+
+| Token | 用途 · 選用規則 |
+|---|---|
+| `bg-cta-surface` | CTA 收尾/深藍實心面(primary-800→900 漸層)。取代手抄 `#1a334a→#2f5b88`。 |
+| `bg-hero-ambient` | Hero 環境覆層(primary-900 極淡徑向)。取代 `rgba(40,82,160,0.07)`。 |
+| `border-ledger-line` (`--navy-ledger-line` = primary-200) | 「編輯級細分隔線」。**⚠️僅供資料表欄分隔與 Hero 內框**,一般容器仍用 `outline-variant`(中性);全域取代會全站偏藍疲勞。 |
+| `SURFACE_INFO`(lib/tone.ts,= `bg-primary-50 ring-primary-100`) | 填報/審查流的資訊面單一來源。取代散落的 `bg-primary-50/{30–60}` 手挑 alpha。 |
 
 ### 字體
 

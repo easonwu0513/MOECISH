@@ -95,6 +95,15 @@ export const TONE: Record<Tone, ToneFacets> = {
   },
 };
 
+/**
+ * 資訊面(info surface)單一來源(設計精緻化 #14;批74)。
+ * 收編填報/審查流散落的 `bg-primary-50/{30,40,50,60}` 實例層手挑 alpha 破窗
+ * (AuditPad、ChecklistItemCard、prep、review、dashboard、ActionForm、PrepTemplateManager…):
+ * 一律改吃這一支具名資訊面,讓 SoT 從型別層延伸到實例層。
+ * 比 TONE.primary.soft 更淺一階(ring-100 而非 ring-200),作為「內部頁的一點柔藍體溫」。
+ */
+export const SURFACE_INFO = 'bg-primary-50 ring-1 ring-inset ring-primary-100';
+
 // ── 角色色(北極星②:角色是一級資訊架構)——全部由 ROLE_TONE 單一來源衍生 ──
 // ROLE_TONE(types.ts):中心 SUPER_ADMIN=primary、委員 AUDITOR=sage、機關 ORG_ADMIN=warning。
 // 以下工具讓「角色 → 具體 class」也只有一份,消除 TopStrip/UserMenu 各自硬編角色色的破窗。

@@ -125,6 +125,14 @@ const config: Config = {
         },
         outline:          '#757d8c',
         'outline-variant':'#ccd2da',
+        /* Ledger 規線色(深藍憲章招牌;批74)——與 globals.css --navy-ledger-line 同步。
+           僅供資料表欄分隔/Hero 內框:border-ledger-line。勿全域取代 outline-variant。 */
+        'ledger-line':    'var(--navy-ledger-line)',
+      },
+      backgroundImage: {
+        /* 深藍憲章招牌漸層(批74)——與 globals.css 同步:bg-cta-surface / bg-hero-ambient */
+        'cta-surface':  'var(--cta-surface)',
+        'hero-ambient': 'var(--hero-ambient)',
       },
       fontFamily: {
         sans: ['var(--font-sans)'],

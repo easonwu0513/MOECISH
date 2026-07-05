@@ -71,6 +71,16 @@
     radial-gradient(ellipse 65% 55% at 15% 20%, rgba(43, 87, 166, 0.11), transparent 70%),
     radial-gradient(ellipse 60% 50% at 85% 85%, rgba(43, 87, 166, 0.055), transparent 70%);
 
+  /* ── 深藍憲章招牌 token(設計精緻化 #14;批74)——收編前台/映象面最大版面的手抄漸層與規線 ──
+     用意:讓「每個像素都有 token 依據」。三者皆對齊既有 primary 色階,非新色相。 */
+  /* CTA 收尾/深藍實心面(取代 page.tsx 手抄 #1a334a→#2f5b88 三段漸層) */
+  --cta-surface: linear-gradient(135deg, var(--primary-800), var(--primary-900));
+  /* Hero 環境覆層(取代 rgba(40,82,160,0.07) 精緻化前舊 primary 徑向;改綁深藍權威色 primary-900) */
+  --hero-ambient: radial-gradient(ellipse 78% 60% at 50% -8%, rgba(17, 38, 78, 0.06), transparent 60%);
+  /* Ledger 規線色:資料表欄分隔與 Hero 內框「編輯級細分隔線」專用(⚠️勿全域取代 outline-variant,
+     僅用於資料表/Hero 內框,否則全站偏藍疲勞;見 DESIGN-SYSTEM.md 區域規則) */
+  --navy-ledger-line: var(--primary-200);
+
   /* Role accent */
   --role-admin:      var(--primary-500);
   --role-auditor:    var(--sage-500);
