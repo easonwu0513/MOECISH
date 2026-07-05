@@ -23,6 +23,7 @@ import {
 import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 import { toneClasses } from '@/lib/stage';
 import { SURFACE_INFO } from '@/lib/tone';
+import { cn } from '@/lib/cn';
 
 export type DimStat = { total: number; c1: number; c2: number; c3: number; c4: number };
 /** 委員手填之檢核結果數量(符/部分/不符/不適用;null=空白) */
@@ -105,7 +106,7 @@ export default function AuditPad({
   // 鎖定前需確認「稽核發現」沒有未儲存的編輯(兩個子元件不共享 state,以此 ref 橋接)。
   const unsavedFindingsRef = useRef<() => boolean>(() => false);
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* 對應檢核項次建議清單(委員輸入時下拉選 7.4 等有效項次) */}
       <datalist id="audit-item-refs">
         {itemRefs.map((r) => <option key={r} value={r} />)}
@@ -119,9 +120,80 @@ export default function AuditPad({
           </span>
         </div>
       )}
-      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-      <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+      {/* 三塊合一同框(W3):左=評分+發現工作區,右=佐證/扣分依據常駐側欄(寬螢幕 sticky,窄螢幕堆疊於下) */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
+        <div className="flex flex-col gap-8 min-w-0">
+          <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
+          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+        </div>
+        <aside className="xl:sticky xl:top-4 min-w-0">
+          <EvidencePane dimIssues={dimIssues} itemLaw={itemLaw} focusAspects={focusAspects} />
+        </aside>
+      </div>
     </div>
+  );
+}
+
+// ───────────────── 佐證 / 扣分依據常駐側欄(三塊合一同框之「佐證」塊)─────────────────
+function EvidencePane({
+  dimIssues,
+  itemLaw,
+  focusAspects,
+}: {
+  dimIssues: Record<string, DimIssue[]>;
+  itemLaw: Record<string, ItemLaw>;
+  focusAspects: DeficiencyAspect[];
+}) {
+  const focusSet = new Set(focusAspects);
+  const hasAny = Object.values(dimIssues).some((v) => v.length > 0);
+  return (
+    <section className="rounded-lg border border-rule bg-card xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label="佐證與扣分依據">
+      <div className="sticky top-0 z-[1] bg-card border-b border-rule px-4 py-3">
+        <p className="text-title-md text-ink-900">佐證與扣分依據</p>
+        <p className="text-caption text-ink-500 mt-0.5 leading-relaxed">機關自評「部分符合 / 不符合」項目與其應備佐證,評分時就地對照,不必切換頁面。</p>
+      </div>
+      {!hasAny ? (
+        <p className="px-4 py-10 text-body-sm text-ink-500 text-center leading-relaxed">
+          本次自評無部分符合 / 不符合項目,無扣分依據需檢視。
+        </p>
+      ) : (
+        <div className="divide-y divide-rule">
+          {ASPECTS.map((asp) => {
+            const dims = ASPECT_DIMENSIONS[asp].filter((d) => (dimIssues[d]?.length ?? 0) > 0);
+            if (dims.length === 0) return null;
+            const focused = focusSet.has(asp);
+            return (
+              <div key={asp} className={cn('border-l-2 border-transparent px-4 py-3', focused && 'border-rule-active bg-focus-wash')}>
+                <p className="text-body-sm font-medium text-ink-900 mb-2">
+                  {DEFICIENCY_ASPECT_LABELS[asp]}
+                  {focused && <span className="ml-1.5 text-caption font-medium text-primary-700">· 您負責</span>}
+                </p>
+                {dims.map((dim) => (
+                  <div key={dim} className="mb-3 last:mb-0">
+                    <p className="text-caption text-ink-500 mb-1">{DIMENSION_LABELS[dim as Dimension]}</p>
+                    <ul className="flex flex-col gap-2">
+                      {dimIssues[dim].map((it) => (
+                        <li key={it.itemNo} className="text-caption">
+                          <div className="flex items-start gap-1.5">
+                            <span className={cn('shrink-0 tabular-nums font-semibold', it.level === 'NON_COMPLIANT' ? 'text-danger-700' : 'text-warning-700')}>
+                              {it.itemNo}
+                            </span>
+                            <span className="text-ink-700 leading-relaxed">{it.content}</span>
+                          </div>
+                          {itemLaw[it.itemNo]?.expectedEvidence && (
+                            <p className="ml-6 mt-0.5 text-ink-500 leading-relaxed">應備佐證:{itemLaw[it.itemNo].expectedEvidence}</p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
