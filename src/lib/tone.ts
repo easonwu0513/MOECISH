@@ -139,7 +139,7 @@ export function roleBorderTop(role: Role): string {
 
 /** 角色 → 頭像 tonal 底色(UserMenu 圓形頭像);由角色 Tone 的淺底衍生,深淺一致 */
 export const ROLE_SURFACE: Record<Role, string> = {
-  SUPER_ADMIN: 'bg-primary-container text-on-primary-container',
+  SUPER_ADMIN: 'bg-focus-wash text-primary-700',
   AUDITOR:     'bg-sage-100 text-sage-800',
   ORG_ADMIN:   'bg-warning-100 text-warning-800',
 };
