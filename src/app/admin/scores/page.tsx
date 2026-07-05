@@ -4,14 +4,9 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
-import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
 import { FilterChipLink } from '@/components/ui/FilterChip';
 import { Button } from '@/components/ui/Button';
-import { BarChart } from '@/components/icons';
 import { EMPTY } from '@/lib/copy';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { DIMENSION_NUM, DIMENSION_MAX_SCORE, gradeOf, GRADE_TONE, type Grade } from '@/lib/audit-score';
@@ -116,12 +111,12 @@ export default async function CrossOrgScoresPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '跨院評分比較' }]}
     >
-      <PageHeader
-        title="跨院評分比較"
-        subtitle={
-          <>各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-on-surface">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。</>
-        }
-      />
+      <header className="mb-7">
+        <h1 className="font-serif text-headline text-ink-900">跨院評分比較</h1>
+        <p className="mt-2 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+          各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-ink-700">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。
+        </p>
+      </header>
 
       {years.length > 1 && (
         <div className="mb-5 flex items-center gap-2 flex-wrap">
@@ -135,23 +130,22 @@ export default async function CrossOrgScoresPage({
       )}
 
       {rows.length === 0 ? (
-        <Card>
-          {yearFilter ? (
-            <EmptyState
-              icon={<BarChart size={28} />}
-              title={EMPTY.noResults.title}
-              description="此年度尚無已完成評分的稽核週期;試試其他年度或查看全部。"
-              action={<Button href="/admin/scores" variant="tonal" size="sm">全部年度</Button>}
-            />
-          ) : (
-            <EmptyState icon={<BarChart size={28} />} title="尚無評分資料" description="待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。" />
+        <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
+          <p className="text-title text-ink-700">{yearFilter ? EMPTY.noResults.title : '尚無評分資料'}</p>
+          <p className="mx-auto mt-1.5 max-w-md text-body-sm text-ink-400">
+            {yearFilter
+              ? '此年度尚無已完成評分的稽核週期;試試其他年度或查看全部。'
+              : '待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。'}
+          </p>
+          {yearFilter && (
+            <div className="mt-4"><Button href="/admin/scores" variant="tonal" size="sm">全部年度</Button></div>
           )}
-        </Card>
+        </div>
       ) : (
         <>
           {/* 圖例:等第→色塊對照(色彩單獨承載語意的補強;等第文字方為準) */}
-          <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap text-caption text-on-surface-variant">
-            <span className="font-medium text-on-surface">等第</span>
+          <div className="mb-4 flex items-center gap-x-4 gap-y-1.5 flex-wrap text-caption text-ink-500">
+            <span className="font-medium text-ink-700">等第</span>
             {GRADE_ORDER.map((g) => (
               <span key={g} className="inline-flex items-center gap-1.5">
                 <span className={cn('h-3.5 w-3.5 rounded-sm', toneClasses(GRADE_TONE[g]).iconBg)} aria-hidden />
@@ -166,10 +160,10 @@ export default async function CrossOrgScoresPage({
             )}
           </div>
 
-          <Card padded={false} variant="outlined">
+          <div className="overflow-hidden rounded-md border border-rule bg-card">
             <TableScroll maxHeight="70vh">
               <table className="w-full text-body-sm border-collapse">
-                <thead className="text-label-sm text-on-surface-variant bg-surface-container-low [&_th]:sticky [&_th]:top-0">
+                <thead className="text-label-sm text-ink-500 bg-paper-sunk [&_th]:sticky [&_th]:top-0">
                   <tr>
                     <SortableTh keyName="org" active={sortKey === 'org'} dir={dir} href={sortHref('org')} align="left" stickyCol className="px-4">機關</SortableTh>
                     <SortableTh keyName="year" active={sortKey === 'year'} dir={dir} href={sortHref('year')}>年度</SortableTh>
@@ -192,9 +186,9 @@ export default async function CrossOrgScoresPage({
                 </thead>
                 <tbody>
                   {sorted.map((r) => (
-                    <tr key={r.id} className="border-t border-ledger-line">{/* ledger 規線(批81) */}
-                      <td className="px-4 py-2 text-on-surface whitespace-nowrap sticky left-0 z-10 bg-surface-container-lowest">{r.org}</td>
-                      <td className="px-2 py-2 text-center tabular-nums text-on-surface-variant">{r.yearROC}</td>
+                    <tr key={r.id} className="border-t border-rule hover:bg-paper-sunk transition-colors">
+                      <td className="px-4 py-2 text-ink-900 whitespace-nowrap sticky left-0 z-10 bg-card">{r.org}</td>
+                      <td className="px-2 py-2 text-center tabular-nums text-ink-400">{r.yearROC}</td>
                       {r.cells.map((v, i) => {
                         const dim = DIMENSION_ORDER[i] as Dimension;
                         const grade = v !== null ? gradeOf(dim, Math.round(v)) : null;
@@ -204,12 +198,12 @@ export default async function CrossOrgScoresPage({
                             key={dim}
                             className={cn(
                               'px-2 py-2 text-center align-middle',
-                              tone === 'neutral' ? 'text-on-surface-variant' : toneClasses(tone).iconBg,
+                              tone === 'neutral' ? 'text-ink-400' : toneClasses(tone).iconBg,
                               i === weakestCol && 'ring-1 ring-inset ring-danger-300',
                             )}
                           >
                             {v === null ? (
-                              <span className="text-on-surface-variant">—</span>
+                              <span className="text-ink-300">—</span>
                             ) : (
                               <span className="inline-flex flex-col items-center leading-tight">
                                 <span className="tabular-nums font-medium">{v}</span>
@@ -219,13 +213,13 @@ export default async function CrossOrgScoresPage({
                           </td>
                         );
                       })}
-                      <td className="px-3 py-2 text-center tabular-nums font-semibold text-on-surface">
+                      <td className="px-3 py-2 text-center tabular-nums font-semibold text-ink-900">
                         {r.total === null ? (
                           '—'
                         ) : r.complete ? (
                           r.total
                         ) : (
-                          <span className="text-on-surface-variant font-medium" title={`僅含已評 ${r.scored}/${DIMENSION_ORDER.length} 構面之小計`}>
+                          <span className="text-ink-400 font-medium" title={`僅含已評 ${r.scored}/${DIMENSION_ORDER.length} 構面之小計`}>
                             {r.total}*
                           </span>
                         )}
@@ -234,8 +228,8 @@ export default async function CrossOrgScoresPage({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-outline-variant bg-surface-container-low font-medium">
-                    <td className="px-4 py-2.5 sticky left-0 z-10 bg-surface-container-low" colSpan={2}>全院平均</td>
+                  <tr className="border-t-2 border-rule-strong bg-paper-sunk font-medium text-ink-900">
+                    <td className="px-4 py-2.5 sticky left-0 z-10 bg-paper-sunk" colSpan={2}>全院平均</td>
                     {colAvg.map((v, i) => (
                       <td key={i} className={cn('px-2 py-2.5 text-center tabular-nums', i === weakestCol && 'ring-1 ring-inset ring-danger-300 text-danger-700 font-semibold')}>
                         {v ?? '—'}
@@ -248,18 +242,18 @@ export default async function CrossOrgScoresPage({
                         const sum = Math.round(present.reduce((a, b) => a + b, 0) * 10) / 10;
                         return present.length === colAvg.length
                           ? sum
-                          : <span className="text-on-surface-variant" title={`僅含已評 ${present.length}/${colAvg.length} 構面之小計`}>{sum}*</span>;
+                          : <span className="text-ink-400" title={`僅含已評 ${present.length}/${colAvg.length} 構面之小計`}>{sum}*</span>;
                       })()}
                     </td>
                   </tr>
                 </tfoot>
               </table>
             </TableScroll>
-          </Card>
+          </div>
         </>
       )}
 
-      <p className="mt-4 text-caption text-on-surface-variant">
+      <p className="mt-4 text-caption text-ink-400">
         註:此為螢幕比較工具;正式分數以各委員附件17 評分表為準。「九」為評核項(AuditScore.dimension),與缺失之三構面(策略/管理/技術)不同軸。
         帶 * 之總分為「已評構面小計」(尚有構面未評分,九構面全評後即為正式總分)。
       </p>
@@ -300,7 +294,7 @@ function SortableTh({
         'py-3 font-medium',
         align === 'left' ? 'text-left' : 'text-center',
         // 單一 bg / z 類別(避免同格兩個同性質工具互相覆寫的不確定性)
-        weakest ? 'bg-danger-50/60' : 'bg-surface-container-low',
+        weakest ? 'bg-danger-50/60' : 'bg-paper-sunk',
         stickyCol ? 'sticky left-0 z-30' : 'z-20',
         className,
       )}
@@ -308,8 +302,8 @@ function SortableTh({
       <Link
         href={href}
         className={cn(
-          'group inline-flex items-center gap-1 rounded px-1 -mx-1 focus-ring hover:text-on-surface transition-colors',
-          active && 'text-on-surface',
+          'group inline-flex items-center gap-1 rounded px-1 -mx-1 focus-ring hover:text-ink-900 transition-colors',
+          active && 'text-ink-900',
         )}
       >
         <span>{children}</span>
