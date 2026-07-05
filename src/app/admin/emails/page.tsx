@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { PageHeader } from '@/components/shell/PageHeader';
-import { FilterInput } from '@/components/ui/FilterField';
+import { FilterBar, FilterInput } from '@/components/ui/FilterField';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -105,8 +105,8 @@ export default async function EmailLogPage({
 
       <ComposeTracking orgs={orgs} />
 
-      {/* 篩選:狀態 chips + 類型 chips + 關鍵字 */}
-      <div className="mb-4 flex flex-col gap-2">
+      {/* 篩選:狀態 chips + 類型 chips + 關鍵字(統一 FilterBar 版位;批85) */}
+      <FilterBar>
         <div className="flex items-center gap-2 flex-wrap">
           <FilterChipLink href={qs({ status: null })} selected={!status}>
             全部狀態
@@ -154,7 +154,7 @@ export default async function EmailLogPage({
             className="flex-1"
           />
         </form>
-      </div>
+      </FilterBar>
 
       {logs.length === 0 ? (
         <Card>

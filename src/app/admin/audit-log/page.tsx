@@ -3,7 +3,8 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { PageHeader } from '@/components/shell/PageHeader';
-import { FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
+import { FilterBar, FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
+import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -111,42 +112,39 @@ export default async function AuditLogPage({
       <PageHeader
         title="稽核軌跡"
         subtitle="所有寫入操作之不可否認紀錄;顯示最近 200 筆。"
-        actions={
-          <div className="flex gap-1.5 flex-wrap">
-            <a href="/admin/audit-log">
-              <Chip tone={!entity ? 'primary' : 'neutral'} size="sm">全部</Chip>
-            </a>
-            {entityTypes.map((t) => (
-              <a key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`}>
-                <Chip tone={entity === t.entityType ? 'primary' : 'neutral'} size="sm">
-                  {entityLabel(t.entityType)}({t._count})
-                </Chip>
-              </a>
-            ))}
-          </div>
-        }
       />
 
-      {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
-      <form method="get" className="mb-5 flex items-end gap-2 flex-wrap">
-        {entity && <input type="hidden" name="entity" value={entity} />}
-        <FilterField label="操作者">
-          <FilterSelect name="actor" defaultValue={actorId ?? ''}>
-            <option value="">全部</option>
-            {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </FilterSelect>
-        </FilterField>
-        <FilterField label="起">
-          <FilterInput type="date" name="from" defaultValue={from ?? ''} />
-        </FilterField>
-        <FilterField label="迄">
-          <FilterInput type="date" name="to" defaultValue={to ?? ''} />
-        </FilterField>
-        <Button type="submit" size="sm">套用</Button>
-        {(actorId || from || to) && (
-          <Button href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} variant="ghost" size="sm">清除</Button>
-        )}
-      </form>
+      {/* 統一 FilterBar 版位(批85):物件類型 chips + 操作者/日期表單,不再塞進 header actions */}
+      <FilterBar>
+        <div className="flex gap-1.5 flex-wrap">
+          <FilterChipLink href="/admin/audit-log" selected={!entity}>全部</FilterChipLink>
+          {entityTypes.map((t) => (
+            <FilterChipLink key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`} selected={entity === t.entityType}>
+              {entityLabel(t.entityType)} <FilterChipCount selected={entity === t.entityType}>{t._count}</FilterChipCount>
+            </FilterChipLink>
+          ))}
+        </div>
+        {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
+        <form method="get" className="flex items-end gap-2 flex-wrap">
+          {entity && <input type="hidden" name="entity" value={entity} />}
+          <FilterField label="操作者">
+            <FilterSelect name="actor" defaultValue={actorId ?? ''}>
+              <option value="">全部</option>
+              {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </FilterSelect>
+          </FilterField>
+          <FilterField label="起">
+            <FilterInput type="date" name="from" defaultValue={from ?? ''} />
+          </FilterField>
+          <FilterField label="迄">
+            <FilterInput type="date" name="to" defaultValue={to ?? ''} />
+          </FilterField>
+          <Button type="submit" size="sm">套用</Button>
+          {(actorId || from || to) && (
+            <Button href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} variant="ghost" size="sm">清除</Button>
+          )}
+        </form>
+      </FilterBar>
 
       {logs.length === 0 ? (
         <Card>

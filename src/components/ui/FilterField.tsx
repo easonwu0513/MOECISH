@@ -14,6 +14,15 @@ const CONTROL =
   'h-9 rounded-md border border-outline-variant bg-surface px-2.5 text-body-sm text-on-surface ' +
   'transition-colors hover:border-outline focus-ring';
 
+/**
+ * 篩選列版位容器(設計精緻化;批85)——固定置於 PageHeader 下方,統一各後台頁的篩選擺放:
+ * 每一列(chips / 表單)為一個 flex row,列間 gap-3。杜絕「有的把篩選塞進 header actions、
+ * 有的放內文」的版位漂移。
+ */
+export function FilterBar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('mb-5 flex flex-col gap-3', className)}>{children}</div>;
+}
+
 /** 標籤 + 控制項的垂直包裝(小標題在上)。 */
 export function FilterField({
   label,
