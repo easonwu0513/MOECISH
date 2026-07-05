@@ -37,7 +37,7 @@ export function StackedBar({
   return (
     <div className={className}>
       <div
-        className="w-full rounded-full bg-surface-container-high overflow-hidden flex"
+        className="w-full rounded-full bg-paper-sunk overflow-hidden flex"
         style={{ height }}
         role="img"
         aria-label={aria || '尚無資料'}
@@ -50,12 +50,12 @@ export function StackedBar({
           )}
       </div>
       {legend && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-label-sm text-on-surface-variant">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-label-sm text-ink-500">
           {segments.map((s, i) =>
             s.label ? (
               <span key={i} className="inline-flex items-center gap-1.5">
                 <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', TONE_BG(s.tone))} aria-hidden />
-                {s.label} <span className="tabular-nums text-on-surface">{s.value}</span>
+                {s.label} <span className="tabular-nums text-ink-900">{s.value}</span>
               </span>
             ) : null,
           )}

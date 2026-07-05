@@ -47,7 +47,7 @@ export function Tabs({
 
   return (
     <div className={cn('', className)}>
-      <div role="tablist" className="flex border-b border-outline-variant">
+      <div role="tablist" className="flex border-b border-rule">
         {tabs.map((t, i) => {
           const selected = t.id === active;
           return (
@@ -65,7 +65,7 @@ export function Tabs({
                 'relative px-5 h-12 text-label-lg font-medium transition-colors duration-200 ease-standard focus-ring',
                 selected
                   ? 'text-primary-700'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/50',
+                  : 'text-ink-500 hover:text-ink-900 hover:bg-paper-sunk/50',
               )}
             >
               <span className="inline-flex items-center gap-1.5">

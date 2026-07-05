@@ -35,7 +35,7 @@ export function ProgressBar({
         aria-valuemin={0}
         aria-valuemax={max}
         aria-label={label}
-        className={cn('w-full bg-surface-container-highest rounded-full overflow-hidden', h)}
+        className={cn('w-full bg-paper-sunk rounded-full overflow-hidden', h)}
       >
         <div
           className={cn('h-full rounded-full transition-all duration-300 ease-emphasized-decel', toneBg)}
@@ -43,7 +43,7 @@ export function ProgressBar({
         />
       </div>
       {showLabel && (
-        <div className="mt-1 flex justify-between text-caption text-on-surface-variant">
+        <div className="mt-1 flex justify-between text-caption text-ink-500">
           <span>{Math.round(pct)}%</span>
           <span>{value} / {max}</span>
         </div>

@@ -7,7 +7,7 @@ import type { Tone } from '@/lib/tone';
  * Tone 型別取自 lib/tone 單一來源(批72);class 為 Alert 專屬變體(soft 去 ring 前綴、全域另加 ring-1 ring-inset)。
  */
 const tones: Record<Tone, string> = {
-  neutral: 'bg-surface-container-high text-on-surface ring-outline-variant',
+  neutral: 'bg-paper-sunk text-ink-900 ring-rule',
   primary: 'bg-primary-50 text-primary-800 ring-primary-200',
   sage: 'bg-sage-50 text-sage-800 ring-sage-200',
   success: 'bg-success-50 text-success-700 ring-success-200',

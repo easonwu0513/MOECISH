@@ -22,11 +22,11 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    'bg-primary-container text-on-primary-container shadow-elev-3 hover:shadow-elev-4 active:shadow-elev-3',
+    'bg-focus-wash text-ink-900 shadow-elev-3 hover:shadow-elev-4 active:shadow-elev-3',
   secondary:
     'bg-sage-100 text-sage-800 shadow-elev-3 hover:shadow-elev-4 active:shadow-elev-3',
   surface:
-    'bg-surface-container-high text-primary-700 shadow-elev-3 hover:shadow-elev-4 active:shadow-elev-3',
+    'bg-paper-sunk text-primary-700 shadow-elev-3 hover:shadow-elev-4 active:shadow-elev-3',
 };
 
 export const FAB = forwardRef<HTMLButtonElement, Props>(function FAB(

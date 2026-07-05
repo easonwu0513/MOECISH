@@ -46,8 +46,8 @@ export function THead({ sticky, className, children }: { sticky?: boolean; class
   return (
     <thead
       className={cn(
-        'text-label-sm uppercase tracking-wide text-on-surface-variant bg-surface-container-low',
-        sticky && '[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-surface-container-low',
+        'text-label-sm uppercase tracking-wide text-ink-500 bg-paper-sunk',
+        sticky && '[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:bg-paper-sunk',
         className,
       )}
     >
@@ -65,7 +65,7 @@ export function Th({ numeric, stickyCol, className, ...rest }: ThHTMLAttributes<
       className={cn(
         'px-5 py-3 font-medium',
         numeric ? 'text-right' : 'text-left',
-        stickyCol && 'sticky left-0 z-30 bg-surface-container-low',
+        stickyCol && 'sticky left-0 z-30 bg-paper-sunk',
         className,
       )}
       {...rest}
@@ -77,8 +77,8 @@ export function Tr({ hover = true, className, ...rest }: HTMLAttributes<HTMLTabl
   return (
     <tr
       className={cn(
-        'border-t border-outline-variant/60',
-        hover && 'hover:bg-surface-container-low transition-colors',
+        'border-t border-rule',
+        hover && 'hover:bg-paper-sunk transition-colors',
         className,
       )}
       {...rest}
@@ -93,7 +93,7 @@ export function Td({ numeric, stickyCol, className, ...rest }: TdHTMLAttributes<
       className={cn(
         'px-5 py-3',
         numeric && 'text-right tabular-nums whitespace-nowrap',
-        stickyCol && 'sticky left-0 z-10 bg-surface-container-lowest',
+        stickyCol && 'sticky left-0 z-10 bg-card',
         className,
       )}
       {...rest}

@@ -27,7 +27,7 @@ export function IndexBadge({
   const look =
     state === 'done'   ? 'bg-success-50 text-success-700' :
     state === 'active' ? 'bg-primary-600 text-white' :
-    'bg-surface-container text-on-surface-variant';
+    'bg-paper-sunk text-ink-500';
   return (
     <span
       aria-hidden

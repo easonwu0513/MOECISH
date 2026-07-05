@@ -40,12 +40,12 @@ type ToneFacets = {
 
 export const TONE: Record<Tone, ToneFacets> = {
   neutral: {
-    soft:     'bg-surface-container-high text-on-surface',
+    soft:     'bg-paper-sunk text-ink-700',
     solid:    'bg-neutral-800 text-white',
-    fill:     'bg-outline-variant',
-    outlined: 'bg-transparent text-on-surface-variant border border-outline-variant',
-    text:     'text-on-surface-variant',
-    ring:     'ring-outline-variant',
+    fill:     'bg-rule-strong',
+    outlined: 'bg-transparent text-ink-500 border border-rule',
+    text:     'text-ink-500',
+    ring:     'ring-rule',
     dot:      'bg-neutral-500',
   },
   primary: {
