@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatTopBar } from '@/components/ui/StatTopBar';
+import { IndexBadge } from '@/components/ui/IndexBadge';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { StackedBar } from '@/components/ui/StackedBar';
 import PasswordExpiryNotice from '@/components/shell/PasswordExpiryNotice';
@@ -534,14 +535,7 @@ export default async function HomePage() {
                 return (
                   <div key={s.no} className={`p-5 ${active ? 'bg-primary-50/50' : 'bg-surface-container-lowest'}`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-caption font-semibold tabular-nums shrink-0 ${
-                          active ? 'bg-primary-600 text-white' : 'bg-surface-container-high text-on-surface-variant'
-                        }`}
-                        aria-hidden
-                      >
-                        {s.no}
-                      </span>
+                      <IndexBadge n={s.no} state={active ? 'active' : 'default'} size="sm" shape="circle" />
                       <p className={`text-label-lg ${active ? 'text-primary-800 font-semibold' : 'text-on-surface'}`}>
                         {s.title}
                       </p>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { IndexBadge } from '@/components/ui/IndexBadge';
 import { Chip } from '@/components/ui/Chip';
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { TextField } from '@/components/ui/TextField';
@@ -411,13 +412,7 @@ export default function PrepBoard({
       <Card key={item.id} padded={false} variant={confirmedLook ? 'filled' : 'elevated'}>
         <div className="p-5">
           <div className="flex items-start gap-4">
-            <span
-              className={`w-8 h-8 rounded-md flex items-center justify-center text-body-sm font-medium tabular-nums shrink-0 ${
-                confirmedLook ? 'bg-success-50 text-success-700' : 'bg-surface-container text-on-surface-variant'
-              }`}
-            >
-              {confirmedLook ? <Check size={16} /> : idx + 1}
-            </span>
+            <IndexBadge n={idx + 1} state={confirmedLook ? 'done' : 'default'} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-title text-on-surface">{item.title}</p>
