@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
@@ -126,8 +125,8 @@ export default function UsersDirectory({
 
       {/* 邀請(待接受/已過期):過期可重寄(效期展延 14 天)、待接受可撤銷 */}
       {shownInvites.length > 0 && (
-        <Card padded={false} variant="outlined">
-          <div className="px-5 py-3 bg-warning-50 text-warning-700 text-label-sm uppercase tracking-wide border-b border-outline-variant/60">
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
+          <div className="px-5 py-3 bg-paper-sunk text-ink-700 text-label-sm uppercase tracking-wide border-b border-rule-strong">
             邀請({shownInvites.length})
           </div>
           <TableScroll>
@@ -144,19 +143,19 @@ export default function UsersDirectory({
                 {shownInvites.map((inv) => (
                   <Tr key={inv.id} hover={false}>
                     <Td>
-                      <div className="font-medium text-on-surface">{inv.name}</div>
-                      <div className="text-caption font-mono text-on-surface-variant">{inv.email}</div>
+                      <div className="font-medium text-ink-900">{inv.name}</div>
+                      <div className="text-caption font-mono text-ink-500">{inv.email}</div>
                     </Td>
                     <Td>
                       <Chip size="sm" tone={ROLE_TONE[inv.role]}>{ROLE_LABELS[inv.role]}</Chip>
                     </Td>
-                    <Td className="text-on-surface-variant">{inv.orgName ?? '—'}</Td>
+                    <Td className="text-ink-500">{inv.orgName ?? '—'}</Td>
                     <Td>
                       {inv.status === 'pending'
                         ? <Chip size="sm" tone="warning" dot>待接受</Chip>
                         : <Chip size="sm" tone="neutral" dot>已過期</Chip>}
                     </Td>
-                    <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    <Td className="text-right text-caption text-ink-500 tabular-nums">
                       {fmtROC(inv.expiresAtISO)}
                     </Td>
                     <Td className="text-right">
@@ -167,12 +166,12 @@ export default function UsersDirectory({
               </tbody>
             </Table>
           </TableScroll>
-        </Card>
+        </div>
       )}
 
       {/* 帳號(啟用/停用) */}
       {shownUsers.length > 0 && (
-        <Card padded={false} variant="outlined">
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
           <TableScroll>
             <Table>
               <THead>
@@ -187,13 +186,13 @@ export default function UsersDirectory({
                 {shownUsers.map((u) => (
                   <Tr key={u.id}>
                     <Td>
-                      <div className="font-medium text-on-surface">{u.name}</div>
-                      <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
+                      <div className="font-medium text-ink-900">{u.name}</div>
+                      <div className="text-caption font-mono text-ink-500">{u.email}</div>
                     </Td>
                     <Td>
                       <Chip size="sm" tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Chip>
                     </Td>
-                    <Td className="text-on-surface-variant">{u.orgName ?? '—'}</Td>
+                    <Td className="text-ink-500">{u.orgName ?? '—'}</Td>
                     <Td>
                       {u.isActive ? (
                         <Chip size="sm" tone="success">啟用</Chip>
@@ -201,10 +200,10 @@ export default function UsersDirectory({
                         <div className="space-y-1">
                           <Chip size="sm" tone="neutral">停用</Chip>
                           {u.disableReason && (
-                            <p className="text-caption text-on-surface-variant max-w-[16rem] leading-snug">
+                            <p className="text-caption text-ink-500 max-w-[16rem] leading-snug">
                               {u.disableReason}
                               {u.disabledByName && (
-                                <span className="block text-on-surface-variant/70">
+                                <span className="block text-ink-500">
                                   — {u.disabledByName}{u.disabledAtISO ? ` · ${fmtROC(u.disabledAtISO)}` : ''}
                                 </span>
                               )}
@@ -213,7 +212,7 @@ export default function UsersDirectory({
                         </div>
                       )}
                     </Td>
-                    <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    <Td className="text-right text-caption text-ink-500 tabular-nums">
                       {u.lastLoginAtISO ? fmtROCDateTime(u.lastLoginAtISO) : '尚未登入'}
                     </Td>
                     <Td className="text-right">
@@ -231,17 +230,17 @@ export default function UsersDirectory({
               </tbody>
             </Table>
           </TableScroll>
-        </Card>
+        </div>
       )}
 
       {shownInvites.length === 0 && shownUsers.length === 0 && (
-        <Card>
+        <div className="rounded-md border border-rule bg-card">
           <EmptyState
             icon={<Users size={28} />}
             title="沒有符合條件的人員"
             description="調整上方篩選或搜尋條件;或用右上角「邀請人員」建立邀請。"
           />
-        </Card>
+        </div>
       )}
     </div>
   );

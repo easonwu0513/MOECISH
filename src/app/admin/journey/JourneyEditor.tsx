@@ -226,10 +226,10 @@ export default function JourneyEditor({ data }: { data: EData }) {
         <div className="flex flex-col gap-4">
           {stages.map((s, si) => (
             <Card key={s.id} padded={false} variant="elevated">
-              <div className="p-4 border-b border-outline-variant/50 flex items-start justify-between gap-3">
+              <div className="p-4 border-b border-rule flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-title-md text-on-surface">{s.title}</p>
+                    <p className="text-title-md text-ink-900">{s.title}</p>
                     <Chip tone="neutral" size="sm">{s.stageKey}</Chip>
                     <Chip tone="neutral" size="sm">{s.items.length} 項</Chip>
                     {/* 年度 SOP 排程(僅 PROGRAMME):何時開始、何時之前完成 */}
@@ -241,7 +241,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
                       </Chip>
                     )}
                   </div>
-                  {s.summary && <p className="mt-1 text-caption text-on-surface-variant">{s.summary}</p>}
+                  {s.summary && <p className="mt-1 text-caption text-ink-500">{s.summary}</p>}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   {/* 階段排序:影響待辦卡「查看全部」與 /journey 呈現順序 */}
@@ -252,12 +252,12 @@ export default function JourneyEditor({ data }: { data: EData }) {
                 </div>
               </div>
               {s.items.length > 0 && (
-                <ul className="divide-y divide-outline-variant/40">
+                <ul className="divide-y divide-rule">
                   {s.items.map((it) => (
                     <li key={it.id} className="px-4 py-2.5 flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-body-sm text-on-surface">{it.title}</span>
+                          <span className="text-body-sm text-ink-900">{it.title}</span>
                           {scope === 'CYCLE' && (
                             <Chip tone="neutral" size="sm">{it.role ? ROLE_LABELS[it.role] : '全體'}</Chip>
                           )}
@@ -270,7 +270,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
                             <Chip tone="warning" size="sm">手動勾選</Chip>
                           )}
                         </div>
-                        {it.hint && <p className="mt-0.5 text-caption text-on-surface-variant">{it.hint}</p>}
+                        {it.hint && <p className="mt-0.5 text-caption text-ink-500">{it.hint}</p>}
                       </div>
                       <div className="flex gap-1.5 shrink-0">
                         <Button size="sm" variant="ghost" onClick={() => openEditItem(s.id, it)}>編輯</Button>
@@ -280,7 +280,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
                   ))}
                 </ul>
               )}
-              <div className="p-3 border-t border-outline-variant/40">
+              <div className="p-3 border-t border-rule">
                 <Button size="sm" variant="text" leadingIcon={<Plus size={14} />} onClick={() => openAddItem(s.id)}>新增項目</Button>
               </div>
             </Card>
@@ -304,7 +304,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
           <TextField label="階段名稱" value={stageForm.title} onChange={(e) => setStageForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:委員共識會議" />
           <TextField label="階段代碼" value={stageForm.stageKey} onChange={(e) => setStageForm((f) => ({ ...f, stageKey: e.target.value }))} placeholder={scope === 'CYCLE' ? '週期狀態,如 ONSITE' : '如 P2_CONSENSUS'} />
           {scope === 'CYCLE' && (
-            <p className="-mt-2 text-caption text-on-surface-variant leading-relaxed">
+            <p className="-mt-2 text-caption text-ink-500 leading-relaxed">
               填對應週期狀態(DRAFT / PREPARATION / READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED)可在週期頁自動展開目前階段;也可自訂任意代碼(自訂階段照常顯示於「查看全部」,但不會自動對應目前階段)。
             </p>
           )}
@@ -316,7 +316,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
                 <TextField label="開始日期(選填)" type="date" value={stageForm.startDate} onChange={(e) => setStageForm((f) => ({ ...f, startDate: e.target.value }))} />
                 <TextField label="截止日期(選填)" type="date" value={stageForm.dueDate} onChange={(e) => setStageForm((f) => ({ ...f, dueDate: e.target.value }))} />
               </div>
-              <p className="-mt-2 text-caption text-on-surface-variant leading-relaxed">
+              <p className="-mt-2 text-caption text-ink-500 leading-relaxed">
                 標示此階段「何時開始做、何時之前要完成」;會顯示於精靈範本與「中心年度計畫執行精靈」頁。
               </p>
             </>
@@ -341,20 +341,20 @@ export default function JourneyEditor({ data }: { data: EData }) {
           <Textarea label="提示 / 文件位置(選填)" value={itemForm.hint} onChange={(e) => setItemForm((f) => ({ ...f, hint: e.target.value }))} rows={2} />
           {scope === 'CYCLE' && (
             <div>
-              <p className="text-caption font-medium text-on-surface-variant mb-1.5">負責角色</p>
+              <p className="text-caption font-medium text-ink-500 mb-1.5">負責角色</p>
               <Segmented value={itemForm.role} onChange={(v) => setItemForm((f) => ({ ...f, role: v }))} options={ROLE_OPTS} />
             </div>
           )}
 
           {/* 完成判定:系統自動(綁訊號)/必做手動/純提醒(CYCLE 三選;PROGRAMME 只分手動與提醒) */}
           <div>
-            <p className="text-caption font-medium text-on-surface-variant mb-1.5">完成判定</p>
+            <p className="text-caption font-medium text-ink-500 mb-1.5">完成判定</p>
             <Segmented
               value={itemForm.kind}
               onChange={(v) => setItemForm((f) => ({ ...f, kind: v as CheckKind }))}
               options={scope === 'CYCLE' ? KIND_OPTS : KIND_OPTS.filter((o) => o.value !== 'AUTO')}
             />
-            <p className="mt-1.5 text-caption text-on-surface-variant leading-relaxed">
+            <p className="mt-1.5 text-caption text-ink-500 leading-relaxed">
               {itemForm.kind === 'AUTO'
                 ? '由系統依週期實況自動打勾(選擇下方訊號)。'
                 : itemForm.kind === 'MANUAL'

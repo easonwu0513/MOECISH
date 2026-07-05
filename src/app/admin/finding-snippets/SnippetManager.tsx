@@ -105,7 +105,7 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
     <div className="flex flex-col gap-6">
       {/* 新增 */}
       <Card variant="outlined">
-        <h2 className="text-title-md text-on-surface mb-3">新增片語</h2>
+        <h2 className="text-title-md text-ink-900 mb-3">新增片語</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select label="適用構面" value={newAspect} onChange={(e) => setNewAspect(e.target.value)}>
             {SNIPPET_ASPECTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -130,9 +130,9 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
 
       {/* 清單 */}
       <Card variant="outlined" padded={false}>
-        <div className="px-5 py-3 border-b border-outline-variant/40 flex items-center gap-2">
-          <ClipboardCheck size={16} className="text-on-surface-variant" />
-          <span className="text-title text-on-surface">片語清單</span>
+        <div className="px-5 py-3 border-b border-rule flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-ink-500" />
+          <span className="text-title text-ink-900">片語清單</span>
           <Chip size="sm" tone="neutral">{list.length}</Chip>
         </div>
         {list.length === 0 ? (
@@ -140,7 +140,7 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
             <EmptyState icon={<ClipboardCheck size={26} />} title="尚無片語" description="於上方新增第一則常用發現片語。" />
           </div>
         ) : (
-          <ul className="divide-y divide-outline-variant/40">
+          <ul className="divide-y divide-rule">
             {list.map((s) => (
               <li key={s.id} className="px-5 py-4">
                 {editId === s.id ? (
@@ -165,7 +165,7 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
                       <Chip size="sm" tone="primary">{snippetAspectLabel(s.aspect)}</Chip>
                       <Chip size="sm" tone="sage">{snippetKindLabel(s.kind)}</Chip>
                     </div>
-                    <p className="flex-1 min-w-0 text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">{s.text}</p>
+                    <p className="flex-1 min-w-0 text-body-sm text-ink-500 leading-relaxed whitespace-pre-wrap">{s.text}</p>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button size="sm" variant="text" onClick={() => startEdit(s)}>編輯</Button>
                       <Button size="sm" variant="text" onClick={() => setDeleting(s)}>刪除</Button>

@@ -240,7 +240,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
             </Button>
           </div>
           {/* 歷年=唯讀留存紀錄:改今年不會動到這裡;沿用舊範本用「複製至今年」 */}
-          <div className={`rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-on-surface-variant leading-relaxed`}>
+          <div className={`rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-ink-500 leading-relaxed`}>
             <span className="font-medium text-primary-800">歷年清單為留存紀錄(唯讀)</span>
             ——保存近五年各年度的清單與文件範本,僅供檢閱與下載,不可編輯或刪除。
             每年度的清單請以「複製至今年」代入後,於本年度清單小幅修正;修改今年不會動到歷年紀錄。
@@ -284,7 +284,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
             return (
               <section key={cat}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-title-md text-on-surface">{PREP_CATEGORY_LABELS[cat]}</h2>
+                  <h2 className="text-title-md text-ink-900">{PREP_CATEGORY_LABELS[cat]}</h2>
                   <Chip tone="neutral" size="sm">{g.length}</Chip>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -293,27 +293,27 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
                       <div className="p-4 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-title text-on-surface">{it.title}</p>
+                            <p className="text-title text-ink-900">{it.title}</p>
                             {!it.required && <Chip tone="neutral" size="sm">選附</Chip>}
                           </div>
                           {it.description && (
-                            <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{it.description}</p>
+                            <p className="mt-1 text-body-sm text-ink-500 leading-relaxed">{it.description}</p>
                           )}
                           {/* 文件範本:僅此處可上傳 Word/Excel 等;機關於「稽核前資料準備」頁整包下載。
                               歷年檢視唯讀:保留下載,拔除刪除/上傳 */}
                           <div className="mt-2 flex flex-col gap-1">
                             {it.files.map((f) => (
                               <div key={f.id} className="flex items-center gap-2 text-caption min-w-0">
-                                <FileText size={13} className="shrink-0 text-on-surface-variant" />
+                                <FileText size={13} className="shrink-0 text-ink-500" />
                                 <a href={`/api/prep-template-files/${f.id}/download`} className="text-primary-700 hover:underline truncate">
                                   {f.originalName}
                                 </a>
-                                <span className="text-on-surface-variant shrink-0 tabular-nums">{fmtSize(f.sizeBytes)}</span>
+                                <span className="text-ink-500 shrink-0 tabular-nums">{fmtSize(f.sizeBytes)}</span>
                                 {!isHistory && (
                                   <button
                                     type="button"
                                     onClick={() => setDeletingFile({ itemId: it.id, file: f })}
-                                    className="shrink-0 text-on-surface-variant hover:text-danger-700 focus-ring rounded-sm px-1"
+                                    className="shrink-0 text-ink-500 hover:text-danger-700 focus-ring rounded-sm px-1"
                                   >
                                     刪除
                                   </button>
@@ -375,7 +375,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
       >
         <div className="flex flex-col gap-4 pt-2">
           <div>
-            <p className="text-caption font-medium text-on-surface-variant mb-1.5">分區</p>
+            <p className="text-caption font-medium text-ink-500 mb-1.5">分區</p>
             <Segmented
               value={form.category}
               onChange={(v) => setForm((f) => ({ ...f, category: v as PrepCategory }))}
@@ -388,7 +388,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
           </div>
           <TextField label="項目名稱" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:資通安全維護計畫" />
           <Textarea label="說明(選填)" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} placeholder="例:最新核定版本" />
-          <label className="flex items-center gap-2 text-body-sm text-on-surface">
+          <label className="flex items-center gap-2 text-body-sm text-ink-900">
             <input
               type="checkbox"
               checked={form.required}
