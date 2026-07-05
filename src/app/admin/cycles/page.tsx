@@ -21,7 +21,7 @@ function Readout({ label, value, sub, tone }: { label: string; value: string; su
     <div className="rounded-md border border-rule bg-card px-5 py-4">
       <div className="text-body-sm text-ink-500">{label}</div>
       <div className={`mt-1.5 text-headline font-semibold tabular-nums ${valueColor}`}>{value}</div>
-      <div className="mt-1 text-caption text-ink-400 tabular-nums">{sub}</div>
+      <div className="mt-1 text-caption text-ink-500 tabular-nums">{sub}</div>
     </div>
   );
 }
@@ -145,7 +145,7 @@ export default async function AdminCyclesPage({
 
       {/* ── 當前態勢:三讀數卡 ── */}
       <section className="mb-8">
-        <div className="mb-3 font-serif text-title text-ink-400">當前態勢</div>
+        <div className="mb-3 font-serif text-title text-ink-500">當前態勢</div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Readout label="進行中週期" value={String(activeCount)} sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
           <Readout label="落後(逾期 / 停滯)" value={String(behindCount)} sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} tone={behindCount > 0 ? 'danger' : undefined} />
@@ -156,7 +156,7 @@ export default async function AdminCyclesPage({
       {/* ── 週期清單:篩選 + 髮絲帳冊表 ── */}
       <section>
         <div className="mb-3 flex items-end justify-between gap-3 flex-wrap">
-          <div className="font-serif text-title text-ink-400">{behindOnly ? '落後段落' : '週期清單'}</div>
+          <div className="font-serif text-title text-ink-500">{behindOnly ? '落後段落' : '週期清單'}</div>
           <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
             <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
             <FilterChipLink href={behindHref(true)} selected={behindOnly}>
@@ -176,12 +176,12 @@ export default async function AdminCyclesPage({
           </div>
         )}
 
-        <p className="mb-3 text-caption text-ink-400 leading-relaxed max-w-2xl">{behindLede}</p>
+        <p className="mb-3 text-caption text-ink-500 leading-relaxed max-w-2xl">{behindLede}</p>
 
         {shown.length === 0 ? (
           <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
             <p className="text-title text-ink-700">{behindOnly ? '目前沒有落後的週期' : '尚無稽核週期'}</p>
-            <p className="mt-1.5 text-body-sm text-ink-400">
+            <p className="mt-1.5 text-body-sm text-ink-500">
               {behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立,或到醫院管理逐家開立。'}
             </p>
           </div>
@@ -218,13 +218,13 @@ export default async function AdminCyclesPage({
                         </td>
                         <td className="px-4 py-3">
                           {total === 0 ? (
-                            <span className="text-caption text-ink-400">尚未發布缺失</span>
+                            <span className="text-caption text-ink-500">尚未發布缺失</span>
                           ) : (
                             <div className="min-w-40">
                               <div className="h-1.5 rounded-full bg-paper-sunk overflow-hidden">
                                 <div className={`h-full rounded-full ${allPassed ? 'bg-success-500' : 'bg-primary-500'}`} style={{ width: `${Math.round((passed / total) * 100)}%` }} />
                               </div>
-                              <p className="mt-1 text-caption text-ink-400 tabular-nums">
+                              <p className="mt-1 text-caption text-ink-500 tabular-nums">
                                 通過 {passed}/{total}
                                 {returned > 0 && <span className="text-danger-600"> · 退回 {returned}</span>}
                               </p>
@@ -232,12 +232,12 @@ export default async function AdminCyclesPage({
                           )}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-ink-700">{c.assignments.length}</td>
-                        <td className={`px-4 py-3 text-right tabular-nums ${overdue ? 'text-danger-600 font-medium' : 'text-ink-400'}`}>{fmtROC(c.dueDate)}</td>
+                        <td className={`px-4 py-3 text-right tabular-nums ${overdue ? 'text-danger-600 font-medium' : 'text-ink-500'}`}>{fmtROC(c.dueDate)}</td>
                         <td className="px-4 py-3 text-right">
                           {stalled ? (
                             <span className={`tabular-nums font-medium ${stallDays >= STALL_DANGER ? 'text-danger-600' : 'text-warning-700'}`}>停滯 {stallDays} 天</span>
                           ) : (
-                            <span className="text-ink-300">—</span>
+                            <span className="text-ink-500">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">

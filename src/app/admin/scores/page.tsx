@@ -132,7 +132,7 @@ export default async function CrossOrgScoresPage({
       {rows.length === 0 ? (
         <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
           <p className="text-title text-ink-700">{yearFilter ? EMPTY.noResults.title : '尚無評分資料'}</p>
-          <p className="mx-auto mt-1.5 max-w-md text-body-sm text-ink-400">
+          <p className="mx-auto mt-1.5 max-w-md text-body-sm text-ink-500">
             {yearFilter
               ? '此年度尚無已完成評分的稽核週期;試試其他年度或查看全部。'
               : '待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。'}
@@ -178,7 +178,7 @@ export default async function CrossOrgScoresPage({
                         weakest={i === weakestCol}
                       >
                         {DIMENSION_NUM[dim as Dimension]}
-                        <span className="block text-label-sm font-normal text-on-surface-variant">滿{DIMENSION_MAX_SCORE[dim as Dimension]}</span>
+                        <span className="block text-label-sm font-normal text-ink-500">滿{DIMENSION_MAX_SCORE[dim as Dimension]}</span>
                       </SortableTh>
                     ))}
                     <SortableTh keyName="total" active={sortKey === 'total'} dir={dir} href={sortHref('total')} className="px-3">總分</SortableTh>
@@ -186,9 +186,9 @@ export default async function CrossOrgScoresPage({
                 </thead>
                 <tbody>
                   {sorted.map((r) => (
-                    <tr key={r.id} className="border-t border-rule hover:bg-paper-sunk transition-colors">
-                      <td className="px-4 py-2 text-ink-900 whitespace-nowrap sticky left-0 z-10 bg-card">{r.org}</td>
-                      <td className="px-2 py-2 text-center tabular-nums text-ink-400">{r.yearROC}</td>
+                    <tr key={r.id} className="group border-t border-rule hover:bg-paper-sunk transition-colors">
+                      <td className="px-4 py-2 text-ink-900 whitespace-nowrap sticky left-0 z-10 bg-card group-hover:bg-paper-sunk">{r.org}</td>
+                      <td className="px-2 py-2 text-center tabular-nums text-ink-500">{r.yearROC}</td>
                       {r.cells.map((v, i) => {
                         const dim = DIMENSION_ORDER[i] as Dimension;
                         const grade = v !== null ? gradeOf(dim, Math.round(v)) : null;
@@ -198,12 +198,12 @@ export default async function CrossOrgScoresPage({
                             key={dim}
                             className={cn(
                               'px-2 py-2 text-center align-middle',
-                              tone === 'neutral' ? 'text-ink-400' : toneClasses(tone).iconBg,
+                              tone === 'neutral' ? 'text-ink-500' : toneClasses(tone).iconBg,
                               i === weakestCol && 'ring-1 ring-inset ring-danger-300',
                             )}
                           >
                             {v === null ? (
-                              <span className="text-ink-300">—</span>
+                              <span className="text-ink-500">—</span>
                             ) : (
                               <span className="inline-flex flex-col items-center leading-tight">
                                 <span className="tabular-nums font-medium">{v}</span>
@@ -219,7 +219,7 @@ export default async function CrossOrgScoresPage({
                         ) : r.complete ? (
                           r.total
                         ) : (
-                          <span className="text-ink-400 font-medium" title={`僅含已評 ${r.scored}/${DIMENSION_ORDER.length} 構面之小計`}>
+                          <span className="text-ink-500 font-medium" title={`僅含已評 ${r.scored}/${DIMENSION_ORDER.length} 構面之小計`}>
                             {r.total}*
                           </span>
                         )}
@@ -242,7 +242,7 @@ export default async function CrossOrgScoresPage({
                         const sum = Math.round(present.reduce((a, b) => a + b, 0) * 10) / 10;
                         return present.length === colAvg.length
                           ? sum
-                          : <span className="text-ink-400" title={`僅含已評 ${present.length}/${colAvg.length} 構面之小計`}>{sum}*</span>;
+                          : <span className="text-ink-500" title={`僅含已評 ${present.length}/${colAvg.length} 構面之小計`}>{sum}*</span>;
                       })()}
                     </td>
                   </tr>
@@ -253,7 +253,7 @@ export default async function CrossOrgScoresPage({
         </>
       )}
 
-      <p className="mt-4 text-caption text-ink-400">
+      <p className="mt-4 text-caption text-ink-500">
         註:此為螢幕比較工具;正式分數以各委員附件17 評分表為準。「九」為評核項(AuditScore.dimension),與缺失之三構面(策略/管理/技術)不同軸。
         帶 * 之總分為「已評構面小計」(尚有構面未評分,九構面全評後即為正式總分)。
       </p>
