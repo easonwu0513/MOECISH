@@ -17,6 +17,7 @@ import {
 } from '@/components/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
+import { TONE, POST_CATEGORY_TONE } from '@/lib/tone';
 
 /** Markdown → 純文字摘要(新聞卡用,僅去符號不渲染)。 */
 function excerpt(md: string, len = 64): string {
@@ -48,19 +49,6 @@ const PHOTO_POOL = [
   { src: '/photos/med-10.jpg', alt: '資安監控數據儀表板' },
   { src: '/photos/med-4.jpg', alt: '資安稽核文件審閱與工作底稿' },
 ];
-
-const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {
-  ANNOUNCEMENT: 'primary',
-  INTEL: 'sage',
-  VULN_ALERT: 'danger',
-  EVENT: 'warning',
-};
-const CATEGORY_BAR: Record<PostCategory, string> = {
-  ANNOUNCEMENT: 'bg-primary-500',
-  INTEL: 'bg-sage-500',
-  VULN_ALERT: 'bg-danger-500',
-  EVENT: 'bg-warning-500',
-};
 
 export default async function LandingPage() {
   const session = await auth();
@@ -111,28 +99,10 @@ export default async function LandingPage() {
       )}
 
       {/* ════ Hero ════ */}
+      {/* 六張輪播:36s 一輪,每張 ~6s,交疊 1s 淡入淡出;第 1 張常駐底層。
+          keyframes 與 .medfade-* 已收進 globals.css(批76),並於 prefers-reduced-motion 停在第一張。 */}
       <section className="relative overflow-hidden">
-        {/* 六張輪播:36s 一輪,每張 ~6s,交疊 1s 淡入淡出;第 1 張常駐底層 */}
-        <style>{`
-          @keyframes medfade2 { 0%, 13.9% { opacity: 0 } 16.7%, 30.5% { opacity: 1 } 33.4%, 100% { opacity: 0 } }
-          @keyframes medfade3 { 0%, 30.5% { opacity: 0 } 33.4%, 47.2% { opacity: 1 } 50.1%, 100% { opacity: 0 } }
-          @keyframes medfade4 { 0%, 47.2% { opacity: 0 } 50.1%, 63.9% { opacity: 1 } 66.8%, 100% { opacity: 0 } }
-          @keyframes medfade5 { 0%, 63.9% { opacity: 0 } 66.8%, 80.5% { opacity: 1 } 83.4%, 100% { opacity: 0 } }
-          @keyframes medfade6 { 0%, 80.5% { opacity: 0 } 83.4%, 97.2% { opacity: 1 } 100% { opacity: 0 } }
-          .medfade-2 { animation: medfade2 36s ease-in-out infinite }
-          .medfade-3 { animation: medfade3 36s ease-in-out infinite }
-          .medfade-4 { animation: medfade4 36s ease-in-out infinite }
-          .medfade-5 { animation: medfade5 36s ease-in-out infinite }
-          .medfade-6 { animation: medfade6 36s ease-in-out infinite }
-        `}</style>
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse 75% 65% at 10% 0%, rgba(40,82,160,0.07), transparent 65%)',
-          }}
-          aria-hidden
-        />
+        <div className="absolute inset-0 pointer-events-none bg-hero-ambient" aria-hidden />
         <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-20 sm:pb-24">
           <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_440px] items-center gap-12 lg:gap-x-16">
             {/* 文案 */}
@@ -168,10 +138,7 @@ export default async function LandingPage() {
             </div>
 
             {/* 醫療 × 稽核場景輪播(六張交錯) */}
-            <div
-              className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden ring-1 ring-on-surface/10 animate-fade-in"
-              style={{ boxShadow: '0 1px 3px 0 rgba(24,36,56,0.10), 0 4px 10px 3px rgba(24,36,56,0.06), inset 0 1px 0 rgba(255,255,255,0.5)' }}
-            >
+            <div className="relative w-full aspect-[16/10] lg:aspect-auto lg:h-[520px] rounded-2xl overflow-hidden ring-1 ring-on-surface/10 animate-fade-in shadow-elev-3">
               {heroPhotos.map((p, i) => (
                 <img
                   key={p.src}
@@ -191,10 +158,7 @@ export default async function LandingPage() {
                 aria-hidden
               />
               {/* 品牌浮卡 */}
-              <div
-                className="absolute left-4 bottom-4 flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-xl pl-3 pr-5 py-2.5 shadow-elev-2"
-                style={{ boxShadow: '0 1px 2px 0 rgba(24,36,56,0.08), 0 2px 6px 2px rgba(24,36,56,0.05), inset 0 1px 0 rgba(255,255,255,0.7)' }}
-              >
+              <div className="absolute left-4 bottom-4 flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-xl pl-3 pr-5 py-2.5 shadow-elev-2-hi">
                 <Logo size={36} />
                 <div className="leading-tight">
                   <p className="text-label-lg font-semibold text-on-surface">C.I.S.H</p>
@@ -241,11 +205,11 @@ export default async function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((p) => (
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
-                <article className="relative h-full rounded-lg border border-outline-variant/50 bg-surface-container-lowest overflow-hidden transition-colors duration-200 ease-standard group-hover:border-primary-200">
-                  <div className={`h-0.5 ${CATEGORY_BAR[p.category as PostCategory] ?? 'bg-primary-500'}`} aria-hidden />
+                <article className="relative h-full rounded-lg border border-outline-variant/70 bg-surface-container-lowest overflow-hidden transition-[border-color,box-shadow,transform] duration-200 ease-standard group-hover:border-primary-200 group-hover:shadow-elev-1 group-active:scale-[0.99] group-active:border-primary-300">
+                  <div className={`h-0.5 ${TONE[POST_CATEGORY_TONE[p.category as PostCategory] ?? 'primary'].dot}`} aria-hidden />
                   <div className="p-7">
                     <div className="flex items-center gap-2 mb-3.5">
-                      <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
+                      <Chip tone={POST_CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
                         {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
                       </Chip>
                       {p.pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
@@ -292,23 +256,9 @@ export default async function LandingPage() {
 
       {/* ════ CTA 收尾 ════ */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
-        <div
-          className="relative overflow-hidden rounded-xl px-8 py-14 sm:px-14 text-center"
-          style={{
-            background: 'linear-gradient(135deg, #1a334a 0%, #254868 55%, #2f5b88 100%)',
-          }}
-        >
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse 60% 80% at 85% 10%, rgba(183,215,232,0.12), transparent 60%)' }}
-            aria-hidden
-          />
-          {/* 官方文件封面質地:極細等距白 hairline */}
-          <div
-            className="absolute inset-0 pointer-events-none opacity-[0.06]"
-            style={{ backgroundImage: 'repeating-linear-gradient(135deg,#fff 0 1px,transparent 1px 14px)' }}
-            aria-hidden
-          />
+        {/* 深藍憲章招牌(批76):深藍實心面 bg-cta-surface(primary-800→900)+ 單一極細內框 hairline,
+            取代原手抄三段漸層 #1a334a→#2f5b88 + glow + 白 repeating-hairline。 */}
+        <div className="relative overflow-hidden rounded-xl px-8 py-14 sm:px-14 text-center bg-cta-surface ring-1 ring-inset ring-white/10">
           <p className="relative text-label text-primary-200 uppercase tracking-[0.08em] mb-4">開始本年度稽核作業</p>
           <h2 className="relative text-headline-lg text-white text-balance tracking-tight">
             從資料準備到結案追蹤,一個平台完成。
@@ -319,8 +269,7 @@ export default async function LandingPage() {
           <div className="relative mt-8 flex justify-center gap-3 flex-wrap">
             <Link
               href={enterHref}
-              className="inline-flex items-center justify-center h-12 px-7 rounded-full bg-white text-primary-800 text-label-lg font-medium shadow-elev-2 hover:bg-primary-50 active:scale-[0.98] transition-all duration-200 ease-standard focus-ring"
-              style={{ boxShadow: '0 1px 2px 0 rgba(24,36,56,0.08), 0 2px 6px 2px rgba(24,36,56,0.05), inset 0 1px 0 rgba(255,255,255,0.9)' }}
+              className="inline-flex items-center justify-center h-12 px-7 rounded-full bg-white text-primary-800 text-label-lg font-medium shadow-elev-2-hi hover:bg-primary-50 active:scale-[0.98] transition-all duration-200 ease-standard focus-ring"
             >
               {enterLabel}
             </Link>

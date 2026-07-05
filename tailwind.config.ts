@@ -171,6 +171,8 @@ const config: Config = {
         'elev-0': 'none',
         'elev-1': '0 1px 2px 0 rgba(24, 36, 56, 0.06), 0 1px 3px 1px rgba(24, 36, 56, 0.04)',
         'elev-2': '0 1px 2px 0 rgba(24, 36, 56, 0.08), 0 2px 6px 2px rgba(24, 36, 56, 0.05)',
+        /* elev-2 + 頂緣 inset 高光(批76)——收斂前台手抄 boxShadow(浮卡/CTA 鈕)為單一光影來源 */
+        'elev-2-hi': '0 1px 2px 0 rgba(24, 36, 56, 0.08), 0 2px 6px 2px rgba(24, 36, 56, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
         'elev-3': '0 1px 3px 0 rgba(24, 36, 56, 0.10), 0 4px 10px 3px rgba(24, 36, 56, 0.06)',
         'elev-4': '0 2px 4px 0 rgba(24, 36, 56, 0.10), 0 8px 14px 4px rgba(24, 36, 56, 0.07)',
         'elev-5': '0 4px 6px 0 rgba(24, 36, 56, 0.12), 0 12px 18px 6px rgba(24, 36, 56, 0.08)',

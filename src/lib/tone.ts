@@ -1,4 +1,4 @@
-import type { Role } from './types';
+import type { Role, PostCategory } from './types';
 import { ROLE_TONE } from './types';
 
 /**
@@ -103,6 +103,19 @@ export const TONE: Record<Tone, ToneFacets> = {
  * 比 TONE.primary.soft 更淺一階(ring-100 而非 ring-200),作為「內部頁的一點柔藍體溫」。
  */
 export const SURFACE_INFO = 'bg-primary-50 ring-1 ring-inset ring-primary-100';
+
+/**
+ * 公告分類 → Tone 單一來源(設計精緻化 #14;批76)。
+ * 原本 page.tsx / news/page.tsx / news/[slug]/page.tsx 各自手抄一份 CATEGORY_TONE(+CATEGORY_BAR),
+ * 改分類色要改三處必漏——比照既有 POST_CATEGORY_LABELS,收斂為單一匯出。
+ * 分類色帶(原 CATEGORY_BAR 的 bg-*-500)一律改讀 TONE[tone].dot,不再另立一份。
+ */
+export const POST_CATEGORY_TONE: Record<PostCategory, Tone> = {
+  ANNOUNCEMENT: 'primary',
+  INTEL:        'sage',
+  VULN_ALERT:   'danger',
+  EVENT:        'warning',
+};
 
 // ── 角色色(北極星②:角色是一級資訊架構)——全部由 ROLE_TONE 單一來源衍生 ──
 // ROLE_TONE(types.ts):中心 SUPER_ADMIN=primary、委員 AUDITOR=sage、機關 ORG_ADMIN=warning。

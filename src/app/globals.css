@@ -217,6 +217,19 @@ a:focus-visible {
 /* ============================================================
    Motion
    ============================================================ */
+/* 首頁 Hero 六張醫療照片交錯輪播(批76 由 page.tsx inline <style> 收進此處統一治理):
+   36s 一輪、每張 ~6s、交疊 1s;第 1 張常駐底層,2–6 張輪流淡入淡出。reduced-motion 降級見下方。 */
+@keyframes medfade2 { 0%, 13.9% { opacity: 0 } 16.7%, 30.5% { opacity: 1 } 33.4%, 100% { opacity: 0 } }
+@keyframes medfade3 { 0%, 30.5% { opacity: 0 } 33.4%, 47.2% { opacity: 1 } 50.1%, 100% { opacity: 0 } }
+@keyframes medfade4 { 0%, 47.2% { opacity: 0 } 50.1%, 63.9% { opacity: 1 } 66.8%, 100% { opacity: 0 } }
+@keyframes medfade5 { 0%, 63.9% { opacity: 0 } 66.8%, 80.5% { opacity: 1 } 83.4%, 100% { opacity: 0 } }
+@keyframes medfade6 { 0%, 80.5% { opacity: 0 } 83.4%, 97.2% { opacity: 1 } 100% { opacity: 0 } }
+.medfade-2 { animation: medfade2 36s ease-in-out infinite }
+.medfade-3 { animation: medfade3 36s ease-in-out infinite }
+.medfade-4 { animation: medfade4 36s ease-in-out infinite }
+.medfade-5 { animation: medfade5 36s ease-in-out infinite }
+.medfade-6 { animation: medfade6 36s ease-in-out infinite }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -9,15 +9,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORIES, POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
+import { POST_CATEGORY_TONE } from '@/lib/tone';
 
 export const dynamic = 'force-dynamic';
-
-const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {
-  ANNOUNCEMENT: 'primary',
-  INTEL: 'sage',
-  VULN_ALERT: 'danger',
-  EVENT: 'warning',
-};
 
 export default async function NewsPage({
   searchParams,
@@ -73,7 +67,7 @@ export default async function NewsPage({
               <Link key={p.id} href={`/news/${p.slug}`} className="group focus-ring rounded-lg">
                 <article className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 rounded-lg border border-outline-variant/70 bg-surface-container-lowest px-5 py-4 transition-all duration-200 ease-standard group-hover:border-outline group-hover:shadow-elev-1">
                   <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                    <Chip tone={CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
+                    <Chip tone={POST_CATEGORY_TONE[p.category as PostCategory] ?? 'primary'} size="sm" dot>
                       {POST_CATEGORY_LABELS[p.category as PostCategory] ?? p.category}
                     </Chip>
                     {p.important && <Chip tone="danger" size="sm">重要</Chip>}

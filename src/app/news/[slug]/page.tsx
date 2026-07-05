@@ -8,15 +8,9 @@ import { Markdown } from '@/lib/markdown';
 import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
+import { POST_CATEGORY_TONE } from '@/lib/tone';
 
 export const dynamic = 'force-dynamic';
-
-const CATEGORY_TONE: Record<PostCategory, 'primary' | 'sage' | 'danger' | 'warning'> = {
-  ANNOUNCEMENT: 'primary',
-  INTEL: 'sage',
-  VULN_ALERT: 'danger',
-  EVENT: 'warning',
-};
 
 export default async function NewsDetailPage({ params }: { params: { slug: string } }) {
   const session = await auth();
@@ -41,7 +35,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
 
         <article>
           <div className="flex items-center gap-2 flex-wrap mb-4">
-            <Chip tone={CATEGORY_TONE[post.category as PostCategory] ?? 'primary'} size="sm" dot>
+            <Chip tone={POST_CATEGORY_TONE[post.category as PostCategory] ?? 'primary'} size="sm" dot>
               {POST_CATEGORY_LABELS[post.category as PostCategory] ?? post.category}
             </Chip>
             {post.important && <Chip tone="danger" size="sm">重要</Chip>}
