@@ -26,6 +26,7 @@ import { toneClasses } from '@/lib/stage';
 import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { cn } from '@/lib/cn';
+import { fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
@@ -194,7 +195,7 @@ export default async function HomePage() {
   const isSuper = user.role === 'SUPER_ADMIN';
 
   const greeting = greetingByHour(now.getHours());
-  const today = now.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  const today = fmtROCWeekday(now); // 民國年+星期(批72:原 toLocaleDateString 顯西曆,與週期頁民國年並存)
   const duties = ROLE_STEP_DUTIES[user.role];
 
   // 身分帶範圍 + 主行動(取最高優先待辦)

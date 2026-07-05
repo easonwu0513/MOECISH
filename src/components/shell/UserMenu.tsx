@@ -7,12 +7,10 @@ import { cn } from '@/lib/cn';
 import { Chip } from '../ui/Chip';
 import { ChevronDown, LogOut, User } from '../icons';
 import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
+import { ROLE_SURFACE } from '@/lib/tone';
 
-const avatarBg: Record<Role, string> = {
-  SUPER_ADMIN: 'bg-primary-container text-on-primary-container',
-  AUDITOR: 'bg-sage-100 text-sage-800',
-  ORG_ADMIN: 'bg-warning-100 text-warning-700',
-};
+// 頭像底色由 lib/tone 的 ROLE_SURFACE 單一來源提供(批72:消除第二份角色配色,與 TopStrip 頂帶／角色 Chip 共用 ROLE_TONE)
+const avatarBg = ROLE_SURFACE;
 
 export function UserMenu({
   name,

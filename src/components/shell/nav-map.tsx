@@ -17,7 +17,7 @@ import {
 
 export type NavIconKey =
   | 'dashboard' | 'cycles' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog';
+  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog' | 'designSystem';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
@@ -35,6 +35,7 @@ const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   emails: (s) => <Mail size={s} />,
   mergeTool: (s) => <Folder size={s} />,
   auditLog: (s) => <History size={s} />,
+  designSystem: (s) => <Settings size={s} />,
 };
 
 /** 取得指定鍵的圖示;尺寸由各消費端指定(側欄 20、⌘K 16),避免在資料層綁死尺寸。 */
@@ -72,6 +73,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/admin/emails',            label: 'Email',        allow: ADMIN, iconKey: 'emails',      group: '管理' },
   { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '管理' },
   { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '管理' },
+  { href: '/admin/design-system',     label: '設計系統',     allow: ADMIN, iconKey: 'designSystem', group: '管理' },
 ];
 
 export type SidebarGroup = { label?: string; items: NavRoute[] };

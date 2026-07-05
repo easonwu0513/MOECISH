@@ -7,6 +7,7 @@ import { UserMenu } from './UserMenu';
 import { Logo } from '../brand/Logo';
 import { Breadcrumbs, type Crumb } from './Breadcrumbs';
 import type { Role } from '@/lib/types';
+import { roleBorderTop } from '@/lib/tone';
 
 /**
  * Material 3 center-aligned App Bar.
@@ -23,8 +24,9 @@ export function TopStrip({
   onMenuClick?: () => void;
   onCommandOpen?: () => void;
 }) {
+  // 頂端 2px 色帶=全站唯一常駐角色訊號(北極星②);依 ROLE_TONE 上色:中心藍/委員綠/機關琥珀(批72 修硬編 primary)
   return (
-    <div className="sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60 border-t-2 border-t-primary-600">
+    <div className={`sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60 border-t-2 ${roleBorderTop(user.role)}`}>
       <div className="lg:hidden flex items-center gap-1.5">
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
         <Logo size={26} />

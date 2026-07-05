@@ -57,3 +57,15 @@ export function fmtROCDateTimeSec(d: Date | string | null | undefined): string {
   const p = tpeParts(d);
   return p ? `${p.y - 1911}年${p.mo}月${p.d}日 ${p.hh}:${p.mm}:${p.ss}` : '';
 }
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+/** 民國年日期 + 星期:115年7月5日 星期六(儀表板等問候脈絡用;禁 UI 直呼 toLocaleDateString 顯西曆) */
+export function fmtROCWeekday(d: Date | string | null | undefined): string {
+  const p = tpeParts(d);
+  if (!p) return '';
+  // 以台北時區日期取星期(UTC 主機直接 getDay 會偏一天;用 en-US weekday 對照)
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(new Date(d as Date | string));
+  const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wd);
+  const w = idx >= 0 ? WEEKDAYS[idx] : '';
+  return `${p.y - 1911}年${p.mo}月${p.d}日${w ? ` 星期${w}` : ''}`;
+}

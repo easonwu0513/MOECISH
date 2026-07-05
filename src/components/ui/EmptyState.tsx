@@ -1,10 +1,10 @@
 import { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import type { Tone } from '@/lib/tone';
 
-type Tone = 'neutral' | 'success' | 'primary' | 'warning' | 'danger';
-
-/** 圖示圓底色(依語意切換;預設中性) */
-const toneRing: Record<Tone, string> = {
+/** 圖示圓底色(依語意切換;預設中性);Tone 型別取自 lib/tone 單一來源(批72,子集用 Extract) */
+type ESTone = Extract<Tone, 'neutral' | 'success' | 'primary' | 'warning' | 'danger'>;
+const toneRing: Record<ESTone, string> = {
   neutral: 'bg-surface-container-high text-on-surface-variant',
   success: 'bg-success-50 text-success-600',
   primary: 'bg-primary-50 text-primary-700',
@@ -24,7 +24,7 @@ export function EmptyState({
   title: string;
   description?: ReactNode;
   action?: ReactNode;
-  tone?: Tone;
+  tone?: ESTone;
   className?: string;
 }) {
   return (

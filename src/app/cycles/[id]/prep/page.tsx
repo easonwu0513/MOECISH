@@ -187,7 +187,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
                 { label: '要求項目', value: `${total}`, tone: '' },
                 { label: '已確認齊備', value: `${confirmed}`, tone: 'text-success-700' },
                 { label: '審核中', value: `${submittedN}`, tone: '' },
-                { label: '待補正/未繳', value: `${pendingN}`, tone: pendingN > 0 ? 'text-amber-600' : '' },
+                { label: '待補正/未繳', value: `${pendingN}`, tone: pendingN > 0 ? 'text-warning-700' : '' },
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border border-outline-variant/60 bg-surface px-4 py-3">
                   <p className="text-caption text-on-surface-variant">{s.label}</p>

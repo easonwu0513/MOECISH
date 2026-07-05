@@ -856,7 +856,7 @@ function StatusTile({
     : statusTone === 'success'
       ? 'text-success-700'
       : statusTone === 'warning'
-        ? 'text-amber-600'
+        ? 'text-warning-600'
         : statusTone === 'primary'
           ? 'text-primary-700'
           : 'text-on-surface';

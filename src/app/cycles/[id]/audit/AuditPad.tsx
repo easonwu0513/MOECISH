@@ -542,7 +542,7 @@ function ScoreSection({
                         onChange={(e) => setCount(dim, key, e.target.value)}
                         disabled={!canEdit}
                         aria-label={`${DIMENSION_LABELS[dim]} ${label} 題數`}
-                        className="w-12 h-9 rounded-md border border-outline-variant bg-surface px-1 text-body-sm text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
+                        className="w-12 h-11 rounded-md border border-outline-variant bg-surface px-1 text-body-sm text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-surface-container-low disabled:text-on-surface-variant"
                       />
                     </label>
                   ))}

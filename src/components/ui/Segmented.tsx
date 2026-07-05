@@ -2,16 +2,18 @@
 
 import { useRef } from 'react';
 import { cn } from '@/lib/cn';
+import { TONE, type Tone } from '@/lib/tone';
 import { Check } from '../icons';
 
 /**
  * Material 3 Segmented Button (single-select form).
  * Outlined group where the selected option gets a filled-tonal surface.
  */
+type SegTone = Extract<Tone, 'neutral' | 'success' | 'warning' | 'danger'>;
 type Option<T extends string> = {
   value: T;
   label: string;
-  tone?: 'neutral' | 'success' | 'warning' | 'danger';
+  tone?: SegTone;
 };
 
 type Props<T extends string> = {
@@ -24,11 +26,13 @@ type Props<T extends string> = {
   ariaLabel?: string;
 };
 
-const selectedStyle: Record<NonNullable<Option<string>['tone']>, string> = {
+// 選中態:neutral=M3 tonal container(預設選中外觀,刻意有別於 TONE.neutral.solid 深灰);
+// 語意色選中一律取 lib/tone 的 solid 面向(批72 統一實心 600,消 warning/danger 500 漂移)。
+const selectedStyle: Record<SegTone, string> = {
   neutral: 'bg-primary-container text-on-primary-container',
-  success: 'bg-success-600 text-white',
-  warning: 'bg-warning-500 text-white',
-  danger:  'bg-danger-500 text-white',
+  success: TONE.success.solid,
+  warning: TONE.warning.solid,
+  danger:  TONE.danger.solid,
 };
 
 export function Segmented<T extends string>({

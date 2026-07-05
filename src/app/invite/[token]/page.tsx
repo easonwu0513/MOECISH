@@ -4,6 +4,7 @@ import { Logo } from '@/components/brand/Logo';
 import { Chip } from '@/components/ui/Chip';
 import { AlertCircle } from '@/components/icons';
 import { ROLE_LABELS, type Role } from '@/lib/types';
+import { fmtROC } from '@/lib/date';
 import InviteAcceptForm from './InviteAcceptForm';
 
 export default async function InvitePage({ params }: { params: { token: string } }) {
@@ -18,11 +19,7 @@ export default async function InvitePage({ params }: { params: { token: string }
     <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-surface">
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 65% 55% at 15% 20%, rgba(40,82,160,0.10), transparent 70%),' +
-            'radial-gradient(ellipse 60% 50% at 85% 85%, rgba(40,82,160,0.05), transparent 70%)',
-        }}
+        style={{ background: 'var(--auth-ambient)' }}
         aria-hidden
       />
 
@@ -65,7 +62,7 @@ export default async function InvitePage({ params }: { params: { token: string }
                 <div className="mt-3 flex items-center gap-2">
                   <Chip size="sm" tone="primary">{ROLE_LABELS[inv.role as Role]}</Chip>
                   <span className="text-caption text-on-surface-variant">
-                    至 {new Date(inv.expiresAt).toLocaleDateString('zh-TW')} 前有效
+                    至 {fmtROC(inv.expiresAt)} 前有效
                   </span>
                 </div>
               </div>

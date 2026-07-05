@@ -1,4 +1,5 @@
 import { cn } from '@/lib/cn';
+import type { Tone } from '@/lib/tone';
 
 export function ProgressRing({
   value,
@@ -14,7 +15,7 @@ export function ProgressRing({
   max?: number;
   size?: number;
   strokeWidth?: number;
-  tone?: 'primary' | 'sage' | 'success' | 'warning' | 'danger';
+  tone?: Exclude<Tone, 'neutral'>;
   label?: string;
   sublabel?: string;
   className?: string;
@@ -24,12 +25,13 @@ export function ProgressRing({
   const c = 2 * Math.PI * r;
   const offset = c - (pct / 100) * c;
 
+  // stroke 是 ProgressRing 專屬面向(TONE 為 bg/text 語彙);深淺基準對齊批72 統一實心 600
   const color = {
     primary: 'stroke-primary-600',
-    sage: 'stroke-sage-500',
-    success: 'stroke-success-500',
-    warning: 'stroke-warning-500',
-    danger: 'stroke-danger-500',
+    sage: 'stroke-sage-600',
+    success: 'stroke-success-600',
+    warning: 'stroke-warning-600',
+    danger: 'stroke-danger-600',
   }[tone];
 
   return (

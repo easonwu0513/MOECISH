@@ -1,12 +1,11 @@
 import { type HTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import type { Tone } from '@/lib/tone';
 
 /**
  * 語意提示橫幅 — 收斂全站手刻的 callout/banner(原本 5 種描邊權重並存,讀者無法靠深淺判層級)。
- * 色票複用 Chip softTones 的 ring-inset 配方,不另加 border(避免雙描邊)。
+ * Tone 型別取自 lib/tone 單一來源(批72);class 為 Alert 專屬變體(soft 去 ring 前綴、全域另加 ring-1 ring-inset)。
  */
-type Tone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger';
-
 const tones: Record<Tone, string> = {
   neutral: 'bg-surface-container-high text-on-surface ring-outline-variant',
   primary: 'bg-primary-50 text-primary-800 ring-primary-200',

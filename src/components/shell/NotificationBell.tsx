@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { IconButton } from '../ui/IconButton';
 import { Bell } from '../icons';
 import { cn } from '@/lib/cn';
+import { fmtROC } from '@/lib/date';
 
 type Notif = {
   id: string;
@@ -26,7 +27,7 @@ function relTime(iso: string): string {
   if (h < 24) return `${h} 小時前`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d} 天前`;
-  return new Date(iso).toLocaleDateString('zh-TW');
+  return fmtROC(iso); // 民國年(批72:原 toLocaleDateString 顯西曆)
 }
 
 /**

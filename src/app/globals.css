@@ -65,6 +65,12 @@
   --tertiary-300: #fcbd57; --tertiary-400: #eea23a; --tertiary-500: #d9892b;
   --tertiary-600: #b26d1f; --tertiary-700: #89541a;
 
+  /* Auth 頁 ambient 漸層(login/invite 共用單一來源;以現行 primary-600 #2b57a6=rgb(43,87,166) 為基,
+     批72 修:原各頁硬編 rgba(40,82,160)=精緻化前舊 primary,晨霧藍換色後脫鉤) */
+  --auth-ambient:
+    radial-gradient(ellipse 65% 55% at 15% 20%, rgba(43, 87, 166, 0.11), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 85% 85%, rgba(43, 87, 166, 0.055), transparent 70%);
+
   /* Role accent */
   --role-admin:      var(--primary-500);
   --role-auditor:    var(--sage-500);
