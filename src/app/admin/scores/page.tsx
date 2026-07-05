@@ -192,7 +192,7 @@ export default async function CrossOrgScoresPage({
                 </thead>
                 <tbody>
                   {sorted.map((r) => (
-                    <tr key={r.id} className="border-t border-outline-variant/60">
+                    <tr key={r.id} className="border-t border-ledger-line">{/* ledger 規線(批81) */}
                       <td className="px-4 py-2 text-on-surface whitespace-nowrap sticky left-0 z-10 bg-surface-container-lowest">{r.org}</td>
                       <td className="px-2 py-2 text-center tabular-nums text-on-surface-variant">{r.yearROC}</td>
                       {r.cells.map((v, i) => {

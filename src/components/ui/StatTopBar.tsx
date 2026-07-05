@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
+import { TONE, type Tone } from '@/lib/tone';
 
 /**
  * 統計卡(頂色條 + 圖示圓 + 大數字 + 標題 + 一行說明)。
  * 總覽與週期首頁共用,確保三段式資訊層次一致(大數字 headline-sm/tabular-nums)。
+ * 頂色條(批81)由 TONE.dot 派生(tertiary 非 Tone SoT 故特例保留),消本地 bar map。
  */
 export function StatTopBar({
   tone,
@@ -20,14 +22,9 @@ export function StatTopBar({
   /** 警示色卡(危急類)值為 0 時降噪:頂條與圖示改中性,不誤導為「有待處理」 */
   muted?: boolean;
 }) {
-  const bar = muted ? 'bg-outline-variant' : {
-    primary: 'bg-primary-500',
-    success: 'bg-success-500',
-    warning: 'bg-warning-500',
-    danger: 'bg-danger-500',
-    sage: 'bg-sage-500',
-    tertiary: 'bg-tertiary-500',
-  }[tone];
+  const bar = muted ? 'bg-outline-variant'
+    : tone === 'tertiary' ? 'bg-tertiary-500'   // tertiary 非 Tone SoT,特例保留
+    : TONE[tone as Tone].dot;
   const iconBg = muted ? 'bg-surface-container-high text-on-surface-variant' : {
     primary: 'bg-primary-50 text-primary-700',
     success: 'bg-success-50 text-success-700',
