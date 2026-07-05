@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Noto_Sans_TC } from 'next/font/google';
+import { Inter, JetBrains_Mono, Noto_Sans_TC, Noto_Serif_TC } from 'next/font/google';
 import './globals.css';
 import Providers from '@/components/Providers';
 import { ToastProvider } from '@/components/ui/Toast';
@@ -25,6 +25,14 @@ const noto = Noto_Sans_TC({
   display: 'swap',
 });
 
+// 文件襯線 voice(靜謐文件工作坊)——文件大標與章序號用,承載公文莊重感。
+const notoSerif = Noto_Serif_TC({
+  subsets: ['latin'],
+  variable: '--font-noto-serif',
+  weight: ['400', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'MOECISH · 資通安全稽核管考平台',
   description:
@@ -33,7 +41,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-Hant" className={`${inter.variable} ${mono.variable} ${noto.variable}`}>
+    <html lang="zh-Hant" className={`${inter.variable} ${mono.variable} ${noto.variable} ${notoSerif.variable}`}>
       <body className="min-h-screen bg-surface text-neutral-900 antialiased">
         {/* 「跳到主要內容」skip-link 統一由 AppShell 提供(#main-content 在 AppShell 內),
             此處不再重複,避免雙重 skip-link 與導航時誤現。 */}

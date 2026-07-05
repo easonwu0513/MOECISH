@@ -115,11 +115,11 @@ export default async function AdminCyclesPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '跨院週期總覽' }]}
     >
-      {/* ── 文件大標(襯線)+ 動作 ── */}
-      <header className="mb-7 flex items-start justify-between gap-4 flex-wrap">
+      {/* ── 文件大標(襯線)+ 動作;公文式底規線 ── */}
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="font-serif text-headline text-ink-900">跨院週期總覽</h1>
-          <p className="mt-2 text-body-sm text-ink-500 max-w-xl leading-relaxed">
+          <h1 className="font-serif text-headline-lg text-ink-900 tracking-tight">跨院週期總覽</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-xl leading-relaxed">
             跨機關年度稽核進度總覽:一眼掌握誰在辦、誰落後、矯正完成率。
           </p>
         </div>

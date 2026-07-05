@@ -71,7 +71,7 @@ export function AppShell({
     >
       跳到主要內容
     </a>
-    <div className="min-h-screen flex bg-surface">
+    <div className="min-h-screen flex bg-paper">
       {/* Desktop sidebar */}
       <div className="hidden lg:flex shrink-0">
         <Sidebar role={user.role} userKey={user.email} />

@@ -10,8 +10,7 @@ import type { Role } from '@/lib/types';
 import { roleBorderTop } from '@/lib/tone';
 
 /**
- * Material 3 center-aligned App Bar.
- * Surface-colored with elevation tint when scrolled (approximated with a bottom border here).
+ * 靜謐文件工作坊頂列(批 B4)——白卡底 + 髮絲底線;頂端 2px 角色色帶保留(全站唯一常駐角色訊號)。
  */
 export function TopStrip({
   user,
@@ -26,14 +25,14 @@ export function TopStrip({
 }) {
   // 頂端 2px 色帶=全站唯一常駐角色訊號(北極星②);依 ROLE_TONE 上色:中心藍/委員綠/機關琥珀(批72 修硬編 primary)
   return (
-    <div className={`sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-surface-container-low/95 backdrop-blur-sm border-b border-outline-variant/60 border-t-2 ${roleBorderTop(user.role)}`}>
+    <div className={`sticky top-0 z-30 h-16 flex items-center gap-3 px-3 md:px-6 bg-card border-b border-rule border-t-2 ${roleBorderTop(user.role)}`}>
       <div className="lg:hidden flex items-center gap-1.5">
         <IconButton icon={<Menu size={22} />} label="開啟選單" onClick={onMenuClick} />
         <Logo size={26} />
       </div>
 
       {/* 手機:麵包屑隱藏,改顯示當前頁標題提供脈絡 */}
-      <span className="flex-1 min-w-0 sm:hidden text-title text-on-surface truncate">
+      <span className="flex-1 min-w-0 sm:hidden text-title text-ink-900 truncate">
         {crumbs[crumbs.length - 1]?.label}
       </span>
 
@@ -44,7 +43,7 @@ export function TopStrip({
       <div className="flex items-center gap-1">
         <button
           onClick={onCommandOpen}
-          className="hidden md:inline-flex items-center gap-2.5 h-10 pl-4 pr-2 text-body-sm text-on-surface-variant bg-surface-container hover:bg-surface-container-high rounded-full focus-ring transition-all duration-200 ease-standard"
+          className="hidden md:inline-flex items-center gap-2.5 h-10 pl-4 pr-2 text-body-sm text-ink-500 bg-paper-sunk border border-rule hover:border-rule-strong hover:text-ink-900 rounded-md focus-ring transition-all duration-200 ease-standard"
           aria-label="開啟命令面板"
         >
           <Search size={16} />

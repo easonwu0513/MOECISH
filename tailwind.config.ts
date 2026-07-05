@@ -157,10 +157,9 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)'],
         mono: ['var(--font-mono)'],
-        /* 文件襯線 voice(靜謐文件工作坊;批 B1)——僅供文件大標與章序號承載公文莊重感。
-           先用系統襯線堆疊(免額外 web font 載入 / 免 CJK 數 MB 成本);
-           若日後要更一致的思源宋體,再於 layout 以 next/font 載入 Noto Serif TC。 */
-        serif: ['"Noto Serif TC"', '"Songti TC"', '"Source Han Serif TC"', 'Georgia', 'Times New Roman', 'serif'],
+        /* 文件襯線 voice(靜謐文件工作坊)——僅供文件大標與章序號承載公文莊重感。
+           單一來源 globals.css --font-serif(next/font Noto Serif TC + 中文系統襯線 fallback)。 */
+        serif: ['var(--font-serif)'],
       },
       fontSize: {
         'label-sm':      ['0.6875rem', { lineHeight: '1rem',     letterSpacing: '0.5px',  fontWeight: '500' }],
