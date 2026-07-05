@@ -128,6 +128,26 @@ const config: Config = {
         /* Ledger 規線色(深藍憲章招牌;批74)——與 globals.css --navy-ledger-line 同步。
            僅供資料表欄分隔/Hero 內框:border-ledger-line。勿全域取代 outline-variant。 */
         'ledger-line':    'var(--navy-ledger-line)',
+
+        /* 靜謐文件工作坊 token(後台三角色重新設計目標語彙;批 B1)——
+           單一來源在 globals.css :root,此處全部 var() 引用不重抄字面值(避免色彩雙 SoT 不同步)。
+           utilities:bg-paper/bg-paper-sunk/bg-card、text-ink-900…300、border-rule/-strong/-active、bg-focus-wash。 */
+        paper:        'var(--paper)',
+        'paper-sunk': 'var(--paper-sunk)',
+        card:         'var(--card)',
+        ink: {
+          900: 'var(--ink-900)',
+          700: 'var(--ink-700)',
+          500: 'var(--ink-500)',
+          400: 'var(--ink-400)',
+          300: 'var(--ink-300)',
+        },
+        rule: {
+          DEFAULT: 'var(--rule)',
+          strong:  'var(--rule-strong)',
+          active:  'var(--rule-active)',
+        },
+        'focus-wash': 'var(--focus-wash)',
       },
       backgroundImage: {
         /* 深藍憲章招牌漸層(批74)——與 globals.css 同步:bg-cta-surface / bg-hero-ambient */
@@ -137,6 +157,10 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)'],
         mono: ['var(--font-mono)'],
+        /* 文件襯線 voice(靜謐文件工作坊;批 B1)——僅供文件大標與章序號承載公文莊重感。
+           先用系統襯線堆疊(免額外 web font 載入 / 免 CJK 數 MB 成本);
+           若日後要更一致的思源宋體,再於 layout 以 next/font 載入 Noto Serif TC。 */
+        serif: ['"Noto Serif TC"', '"Songti TC"', '"Source Han Serif TC"', 'Georgia', 'Times New Roman', 'serif'],
       },
       fontSize: {
         'label-sm':      ['0.6875rem', { lineHeight: '1rem',     letterSpacing: '0.5px',  fontWeight: '500' }],

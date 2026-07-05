@@ -46,6 +46,27 @@
 | `border-ledger-line` (`--navy-ledger-line` = primary-200) | 「編輯級細分隔線」。**⚠️僅供資料表欄分隔與 Hero 內框**,一般容器仍用 `outline-variant`(中性);全域取代會全站偏藍疲勞。 |
 | `SURFACE_INFO`(lib/tone.ts,= `bg-primary-50 ring-primary-100`) | 填報/審查流的資訊面單一來源。取代散落的 `bg-primary-50/{30–60}` 手挑 alpha。 |
 
+**靜謐文件工作坊 token**(批 B1 —— 後台三角色「全新設計語言」重新設計,方向 B):
+
+> 後台頁的**遷移目標**語彙。方向 B 把後台重構為「逐步完成的活文件」:留白與排印承載階層,而非色彩與框線。
+> 過渡期與既有 `surface`/`outline` **並存**(映象前台與未遷移後台頁續用舊 token);後台頁自 B2 起逐批改吃下列 token,遷移完成後舊 token 於後台退場。
+> 值只在 [globals.css](../src/app/globals.css) `:root` 定義一次,`tailwind.config.ts` 全部 `var()` 引用(避免色彩雙 SoT 不同步);等值於既有色階者(`rule-active`/`focus-wash`)直接 `var()` 別名。
+
+| Token(utility) | 值 | 用途 |
+|---|---|---|
+| `bg-paper` | `#fcfdfe` **新值** | 後台 app 底:近白紙面(較 `surface #f7f8fa` 再白一階) |
+| `bg-paper-sunk` | `#f6f8fa` | 凹陷 / 表格斑馬 / 軌道底 |
+| `bg-card` | `#ffffff` | 卡面 / 文件面 |
+| `text-ink-900/700/500/400/300` | `#101826`…`#b7c0cc` | 墨階:文件大標→停用(排印承載階層) |
+| `border-rule` | `#e7ecf1` **新值** | 髮絲行線(較 `outline-variant` 更淺的編輯級細線) |
+| `border-rule-strong` | `#d4dbe3` | 章節 / 強分隔 |
+| `border-rule-active` | = `primary-600` | 當前文件左緣規線 / 焦點 |
+| `bg-focus-wash` | = `primary-50` | 段落聚焦極淡藍底 |
+| `font-serif` | 系統襯線堆疊 | **僅**文件大標與章序號(公文莊重呼吸);其餘一律 `font-sans` |
+
+> 語意色沿用既有 `success/warning/danger`(calm 的 通過=`success-700`、退回/待補=`warning-700`、逾期=`danger-600`,底色用各 `-50`)。角色 accent:中心=`primary-600`、委員=`sage-700`、機關=`warning-700`。
+> **三修正紀律**(承使用者裁定「這版對了」的互動試用版):①密集資料(評分矩陣/87 題/紀錄)一律**全寬帳冊附件**承載,不塞窄讀欄;②段落聚焦=**加亮當前**(`border-rule-active`+`bg-focus-wash`)**不壓暗其餘**(勿用 opacity 降透明,傷對照與對比);③襯線僅限大標,逾期/退回用**實心左條+文字雙載**,前景背景逐對過 WCAG AA。
+
 ### 字體
 
 `font-sans`(預設)= Inter + **Noto Sans TC**(中文)+ 系統 fallback;`font-mono` = JetBrains Mono(代碼、Email、時間戳)。三套經 `next/font` 載入,變數定義於 [globals.css](../src/app/globals.css) `:root`。
