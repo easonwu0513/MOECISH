@@ -7,13 +7,14 @@ import { PageHeader } from '@/components/shell/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
+import { Menu } from '@/components/ui/Menu';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
 import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { StatTopBar } from '@/components/ui/StatTopBar';
-import { ClipboardCheck, AlertTriangle, CheckCircle } from '@/components/icons';
+import { ClipboardCheck, AlertTriangle, CheckCircle, FileText } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
@@ -118,23 +119,16 @@ export default async function AdminCyclesPage({
             <Button size="sm" variant="tonal" href="/admin/scores">
               跨院評分比較
             </Button>
-            {/* 分層工具列(批86):主動作(建週期/指派/比較)與匯出類之間插入分隔,匯出降為次階 text 群組。
-                完整「匯出收進單一下載選單」需新增 Menu 下拉原語,列後續。 */}
-            <span className="w-px h-6 self-center bg-outline-variant/60 mx-0.5 hidden sm:block" aria-hidden />
-            <Button
+            {/* 分層工具列(批87):主動作(建週期/指派/比較)外,匯出類收進單一「下載」下拉選單,消按鈕擁擠。 */}
+            <Menu
+              label="下載 Excel"
+              variant="outlined"
               size="sm"
-              variant="text"
-              href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
-            >
-              下載彙整表(Excel)
-            </Button>
-            <Button
-              size="sm"
-              variant="text"
-              href={yearFilter ? `/api/admin/export/repeat-offender?year=${yearFilter}` : '/api/admin/export/repeat-offender'}
-            >
-              下載歷年重複缺失(Excel)
-            </Button>
+              items={[
+                { label: '彙整表', icon: <FileText size={15} />, href: yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary' },
+                { label: '歷年重複缺失', icon: <FileText size={15} />, href: yearFilter ? `/api/admin/export/repeat-offender?year=${yearFilter}` : '/api/admin/export/repeat-offender' },
+              ]}
+            />
           </>
         }
       />
