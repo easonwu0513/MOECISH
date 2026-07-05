@@ -118,6 +118,9 @@ export default async function AdminCyclesPage({
             <Button size="sm" variant="tonal" href="/admin/scores">
               跨院評分比較
             </Button>
+            {/* 分層工具列(批86):主動作(建週期/指派/比較)與匯出類之間插入分隔,匯出降為次階 text 群組。
+                完整「匯出收進單一下載選單」需新增 Menu 下拉原語,列後續。 */}
+            <span className="w-px h-6 self-center bg-outline-variant/60 mx-0.5 hidden sm:block" aria-hidden />
             <Button
               size="sm"
               variant="text"

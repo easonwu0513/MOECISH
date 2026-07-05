@@ -105,9 +105,12 @@ export default function SubmissionBanner({
         className="mb-5 flex items-start gap-3 rounded-md border border-warning-200 bg-warning-50 px-5 py-3.5"
       >
         <AlertTriangle size={20} className="text-warning-700 shrink-0 mt-0.5" />
+        {/* 四級平滑遞降(批86):標題(warning 重)→ 退回原因(近中性 body,讀得清、非全黃染)→ 行動提示(caption)。
+            原本標題與正文皆 warning-700/600=兩級斷崖且整段黃染難讀。 */}
         <div className="min-w-0">
-          <div className="text-title text-warning-700">填報被退回,請補正後重新送出</div>
-          <p className="text-body-sm text-warning-600 mt-1 whitespace-pre-wrap">{reopenNote}</p>
+          <div className="text-title-md text-warning-800">填報被退回,請補正後重新送出</div>
+          <p className="mt-1.5 text-body text-on-surface whitespace-pre-wrap leading-relaxed">{reopenNote}</p>
+          <p className="mt-1.5 text-caption text-on-surface-variant">補正後於下方重新送出;機關僅能看到此退回原因,看不到委員逐題意見。</p>
         </div>
       </div>
     );
