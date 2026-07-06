@@ -69,6 +69,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           { status: 400 },
         );
       }
+      // 委員審閱時段須先設定:「資料齊備」階段即通知委員可審閱機關資料;若未設審閱起訖,委員收到通知
+      // 點進系統卻顯示「尚未開放審閱」(名實不符)。故強制中心於推進前先設定審閱時段。(UAT 圖2)
+      if (!cycle.reviewWindowStart || !cycle.reviewWindowEnd) {
+        return NextResponse.json(
+          {
+            error:
+              '尚未設定「委員審閱時段」,無法進入資料齊備(此階段即開放委員審閱)。請先於「稽核前資料準備」頁設定審閱起訖日期後再推進。',
+          },
+          { status: 400 },
+        );
+      }
     }
 
     // 結案前置條件:全數缺失審核通過 + 已上傳用印掃描檔

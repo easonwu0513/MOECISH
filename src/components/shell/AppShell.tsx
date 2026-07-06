@@ -26,6 +26,7 @@ export function AppShell({
   children,
   cycleId,
   watermark,
+  wide,
 }: {
   user: { name: string; email: string; role: Role; organizationName: string | null };
   crumbs: Crumb[];
@@ -33,6 +34,8 @@ export function AppShell({
   cycleId?: string;
   /** 在「機關上傳資料」檢視頁開啟登入者浮水印(防外流可溯源);其餘頁面不套用。 */
   watermark?: boolean;
+  /** 工具型頁面(如信件範本產生器)需要更寬工作區→取消 max-w-screen-xl 上限,吃滿可用寬度。 */
+  wide?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -157,7 +160,7 @@ export function AppShell({
           onCommandOpen={() => setCmdOpen(true)}
         />
         <main id="main-content" tabIndex={-1} className={cn('flex-1 min-w-0 outline-none')}>
-          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+          <div className={cn('mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10', wide ? 'max-w-none' : 'max-w-screen-xl')}>
             {children}
           </div>
         </main>

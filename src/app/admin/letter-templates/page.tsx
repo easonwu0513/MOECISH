@@ -20,6 +20,7 @@ export default async function LetterTemplatesPage() {
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '信件範本' }]}
+      wide
     >
       <header className="mb-8 pb-5 border-b border-rule">
         <h1 className="text-headline-lg text-ink-900 tracking-tight">信件範本</h1>

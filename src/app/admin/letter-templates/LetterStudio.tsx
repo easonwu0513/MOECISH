@@ -49,6 +49,72 @@ function categoryTags(category: string): string[] {
   return category.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+// ─────────────────────────── 可調欄寬 ───────────────────────────
+
+/** 記憶欄寬(px)於 localStorage;初值先用預設(避免 SSR hydration 不一致),掛載後才讀取。 */
+function usePersistedWidth(key: string, def: number, min: number, max: number) {
+  const [w, setW] = useState(def);
+  useEffect(() => {
+    try {
+      const s = window.localStorage.getItem(key);
+      const n = s ? Number(s) : NaN;
+      if (Number.isFinite(n)) setW(Math.min(max, Math.max(min, n)));
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const bump = (dx: number) =>
+    setW((prev) => {
+      const next = Math.min(max, Math.max(min, prev + dx));
+      try { window.localStorage.setItem(key, String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  return [w, bump] as const;
+}
+
+/** 直向分隔線拖曳把手:拖動回傳位移 dx(px)給呼叫端調整相鄰欄寬。堆疊斷點以下隱藏。 */
+function ResizeHandle({
+  onResize,
+  label,
+  showAt = 'lg',
+}: {
+  onResize: (dx: number) => void;
+  label: string;
+  showAt?: 'lg' | 'xl';
+}) {
+  const startX = useRef(0);
+  const dragging = useRef(false);
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      title={label}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        dragging.current = true;
+        startX.current = e.clientX;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        if (!dragging.current) return;
+        const dx = e.clientX - startX.current;
+        startX.current = e.clientX;
+        onResize(dx);
+      }}
+      onPointerUp={(e) => {
+        dragging.current = false;
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      }}
+      className={cn(
+        'shrink-0 w-3 self-stretch cursor-col-resize items-center justify-center group touch-none',
+        showAt === 'xl' ? 'hidden xl:flex' : 'hidden lg:flex',
+      )}
+    >
+      <span className="h-10 w-1 rounded-full bg-rule group-hover:bg-primary-400 group-active:bg-primary-500 transition-colors" />
+    </div>
+  );
+}
+
 // ─────────────────────────── 表格編輯器 ───────────────────────────
 
 function TableEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -374,6 +440,9 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState<'' | 'content' | 'subject' | 'plain'>('');
+  // 可調三工作區欄寬(範本清單 / 填寫 / 預覽);預覽吃剩餘寬度。lg 以下堆疊不套用。
+  const [listW, bumpListW] = usePersistedWidth('letter-listW', 280, 220, 560);
+  const [fillW, bumpFillW] = usePersistedWidth('letter-fillW', 560, 380, 1040);
 
   const active = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
@@ -569,9 +638,12 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+    <div
+      className="flex flex-col lg:flex-row gap-4 lg:gap-0 items-start"
+      style={{ ['--lw' as string]: `${listW}px` } as React.CSSProperties}
+    >
       {/* ── 範本清單 ── */}
-      <aside className="flex flex-col gap-3 lg:sticky lg:top-4">
+      <aside className="flex flex-col gap-3 w-full lg:w-[var(--lw)] lg:shrink-0 lg:sticky lg:top-4 lg:self-start lg:pr-1">
         <div className="relative">
           <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" />
           <input
@@ -631,8 +703,10 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
         </Button>
       </aside>
 
+      <ResizeHandle onResize={bumpListW} label="拖曳調整範本清單欄寬" showAt="lg" />
+
       {/* ── 主工作區 ── */}
-      <section className="min-w-0">
+      <section className="min-w-0 flex-1 w-full">
         {!active && mode === 'compose' ? (
           <div className="rounded-lg border border-rule bg-card p-10 text-center text-ink-500">
             尚無範本，請點左下「新增範本」建立第一封底稿。
@@ -650,9 +724,12 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
             />
           </div>
         ) : active ? (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <div
+            className="flex flex-col xl:flex-row gap-6 xl:gap-0 items-start"
+            style={{ ['--fw' as string]: `${fillW}px` } as React.CSSProperties}
+          >
             {/* 填寫欄 */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 w-full xl:w-[var(--fw)] xl:shrink-0 xl:pr-1">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <h2 className="text-title-md text-ink-900">{active.title}</h2>
@@ -710,8 +787,10 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
               )}
             </div>
 
+            <ResizeHandle onResize={bumpFillW} label="拖曳調整填寫/預覽欄寬" showAt="xl" />
+
             {/* 預覽 + 複製 */}
-            <div className="flex flex-col gap-3 xl:sticky xl:top-4">
+            <div className="flex flex-col gap-3 flex-1 min-w-0 xl:sticky xl:top-4">
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="filled" leadingIcon={copied === 'content' ? <Check size={16} /> : <Mail size={16} />} onClick={copyRichContent}>
                   {copied === 'content' ? '已複製' : '複製信件（含格式）'}

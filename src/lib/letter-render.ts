@@ -177,8 +177,9 @@ function renderTableToCopyHtml(rawValue: string): string {
       let processedCell = cell || '';
       const innerVars = (processedCell.match(/\{\{(.*?)\}\}/g) || []).map((m) => m.slice(2, -2));
       // 表格內變數以外層 formData 帶入時已展開；此處剩餘者顯示佔位。
+      // 用全形（）而非半形 []：部分郵件用戶端會把 [變數] 視為合併欄位而自動加藍底,改（）避免之。
       innerVars.forEach((iv) => {
-        processedCell = processedCell.replace(varRe(iv), `[${iv}]`);
+        processedCell = processedCell.replace(varRe(iv), `（${iv}）`);
       });
       const formatted = formatAutoTexts(processedCell);
       let safeCell = formatted.replace(/\n/g, '<br/>');
@@ -236,7 +237,8 @@ export function buildEmailHtml(text: string, formData: FormData): string {
           return `<span style="color:#dc2626">[表格解析錯誤]</span>`;
         }
       }
-      const displayValue = rawValue ? formatAutoTexts(rawValue) : `[${variableName}]`;
+      // 未填變數用全形（變數名）佔位而非 [變數名]:部分郵件用戶端把 [..] 當合併欄位自動加藍底。
+      const displayValue = rawValue ? formatAutoTexts(rawValue) : `（${variableName}）`;
       return displayValue;
     }
     return part.replace(/\n/g, '<br/>');
@@ -277,7 +279,9 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
               if (spans[rIdx][cIdx].skip) return;
               const { rowSpan, colSpan } = spans[rIdx][cIdx];
               const Tag = rIdx === 0 ? 'th' : 'td';
-              let processedCell = escapeHtml(cell || '');
+              // 不跳脫:讓表格格內的 <b>/<u>/<span> 等內嵌標籤渲染成粗體/底線(與複製輸出一致),
+              // 否則預覽會顯示字面 <b>...</b>(承辦誤以為多了標籤)。表格資料為承辦自編,非外部輸入。
+              let processedCell = cell || '';
               const innerVars = (processedCell.match(/\{\{(.*?)\}\}/g) || []).map((m) => m.slice(2, -2));
               innerVars.forEach((iv) => {
                 if (formData[iv]) {
