@@ -130,6 +130,9 @@ async function cleanup() {
 
   await prisma.evidence.deleteMany({ where: { targetId: { in: cycleIds } } });
   const resps = await prisma.checklistResponse.findMany({ where: { cycleId: { in: cycleIds } }, select: { id: true } });
+  // Evidence 為多型鬆散參照(無 FK):CHECKLIST_RESPONSE 佐證的 targetId 是 response id、不在 cycleIds,
+  // 故須另以 response id 清除,否則 R3 檢核表佐證夾具會殘留累積(對抗審查 D1)。
+  await prisma.evidence.deleteMany({ where: { targetId: { in: resps.map((r) => r.id) } } });
   await prisma.auditorComment.deleteMany({ where: { responseId: { in: resps.map((r) => r.id) } } });
   await prisma.checklistResponse.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.auditScore.deleteMany({ where: { cycleId: { in: cycleIds } } });
@@ -202,6 +205,18 @@ async function main() {
       targetType: 'AUDIT_CYCLE', targetId: cycleA.id,
       fileName: 'iso.txt', originalName: 'iso.txt', mimeType: 'text/plain',
       sizeBytes: 3, storageKey: `evidences/AUDIT_CYCLE/${cycleA.id}/iso.txt`, sha256: 'isohash',
+      uploadedById: adminA.id,
+    },
+  });
+  // ONSITE 週期的檢核表回應 + 佐證(供 R3「委員評分時就地檢視檢核表佐證,ONSITE 不受審閱窗口限制」隔離測試)
+  const respOn = await prisma.checklistResponse.create({
+    data: { cycleId: cycleOn.id, checklistItemId: firstItemId, compliance: 'PARTIALLY_COMPLIANT', description: '隔離測試ONSITE回應' },
+  });
+  await prisma.evidence.create({
+    data: {
+      targetType: 'CHECKLIST_RESPONSE', targetId: respOn.id,
+      fileName: 'iso-cl.txt', originalName: 'iso-cl.txt', mimeType: 'text/plain',
+      sizeBytes: 5, storageKey: `evidences/CHECKLIST_RESPONSE/${respOn.id}/iso-cl.txt`, sha256: 'isoclhash',
       uploadedById: adminA.id,
     },
   });
@@ -288,6 +303,14 @@ async function main() {
   await expectStatus('B管理員 下載A佐證', jarB, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
   await expectStatus('未指派委員X 下載A佐證', jarX, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
   await expectStatus('匿名 列A佐證', null, 'GET', eviListA, [401]);
+
+  console.log('\n── R3 委員評分就地檢視檢核表佐證(ONSITE 不受審閱窗口限制,跨機關/未指派仍擋)──');
+  const eviListClOn = `/api/evidences?targetType=CHECKLIST_RESPONSE&targetId=${respOn.id}`;
+  const eviListClA = `/api/evidences?targetType=CHECKLIST_RESPONSE&targetId=${respA.id}`;
+  await expectAllowed('指派委員Y ONSITE列檢核表佐證(窗口未設仍可)', jarY, 'GET', eviListClOn);
+  await expectStatus('未指派委員X ONSITE列檢核表佐證', jarX, 'GET', eviListClOn, [403]);
+  await expectStatus('B管理員 ONSITE列檢核表佐證(跨機關)', jarB, 'GET', eviListClOn, [403]);
+  await expectStatus('指派委員Y 資料準備中列檢核表佐證(窗口/階段閘擋)', jarY, 'GET', eviListClA, [403]);
 
   console.log('\n── 委員意見跨機關隔離 ──');
   const cmtBody = { content: '隔離測試委員意見內容' };

@@ -1,4 +1,4 @@
-import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle, auditorReviewWindowOpen } from './types';
+import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle, auditorReviewWindowOpen, auditorCanScore } from './types';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -149,9 +149,14 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
 
   // 委員審閱時間區間(UAT 批67):資料準備 + 機關檢核表佐證,委員僅在中心設定的審閱時段內可存取(API 層權威閘,
   // 非僅畫面鎖定);未設區間一律不開放。缺失佐證(CORRECTIVE_ACTION)屬矯正階段、不在審閱窗口管制範圍。
+  // 例外(批67 裁定「審閱窗口只管 prep+檢核表審閱、不管實地稽核」):進入實地稽核(ONSITE 起,auditorCanScore)後,
+  // 委員於評分工作台(AuditPad)需就地檢視機關檢核表佐證評分——此屬「實地稽核」非「線上審閱」,故不再受審閱窗口限制。
+  // 僅豁免 CHECKLIST_RESPONSE;PREP_SUBMISSION 仍受窗口管制。
+  const windowExemptForScoring = targetType === 'CHECKLIST_RESPONSE' && auditorCanScore(cycle.status);
   if (
     user.role === 'AUDITOR' &&
     (targetType === 'PREP_SUBMISSION' || targetType === 'CHECKLIST_RESPONSE') &&
+    !windowExemptForScoring &&
     !auditorReviewWindowOpen(cycle.reviewWindowStart, cycle.reviewWindowEnd)
   ) {
     throw new AuthError(403, '目前不在委員審閱時間區間內,暫不開放檢視機關資料');

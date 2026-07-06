@@ -12,6 +12,7 @@ import { Plus, Check, FileText, ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import { LawPanel } from '@/components/checklist/LawBasis';
+import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import {
   snippetMatches, type FindingSnippetDTO,
 } from '@/lib/finding-snippet';
@@ -36,6 +37,8 @@ const COUNT_FIELDS: { key: keyof DimCounts; label: string }[] = [
   { key: 'c4', label: '不適用' },
 ];
 export type DimIssue = { itemNo: string; content: string; level: string };
+/** 機關檢核表佐證檔(依項次歸戶;委員評分側欄就地檢視) */
+export type EvidenceFile = { id: string; name: string; sizeKB: number };
 export type MyFinding = {
   id: string;
   aspect: DeficiencyAspect;
@@ -76,6 +79,7 @@ export default function AuditPad({
   itemContent = {},
   itemLaw = {},
   dimIssues = {},
+  evidenceByItemNo = {},
   assignedLabels = [],
   focusAspects = [],
   snippets = [],
@@ -93,6 +97,8 @@ export default function AuditPad({
   /** 項次 → 法規對照(發現表單「法規對照」鈕用) */
   itemLaw?: Record<string, ItemLaw>;
   dimIssues?: Record<string, DimIssue[]>;
+  /** 機關檢核表佐證檔,依項次歸戶(委員評分側欄就地檢視真實佐證) */
+  evidenceByItemNo?: Record<string, EvidenceFile[]>;
   /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
@@ -127,7 +133,7 @@ export default function AuditPad({
           <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
-          <EvidencePane dimIssues={dimIssues} itemLaw={itemLaw} focusAspects={focusAspects} />
+          <EvidencePane dimIssues={dimIssues} itemLaw={itemLaw} evidenceByItemNo={evidenceByItemNo} focusAspects={focusAspects} />
         </aside>
       </div>
     </div>
@@ -138,10 +144,12 @@ export default function AuditPad({
 function EvidencePane({
   dimIssues,
   itemLaw,
+  evidenceByItemNo,
   focusAspects,
 }: {
   dimIssues: Record<string, DimIssue[]>;
   itemLaw: Record<string, ItemLaw>;
+  evidenceByItemNo: Record<string, EvidenceFile[]>;
   focusAspects: DeficiencyAspect[];
 }) {
   const focusSet = new Set(focusAspects);
@@ -182,6 +190,14 @@ function EvidencePane({
                           </div>
                           {itemLaw[it.itemNo]?.expectedEvidence && (
                             <p className="ml-6 mt-0.5 text-ink-500 leading-relaxed">應備佐證:{itemLaw[it.itemNo].expectedEvidence}</p>
+                          )}
+                          {(evidenceByItemNo[it.itemNo]?.length ?? 0) > 0 && (
+                            <div className="ml-6 mt-1 flex flex-col gap-1">
+                              <span className="text-ink-500">機關佐證(僅供線上檢視):</span>
+                              {evidenceByItemNo[it.itemNo].map((f) => (
+                                <ProtectedFileLink key={f.id} fileId={f.id} name={f.name} sizeKB={f.sizeKB} viewOnly />
+                              ))}
+                            </div>
                           )}
                         </li>
                       ))}

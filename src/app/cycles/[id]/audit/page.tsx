@@ -25,7 +25,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       organization: true,
       assignments: true,
       checklistVersion: { include: { items: { select: { id: true, dimension: true, itemNo: true, content: true, auditBasis: true, auditFocus: true, expectedEvidence: true }, orderBy: { orderIndex: 'asc' } } } },
-      responses: { select: { checklistItemId: true, compliance: true } },
+      responses: { select: { id: true, checklistItemId: true, compliance: true } },
     },
   });
   if (!cycle) notFound();
@@ -71,6 +71,25 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     if (comp === 'PARTIALLY_COMPLIANT' || comp === 'NON_COMPLIANT') {
       (dimIssues[i.dimension] ??= []).push({ itemNo: i.itemNo, content: i.content, level: comp });
     }
+  }
+
+  // W3/R3:機關檢核表佐證檔,依項次(itemNo)歸戶,供 AuditPad 佐證側欄「就地檢視真實佐證」評分。
+  // 授權沿用 /api/evidences/[id]/download → assertEvidenceAccess(ONSITE 起委員可存取 CHECKLIST_RESPONSE 佐證,不受審閱窗口限制)。
+  const respIds = cycle.responses.map((r) => r.id);
+  const checklistEvidence = respIds.length
+    ? await prisma.evidence.findMany({
+        where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: respIds } },
+        select: { id: true, targetId: true, originalName: true, sizeBytes: true },
+        orderBy: { uploadedAt: 'asc' },
+      })
+    : [];
+  const itemNoByItemId = new Map(cycle.checklistVersion.items.map((i) => [i.id, i.itemNo]));
+  const itemNoByResponseId = new Map(cycle.responses.map((r) => [r.id, itemNoByItemId.get(r.checklistItemId)]));
+  const evidenceByItemNo: Record<string, { id: string; name: string; sizeKB: number }[]> = {};
+  for (const e of checklistEvidence) {
+    const itemNo = itemNoByResponseId.get(e.targetId);
+    if (!itemNo) continue;
+    (evidenceByItemNo[itemNo] ??= []).push({ id: e.id, name: e.originalName, sizeKB: Math.max(1, Math.round(e.sizeBytes / 1024)) });
   }
 
   const [myScores, myFindings] = await Promise.all([
@@ -133,6 +152,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           itemLaw={itemLaw}
           snippets={snippets.map((s) => ({ id: s.id, aspect: s.aspect, kind: s.kind, text: s.text }))}
           dimIssues={dimIssues}
+          evidenceByItemNo={evidenceByItemNo}
           assignedLabels={assignedLabels}
           focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
