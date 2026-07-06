@@ -93,17 +93,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       }
     }
 
-    const updated = await prisma.auditCycle.update({
-      where: { id: cycle.id },
-      data: {
-        status: to,
-        // 結案記時;自 CLOSED 回退(重啟)則清除結案時間
-        closedAt: to === 'CLOSED' ? new Date() : from === 'CLOSED' ? null : undefined,
-        stateTransitions: {
-          create: { fromStatus: from, toStatus: to, actorId: user.id, reason: body.reason },
+    // 樂觀鎖:以 status===from 為條件更新,防兩個並行 transition 同時通過前置閘造成重複副作用
+    // (重複 notify / 標準清單 seed 重入 / 幻影轉換列)。更新與轉換紀錄收進同一交易;敗者 count===0 → 409。
+    const won = await prisma.$transaction(async (tx) => {
+      const res = await tx.auditCycle.updateMany({
+        where: { id: cycle.id, status: from },
+        data: {
+          status: to,
+          // 結案記時;自 CLOSED 回退(重啟)則清除結案時間
+          closedAt: to === 'CLOSED' ? new Date() : from === 'CLOSED' ? null : undefined,
         },
-      },
+      });
+      if (res.count === 0) return false;
+      await tx.cycleStateTransition.create({
+        data: { cycleId: cycle.id, fromStatus: from, toStatus: to, actorId: user.id, reason: body.reason ?? null },
+      });
+      return true;
     });
+    if (!won) {
+      return NextResponse.json({ error: '週期狀態已被其他操作變更,請重新整理後再試。' }, { status: 409 });
+    }
 
     // 轉入「資料準備」時自動套用標準需求清單(冪等;中心仍可增刪),
     // 確保承辦端永遠有可上傳項目,避免空白頁卡關。失敗不影響狀態轉換本身。
@@ -146,7 +155,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...meta,
     });
 
-    return NextResponse.json({ status: updated.status });
+    return NextResponse.json({ status: to });
   } catch (e) {
     return errorResponse(e);
   }
