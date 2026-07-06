@@ -806,7 +806,9 @@ function FindingSection({
       body: JSON.stringify({
         aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
         kind: 'IMPROVE',
-        content: toFullWidthPunct(`依檢核項 ${itemNo}「${content}」,現況:(請委員補述具體缺失或不符之處及改善建議)`),
+        // 只帶入對應項次(checklistRef);發現內容留給委員自行撰寫,不預先述明檢核表題目
+        // (委員回饋:自動代入只需項次;題目已由下方「對應檢核項」摘要就地顯示,不必塞進內容)。
+        content: toFullWidthPunct('(請補述具體缺失或不符之處及改善建議)'),
         checklistRef: itemNo,
       }),
     });
