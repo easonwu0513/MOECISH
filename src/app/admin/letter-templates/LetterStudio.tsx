@@ -530,6 +530,40 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
   async function copyRichContent() {
     if (!active) return;
     const html = buildEmailHtml(active.content, formData);
+    // 富文字複製「優先」用選取已渲染 DOM + execCommand('copy'):等同手動框選格式化內容後 Ctrl+C,
+    // 產生瀏覽器原生 rich 剪貼(Windows CF_HTML),各家郵件用戶端(含 NTU/Coremail)貼上都能保留
+    // 粗體/底線/黃底 highlight。這條路徑「不」經 async navigator.clipboard.write 的 HTML 清洗與
+    // 重新包裹——後者正是先前貼到 Coremail 掉格式、且每行浮現淡底色的元凶。失敗才退回 ClipboardItem。
+    const nativeCopy = (): boolean => {
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      document.body.appendChild(container);
+      let ok = false;
+      try {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(container);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        ok = document.execCommand('copy');
+        sel?.removeAllRanges();
+      } catch {
+        ok = false;
+      } finally {
+        document.body.removeChild(container);
+      }
+      return ok;
+    };
+    if (nativeCopy()) {
+      setCopied('content');
+      toast.success('已複製信件內容（含格式），可直接貼到郵件');
+      setTimeout(() => setCopied(''), 2000);
+      return;
+    }
+    // 後備:async ClipboardItem(瀏覽器停用 execCommand 時)
     try {
       if (navigator.clipboard && typeof window !== 'undefined' && 'ClipboardItem' in window) {
         const tmp = document.createElement('div');
@@ -542,33 +576,13 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
           }),
         ]);
         setCopied('content');
-        toast.success('已複製信件內容（含格式），可直接貼到郵件');
+        toast.success('已複製信件內容（含格式）');
         setTimeout(() => setCopied(''), 2000);
         return;
       }
-      throw new Error('no ClipboardItem');
+      throw new Error('no clipboard');
     } catch {
-      // 後備：選取暫存節點 execCommand
-      try {
-        const container = document.createElement('div');
-        container.innerHTML = html;
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        document.body.appendChild(container);
-        const sel = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(container);
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        document.execCommand('copy');
-        sel?.removeAllRanges();
-        document.body.removeChild(container);
-        setCopied('content');
-        toast.success('已複製信件內容（含格式）');
-        setTimeout(() => setCopied(''), 2000);
-      } catch {
-        toast.error('複製失敗，請手動框選預覽區複製');
-      }
+      toast.error('複製失敗，請手動框選預覽區複製');
     }
   }
 

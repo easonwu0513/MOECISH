@@ -243,7 +243,8 @@ export function buildEmailHtml(text: string, formData: FormData): string {
     }
     return part.replace(/\n/g, '<br/>');
   });
-  return `<div style="font-family: Arial, 'Microsoft JhengHei', sans-serif; font-size: 15px; line-height: 1.8; color: #000000; background-color: transparent;">${htmlParts.join('')}</div>`;
+  // 不宣告 background-color:部分郵件用戶端會把 wrapper 的 background(即使 transparent)實體化成淡底色帶。
+  return `<div style="font-family: Arial, 'Microsoft JhengHei', sans-serif; font-size: 15px; line-height: 1.8; color: #000000;">${htmlParts.join('')}</div>`;
 }
 
 const FILLED = 'background-color:#e0edff;color:#1b4fa8;border-radius:3px;padding:0 0.15rem;';
