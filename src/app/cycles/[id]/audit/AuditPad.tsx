@@ -548,7 +548,7 @@ function ScoreSection({
           const focused = focusSet.has(aspect);
           return (
           <div key={aspect}>
-            <div className={`px-5 py-2 text-label border-b border-rule flex items-center gap-2 ${focused ? 'bg-primary-50 text-primary-800' : 'bg-paper-sunk text-ink-500'}`}>
+            <div className={`px-5 py-2 text-label border-b border-rule flex items-center gap-2 ${focused ? 'bg-focus-wash text-primary-700' : 'bg-paper-sunk text-ink-500'}`}>
               {DEFICIENCY_ASPECT_LABELS[aspect]}
               {focused && <Chip size="sm" tone="primary">您負責</Chip>}
             </div>
@@ -1058,7 +1058,7 @@ function FindingSection({
                 ))}
 
                 {canEdit && draft && (
-                  <div className="px-5 py-4 flex flex-col gap-2.5 bg-primary-50/30">
+                  <div className={`px-5 py-4 flex flex-col gap-2.5 ${SURFACE_INFO}`}>
                     <div className="flex flex-wrap items-center gap-2">
                       <AspectSelect
                         value={draft.aspect}

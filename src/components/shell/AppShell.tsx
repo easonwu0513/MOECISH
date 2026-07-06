@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useTrackRemind } from '@/components/cycle/useTrackRemind';
 import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
 import { TopStrip } from './TopStrip';
@@ -45,25 +46,9 @@ export function AppShell({
     { title: string; description: string; confirmLabel: string; run: () => Promise<void> } | null
   >(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const remind = useTrackRemind(); // 共用 hook(與 admin/cycles RemindButton 單一來源,消手抄漂移)
 
-  async function remindCycle() {
-    if (!cycleId) return;
-    const res = await fetch(`/api/cycles/${cycleId}/track-remind`, { method: 'POST' });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '催辦失敗' }));
-      toast.error('催辦失敗', j.error);
-      return;
-    }
-    const j = await res.json();
-    if (j.sentCount === 0 && j.skippedCount > 0) {
-      toast.info('今日已提醒過', `${j.skippedCount} 位機關管理員今日已收到提醒,未重複寄送`);
-    } else {
-      toast.success('已寄送追蹤提醒', `已通知 ${j.sentCount} 位機關管理員 · 本週期累計催辦 ${j.remindCount} 封`);
-    }
-    router.refresh();
-  }
-
-  const commands: Command[] = [
+  const commands: Command[] = useMemo(() => [
     // 導覽 + 管理:由 nav-map SoT 派生(與側欄同一份清單,杜絕兩處漂移)
     ...navCommandRoutes(user.role).map(
       (r) =>
@@ -100,7 +85,7 @@ export function AppShell({
                 description:
                   '將以 email 通知本週期的機關管理員仍有待辦事項,並記錄於催辦軌跡。同一天重複點擊不會重複寄送。',
                 confirmLabel: '寄送提醒',
-                run: remindCycle,
+                run: async () => { if (cycleId) await remind(cycleId); },
               }),
           } as Command,
         ]
@@ -131,7 +116,7 @@ export function AppShell({
     } as Command,
     { id: 'password', group: '帳號', label: '變更密碼', icon: <Shield size={16} />, action: () => router.push('/account/password') },
     { id: 'logout', group: '帳號', label: '登出', icon: <LogOut size={16} />, action: () => signOut({ callbackUrl: '/login' }) },
-  ];
+  ], [user.role, cycleId, router, toast, remind]);
 
   return (
     <NavProvider>

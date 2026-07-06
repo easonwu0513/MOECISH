@@ -52,6 +52,12 @@ export function CommandPalette({
 
   useEffect(() => { setActive(0); }, [q]);
 
+  // 鍵盤上下巡覽時,把選中項捲入可視區(避免 active 捲出視窗看不到)
+  useEffect(() => {
+    if (!open) return;
+    document.getElementById(`${listId}-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, open, listId]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -131,13 +137,13 @@ export function CommandPalette({
                           onClick={() => { c.action(); onOpenChange(false); }}
                           className={cn(
                             'w-full flex items-center gap-3 px-4 py-2.5 text-body-sm transition-colors',
-                            selected ? 'bg-focus-wash text-primary-700' : 'text-ink-900 hover:bg-rule',
+                            selected ? 'bg-focus-wash text-primary-700' : 'text-ink-900 hover:bg-paper-sunk',
                           )}
                         >
                           {c.icon && <span className={selected ? 'text-primary-700' : 'text-ink-500'}>{c.icon}</span>}
                           <span className="flex-1 text-left">{c.label}</span>
                           {c.hint && <span className={cn('text-caption', selected ? 'text-primary-700/80' : 'text-ink-500')}>{c.hint}</span>}
-                          <ChevronRight size={14} className={selected ? 'text-primary-700' : 'text-rule'} />
+                          <ChevronRight size={14} className={selected ? 'text-primary-700' : 'text-ink-500'} />
                         </button>
                       </li>
                     );

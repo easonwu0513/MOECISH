@@ -63,14 +63,15 @@ function prepChapter(
   cycleId: string,
 ): DocumentChapter {
   const href = `/cycles/${cycleId}/prep`;
-  if (counts.total === 0) {
-    // 無此區應備項目:視為已完成(不擋進度),但註明無需求。
-    return { key, index, label, status: 'done', detail: '無應備項目', href };
-  }
-  const allConfirmed = counts.confirmed === counts.total;
+  // DRAFT 一律 locked(即使該區暫無應備項目也不顯「已完成」,免未啟動就綠勾誤導;對抗審查修)
   if (cur === IDX.DRAFT) {
     return { key, index, label, status: 'locked', detail: '待中心開放', href: undefined, lockedHint: '中心推進至「資料準備中」後開放填報' };
   }
+  if (counts.total === 0) {
+    // 已開放但此區無應備項目:視為已完成(不擋進度),但註明無需求。
+    return { key, index, label, status: 'done', detail: '無應備項目', href };
+  }
+  const allConfirmed = counts.confirmed === counts.total;
   if (allConfirmed) {
     return { key, index, label, status: 'done', detail: `${counts.confirmed}/${counts.total} 已確認齊備`, href };
   }
@@ -152,11 +153,4 @@ export function deriveDocumentChapters(input: DocumentProgressInput): DocumentCh
   }
 
   return chapters;
-}
-
-/** 進度尺整體完成度:已完成章節數 / 總章節數(供標頭顯示)。 */
-export function chaptersDonePct(chapters: DocumentChapter[]): number {
-  if (chapters.length === 0) return 0;
-  const done = chapters.filter((c) => c.status === 'done').length;
-  return Math.round((done / chapters.length) * 100);
 }

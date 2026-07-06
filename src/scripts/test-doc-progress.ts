@@ -67,10 +67,15 @@ check('恆 7 章', chapters('DRAFT').length === 7);
   check('PREP-done checklist done', st(cs, 'checklist') === 'done');
 }
 
-// 某 prep 類別無應備項目(total=0):視為 done(刻意「不擋進度」;R4 明確鎖住此行為)
+// 某 prep 類別無應備項目(total=0):已開放階段視為 done(刻意「不擋進度」)
 {
   const cs = chapters('PREPARATION', { prepTech: { confirmed: 0, total: 0 } });
-  check('prep total=0 → done', st(cs, 'prep-tech') === 'done');
+  check('prep total=0 已開放 → done', st(cs, 'prep-tech') === 'done');
+}
+// DRAFT + 該區無應備項目:仍 locked(不因 total=0 就在未啟動時顯綠勾;對抗審查修)
+{
+  const cs = chapters('DRAFT', { prepTech: { confirmed: 0, total: 0 } });
+  check('DRAFT + prep total=0 → 仍 locked', st(cs, 'prep-tech') === 'locked');
 }
 
 // ONSITE:實地稽核 active、缺失矯正 locked
