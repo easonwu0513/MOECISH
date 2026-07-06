@@ -92,8 +92,8 @@ async function main() {
   check('甲院四類齊全(checklist/prep/action/signed-report)',
     (['checklist', 'prep', 'action', 'signed-report'] as ReturnKind[]).every((k) => kinds(aReturns).has(k)));
   check('甲院結果完全不含乙院(租戶隔離)', aReturns.every((r) => aCycleIds.has(r.cycleId)));
-  // 排序:有時戳者新→舊,無時戳(checklist reopen)殿後
-  check('無時戳的檢核表退回排在末位', aReturns[aReturns.length - 1].kind === 'checklist');
+  // 排序:無時戳(checklist reopen)置頂避免被埋沒,其餘有時戳者新→舊
+  check('無時戳的檢核表退回置頂', aReturns[0].kind === 'checklist');
 
   // 機關乙:僅見自家 1 筆
   check('乙院 ORG_ADMIN 僅見自家 1 筆', bReturns.length === 1 && bReturns[0].cycleId === bReopen.id && bReturns[0].kind === 'checklist');

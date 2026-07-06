@@ -203,7 +203,13 @@ export async function getOpenReturns(opts: {
     }
   }
 
-  // 有退回時戳者新→舊排前;無時戳(檢核表)殿後
-  items.sort((a, b) => (b.returnedAt?.getTime() ?? 0) - (a.returnedAt?.getTime() ?? 0));
+  // 排序:無時戳者(檢核表退回)置頂避免被埋沒(最該補卻無日期),其餘有時戳者新→舊。
+  // 兩鍵排序防 null 造成 NaN 比較。
+  items.sort((a, b) => {
+    const an = a.returnedAt ? 1 : 0; // 0 = 無時戳 → 置頂
+    const bn = b.returnedAt ? 1 : 0;
+    if (an !== bn) return an - bn;
+    return (b.returnedAt?.getTime() ?? 0) - (a.returnedAt?.getTime() ?? 0);
+  });
   return items;
 }
