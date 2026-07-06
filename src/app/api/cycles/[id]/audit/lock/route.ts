@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
+import { auditorCanScore } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditScoreLocked, notifyAuditScoreUnlocked } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -25,6 +26,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '已結案的週期不可變更' }, { status: 409 });
+    }
+    // 階段閘下沉 API 層(縱深防禦):實地稽核(ONSITE 起)才可鎖定/解鎖評分(封 READY 繞頁面直打)。
+    if (!auditorCanScore(cycle.status)) {
+      return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可鎖定/解除評分' }, { status: 403 });
     }
     const assignment = await prisma.auditorAssignment.findUnique({
       where: { cycleId_auditorId: { cycleId: cycle.id, auditorId: user.id } },

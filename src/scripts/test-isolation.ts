@@ -184,7 +184,12 @@ async function main() {
   const cycleB = await prisma.auditCycle.create({
     data: { year: 2099, organizationId: orgB.id, checklistVersionId: version.id, status: 'PREPARATION', startDate: now, dueDate: in30d },
   });
+  // 實地稽核(ONSITE)週期:供「委員評分階段閘」正向對照(ONSITE 可評);cycleA(PREPARATION)則驗階段閘擋下。
+  const cycleOn = await prisma.auditCycle.create({
+    data: { year: 2098, organizationId: orgA.id, checklistVersionId: version.id, status: 'ONSITE', startDate: now, dueDate: in30d },
+  });
   await prisma.auditorAssignment.create({ data: { cycleId: cycleA.id, auditorId: auditorY.id } });
+  await prisma.auditorAssignment.create({ data: { cycleId: cycleOn.id, auditorId: auditorY.id } });
   const defA = await prisma.deficiency.create({
     data: { cycleId: cycleA.id, aspect: 'STRATEGY', type: 'IMPROVE', itemNo: 999, description: '隔離測試用缺失', createdById: adminA.id },
   });
@@ -255,8 +260,13 @@ async function main() {
   console.log('\n── 實地稽核模組(評分/發現/轉換)──');
   const scoreBody = { scores: [{ dimension: 'CORE_BUSINESS', score: 9 }] };
   const findingBody = { aspect: 'STRATEGY', kind: 'IMPROVE', content: '隔離測試發現內容' };
-  await expectAllowed('指派委員Y 評分A週期', jarY, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, scoreBody);
-  await expectAllowed('指派委員Y 新增A發現', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/findings`, findingBody);
+  // 正向對照:ONSITE 階段,指派委員可評分/記錄發現
+  await expectAllowed('指派委員Y 評分ONSITE週期', jarY, 'PUT', `/api/cycles/${cycleOn.id}/audit/scores`, scoreBody);
+  await expectAllowed('指派委員Y 新增ONSITE發現', jarY, 'POST', `/api/cycles/${cycleOn.id}/audit/findings`, findingBody);
+  // 階段閘(P0 修補):資料準備中(PREPARATION,未到 ONSITE)即使被指派也不可評分/記錄發現/鎖定 → 403
+  await expectStatus('指派委員Y 資料準備中評分(階段閘)', jarY, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
+  await expectStatus('指派委員Y 資料準備中新增發現(階段閘)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/findings`, [403], findingBody);
+  await expectStatus('指派委員Y 資料準備中鎖定評分(階段閘)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/lock`, [403], { locked: true });
   await expectStatus('未指派委員X 評分A週期', jarX, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
   await expectStatus('未指派委員X 開A稽核頁(redirect)', jarX, 'GET', `/cycles/${cycleA.id}/audit`, REDIRECTED);
   await expectStatus('B管理員 評分A週期(非委員)', jarB, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
