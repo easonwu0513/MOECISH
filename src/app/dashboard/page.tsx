@@ -25,7 +25,8 @@ import { toneClasses } from '@/lib/stage';
 import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { cn } from '@/lib/cn';
-import { fmtROCWeekday } from '@/lib/date';
+import { fmtROC, fmtROCWeekday } from '@/lib/date';
+import RemindButton from '@/components/cycle/RemindButton';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { ReturnsInbox } from '@/components/dashboard/ReturnsInbox';
@@ -78,6 +79,18 @@ export default async function HomePage() {
 
   // ── 每週期衍生數據(與週期內頁共用 process-guide) ──
   const enriched = cycles.map((c) => ({ c, ...deriveCycleFacts(c, now, user.role === 'AUDITOR' ? user.id : undefined) }));
+
+  // 大改造C:逾期矩陣列就地「一鍵催辦」——催辦軌跡(track-remind 已寄封數+最近寄送;與 admin/cycles 同查法)
+  const overdueCycleIds = user.role === 'SUPER_ADMIN' ? enriched.filter((e) => e.overdue).map((e) => e.c.id) : [];
+  const remindTrail = overdueCycleIds.length
+    ? await prisma.emailLog.groupBy({
+        by: ['relatedCycleId'],
+        where: { relatedCycleId: { in: overdueCycleIds }, kind: 'track-remind', status: { in: ['sent', 'simulated'] } },
+        _count: { _all: true },
+        _max: { sentAt: true },
+      })
+    : [];
+  const remindMap = new Map(remindTrail.map((r) => [r.relatedCycleId, { count: r._count._all, last: r._max.sentAt }]));
 
   // 中心:實地稽核/缺失發布中週期的委員評分完成度(scoreLockedAt),供「今日待辦」的未評分訊號
   const scoringByCycle = new Map<string, { total: number; scored: number }>();
@@ -362,8 +375,18 @@ export default async function HomePage() {
                         </Link>
                         {e.overdue && <Chip tone="danger" size="sm" variant="filled">逾期</Chip>}
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
-                        {/* 減法(審計#5):矩陣退為純狀態總覽——動作 CTA 由上方「今日待辦」獨任,
-                            同批週期的同一動作不再雙渲染;點院名即進週期頁。 */}
+                        {/* 減法(審計#5):矩陣退為純狀態總覽——動作 CTA 由上方「今日待辦」獨任。
+                            例外=逾期列就地「一鍵催辦」(大改造C):寄標準追蹤提醒不離頁,含催辦軌跡;
+                            客製/群發追蹤信仍走 Email 頁(今日待辦逾期列引導),兩工具深度不同不重複。 */}
+                        {e.overdue && (
+                          <RemindButton
+                            cycleId={e.c.id}
+                            orgName={e.c.organization.name}
+                            yearLabel={String(e.c.year - 1911)}
+                            lastLabel={remindMap.get(e.c.id)?.last ? fmtROC(remindMap.get(e.c.id)!.last!) : null}
+                            remindCount={remindMap.get(e.c.id)?.count ?? 0}
+                          />
+                        )}
                       </li>
                     );
                   })}

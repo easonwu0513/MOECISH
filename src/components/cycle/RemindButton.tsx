@@ -7,7 +7,7 @@ import { Megaphone } from '@/components/icons';
 import { useTrackRemind } from '@/components/cycle/useTrackRemind';
 
 /**
- * 中心落後列「一鍵寄追蹤信」:對該落後週期之機關管理員寄出進度追蹤提醒,並在列上就地顯示催辦軌跡
+ * 中心「一鍵寄追蹤信」(admin/cycles 落後列 + dashboard 逾期矩陣列共用;大改造C 搬至共用層):對該落後週期之機關管理員寄出進度追蹤提醒,並在列上就地顯示催辦軌跡
  * (上次催辦日期 / 累計封數)。寄送後 router.refresh() 讓軌跡即時更新(閉環)。
  */
 export default function RemindButton({

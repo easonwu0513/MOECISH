@@ -12,7 +12,7 @@ import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
 import BatchAssignAuditors from './BatchAssignAuditors';
-import RemindButton from './RemindButton';
+import RemindButton from '@/components/cycle/RemindButton';
 
 /* 靜謐文件工作坊(批 B2)——跨院巡檢台重塑為活文件:襯線大標 + calm 讀數卡 + 髮絲帳冊表。
    落後列以實心左緣規線 + 文字雙載(逾期/停滯 N 天)秒辨,不再靠 chip 海。功能與 IA 全保留、不新增端點。 */
