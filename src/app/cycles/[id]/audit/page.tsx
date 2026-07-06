@@ -92,6 +92,29 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     (evidenceByItemNo[itemNo] ??= []).push({ id: e.id, name: e.originalName, sizeKB: Math.max(1, Math.round(e.sizeBytes / 1024)) });
   }
 
+  // 佐證側欄改顯示「委員本人於『委員審閱』階段留下的逐題筆記」(取代原機關自評部分/不符合清單):
+  // 委員逐題審閱,不僅看機關自評的部分符合/不符合;此為委員評分時的個人參照。依項次歸戶後分構面。
+  const myNotesByItemNo: Record<string, string[]> = {};
+  if (user.role === 'AUDITOR' && respIds.length) {
+    const myComments = await prisma.auditorComment.findMany({
+      where: { responseId: { in: respIds }, auditorId: user.id },
+      select: { responseId: true, content: true, round: true },
+      orderBy: [{ round: 'asc' }],
+    });
+    for (const c of myComments) {
+      const itemNo = itemNoByResponseId.get(c.responseId);
+      if (!itemNo) continue;
+      (myNotesByItemNo[itemNo] ??= []).push(c.content);
+    }
+  }
+  const reviewNotesByDim: Record<string, { itemNo: string; content: string; notes: string[] }[]> = {};
+  for (const i of cycle.checklistVersion.items) {
+    const notes = myNotesByItemNo[i.itemNo];
+    if (notes && notes.length) {
+      (reviewNotesByDim[i.dimension] ??= []).push({ itemNo: i.itemNo, content: i.content, notes });
+    }
+  }
+
   const [myScores, myFindings] = await Promise.all([
     user.role === 'AUDITOR'
       ? prisma.auditScore.findMany({ where: { cycleId: cycle.id, auditorId: user.id } })
@@ -123,6 +146,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
         { label: '實地稽核' },
       ]}
       watermark
+      wide
     >
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -153,6 +177,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           snippets={snippets.map((s) => ({ id: s.id, aspect: s.aspect, kind: s.kind, text: s.text }))}
           dimIssues={dimIssues}
           evidenceByItemNo={evidenceByItemNo}
+          reviewNotes={reviewNotesByDim}
           assignedLabels={assignedLabels}
           focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}

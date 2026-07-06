@@ -81,6 +81,7 @@ export default function AuditPad({
   itemLaw = {},
   dimIssues = {},
   evidenceByItemNo = {},
+  reviewNotes = {},
   assignedLabels = [],
   focusAspects = [],
   snippets = [],
@@ -100,6 +101,8 @@ export default function AuditPad({
   dimIssues?: Record<string, DimIssue[]>;
   /** 機關檢核表佐證檔,依項次歸戶(委員評分側欄就地檢視真實佐證) */
   evidenceByItemNo?: Record<string, EvidenceFile[]>;
+  /** 委員本人於「委員審閱」階段留下的逐題筆記,依構面歸戶(佐證側欄就地對照) */
+  reviewNotes?: Record<string, { itemNo: string; content: string; notes: string[] }[]>;
   /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
@@ -127,74 +130,81 @@ export default function AuditPad({
           </span>
         </div>
       )}
-      {/* 三塊合一同框(W3):左=評分+發現工作區,右=佐證/扣分依據常駐側欄(寬螢幕 sticky,窄螢幕堆疊於下) */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
+      {/* 三塊合一同框(W3):左=評分+發現工作區,右=委員審閱筆記常駐側欄(寬螢幕 sticky,窄螢幕堆疊於下)。
+          側欄加寬 + 放大字級(頁面已 wide 吃滿寬),對年長委員更好讀。 */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
         <div className="flex flex-col gap-8 min-w-0">
           <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
           <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
-          <EvidencePane dimIssues={dimIssues} itemLaw={itemLaw} evidenceByItemNo={evidenceByItemNo} focusAspects={focusAspects} />
+          <EvidencePane reviewNotes={reviewNotes} evidenceByItemNo={evidenceByItemNo} focusAspects={focusAspects} />
         </aside>
       </div>
     </div>
   );
 }
 
-// ───────────────── 佐證 / 扣分依據常駐側欄(三塊合一同框之「佐證」塊)─────────────────
+// ───────────────── 委員審閱筆記常駐側欄(三塊合一同框之「佐證」塊)─────────────────
+// 顯示委員本人於「委員審閱」階段留下的逐題筆記(取代原「機關自評部分/不符合」清單——委員逐題審閱,
+// 不僅看機關自評)。放大字級、每題卡片化,對年長委員更好讀。
 function EvidencePane({
-  dimIssues,
-  itemLaw,
+  reviewNotes,
   evidenceByItemNo,
   focusAspects,
 }: {
-  dimIssues: Record<string, DimIssue[]>;
-  itemLaw: Record<string, ItemLaw>;
+  reviewNotes: Record<string, { itemNo: string; content: string; notes: string[] }[]>;
   evidenceByItemNo: Record<string, EvidenceFile[]>;
   focusAspects: DeficiencyAspect[];
 }) {
   const focusSet = new Set(focusAspects);
-  const hasAny = Object.values(dimIssues).some((v) => v.length > 0);
+  const hasAny = Object.values(reviewNotes).some((v) => v.length > 0);
   return (
-    <section className="rounded-lg border border-rule bg-card xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label="佐證與扣分依據">
-      <div className="sticky top-0 z-[1] bg-card border-b border-rule px-4 py-3">
-        <p className="text-title-md text-ink-900">佐證與扣分依據</p>
-        <p className="text-caption text-ink-500 mt-0.5 leading-relaxed">機關自評「部分符合 / 不符合」項目與其應備佐證,評分時就地對照,不必切換頁面。</p>
+    <section className="rounded-lg border border-rule bg-card xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label="委員審閱筆記">
+      <div className="sticky top-0 z-[1] bg-card border-b border-rule px-5 py-4">
+        <p className="text-title-md text-ink-900">委員審閱筆記</p>
+        <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
+          您於「委員審閱」階段留下的逐題筆記,評分時就地對照,不必切換頁面。
+        </p>
       </div>
       {!hasAny ? (
-        <p className="px-4 py-10 text-body-sm text-ink-500 text-center leading-relaxed">
-          本次自評無部分符合 / 不符合項目,無扣分依據需檢視。
+        <p className="px-5 py-12 text-body-sm text-ink-500 text-center leading-relaxed">
+          您在「委員審閱」階段尚未留下逐題筆記。
+          <br />
+          可先於「委員審閱」逐題記下審閱重點,評分時即可在此就地對照。
         </p>
       ) : (
         <div className="divide-y divide-rule">
           {ASPECTS.map((asp) => {
-            const dims = ASPECT_DIMENSIONS[asp].filter((d) => (dimIssues[d]?.length ?? 0) > 0);
+            const dims = ASPECT_DIMENSIONS[asp].filter((d) => (reviewNotes[d]?.length ?? 0) > 0);
             if (dims.length === 0) return null;
             const focused = focusSet.has(asp);
             return (
-              <div key={asp} className={cn('border-l-2 border-transparent px-4 py-3', focused && 'border-rule-active bg-focus-wash')}>
-                <p className="text-body-sm font-medium text-ink-900 mb-2">
+              <div key={asp} className={cn('border-l-2 border-transparent px-5 py-4', focused && 'border-rule-active bg-focus-wash')}>
+                <p className="text-body font-semibold text-ink-900 mb-3">
                   {DEFICIENCY_ASPECT_LABELS[asp]}
-                  {focused && <span className="ml-1.5 text-caption font-medium text-primary-700">· 您負責</span>}
+                  {focused && <span className="ml-2 text-body-sm font-medium text-primary-700">· 您負責</span>}
                 </p>
                 {dims.map((dim) => (
-                  <div key={dim} className="mb-3 last:mb-0">
-                    <p className="text-caption text-ink-500 mb-1">{DIMENSION_LABELS[dim as Dimension]}</p>
-                    <ul className="flex flex-col gap-2">
-                      {dimIssues[dim].map((it) => (
-                        <li key={it.itemNo} className="text-caption">
-                          <div className="flex items-start gap-1.5">
-                            <span className={cn('shrink-0 tabular-nums font-semibold', it.level === 'NON_COMPLIANT' ? 'text-danger-700' : 'text-warning-700')}>
-                              {it.itemNo}
-                            </span>
-                            <span className="text-ink-700 leading-relaxed">{it.content}</span>
+                  <div key={dim} className="mb-4 last:mb-0">
+                    <p className="text-body-sm font-medium text-ink-700 mb-2">{DIMENSION_LABELS[dim as Dimension]}</p>
+                    <ul className="flex flex-col gap-3">
+                      {reviewNotes[dim].map((it) => (
+                        <li key={it.itemNo} className="rounded-md bg-paper-sunk px-3.5 py-3">
+                          <div className="flex items-start gap-2">
+                            <span className="shrink-0 tabular-nums font-semibold text-primary-700 text-body-sm">{it.itemNo}</span>
+                            <span className="text-body-sm text-ink-700 leading-relaxed">{it.content}</span>
                           </div>
-                          {itemLaw[it.itemNo]?.expectedEvidence && (
-                            <p className="ml-6 mt-0.5 text-ink-500 leading-relaxed">應備佐證:{itemLaw[it.itemNo].expectedEvidence}</p>
-                          )}
+                          <div className="mt-2.5 flex flex-col gap-2">
+                            {it.notes.map((n, idx) => (
+                              <p key={idx} className="border-l-2 border-primary-300 pl-3 text-body-sm text-ink-900 leading-relaxed whitespace-pre-wrap">
+                                {n}
+                              </p>
+                            ))}
+                          </div>
                           {(evidenceByItemNo[it.itemNo]?.length ?? 0) > 0 && (
-                            <div className="ml-6 mt-1 flex flex-col gap-1">
-                              <span className="text-ink-500">機關佐證(僅供線上檢視):</span>
+                            <div className="mt-2.5 flex flex-col gap-1">
+                              <span className="text-caption text-ink-500">機關佐證(僅供線上檢視):</span>
                               {evidenceByItemNo[it.itemNo].map((f) => (
                                 <ProtectedFileLink key={f.id} fileId={f.id} name={f.name} sizeKB={f.sizeKB} viewOnly />
                               ))}
