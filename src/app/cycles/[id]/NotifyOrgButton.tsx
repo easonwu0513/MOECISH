@@ -54,7 +54,7 @@ export default function NotifyOrgButton({
           onClick={() => setOpen(true)}
           disabled={!datesConfirmed}
         >
-          通知機關
+          通知機關(稽核開立)
         </Button>
       </span>
       <ConfirmDialog

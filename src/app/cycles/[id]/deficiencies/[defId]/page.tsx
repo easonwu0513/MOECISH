@@ -405,8 +405,10 @@ export default async function DeficiencyDetailPage({
         }
       />
 
-      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點) */}
-      {(prevDefNav || nextDefNav) && (
+      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點)。
+          連續審查中(canReview)隱藏:與 ReviewPanel 的「下一筆待審」兩套「下一筆」語意不同易混(審計#12),
+          審查動線由面板獨任;純瀏覽(已通過/唯讀)才顯順序導覽。 */}
+      {!canReview && (prevDefNav || nextDefNav) && (
         <nav className="mt-8 pt-5 border-t border-rule flex items-center justify-between gap-3">
           {prevDefNav ? (
             <Link

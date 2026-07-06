@@ -12,6 +12,7 @@ import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { AlertTriangle, ChevronRight } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
+  DEFICIENCY_ASPECT_NUM,
   DEFICIENCY_TYPE_LABELS,
   ACTION_STATUS_LABELS,
   type DeficiencyAspect,
@@ -68,9 +69,6 @@ export default async function DeficienciesPage({
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
-  const aspectNumber: Record<DeficiencyAspect, string> = {
-    STRATEGY: '一', MANAGEMENT: '二', TECHNICAL: '三',
-  };
 
   // 委員只見「指派給本人審閱」的缺失(UAT 批66:不看其他委員/全體的缺失);中心/機關看全部(機關本就同院)。
   // reviewer-aware 一致於詳情頁 canReview、review API 授權與連續審查——清單/計數/篩選全以此為基準,不再膨脹。
@@ -189,7 +187,7 @@ export default async function DeficienciesPage({
             return (
               <section key={aspect}>
                 <h2 className="text-title-lg text-ink-900 mb-4">
-                  {aspectNumber[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
+                  {DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
                 </h2>
                 <div className="flex flex-col gap-6">
                   {types.map((type) => {

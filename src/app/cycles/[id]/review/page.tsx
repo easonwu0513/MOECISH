@@ -9,8 +9,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck, ChevronRight } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, onsiteStageEnded, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
-import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPage';
+import { filterOwnComments } from '@/lib/auditor-visibility';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { NoteBox } from '@/components/cycle/NoteBox';
@@ -61,32 +63,14 @@ export default async function ReviewPage({
     ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd)
     : 'open';
   if (reviewState !== 'open') {
-    return (
-      <AppShell
-        user={{ name: session.user.name, email: session.user.email, role: session.user.role, organizationName: session.user.organizationName }}
-        cycleId={cycle.id}
-        crumbs={[
-          { label: '總覽', href: '/dashboard' },
-          { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
-          { label: '委員審閱' },
-        ]}
-      >
-        <header className="mb-5">
-          <h1 className="text-headline text-ink-900">委員審閱</h1>
-        </header>
-        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} />
-      </AppShell>
-    );
+    // 早退鎖定頁(共用殼,與 /checklist 一致;不載入機關資料)
+    return <ReviewWindowLockedPage user={session.user} cycle={cycle} title="委員審閱" crumbLabel="委員審閱" state={reviewState} />;
   }
 
   // 委員意見隱私(UAT 批62):委員僅見「自己」填寫的意見——各委員獨立審查,
   // 不互看彼此意見以免相互影響;中心仍可見全部具名意見。以下所有計數/篩選
   // (意見待補、已補正待複核)自然變成「以本人意見為準」。
-  if (session.user.role === 'AUDITOR') {
-    for (const r of cycle.responses) {
-      r.comments = r.comments.filter((c) => c.auditorId === session.user.id);
-    }
-  }
+  filterOwnComments(cycle.responses, session.user.role, session.user.id);
 
   const responsesByItem = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
 
@@ -171,6 +155,12 @@ export default async function ReviewPage({
         { label: '委員審閱' },
       ]}
     >
+      {/* 回工作台導引列:與 prep/checklist/deficiencies 一致(原 review/audit 缺=動線斷崖,審計#6) */}
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="逐題審閱後,回工作台查看下一步"
+      />
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">委員審閱</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">

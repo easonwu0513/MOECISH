@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
 import { auditorCanScore, type DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
@@ -148,6 +149,12 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       watermark
       wide
     >
+      {/* 回工作台導引列:與 prep/checklist/deficiencies 一致(原 review/audit 缺=動線斷崖,審計#6) */}
+      <CycleHubBar
+        cycleId={cycle.id}
+        label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
+        nextHint="評分與發現定稿後,回工作台查看下一步"
+      />
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-headline text-ink-900">實地稽核評分與發現</h1>

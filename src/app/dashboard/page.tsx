@@ -177,7 +177,8 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
       }
       if (st === 'REPORT_ISSUED') {
-        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,通知機關開始矯正`, href: base, cta: '去通知' });
+        // 直達週期頁「進階管理」錨點(通知鈕所在),不再丟到頁頂讓人自己找(審計#4)
+        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,通知機關開始矯正`, href: `${base}#management`, cta: '去通知' });
       }
       if (st === 'REMEDIATION') {
         if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });
@@ -342,7 +343,6 @@ export default async function HomePage() {
                   .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.step - b.step)
                   .slice(0, 8)
                   .map((e) => {
-                    const n = nextActionForRole('SUPER_ADMIN', e);
                     const tone = cycleStatusTone(e.status);
                     return (
                       <li
@@ -361,15 +361,8 @@ export default async function HomePage() {
                         </Link>
                         {e.overdue && <Chip tone="danger" size="sm" variant="filled">逾期</Chip>}
                         <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
-                        {/* 明細→動作閉環:有具體動作就給就近 CTA,否則常駐下一步文字(手機不蒸發) */}
-                        {n?.href && n?.cta ? (
-                          <Link href={n.href} className="group shrink-0 inline-flex items-center justify-end gap-0.5 min-h-11 sm:min-w-[6.5rem] text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded">
-                            {n.cta}
-                            <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-                          </Link>
-                        ) : n?.text ? (
-                          <span className="basis-full sm:basis-auto sm:max-w-[14rem] line-clamp-1 text-caption text-ink-500">{n.text}</span>
-                        ) : null}
+                        {/* 減法(審計#5):矩陣退為純狀態總覽——動作 CTA 由上方「今日待辦」獨任,
+                            同批週期的同一動作不再雙渲染;點院名即進週期頁。 */}
                       </li>
                     );
                   })}
@@ -402,53 +395,56 @@ export default async function HomePage() {
           {/* 委員 / 機關:我的(負責)週期 —— 乾淨任務卡(中心已由跨院矩陣涵蓋) */}
           {!isSuper && (
             <section className="mb-8">
-              {/* 機關:資料準備中時,先給「還剩什麼」的準備讀數 */}
+              {/* 機關:資料準備中時,先給「還剩什麼」的準備讀數。
+                  減法(審計#9):原 ProgressRing+StackedBar 兩張重卡與週期頁模組卡/prep 頁摘要三重呈現
+                  → 收斂為兩列單行摘要+CTA(完整進度視覺由週期頁四模組卡承擔)。 */}
               {user.role === 'ORG_ADMIN' &&
                 (() => {
                   const pc = enriched.find((e) => e.status === 'PREPARATION');
                   // 機關只看自己負責的機關區(技術檢測/實地稽核);中心匯入由中心經手,不計入機關讀數
                   if (!pc || (pc.mechTotal === 0 && pc.checklistTotal === 0)) return null;
+                  const rows = [
+                    pc.mechTotal > 0 && {
+                      href: `/cycles/${pc.c.id}/prep`,
+                      label: '稽核前資料準備',
+                      value: `${pc.mechConfirmed}/${pc.mechTotal} 已齊備`,
+                      sub: `退補 ${pc.mechInsufficient} · 待繳 ${pc.mechDraft} · 未處理 ${pc.mechRemaining}`,
+                      cta: '去處理',
+                    },
+                    pc.checklistTotal > 0 && {
+                      href: `/cycles/${pc.c.id}/checklist`,
+                      label: '資安自評檢核表',
+                      value: `${pc.checklistAnswered}/${pc.checklistTotal} 題`,
+                      sub: pc.checklistSubmitted ? '已送出' : '尚未送出',
+                      cta: pc.checklistSubmitted ? '查看' : '去填報',
+                    },
+                  ].filter(Boolean) as { href: string; label: string; value: string; sub: string; cta: string }[];
                   return (
-                    <div className="grid gap-4 sm:grid-cols-2 mb-6">
-                      {pc.mechTotal > 0 && (
-                        <Link href={`/cycles/${pc.c.id}/prep`} className="block focus-ring rounded-lg">
-                          <Card interactive className="flex items-center gap-4 h-full">
-                            <ProgressRing value={pc.mechConfirmed} max={pc.mechTotal} size={76} tone="primary" label={`${pc.mechConfirmed}/${pc.mechTotal}`} sublabel="已齊備" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-title-md text-ink-900">稽核前資料準備</p>
-                              <p className="mt-1 text-body-sm text-ink-500">退補 {pc.mechInsufficient} · 待繳 {pc.mechDraft} · 未處理 {pc.mechRemaining}</p>
-                              {(pc.c.prepDueTech || pc.c.prepDueDate) && (
-                                <p className="mt-0.5 text-caption text-ink-500">
-                                  {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
-                                </p>
-                              )}
-                            </div>
-                            <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
-                          </Card>
-                        </Link>
+                    <Card className="mb-6" padded={false}>
+                      <ul className="divide-y divide-rule">
+                        {rows.map((r) => (
+                          <li key={r.href}>
+                            <Link
+                              href={r.href}
+                              className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-paper-sunk focus-ring"
+                            >
+                              <span className="text-body-sm font-medium text-ink-900">{r.label}</span>
+                              <span className="text-body-sm text-ink-900 tabular-nums">{r.value}</span>
+                              <span className="text-caption text-ink-500">{r.sub}</span>
+                              <span className="ml-auto inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
+                                {r.cta}
+                                <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      {(pc.c.prepDueTech || pc.c.prepDueDate) && (
+                        <p className="border-t border-rule px-4 py-2 text-caption text-ink-500">
+                          {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
+                        </p>
                       )}
-                      {pc.checklistTotal > 0 && (
-                        <Link href={`/cycles/${pc.c.id}/checklist`} className="block focus-ring rounded-lg">
-                          <Card interactive className="h-full">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-title-md text-ink-900">資安自評檢核表</p>
-                              <ChevronRight size={18} className="text-primary-700 shrink-0" aria-hidden />
-                            </div>
-                            <p className="mt-1 mb-3 text-body-sm text-ink-500 tabular-nums">
-                              {pc.checklistAnswered} / {pc.checklistTotal} 題已填{pc.checklistSubmitted ? ' · 已送出' : ' · 尚未送出'}
-                            </p>
-                            <StackedBar
-                              height={10}
-                              legend
-                              segments={[
-                                { value: pc.checklistAnswered, tone: 'success', label: '已填' },
-                                { value: pc.checklistTotal - pc.checklistAnswered, tone: 'neutral', label: '未填' },
-                              ]}
-                            />
-                          </Card>
-                        </Link>
-                      )}
-                    </div>
+                    </Card>
                   );
                 })()}
 

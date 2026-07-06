@@ -8,12 +8,9 @@ import {
   type DeficiencyAspect,
   type DeficiencyType,
   type ExecStatus,
+  DEFICIENCY_ASPECT_NUM,
 } from '@/lib/types';
 import PrintTrigger from './PrintTrigger';
-
-const ASPECT_NUM: Record<DeficiencyAspect, string> = {
-  STRATEGY: '一', MANAGEMENT: '二', TECHNICAL: '三',
-};
 
 function rocDate(d: Date | null): string {
   if (!d) return '';
@@ -88,7 +85,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
           return (
             <section key={aspect} className="mb-8">
               <h2 className="text-base font-bold border-b-2 border-slate-700 pb-1 mb-3">
-                {ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
+                {DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
               </h2>
               {types.map((type) => {
                 const items = inAspect.filter((d) => d.type === type);

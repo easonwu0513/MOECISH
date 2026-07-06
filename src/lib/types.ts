@@ -62,6 +62,13 @@ export const DEFICIENCY_ASPECT_LABELS: Record<DeficiencyAspect, string> = {
   TECHNICAL: '技術面',
 };
 
+/** 構面公文序號(一/二/三)——缺失清單頁與列印版共用(原兩頁各自定義,減法批 dup#9 合併)。 */
+export const DEFICIENCY_ASPECT_NUM: Record<DeficiencyAspect, string> = {
+  STRATEGY: '一',
+  MANAGEMENT: '二',
+  TECHNICAL: '三',
+};
+
 export const DEFICIENCY_TYPES = ['IMPROVE', 'SUGGEST'] as const;
 export type DeficiencyType = (typeof DEFICIENCY_TYPES)[number];
 

@@ -4,8 +4,9 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
-import { auditorCanViewChecklistContent, auditorReviewWindowState, checklistOrgCanEdit, onsiteStageEnded, type Dimension } from '@/lib/types';
-import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
+import { auditorCanViewChecklistContent, auditorReviewWindowState, checklistOrgCanEdit, type Dimension } from '@/lib/types';
+import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPage';
+import { filterOwnComments } from '@/lib/auditor-visibility';
 import ChecklistShell from './ChecklistShell';
 
 export default async function ChecklistPage({ params }: { params: { id: string } }) {
@@ -46,20 +47,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
     ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd)
     : 'open';
   if (reviewState !== 'open') {
-    return (
-      <AppShell
-        user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-        cycleId={cycle.id}
-        crumbs={[
-          { label: '總覽', href: '/dashboard' },
-          { label: `${cycle.year - 1911} 年度`, href: `/cycles/${cycle.id}` },
-          { label: '檢核表' },
-        ]}
-      >
-        <header className="mb-5"><h1 className="text-headline text-ink-900">資通安全檢核表</h1></header>
-        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} />
-      </AppShell>
-    );
+    // 早退鎖定頁(共用殼,與 /review 一致;不載入機關資料)
+    return <ReviewWindowLockedPage user={user} cycle={cycle} title="資通安全檢核表" crumbLabel="檢核表" state={reviewState} />;
   }
 
   const submitted = Boolean(cycle.checklistSubmittedAt);
@@ -101,12 +90,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   // 委員的檢核表審閱意見定位為「委員資料齊備後先行審閱的私人註記/筆記」,不開放受稽機關檢視;
   // 對機關的正式回饋以實地稽核當天開立之「稽核發現/缺失」為準。故機關端一律不下發委員意見。
   const hideAuditorComments = user.role === 'ORG_ADMIN';
-  // 委員意見隱私(UAT 批62):委員僅見自己填寫的意見(與 /review 頁同規則);中心見全部
-  if (user.role === 'AUDITOR') {
-    for (const r of cycle.responses) {
-      r.comments = r.comments.filter((c) => c.auditorId === user.id);
-    }
-  }
+  // 委員意見隱私(UAT 批62):委員僅見自己填寫的意見(與 /review 頁同規則,共用 lib);中心見全部
+  filterOwnComments(cycle.responses, user.role, user.id);
   // 委員意見作者:僅委員/中心可見具名;受稽機關端不顯示作者(避免針對個別委員)
   const showAuthors = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
   const commentAuthorIds = showAuthors
