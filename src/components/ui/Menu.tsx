@@ -144,8 +144,10 @@ export function Menu({
                   target={it.target}
                   rel={it.target === '_blank' ? 'noopener noreferrer' : undefined}
                   aria-disabled={it.disabled || undefined}
-                  onClick={() => close(false)}
+                  onClick={(e) => { if (it.disabled) { e.preventDefault(); return; } close(false); }}
                   {...common}
+                  // <a> 永不進入 :disabled 偽類,itemCls 的 disabled: 變體對它無效 → 停用態需顯式套 class
+                  className={cn(itemCls, it.disabled && 'opacity-40 pointer-events-none')}
                 >
                   {body}
                 </a>

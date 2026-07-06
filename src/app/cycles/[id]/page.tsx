@@ -14,8 +14,10 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanViewChecklistContent, auditorCanScore, auditorCanSeeCycle, auditorReviewWindowState, onsiteStageEnded, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
+import { buildModuleNav } from '@/lib/cycle-modules';
+import { Menu } from '@/components/ui/Menu';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import NotifyOrgButton from './NotifyOrgButton';
@@ -26,8 +28,15 @@ import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
 import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 import { TileIcon, statusToneText } from '@/components/cycle/tile';
-import { DocumentProgressRail } from '@/components/cycle/DocumentProgressRail';
-import { deriveDocumentChapters } from '@/lib/document-progress';
+
+// 四模組卡圖示(key 對齊 lib/cycle-modules 的 ModuleKey)
+const MODULE_ICONS: Record<string, React.ReactNode> = {
+  prep: <FileText size={18} />,
+  checklist: <ClipboardCheck size={18} />,
+  audit: <Eye size={18} />,
+  def: <AlertTriangle size={18} />,
+  report: <CheckCircle size={18} />,
+};
 
 // 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -123,37 +132,19 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
   const next = nextActionForRole(user.role, facts);
 
-  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/檢核表卡對委員鎖定+提示原因
+  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/委員審閱卡鎖定+提示原因(細節於 lib/cycle-modules)
   const reviewState = user.role === 'AUDITOR' ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
-  const reviewLocked = reviewState !== 'open';
-  // 委員「委員審閱」入口是否『實際開放』:資料齊備(READY)起可檢視 + 審閱窗口開啟。
-  // (取代原以階段聚焦 modActive.review=ONSITE 判定狀態,導致資料齊備時可進入卻顯示「待開放」的名實不符。)
-  const auditorReviewActive =
-    user.role === 'AUDITOR' && auditorCanViewChecklistContent(cycle.status) && reviewState === 'open';
-  // 實地稽核已結束(缺失發布起):改顯「實地稽核階段已結束,非審閱時段」——此時再提「未設定」不合情境(UAT 批69)
-  const reviewLockHint = onsiteStageEnded(cycle.status)
-    ? '實地稽核階段已結束,非審閱時段'
-    : reviewState === 'before' ? '委員審閱時段尚未開始' : reviewState === 'after' ? '委員審閱時段已結束' : '中心尚未設定委員審閱時段';
 
-  // 階段聚焦:只有「當前階段相關」的入口維持高亮,其餘降權(仍可點),讓現在該做的最突出
-  const stForMod = cycle.status as CycleStatus;
-  const modActive = {
-    prep: stForMod === 'DRAFT' || stForMod === 'PREPARATION',
-    checklist: stForMod === 'PREPARATION' || stForMod === 'ONSITE',
-    audit: stForMod === 'ONSITE',
-    review: stForMod === 'ONSITE',
-    deficiencies: stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED',
-  };
-  // 建議下一步:連結若指回本頁(多為「推進狀態」),SUPER 導向頁內管理動作區;其餘角色退為純文字
+  // 下一步 CTA(頂部卡右側):
+  //  中心=推進類(href 指回本頁)由頂部推進鈕群承擔不重複;但「跨頁捷徑」型下一步(去發布/去追蹤/寄提醒
+  //  等非狀態轉換動作)仍保留 CTA,否則中心失去原橫幅的一鍵入口(審查鏡4)。
+  //  機關/委員=照舊;連結指回本頁時退為純文字。
   const selfHref = `/cycles/${cycle.id}`;
-  const bannerNext =
-    next && next.href === selfHref
-      ? user.role === 'SUPER_ADMIN'
-        ? { ...next, href: `${selfHref}#management`, cta: next.cta ?? '前往處理' }
-        : { ...next, href: undefined, cta: undefined }
-      : next;
+  const bannerNext = user.role === 'SUPER_ADMIN'
+    ? (next && next.href && next.href !== selfHref ? next : null)
+    : next && next.href === selfHref ? { ...next, href: undefined, cta: undefined } : next;
 
-  // 模組卡狀態:機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;中心/委員看全部
+  // 模組卡讀數:機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;中心/委員看全部
   const prepTotal = user.role === 'ORG_ADMIN' ? facts.mechTotal : cycle.prepRequirements.length;
   const prepConfirmed = user.role === 'ORG_ADMIN'
     ? facts.mechConfirmed
@@ -161,54 +152,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const prepInsufficient = user.role === 'ORG_ADMIN' ? facts.mechInsufficient : facts.prepInsufficient;
   const prepDraft = user.role === 'ORG_ADMIN' ? facts.mechDraft : facts.prepDraft;
   const prepRemaining = user.role === 'ORG_ADMIN' ? facts.mechRemaining : facts.prepRemaining;
-  const onsitePast = stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION' || stForMod === 'CLOSED';
   const prepDone = prepTotal > 0 && prepConfirmed === prepTotal;
-  const prepStatus = prepTotal > 0 ? `${prepConfirmed}/${prepTotal}` : '—';
-  const prepCaption = prepTotal > 0
-    ? (prepDone ? '資料齊備' : `待繳 ${prepDraft} · 退補 ${prepInsufficient}`)
-    : '尚無資料需求';
   const checklistSubmitted = Boolean(cycle.checklistSubmittedAt);
-  const checklistStatus = checklistSubmitted
-    ? '已送出'
-    : (facts.checklistTotal > 0 ? `${facts.checklistAnswered}/${facts.checklistTotal}` : '—');
-  const checklistCaption = checklistSubmitted
-    ? '線上填報完成'
-    : (facts.checklistTotal > 0 ? '逐題填報中' : '待中心開放填報');
-  const auditStatus = onsitePast ? '已完成' : (stForMod === 'ONSITE' ? '進行中' : '尚未開始');
-  const reviewStatus = onsitePast
-    ? '已完成'
-    : user.role === 'AUDITOR'
-      ? (auditorReviewActive ? '進行中' : '待開放')
-      : (modActive.review ? '進行中' : '待開放');
-  const defStatus = total > 0 ? `${passed}/${total}` : '尚未發布';
-  const defCaption = total > 0 ? `待填 ${pendingCount} · 退回 ${returned}` : '缺失發布後開放填報';
 
   // 委員評分完成度(快捷統計 + 系統提醒用;scoreLockedAt 已由 include 帶回)
   const committeeTotal = cycle.assignments.length;
   const committeeScored = cycle.assignments.filter((a) => a.scoreLockedAt).length;
-
-  // 七章文件進度尺(W2,機關視角):由 lib/document-progress 單一 SoT 派生,取代散落的 StatusTile。
-  // 技術檢測 = TECH;實地稽核 = 其餘機關區(非 CENTER 且非 TECH)——兩章聯集 === mechTotal 的非 CENTER 宇集,
-  // 避免非典型 category 字串(category 為自由字串)落在 mechTotal 卻從兩章雙雙漏計而低報。
-  const prepCounts = (pred: (cat: string) => boolean) => {
-    const reqs = cycle.prepRequirements.filter((r) => pred(r.category));
-    return { confirmed: reqs.filter((r) => r.submission?.status === 'CONFIRMED').length, total: reqs.length };
-  };
-  const docChapters =
-    user.role === 'ORG_ADMIN'
-      ? deriveDocumentChapters({
-          cycleId: cycle.id,
-          status: cycle.status as CycleStatus,
-          prepTech: prepCounts((c) => c === 'TECH'),
-          prepOnsite: prepCounts((c) => c !== 'CENTER' && c !== 'TECH'),
-          checklist: { answered: facts.checklistAnswered, total: facts.checklistTotal, submitted: checklistSubmitted },
-          deficiency: { passed, total },
-          report: {
-            submitted: cycle.signedReports.some((r) => r.submittedAt),
-            confirmed: cycle.signedReports.some((r) => r.confirmedAt),
-          },
-        })
-      : null;
 
   // 矯正截止天數(本地日界,與追蹤信一致)
   const dueDay = cycle.dueDate ? new Date(cycle.dueDate) : null;
@@ -218,10 +167,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
 
   // 系統提醒(右欄):由當前階段 + 既有資料衍生的待辦訊號(角色相關)
   const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
-  // 機關完成時刻:全數缺失矯正通過 → 明確的成功訊號 + 下一步(用印上傳)
-  if (user.role === 'ORG_ADMIN' && stForMod === 'REMEDIATION' && facts.allPassed && total > 0) {
-    alerts.push({ tone: 'success', title: '全數缺失矯正通過!', desc: '請列印改善報告、機關用印後,於「用印報告」上傳並確認繳交。' });
-  }
+  // (減法:原「全數缺失矯正通過!」success 提醒已刪——同一句話已由頂部「下一步」與用印卡/儀表板待辦表達,同頁三講)
+  const stForMod = cycle.status as CycleStatus;
   if (user.role !== 'AUDITOR' && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
     alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
   }
@@ -252,6 +199,21 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   if (prepTotal > 0) quickStats.push({ label: '資料完成度', value: `${prepConfirmed}/${prepTotal}`, tone: prepDone ? 'success' : undefined });
   if (committeeTotal > 0) quickStats.push({ label: '委員評分', value: `${committeeScored}/${committeeTotal}`, tone: committeeScored === committeeTotal ? 'success' : undefined });
   if (total > 0) quickStats.push({ label: '缺失通過', value: `${passed}/${total}`, tone: passed === total ? 'success' : undefined });
+
+  // 四模組工作卡(單一來源 lib/cycle-modules;與 prep 頁左欄同吃,消除兩套平行狀態計算)
+  const modules = buildModuleNav({
+    cycleId: cycle.id,
+    role: user.role as Role,
+    status: cycle.status as CycleStatus,
+    prep: { confirmed: prepConfirmed, total: prepTotal, draft: prepDraft, insufficient: prepInsufficient },
+    checklist: { submitted: checklistSubmitted, answered: facts.checklistAnswered, total: facts.checklistTotal },
+    def: { total, passed, pending: pendingCount, returned },
+    report: {
+      submitted: cycle.signedReports.some((r) => r.submittedAt),
+      confirmed: cycle.signedReports.some((r) => r.confirmedAt),
+    },
+    auditorReviewState: user.role === 'AUDITOR' ? reviewState : undefined,
+  });
 
   // 引導式精靈(本週期各階段 checklist):中心看全部、機關/委員看自己角色 + 全體項。
   const orgNotified = (await prisma.emailLog.count({
@@ -408,14 +370,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       <h1 className="sr-only">{yearROC} 年度資通安全稽核 · {cycle.organization.name}</h1>
       <div id="setup" className="scroll-mt-24" aria-hidden />
 
-      {/* HERO:目前階段 + 完成度 + 橫向階段流程 */}
-      <section className="mb-5 rounded-2xl border border-primary-100 bg-gradient-to-br from-card to-primary-50/40 p-6 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+      {/* 頂部總覽卡(圖1 結構):標題+日期 / 可點階段 stepper / 下一步 CTA。
+          原 HERO 漸層大卡+獨立進度條+獨立「系統建議下一步」橫幅併為一卡(減法);
+          中心的「推進」主動作上移至此(回退/刪除/矯正通知留頁尾「進階管理」)。 */}
+      <section className="mb-6 rounded-xl border border-rule bg-card p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
-            <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
-              目前階段:{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-            </Chip>
-            <h2 className="mt-2.5 text-headline text-ink-900">{yearROC} 年度資通安全稽核</h2>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-title-lg text-ink-900">{yearROC} 年度資通安全稽核</h2>
+              <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
+                {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+              </Chip>
+            </div>
             <p className="mt-1.5 text-body-sm text-ink-500 leading-relaxed">
               {cycle.organization.name}
               {cycle.techCheckDate && <> · 技術檢測 {fmtROC(cycle.techCheckDate)}</>}
@@ -425,64 +391,88 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               {myAssignedLabels.length > 0 && <> · 您負責構面:{myAssignedLabels.join('、')}</>}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-3 shrink-0">
-            {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
-              <div className="flex items-center gap-1">
-                {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
-                  <NotifyOrgButton
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+              {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+                <>
+                  {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
+                    <NotifyOrgButton
+                      cycleId={cycle.id}
+                      orgName={cycle.organization.shortName ?? cycle.organization.name}
+                      datesConfirmed={Boolean(cycle.onsiteDate)}
+                    />
+                  )}
+                  <EditCycleDialog
                     cycleId={cycle.id}
-                    orgName={cycle.organization.shortName ?? cycle.organization.name}
-                    datesConfirmed={Boolean(cycle.onsiteDate)}
+                    dueDate={cycle.dueDate?.toISOString() ?? ''}
+                    prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+                    prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                    techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
+                    onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
                   />
-                )}
-                <EditCycleDialog
-                  cycleId={cycle.id}
-                  dueDate={cycle.dueDate?.toISOString() ?? ''}
-                  prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
-                  prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
-                  techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
-                  onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
-                />
-              </div>
-            )}
-            <div className="text-right">
-              <p className="text-headline-lg font-medium leading-none text-primary-700 tabular-nums">{donePct}%</p>
-              <p className="mt-1 text-caption text-ink-500">流程完成度</p>
+                  {transitions.map((t) => (
+                    <TransitionButton
+                      key={t}
+                      cycleId={cycle.id}
+                      target={t}
+                      disabled={t === 'READY' && readyBlockers.length > 0}
+                      disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                      // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
+                      warn={
+                        !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
+                          ? '缺失發布後機關須依此日期填報矯正措施。建議先按「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                          : undefined
+                      }
+                    />
+                  ))}
+                </>
+              )}
+              {bannerNext?.href && bannerNext.cta && (
+                <Link href={bannerNext.href}>
+                  <Button size="sm">{bannerNext.cta}</Button>
+                </Link>
+              )}
             </div>
+            {bannerNext?.text && (
+              <p className="max-w-xs text-right text-caption text-ink-500 leading-snug">下一步:{bannerNext.text}</p>
+            )}
+            <p className="text-caption text-ink-500 tabular-nums">流程完成度 {donePct}%</p>
           </div>
-        </div>
-
-        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-paper-sunk">
-          <div className="h-full rounded-full bg-primary-600 transition-all duration-700" style={{ width: `${donePct}%` }} />
         </div>
 
         <StageFlowRail
           status={cycle.status as CycleStatus}
-          className="mt-5"
+          className="mt-4 border-t border-rule pt-4"
           stageHref={(s) => `/cycles/${cycle.id}?stage=${s}`}
           selectedKey={selectedStageKey ?? undefined}
           custom={customRail}
         />
       </section>
 
-      {/* 系統建議的下一步 */}
-      {bannerNext && bannerNext.text && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-rule border-l-4 border-l-primary-600 bg-card px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-caption text-ink-500">系統建議的下一步</p>
-            <p className="mt-1 text-title-md font-medium text-ink-900">{bannerNext.text}</p>
-          </div>
-          {bannerNext.href && bannerNext.cta && (
-            <Link href={bannerNext.href} className="shrink-0">
-              <Button size="sm">{bannerNext.cta}</Button>
-            </Link>
-          )}
-        </div>
-      )}
-
       {/* 主體雙欄:左=工作內容;右=系統提醒 / 快捷統計 / 最近活動 */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
         <div className="min-w-0">
+
+          {/* 四模組工作卡 2×2(三角色統一;圖1 結構):資料/檢核表(或委員審閱)/實地稽核(或機關的用印報告)/缺失。
+              單一來源 buildModuleNav——原中心「稽核作業/委員」分區磚(實地稽核磚曾重複渲染兩次)與
+              機關「七章文件進度尺」皆收斂於此。 */}
+          <section className="grid grid-cols-2 gap-3 mb-6">
+            {modules.map((m) => (
+              <StatusTile
+                key={m.key}
+                icon={MODULE_ICONS[m.key]}
+                tone="primary"
+                title={m.title}
+                status={m.status}
+                statusTone={m.statusTone}
+                caption={m.caption}
+                href={m.href}
+                muted={m.muted}
+                locked={m.locked}
+                lockedHint={m.lockedHint}
+              />
+            ))}
+          </section>
 
           {/* 待完成事項:預設當前階段;點上方階段列切換、或「查看全部」看所有階段進度 */}
           {journeyStages.length > 0 && (
@@ -537,85 +527,6 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 工作區:稽核作業(中心視角四大工作區之一;評分發現卡移入下方「委員」工作區) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="檢核表、佐證資料、改善報告與匯出">稽核作業</SectionLabel>}
-
-          {/* 機關:七章文件進度尺(W2,單一 SoT 派生,取代散落 StatusTile);中心/委員維持模組狀態卡 */}
-          {user.role === 'ORG_ADMIN' && docChapters ? (
-            <DocumentProgressRail chapters={docChapters} />
-          ) : (
-          <section className={`grid grid-cols-2 gap-3 mb-6 ${user.role === 'AUDITOR' ? 'xl:grid-cols-4' : 'lg:grid-cols-3'}`}>
-            <StatusTile
-              icon={<FileText size={18} />}
-              tone="primary"
-              title="稽核前資料準備"
-              status={prepStatus}
-              statusTone={prepDone ? 'success' : 'default'}
-              caption={prepCaption}
-              href={`/cycles/${cycle.id}/prep`}
-              muted={!modActive.prep}
-              locked={
-                (user.role === 'AUDITOR' && (!auditorCanViewChecklistContent(cycle.status) || reviewLocked)) ||
-                (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
-              }
-              lockedHint={
-                user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報'
-                  : reviewLocked ? reviewLockHint : '資料齊備後開放委員檢視'
-              }
-            />
-            {/* 檢核表與委員審閱整併為一張:委員→審閱頁(含檢視)、機關/中心→檢核表頁 */}
-            <StatusTile
-              icon={<ClipboardCheck size={18} />}
-              tone="primary"
-              title="資通安全檢核表"
-              status={user.role === 'AUDITOR' ? reviewStatus : checklistStatus}
-              statusTone={
-                user.role === 'AUDITOR'
-                  ? (auditorReviewActive ? 'primary' : 'default')
-                  : (checklistSubmitted ? 'success' : 'default')
-              }
-              caption={user.role === 'AUDITOR' ? '檢視填報、逐題留審查意見' : checklistCaption}
-              href={user.role === 'AUDITOR' ? `/cycles/${cycle.id}/review` : `/cycles/${cycle.id}/checklist`}
-              muted={!(user.role === 'AUDITOR' ? auditorReviewActive : modActive.checklist)}
-              locked={
-                (user.role === 'AUDITOR' && (!auditorCanViewChecklistContent(cycle.status) || reviewLocked)) ||
-                (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')
-              }
-              lockedHint={
-                user.role === 'ORG_ADMIN' ? '中心推進至「資料準備中」後開放填報'
-                  : reviewLocked ? reviewLockHint : '資料齊備後開放委員審閱'
-              }
-            />
-            {/* 委員視角留在主格;中心視角移至下方「委員」工作區(與委員指派同區) */}
-            {user.role === 'AUDITOR' && (
-              <StatusTile
-                icon={<Eye size={18} />}
-                tone="primary"
-                title="實地稽核評分與發現"
-                status={auditStatus}
-                statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
-                caption="委員線上評分、記錄稽核發現"
-                href={`/cycles/${cycle.id}/audit`}
-                muted={!modActive.audit}
-                locked={!auditorCanScore(cycle.status)}
-                lockedHint="實地稽核階段開放"
-              />
-            )}
-            <StatusTile
-              icon={<AlertTriangle size={18} />}
-              tone="primary"
-              title="缺失與矯正管考"
-              status={defStatus}
-              statusTone={total > 0 && passed === total ? 'success' : 'default'}
-              caption={defCaption}
-              href={`/cycles/${cycle.id}/deficiencies`}
-              muted={!modActive.deficiencies}
-              locked={user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)}
-              lockedHint={user.role === 'ORG_ADMIN' ? '矯正執行階段開放填報' : '缺失發布後開放'}
-            />
-          </section>
-          )}
-
           {/* 構面矯正進度(有缺失時顯示) */}
           {total > 0 && (
             <Card className="mb-6">
@@ -648,54 +559,65 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* ── 分組:報告與匯出(機關視角;中心視角已併入上方「稽核作業」工作區) ── */}
-          {user.role === 'ORG_ADMIN' && <SectionLabel>報告與匯出</SectionLabel>}
+          {/* 委員指派(中心;圖1 順位=待辦之後)。實地稽核進行中新增委員屬重大變動 → 事前確認視窗 */}
+          {user.role === 'SUPER_ADMIN' && (
+            <div id="assign-auditors" className="mb-6 scroll-mt-24">
+              <AssignAuditorsPanel
+                cycleId={cycle.id}
+                canAssign={canAssignAuditors(cycle.status as CycleStatus)}
+                confirmOnAssign={cycle.status === 'ONSITE'}
+              />
+            </div>
+          )}
 
           {/* 匯出:委員不需匯出功能;僅機關/中心顯示。
-              置於「用印掃描檔」之上(UAT 批68):流程=先由此匯出改善報告→機關用印→再將用印檔掃描上傳至下方,
-              報告來源在前才不會找不到要去哪列印。 */}
+              置於「用印掃描檔」之上(UAT 批68):流程=先由此匯出改善報告→機關用印→再將用印檔掃描上傳至下方。
+              四顆平鋪鈕收斂為單一下載選單(roles#11;對齊 admin/cycles 的 Menu 模式)。 */}
           {user.role !== 'AUDITOR' && (
             <Card className="mb-6">
-              <CardTitle>匯出</CardTitle>
-              <CardDescription>
-                產出制式公文格式檔案。
-                {user.role === 'ORG_ADMIN'
-                  ? '「遞交版」為送主管機關之正式檔。'
-                  : '「遞交版」為送主管機關正本;「工作底稿」供稽核方內部審查用。'}
-              </CardDescription>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {total > 0 ? (
-                  <a href={`/api/cycles/${cycle.id}/export/remediation-report`}>
-                    <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 改善報告</Button>
-                  </a>
-                ) : (
-                  <span title="缺失發布後才能匯出改善報告">
-                    <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 改善報告</Button>
-                  </span>
-                )}
-                {total > 0 ? (
-                  <Link href={`/cycles/${cycle.id}/print`} target="_blank" rel="noopener">
-                    <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
-                  </Link>
-                ) : (
-                  <span title="缺失發布後才能列印改善報告">
-                    <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>列印版(瀏覽器另存 PDF)</Button>
-                  </span>
-                )}
-                {cycle.checklistSubmittedAt ? (
-                  <a href={`/api/cycles/${cycle.id}/export/checklist?format=docx`}>
-                    <Button variant="tonal" size="sm" leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
-                  </a>
-                ) : (
-                  <span title="檢核表送出後才能匯出遞交版">
-                    <Button variant="tonal" size="sm" disabled leadingIcon={<FileText size={15} />}>Word 檢核表(遞交版)</Button>
-                  </span>
-                )}
-                {user.role === 'SUPER_ADMIN' && (
-                  <a href={`/api/cycles/${cycle.id}/export/checklist`}>
-                    <Button variant="text" size="sm">Excel 檢核表(工作底稿)</Button>
-                  </a>
-                )}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle>匯出</CardTitle>
+                  <CardDescription>
+                    產出制式公文格式檔案。
+                    {user.role === 'ORG_ADMIN'
+                      ? '「遞交版」為送主管機關之正式檔。'
+                      : '「遞交版」為送主管機關正本;「工作底稿」供稽核方內部審查用。'}
+                  </CardDescription>
+                </div>
+                <Menu
+                  label="下載文件"
+                  variant="tonal"
+                  size="sm"
+                  items={[
+                    {
+                      label: total > 0 ? 'Word 改善報告' : 'Word 改善報告(缺失發布後開放)',
+                      href: `/api/cycles/${cycle.id}/export/remediation-report`,
+                      icon: <FileText size={15} />,
+                      disabled: total === 0,
+                    },
+                    {
+                      label: total > 0 ? '列印版(瀏覽器另存 PDF)' : '列印版(缺失發布後開放)',
+                      href: `/cycles/${cycle.id}/print`,
+                      target: '_blank',
+                      icon: <FileText size={15} />,
+                      disabled: total === 0,
+                    },
+                    {
+                      label: checklistSubmitted ? 'Word 檢核表(遞交版)' : 'Word 檢核表(送出後開放)',
+                      href: `/api/cycles/${cycle.id}/export/checklist?format=docx`,
+                      icon: <FileText size={15} />,
+                      disabled: !checklistSubmitted,
+                    },
+                    ...(user.role === 'SUPER_ADMIN'
+                      ? [{
+                          label: 'Excel 檢核表(工作底稿)',
+                          href: `/api/cycles/${cycle.id}/export/checklist`,
+                          icon: <FileText size={15} />,
+                        }]
+                      : []),
+                  ]}
+                />
               </div>
             </Card>
           )}
@@ -715,61 +637,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </section>
           )}
 
-          {/* ── 工作區:委員(評分與發現 + 指派與構面) ── */}
-          {user.role === 'SUPER_ADMIN' && (
-            <>
-              <SectionLabel desc="評分與發現、指派委員與分配構面">委員</SectionLabel>
-              <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-3">
-                <StatusTile
-                  icon={<Eye size={18} />}
-                  tone="primary"
-                  title="實地稽核評分與發現"
-                  status={auditStatus}
-                  statusTone={stForMod === 'ONSITE' ? 'primary' : 'default'}
-                  caption="委員線上評分、記錄稽核發現"
-                  href={`/cycles/${cycle.id}/audit`}
-                  muted={!modActive.audit}
-                />
-              </section>
-              <div id="assign-auditors" className="scroll-mt-24">
-                {/* 實地稽核進行中新增委員屬重大變動(立即取得審查權限)→ 事前確認視窗 */}
-                <AssignAuditorsPanel
-                  cycleId={cycle.id}
-                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
-                  confirmOnAssign={cycle.status === 'ONSITE'}
-                />
-              </div>
-            </>
-          )}
-
-          {/* ── 工作區:設定管理(日期、階段推進與狀態控制;通知模板/權限等全站設定在管理選單,不在本頁重複) ── */}
-          {user.role === 'SUPER_ADMIN' && <SectionLabel desc="日期、階段推進與狀態控制">設定管理</SectionLabel>}
-
-          {/* SUPER_ADMIN:管理動作 */}
-          {user.role === 'SUPER_ADMIN' && (
+          {/* 進階管理(中心):矯正通知、狀態回退與刪除。「推進」主動作已上移至頂部卡,不在此重複 */}
+          {user.role === 'SUPER_ADMIN' &&
+            ((cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') || rollbacks.length > 0 || cycle.status === 'DRAFT') && (
             <Card id="management" className="mb-6 scroll-mt-24">
-              <CardTitle>管理動作</CardTitle>
-              <CardDescription>通知機關管理員、推進週期狀態</CardDescription>
+              <CardTitle>進階管理</CardTitle>
+              <CardDescription>通知機關填報矯正、回退週期狀態</CardDescription>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 {(cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') && (
                   <NotifyButton cycleId={cycle.id} />
                 )}
-                {transitions.map((t) => (
-                  <TransitionButton
-                    key={t}
-                    cycleId={cycle.id}
-                    target={t}
-                    disabled={t === 'READY' && readyBlockers.length > 0}
-                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
-                    // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
-                    warn={
-                      !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
-                        ? '缺失發布後機關須依此日期填報矯正措施。建議先按右上「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
-                        : undefined
-                    }
-                  />
-                ))}
-                {rollbacks.length > 0 && <span className="w-px h-5 bg-rule-strong mx-1" aria-hidden />}
                 {rollbacks.map((t) => (
                   <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
                 ))}
@@ -857,17 +734,6 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   );
 }
 
-/** 週期頁下半部的工作區小標(中心視角:稽核作業 / 委員 / 設定管理;機關視角:報告與匯出),不改功能只加結構 */
-function SectionLabel({ children, desc }: { children: React.ReactNode; desc?: string }) {
-  return (
-    <div className="mt-3 mb-3 flex items-center gap-3">
-      <h2 className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500 whitespace-nowrap">{children}</h2>
-      {desc && <span className="hidden sm:inline text-caption text-ink-500 whitespace-nowrap">{desc}</span>}
-      <span className="h-px flex-1 bg-rule" aria-hidden />
-    </div>
-  );
-}
-
 function StatusTile({
   icon,
   tone,
@@ -936,6 +802,15 @@ function StatusTile({
 
   if (locked) {
     return <div className="block h-full cursor-not-allowed" aria-disabled>{inner}</div>;
+  }
+  // 同頁 hash 錨點(如機關「改善報告(用印)」卡 → #signed-report):Next <Link> 對「已在本頁、只差 hash」
+  // 的連結不觸發捲動(PrimaryActionCta 已認定並繞過的同一陷阱)→ 改原生 <a> 走瀏覽器 fragment 捲動。
+  if (href.includes('#')) {
+    return (
+      <a href={href} className="group block h-full focus-ring rounded-lg">
+        {inner}
+      </a>
+    );
   }
   return (
     <Link href={href} className="group block h-full focus-ring rounded-lg">

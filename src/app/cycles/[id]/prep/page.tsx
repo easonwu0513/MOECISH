@@ -3,15 +3,15 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep, auditorCanSeeCycle, auditorCanScore, auditorReviewWindowState, onsiteStageEnded, type Role } from '@/lib/types';
-import { canAccess } from '@/lib/access-policy';
+import { auditorCanSeePrep, auditorCanSeeCycle, auditorReviewWindowState, onsiteStageEnded, type CycleStatus, type Role } from '@/lib/types';
+import { buildModuleNav } from '@/lib/cycle-modules';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { TileIcon, StatusPill } from '@/components/cycle/tile';
 import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
-import { FileText, ClipboardCheck, Eye, EyeOff, AlertTriangle, ChevronRight, Check, Download } from '@/components/icons';
+import { FileText, ClipboardCheck, Eye, EyeOff, AlertTriangle, CheckCircle, ChevronRight, Check, Download } from '@/components/icons';
 import { getTemplateFilesForYear } from '@/lib/prep-standard';
 import PrepBoard from './PrepBoard';
 import { ReviewWindowSetting } from './ReviewWindowSetting';
@@ -29,7 +29,13 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: params.id },
-    include: { organization: true, assignments: true },
+    include: {
+      organization: true,
+      assignments: true,
+      // 左欄模組卡狀態(buildModuleNav 單一來源)所需讀數
+      checklistVersion: { select: { _count: { select: { items: true } } } },
+      signedReports: { select: { submittedAt: true, confirmedAt: true } },
+    },
   });
   if (!cycle) notFound();
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
@@ -76,26 +82,54 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const submittedN = countReqs.filter((r) => r.submission?.status === 'SUBMITTED').length;
   const pendingN = Math.max(0, total - confirmed - submittedN);
 
-  // 左側「稽核作業項目」導覽(master-detail):跳往同週期其他作業,附狀態
-  const st = cycle.status;
-  const onsitePast = st === 'REPORT_ISSUED' || st === 'REMEDIATION' || st === 'CLOSED';
-  const auditStatus = onsitePast ? '已完成' : (st === 'ONSITE' ? '進行中' : '尚未開始');
-  const defTotal = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
-  const base = `/cycles/${cycle.id}`;
-  // 委員在尚未進入實地稽核(ONSITE 起)前,「實地稽核評分」頁未開放:目標頁會 redirect 回總覽,
-  // 故此處把該項標為 locked → 點擊不導覽、就地跳提醒,讓委員留在本頁(UAT 委員回饋)。
-  const auditLockedForAuditor = isAuditor && !auditorCanScore(st);
-  type Nav = {
-    key: string; label: string; sub: string; href: string | null; status: string;
-    statusTone: 'success' | 'neutral'; icon: React.ReactNode; locked?: boolean; lockMsg?: string;
+  // 左側「稽核作業項目」導覽:與週期頁四模組卡同一單一來源(lib/cycle-modules,減法批 dup#6/roles#7),
+  // 只是側欄列版面;不再自算一套 auditStatus/defTotal 造成兩頁平行漂移。
+  // 缺失讀數:委員限「指派給本人審閱」者(對齊批66 reviewer-aware;原 defTotal 全量計數對委員過報)。
+  const defs = await prisma.deficiency.findMany({
+    where: { cycleId: cycle.id },
+    select: { reviewerAuditorId: true, action: { select: { status: true } } },
+  });
+  const myDefs = isAuditor ? defs.filter((d) => d.reviewerAuditorId === user.id) : defs;
+  const defPassed = myDefs.filter((d) => d.action?.status === 'PASSED').length;
+  const defReturned = myDefs.filter((d) => d.action?.status === 'RETURNED').length;
+  const defSubmitted = myDefs.filter((d) => d.action?.status === 'SUBMITTED').length;
+  // 檢核表填答數(與 deriveCycleFacts 同規則:compliance 非空即已答)
+  const checklistAnswered = await prisma.checklistResponse.count({
+    where: { cycleId: cycle.id, compliance: { not: null } },
+  });
+  const checklistTotal = cycle.checklistVersion?._count?.items ?? 0;
+  // 資料準備細分(與 facts 同語意:UPLOADED=待繳、INSUFFICIENT=退補)
+  const reqStatuses = countReqs.map((r) => r.submission?.status ?? 'EMPTY');
+  const modules = buildModuleNav({
+    cycleId: cycle.id,
+    role: user.role as Role,
+    status: cycle.status as CycleStatus,
+    prep: {
+      confirmed,
+      total,
+      draft: reqStatuses.filter((s) => s === 'UPLOADED').length,
+      insufficient: reqStatuses.filter((s) => s === 'INSUFFICIENT').length,
+    },
+    checklist: { submitted: Boolean(cycle.checklistSubmittedAt), answered: checklistAnswered, total: checklistTotal },
+    def: {
+      total: myDefs.length,
+      passed: defPassed,
+      pending: myDefs.length - defPassed - defReturned - defSubmitted,
+      returned: defReturned,
+    },
+    report: {
+      submitted: cycle.signedReports.some((r) => r.submittedAt),
+      confirmed: cycle.signedReports.some((r) => r.confirmedAt),
+    },
+    auditorReviewState: isAuditor ? reviewState : undefined,
+  });
+  const MODULE_ICONS: Record<string, React.ReactNode> = {
+    prep: <FileText size={18} />,
+    checklist: <ClipboardCheck size={18} />,
+    audit: <Eye size={18} />,
+    def: <AlertTriangle size={18} />,
+    report: <CheckCircle size={18} />,
   };
-  const navItems: (Nav & { show: boolean })[] = [
-    { key: 'prep', label: '稽核前資料準備', sub: '附件收集與繳交', href: null, status: total > 0 ? `${confirmed}/${total}` : '—', statusTone: total > 0 && confirmed === total ? 'success' : 'neutral', icon: <FileText size={18} />, show: true },
-    { key: 'checklist', label: '資通安全檢核表', sub: isAuditor ? '委員審閱' : '機關自評與佐證', href: isAuditor ? `${base}/review` : `${base}/checklist`, status: cycle.checklistSubmittedAt ? '已送出' : (isAuditor ? '審閱' : '填報中'), statusTone: cycle.checklistSubmittedAt ? 'success' : 'neutral', icon: <ClipboardCheck size={18} />, show: true },
-    { key: 'audit', label: '實地稽核評分', sub: '委員評分與發現', href: `${base}/audit`, status: auditStatus, statusTone: 'neutral', icon: <Eye size={18} />, show: user.role !== 'ORG_ADMIN', locked: auditLockedForAuditor, lockMsg: '目前為「資料齊備」階段,尚未進入實地稽核,此頁面尚未開放。實地稽核階段開始後即可評分與記錄發現。' },
-    { key: 'def', label: '缺失與矯正管考', sub: '缺失通知、改善', href: `${base}/deficiencies`, status: defTotal > 0 ? `${defTotal} 項` : '未發布', statusTone: 'neutral', icon: <AlertTriangle size={18} />, show: user.role === 'SUPER_ADMIN' || canAccess('deficiencies.view', user.role as Role, cycle.status) },
-  ];
-  const shownNav = navItems.filter((n) => n.show);
 
   return (
     <AppShell
@@ -121,29 +155,30 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           <div className="rounded-lg border border-rule bg-card p-2">
             <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">稽核作業項目</p>
             <div className="flex flex-col gap-0.5">
-              {shownNav.map((n) => {
-                const isCurrent = n.href === null;
+              {modules.map((m) => {
+                const isCurrent = m.key === 'prep';
+                const locked = m.locked && !isCurrent;
                 const inner = (
-                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${isCurrent ? 'bg-focus-wash border border-primary-100' : n.locked ? 'opacity-70' : 'transition-colors hover:bg-paper-sunk'}`}>
+                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${isCurrent ? 'bg-focus-wash border border-primary-100' : locked ? 'opacity-70' : 'transition-colors hover:bg-paper-sunk'}`}>
                     <TileIcon size={32} className={isCurrent ? 'bg-card text-primary-700' : 'bg-paper-sunk text-ink-500'}>
-                      {n.icon}
+                      {MODULE_ICONS[m.key]}
                     </TileIcon>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-body-sm font-medium leading-tight ${isCurrent ? 'text-primary-700' : n.locked ? 'text-ink-500' : 'text-ink-900'}`}>{n.label}</p>
-                      <p className="mt-0.5 text-caption text-ink-500 leading-tight">{n.sub}</p>
-                      <StatusPill tone={n.statusTone === 'success' ? 'success' : 'neutral'} className="mt-1">{n.status}</StatusPill>
+                      <p className={`text-body-sm font-medium leading-tight ${isCurrent ? 'text-primary-700' : locked ? 'text-ink-500' : 'text-ink-900'}`}>{m.title}</p>
+                      <p className="mt-0.5 text-caption text-ink-500 leading-tight">{m.sub}</p>
+                      <StatusPill tone={m.statusTone === 'default' ? 'neutral' : m.statusTone} className="mt-1">{m.status}</StatusPill>
                     </div>
-                    {n.locked
+                    {locked
                       ? <EyeOff size={15} className="shrink-0 text-ink-400" aria-label="尚未開放" />
                       : !isCurrent && <ChevronRight size={16} className="shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />}
                   </div>
                 );
-                if (n.locked) {
-                  return <LockedNavItem key={n.key} title="尚未開放" message={n.lockMsg ?? '此頁面尚未開放。'}>{inner}</LockedNavItem>;
+                if (locked) {
+                  return <LockedNavItem key={m.key} title="尚未開放" message={m.lockedHint ?? '此頁面尚未開放。'}>{inner}</LockedNavItem>;
                 }
                 return isCurrent
-                  ? <div key={n.key} aria-current="page">{inner}</div>
-                  : <Link key={n.key} href={n.href!} className="group block focus-ring rounded-md">{inner}</Link>;
+                  ? <div key={m.key} aria-current="page">{inner}</div>
+                  : <Link key={m.key} href={m.href} className="group block focus-ring rounded-md">{inner}</Link>;
               })}
             </div>
           </div>
