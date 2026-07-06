@@ -113,9 +113,10 @@ export default async function ReviewPage({
 
   const total = cycle.checklistVersion.items.length;
   const answered = cycle.responses.filter((r) => r.compliance).length;
-  const withOpenComments = cycle.checklistVersion.items.filter((i) => {
+  // 委員意見:委員審閱=留存筆記,故以「本委員留過意見的題目」計(不分待補/已補正),供快速回看已寫哪些。
+  const withComments = cycle.checklistVersion.items.filter((i) => {
     const r = responsesByItem.get(i.id);
-    return (r?.comments ?? []).some((c) => !c.resolvedAt);
+    return (r?.comments ?? []).length > 0;
   }).length;
   // 已補正待複核:機關已對最新一輪意見標記補正,委員應再次檢視(免得自己逐題翻找)
   const resolvedPending = cycle.checklistVersion.items.filter((i) => {
@@ -123,7 +124,7 @@ export default async function ReviewPage({
     return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
   }).length;
 
-  // 篩選:answered=只看已作答、comments=意見待補、resolved=已補正待複核、
+  // 篩選:answered=只看已作答、comments=委員意見(本委員留過意見的題)、resolved=已補正待複核、
   //       comply/partial/noncomply/na=依機關作答符合度快速篩選(委員可一鍵挑出某類)。
   const COMPLIANCE_FILTER = {
     comply: 'COMPLIANT', partial: 'PARTIALLY_COMPLIANT', noncomply: 'NON_COMPLIANT', na: 'NOT_APPLICABLE',
@@ -136,7 +137,7 @@ export default async function ReviewPage({
   const matchFilter = (itemId: string) => {
     const r = responsesByItem.get(itemId);
     if (filter === 'answered') return Boolean(r?.compliance);
-    if (filter === 'comments') return (r?.comments ?? []).some((c) => !c.resolvedAt);
+    if (filter === 'comments') return (r?.comments ?? []).length > 0;
     if (filter === 'resolved') {
       const cs = r?.comments ?? [];
       return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
@@ -201,9 +202,9 @@ export default async function ReviewPage({
           <FilterChipLink href={`/cycles/${cycle.id}/review?filter=answered`} selected={filter === 'answered'}>
             只看已作答 <FilterChipCount selected={filter === 'answered'}>{answered}</FilterChipCount>
           </FilterChipLink>
-          {withOpenComments > 0 && (
+          {withComments > 0 && (
             <FilterChipLink href={`/cycles/${cycle.id}/review?filter=comments`} selected={filter === 'comments'}>
-              意見待補 <FilterChipCount selected={filter === 'comments'}>{withOpenComments}</FilterChipCount>
+              委員意見 <FilterChipCount selected={filter === 'comments'}>{withComments}</FilterChipCount>
             </FilterChipLink>
           )}
           {resolvedPending > 0 && (
@@ -277,9 +278,9 @@ export default async function ReviewPage({
                           ) : (
                             <Chip tone="neutral" size="sm">未作答</Chip>
                           )}
-                          {(r?.comments ?? []).filter((x) => !x.resolvedAt).length > 0 && (
-                            <Chip tone="warning" size="sm">
-                              意見待補 {(r!.comments).filter((x) => !x.resolvedAt).length}
+                          {(r?.comments ?? []).length > 0 && (
+                            <Chip tone="primary" size="sm">
+                              委員意見 {(r!.comments).length}
                             </Chip>
                           )}
                         </div>
@@ -338,7 +339,7 @@ export default async function ReviewPage({
                             {r.comments.map((cm) => (
                               <NoteBox
                                 key={cm.id}
-                                tone={cm.resolvedAt ? 'success' : 'warning'}
+                                tone={cm.resolvedAt ? 'success' : 'primary'}
                                 header={
                                   <div className="text-caption text-ink-500 mb-1 flex items-center gap-2">
                                     <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
