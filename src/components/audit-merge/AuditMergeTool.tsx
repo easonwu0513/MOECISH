@@ -38,6 +38,27 @@ const NAV_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'technical', label: '5. 技術面', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
 ];
 
+/** 存回系統的完整 meta 酬載(封面/基本資訊 + 稽核小組 + 版面換頁);供手動存回與自動同步共用單一來源。
+ *  發現本體不入 meta(永遠取系統即時資料),僅逐則「此前換頁」以 AuditFinding.id 記錄。 */
+function buildMetaPayload(d: ReportData) {
+  const findingBreaks: Record<string, boolean> = {};
+  for (const cat of ['strategy', 'management', 'technical'] as const) {
+    for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
+      for (const f of d.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
+    }
+  }
+  return {
+    auditDateRaw: d.auditDateRaw,
+    scope: d.scope,
+    auditCriteria: d.auditCriteria.map((c) => c.text).filter((t) => t.trim()),
+    lead: d.lead,
+    subLead: d.subLead,
+    team: d.team,
+    sectionSettings: d.sectionSettings,
+    findingBreaks,
+  };
+}
+
 /**
  * 稽核報告彙整工具 — 原生模組版(自單檔工具 1:1 移植)。
  * 週期模式(cycleId+initial):由「實地稽核彙整報告→報告設定」啟動,
@@ -78,34 +99,14 @@ export function AuditMergeTool({
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
 
-  // 週期模式:把封面/基本資訊 + 版面換頁設定存回系統(彙整報告頁與列印版同步)
+  // 週期模式:把封面/基本資訊 + 稽核小組 + 版面換頁存回系統(彙整報告頁與列印版同步)
   async function saveMetaToSystem() {
     if (!cycleId) return;
     setSyncBusy(true);
-    const d = reportData;
-    // 逐則發現「此前換頁」以 AuditFinding.id 為鍵記錄(僅記 true 者);工具新增的臨時發現(非 DB id)
-    // 不持久化發現本體,其換頁亦不記錄——與「發現永遠取系統即時資料」的設計一致。
-    const findingBreaks: Record<string, boolean> = {};
-    for (const cat of ['strategy', 'management', 'technical'] as const) {
-      for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
-        for (const f of d.findings[cat][sec]) {
-          if (f.pageBreakBefore) findingBreaks[f.id] = true;
-        }
-      }
-    }
     const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        auditDateRaw: d.auditDateRaw,
-        scope: d.scope,
-        auditCriteria: d.auditCriteria.map((c) => c.text).filter((t) => t.trim()),
-        lead: d.lead,
-        subLead: d.subLead,
-        team: d.team,
-        sectionSettings: d.sectionSettings,
-        findingBreaks,
-      }),
+      body: JSON.stringify(buildMetaPayload(reportData)),
     });
     setSyncBusy(false);
     if (!res.ok) {
@@ -113,7 +114,7 @@ export function AuditMergeTool({
       toast.error('存回系統失敗', j.error);
       return;
     }
-    toast.success('已存回系統', '封面/基本資訊與版面換頁已同步到彙整報告頁與正式列印。');
+    toast.success('已存回系統', '封面/基本資訊、稽核小組與版面換頁已同步到彙整報告頁與正式列印。');
   }
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
@@ -143,41 +144,24 @@ export function AuditMergeTool({
     setLastSavedTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
   }, [reportData, hydrated]);
 
-  // ★版面換頁(構面/區段換頁 + 逐則此前換頁)一經調整即自動同步回系統(debounce 1s):
-  // 使用者在工具設好分頁、看到預覽有分頁,卻常忘按「存回系統」→ 正式報告/列印看不到(UAT 重複回報)。
-  // 此效果讓分頁設定與系統即時一致(含掛載時把本機暫存的分頁補推上系統),不再依賴手動存回。僅週期模式。
-  const breaksSigOf = (d: ReportData) =>
-    JSON.stringify({
-      ss: d.sectionSettings,
-      fb: (['strategy', 'management', 'technical'] as const)
-        .flatMap((cat) =>
-          (['compliance', 'improvements', 'suggestions'] as const).flatMap((sec) =>
-            d.findings[cat][sec].filter((f) => f.pageBreakBefore).map((f) => f.id),
-          ),
-        )
-        .sort(),
-    });
-  const breaksSig = breaksSigOf(reportData);
-  // 系統目前已存的分頁簽章(來自 buildReportData 的 initial):與之相同就不必重推,避免每次開工具都寫一次。
-  const systemBreaksSig = initial ? breaksSigOf(initial) : null;
+  // ★報告設定(封面/基本資訊、稽核小組、準則、日期、範圍、版面換頁)一經調整即自動同步回系統(debounce 1s):
+  // 使用者在工具改了內容、看到預覽已更新,卻常忘按「存回系統」→ 正式報告/列印仍是舊內容(UAT 重複回報)。
+  // 此效果讓報告設定與系統即時一致(含掛載時把本機暫存但未存回的編輯補推上系統),不再依賴手動存回。僅週期模式。
+  // 註:發現本體(逐則文字)不在此同步——設計上發現永遠取系統委員即時資料,工具不改寫委員發現內容。
+  const metaSig = JSON.stringify(buildMetaPayload(reportData));
+  const systemMetaSig = initial ? JSON.stringify(buildMetaPayload(initial)) : null;
   useEffect(() => {
-    if (!cycleId || !hydrated || breaksSig === systemBreaksSig) return;
+    if (!cycleId || !hydrated || metaSig === systemMetaSig) return;
     const timer = setTimeout(() => {
-      const findingBreaks: Record<string, boolean> = {};
-      for (const cat of ['strategy', 'management', 'technical'] as const) {
-        for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
-          for (const f of reportData.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
-        }
-      }
       fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ sectionSettings: reportData.sectionSettings, findingBreaks }),
+        body: JSON.stringify(buildMetaPayload(reportData)),
       }).catch(() => {});
     }, 1000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [breaksSig, cycleId, hydrated]);
+  }, [metaSig, cycleId, hydrated]);
 
   const updateReportData = useCallback((updater: ReportData | ((prev: ReportData) => ReportData)) => {
     setReportData((prev) => {
