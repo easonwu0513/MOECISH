@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/Dialog';
-import { Search, Plus, Pencil, Check, Mail, FileText, Download } from '@/components/icons';
+import { Search, Plus, Pencil, Check, Mail, FileText, Download, Info } from '@/components/icons';
 import { cn } from '@/lib/cn';
 import {
   HOSPITAL_LIST,
@@ -48,6 +48,11 @@ const AREA =
 function categoryTags(category: string): string[] {
   return category.split(',').map((s) => s.trim()).filter(Boolean);
 }
+
+// 兩種分類檢視(對齊桌面工具):依作業流程 / 依對象人員。範本 category 逗號標籤同時含兩維度
+// (如「委員作業, 稽核-準備作業」),各檢視只顯示該維度的分類 chip,清爽不混雜。
+const WORKFLOW_CATS = ['稽核-準備作業', '稽核-實地作業', '稽核-檢討作業', '資安研討活動'] as const;
+const PERSONNEL_CATS = ['受稽機關作業', '委員作業', '觀察員作業', '資安研討活動'] as const;
 
 // ─────────────────────────── 可調欄寬 ───────────────────────────
 
@@ -432,6 +437,7 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
   const [templates, setTemplates] = useState(initialTemplates);
   const [selectedId, setSelectedId] = useState<string | null>(initialTemplates[0]?.id ?? null);
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'workflow' | 'personnel'>('workflow');
   const [catFilter, setCatFilter] = useState('全部');
   const [formData, setFormData] = useState<FormData>({});
   const [globals, setGlobals] = useState<{ hospital: string; date: string; techDate: string }>({ hospital: '', date: '', techDate: '' });
@@ -446,19 +452,38 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
 
   const active = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
 
+  // 當前檢視維度的分類清單(只列有範本實際使用到的類,保留固定順序)。
+  const modeCats = viewMode === 'workflow' ? WORKFLOW_CATS : PERSONNEL_CATS;
   const allTags = useMemo(() => {
-    const set = new Set<string>();
-    templates.forEach((t) => categoryTags(t.category).forEach((c) => set.add(c)));
-    return ['全部', ...[...set].sort()];
-  }, [templates]);
+    const used = new Set<string>();
+    templates.forEach((t) => categoryTags(t.category).forEach((c) => used.add(c)));
+    return ['全部', ...modeCats.filter((c) => used.has(c))];
+  }, [templates, modeCats]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return templates
-      .filter((t) => catFilter === '全部' || categoryTags(t.category).includes(catFilter))
+      .filter((t) => {
+        const tags = categoryTags(t.category);
+        // 全部:屬此檢視維度任一分類即顯示;指定分類:含該分類標籤。
+        return catFilter === '全部' ? tags.some((c) => (modeCats as readonly string[]).includes(c)) : tags.includes(catFilter);
+      })
       .filter((t) => !q || t.title.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q) || t.content.toLowerCase().includes(q))
       .sort((a, b) => a.workflowOrder - b.workflowOrder);
-  }, [templates, search, catFilter]);
+  }, [templates, search, catFilter, modeCats]);
+
+  // 依子分組(subGroup)分段顯示(對齊桌面工具的分組;無子分組者歸「其他」段,不顯標題)。
+  const groupedList = useMemo(() => {
+    const groups: { key: string; label: string | null; items: typeof filtered }[] = [];
+    for (const t of filtered) {
+      const label = t.subGroup?.trim() || null;
+      const key = label ?? '__none__';
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) last.items.push(t);
+      else groups.push({ key, label, items: [t] });
+    }
+    return groups;
+  }, [filtered]);
 
   // 選定範本 / 全域醫院·日期變動 → 重新帶入預設表單值（比照工具語意：全域為「一鍵帶入」）。
   // 刻意不把 mode 放進相依：進出「編輯底稿」不應清掉已填的變數值(全域選單僅 compose 態渲染,
@@ -653,6 +678,23 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {/* 分類檢視切換:依作業流程 / 依對象人員(對齊桌面工具) */}
+        <div className="flex rounded-md border border-rule bg-paper-sunk p-0.5 text-caption">
+          {([['workflow', '依作業流程'], ['personnel', '依對象人員']] as const).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => { setViewMode(v); setCatFilter('全部'); }}
+              className={cn(
+                'flex-1 rounded px-2 py-1.5 transition-colors',
+                viewMode === v ? 'bg-card text-ink-900 font-medium shadow-elev-1' : 'text-ink-500 hover:text-ink-700',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* 該檢視維度的分類 chip */}
         <div className="flex flex-wrap gap-1.5">
           {allTags.map((tag) => (
             <button
@@ -670,30 +712,37 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
             </button>
           ))}
         </div>
-        <div className="flex flex-col gap-1 max-h-[70vh] overflow-y-auto pr-1">
-          {filtered.map((t) => {
-            const isSel = t.id === selectedId;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => { setSelectedId(t.id); setMode('compose'); }}
-                className={cn(
-                  'text-left rounded-md px-3 py-2 border-l-2 transition-colors',
-                  isSel ? 'bg-focus-wash border-l-primary-600' : 'border-l-transparent hover:bg-paper-sunk',
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-caption tabular-nums text-ink-400 shrink-0">{t.workflowOrder}</span>
-                  <span className={cn('text-body-sm truncate', isSel ? 'text-ink-900 font-medium' : 'text-ink-700')}>
-                    {t.title}
-                  </span>
-                  {!t.enabled && <span className="text-caption text-ink-400">(停用)</span>}
-                </div>
-                {t.subGroup && <div className="text-caption text-ink-400 mt-0.5 pl-6 truncate">{t.subGroup}</div>}
-              </button>
-            );
-          })}
+        {/* 依子分組分段的範本清單 */}
+        <div className="flex flex-col max-h-[70vh] overflow-y-auto pr-1">
+          {groupedList.map((g) => (
+            <div key={g.key} className="flex flex-col gap-1">
+              {g.label && (
+                <p className="px-3 pt-3 pb-1 text-label-sm font-medium uppercase tracking-[0.04em] text-ink-400">{g.label}</p>
+              )}
+              {g.items.map((t) => {
+                const isSel = t.id === selectedId;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setSelectedId(t.id); setMode('compose'); }}
+                    className={cn(
+                      'text-left rounded-md px-3 py-2 border-l-2 transition-colors',
+                      isSel ? 'bg-focus-wash border-l-primary-600' : 'border-l-transparent hover:bg-paper-sunk',
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-caption tabular-nums text-ink-400 shrink-0">{t.workflowOrder}</span>
+                      <span className={cn('text-body-sm truncate', isSel ? 'text-ink-900 font-medium' : 'text-ink-700')}>
+                        {t.title}
+                      </span>
+                      {!t.enabled && <span className="text-caption text-ink-400">(停用)</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
           {filtered.length === 0 && (
             <p className="text-body-sm text-ink-400 px-3 py-6 text-center">找不到符合的範本</p>
           )}
@@ -738,10 +787,6 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
                       <Chip key={c} size="sm" tone="neutral">{c}</Chip>
                     ))}
                   </div>
-                  {active.audience && <p className="text-caption text-ink-400 mt-1">對象：{active.audience}</p>}
-                  {active.attachment && active.attachment !== '無' && (
-                    <p className="text-caption text-ink-400 mt-0.5">附件：{active.attachment}</p>
-                  )}
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <Button type="button" size="sm" variant="outlined" leadingIcon={<Pencil size={14} />} onClick={startEdit}>
@@ -750,6 +795,23 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
                   <Button type="button" size="sm" variant="text" onClick={() => setConfirmDelete(true)}>
                     刪除
                   </Button>
+                </div>
+              </div>
+
+              {/* 發信前檢核提醒(對象 + 附件):承辦寄信前先確認收件對象與應附附件,對齊桌面工具的提醒卡。 */}
+              <div className="rounded-md border border-warning-200 bg-warning-50 px-4 py-3">
+                <p className="flex items-center gap-1.5 text-body-sm font-semibold text-warning-800">
+                  <Info size={15} className="shrink-0" /> 發信前檢核提醒
+                </p>
+                <div className="mt-2 flex flex-col gap-1 text-body-sm text-ink-900">
+                  <div className="flex gap-2">
+                    <span className="w-12 shrink-0 text-ink-500">對象</span>
+                    <span>{active.audience?.trim() || '（未設定）'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="w-12 shrink-0 text-ink-500">附件</span>
+                    <span>{active.attachment?.trim() || '無'}</span>
+                  </div>
                 </div>
               </div>
 
