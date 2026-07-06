@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
-import { Logo } from '@/components/brand/Logo';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { PortalHeader } from '@/components/portal/PortalHeader';
@@ -32,21 +31,14 @@ function excerpt(md: string, len = 64): string {
 
 export const dynamic = 'force-dynamic';
 
-/** Hero 醫療×資安場景照片池(明亮專業);每次載入隨機選 6 張交錯輪播。 */
-const PHOTO_POOL = [
-  // 醫院場域
-  { src: '/photos/med-2.jpg', alt: '明亮醫院服務櫃台' },
+/** Hero 精選 6 張醫療×資安場景照片(明亮專業、依序交錯輪播):
+ *  醫療場域(病房/診間/櫃台)× 醫療高階設備 × 資安機房 × 稽核作業,四類均衡呈現。 */
+const HERO_PHOTOS = [
   { src: '/photos/med-3.jpg', alt: '明亮整潔的病房' },
-  { src: '/photos/med-7.jpg', alt: '明亮現代化診間' },
-  { src: '/photos/med-1.jpg', alt: '醫護人員使用行動裝置' },
-  { src: '/photos/med-8.jpg', alt: '病患生理監測儀器' },
-  // 達文西 / 醫療機器人儀器
-  { src: '/photos/med-9.jpg', alt: '醫療機器人手術系統機械臂' },
-  { src: '/photos/med-11.jpg', alt: '醫療機器人放射治療系統' },
-  // 資安機房 / 醫療資安
   { src: '/photos/med-6.jpg', alt: '明亮資料中心機房' },
-  { src: '/photos/med-5.jpg', alt: '資料中心機房與伺服器' },
-  { src: '/photos/med-10.jpg', alt: '資安監控數據儀表板' },
+  { src: '/photos/med-7.jpg', alt: '明亮現代化診間' },
+  { src: '/photos/med-9.jpg', alt: '醫療機器人放射治療系統' },
+  { src: '/photos/med-2.jpg', alt: '明亮醫院服務櫃台' },
   { src: '/photos/med-4.jpg', alt: '資安稽核文件審閱與工作底稿' },
 ];
 
@@ -70,8 +62,8 @@ export default async function LandingPage() {
 
   const itemCount = latestVersion?._count.items ?? 87;
 
-  // 每次載入隨機選 6 張(打散順序),讓 Hero 輪播更隨機、不固定
-  const heroPhotos = [...PHOTO_POOL].sort(() => Math.random() - 0.5).slice(0, 6);
+  // 精選固定 6 張依序輪播(不再隨機挑選)
+  const heroPhotos = HERO_PHOTOS;
 
   const important = posts.find((p) => p.important);
   const enterHref = session ? '/dashboard' : '/login';
@@ -151,20 +143,6 @@ export default async function LandingPage() {
                   }
                 />
               ))}
-              {/* 底部柔和漸層,確保浮卡可讀 */}
-              <div
-                className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
-                style={{ background: 'linear-gradient(to top, rgba(15,34,51,0.42), transparent)' }}
-                aria-hidden
-              />
-              {/* 品牌浮卡 */}
-              <div className="absolute left-4 bottom-4 flex items-center gap-3 bg-card/95 backdrop-blur-sm rounded-xl pl-3 pr-5 py-2.5 shadow-elev-2-hi">
-                <Logo size={36} />
-                <div className="leading-tight">
-                  <p className="text-label-lg font-semibold text-ink-900">C.I.S.H</p>
-                  <p className="text-caption text-ink-500">醫療領域資訊安全推動中心</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
