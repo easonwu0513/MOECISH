@@ -10,8 +10,6 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatTopBar } from '@/components/ui/StatTopBar';
 import { IndexBadge } from '@/components/ui/IndexBadge';
-import { ProgressRing } from '@/components/ui/ProgressRing';
-import { StackedBar } from '@/components/ui/StackedBar';
 import PasswordExpiryNotice from '@/components/shell/PasswordExpiryNotice';
 import {
   ClipboardCheck,
@@ -130,9 +128,8 @@ export default async function HomePage() {
       if (st === 'DRAFT') {
         todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核(開立中),請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
       }
-      if (st === 'PREPARATION' && e.mechInsufficient > 0) {
-        todos.push({ key: `${c.id}-insuf`, tone: 'danger', title: `${e.mechInsufficient} 項稽核前資料被退回,請補正後重新繳交`, href: `${base}/prep`, cta: '去補正' });
-      } else if (st === 'PREPARATION' && e.mechRemaining > 0) {
+      // 退補/退回類不進待辦清單:上方「退回收件匣」已單項級直達(含退補原因),同頁不雙講(大改造A 減法)
+      if (st === 'PREPARATION' && e.mechRemaining > 0) {
         todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
       } else if (st === 'PREPARATION' && e.mechDraft > 0) {
         todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
@@ -142,7 +139,7 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資安檢核表待填報(${e.checklistAnswered}/${e.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' });
       }
       if (st === 'REMEDIATION') {
-        if (e.returned > 0) todos.push({ key: `${c.id}-ret`, tone: 'danger', title: `${e.returned} 項被退回,需補正後重送`, href: `${base}/deficiencies?status=returned`, cta: '去補正' });
+        // (退回項由退回收件匣單項級獨任,不再彙總雙講)
         if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填' });
         if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過!請列印改善報告、用印後上傳', href: `${base}#signed-report`, cta: '去上傳' });
       }
@@ -287,11 +284,14 @@ export default async function HomePage() {
           </section>
           )}
 
-          {/* 中心:今日待辦 —— 逐週期可點擊待辦(原本只算件數不渲染;依緊急度排序,直達對應頁) */}
-          {isSuper && todos.length > 0 && (
+          {/* 待辦清單(大改造A):原僅中心可見完整清單,機關/委員只有第一名橫幅→全角色開放。
+              依緊急度排序、每列直達對應頁;退回/退補類不在此(由上方退回收件匣單項級獨任)。 */}
+          {todos.length > 0 && (
             <section className="mb-6 rounded-lg border border-rule bg-card shadow-elev-1 overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-rule">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">今日待辦 · {todos.length} 件</p>
+                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">
+                  {isSuper ? '今日待辦' : '待辦清單'} · {todos.length} 件
+                </p>
                 <span className="text-caption text-ink-500">依緊急程度排序</span>
               </div>
               <ul className="divide-y divide-rule">
@@ -325,7 +325,8 @@ export default async function HomePage() {
               </ul>
               {todos.length > 8 && (
                 <div className="px-4 py-2.5 border-t border-rule text-caption text-ink-500">
-                  另有 {todos.length - 8} 件較不緊急的待辦,可由下方「跨院週期總覽」逐院處理。
+                  另有 {todos.length - 8} 件較不緊急的待辦,
+                  {isSuper ? '可由下方「跨院週期總覽」逐院處理。' : '可由下方週期卡逐一處理。'}
                 </div>
               )}
             </section>
@@ -395,58 +396,8 @@ export default async function HomePage() {
           {/* 委員 / 機關:我的(負責)週期 —— 乾淨任務卡(中心已由跨院矩陣涵蓋) */}
           {!isSuper && (
             <section className="mb-8">
-              {/* 機關:資料準備中時,先給「還剩什麼」的準備讀數。
-                  減法(審計#9):原 ProgressRing+StackedBar 兩張重卡與週期頁模組卡/prep 頁摘要三重呈現
-                  → 收斂為兩列單行摘要+CTA(完整進度視覺由週期頁四模組卡承擔)。 */}
-              {user.role === 'ORG_ADMIN' &&
-                (() => {
-                  const pc = enriched.find((e) => e.status === 'PREPARATION');
-                  // 機關只看自己負責的機關區(技術檢測/實地稽核);中心匯入由中心經手,不計入機關讀數
-                  if (!pc || (pc.mechTotal === 0 && pc.checklistTotal === 0)) return null;
-                  const rows = [
-                    pc.mechTotal > 0 && {
-                      href: `/cycles/${pc.c.id}/prep`,
-                      label: '稽核前資料準備',
-                      value: `${pc.mechConfirmed}/${pc.mechTotal} 已齊備`,
-                      sub: `退補 ${pc.mechInsufficient} · 待繳 ${pc.mechDraft} · 未處理 ${pc.mechRemaining}`,
-                      cta: '去處理',
-                    },
-                    pc.checklistTotal > 0 && {
-                      href: `/cycles/${pc.c.id}/checklist`,
-                      label: '資安自評檢核表',
-                      value: `${pc.checklistAnswered}/${pc.checklistTotal} 題`,
-                      sub: pc.checklistSubmitted ? '已送出' : '尚未送出',
-                      cta: pc.checklistSubmitted ? '查看' : '去填報',
-                    },
-                  ].filter(Boolean) as { href: string; label: string; value: string; sub: string; cta: string }[];
-                  return (
-                    <Card className="mb-6" padded={false}>
-                      <ul className="divide-y divide-rule">
-                        {rows.map((r) => (
-                          <li key={r.href}>
-                            <Link
-                              href={r.href}
-                              className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 transition-colors hover:bg-paper-sunk focus-ring"
-                            >
-                              <span className="text-body-sm font-medium text-ink-900">{r.label}</span>
-                              <span className="text-body-sm text-ink-900 tabular-nums">{r.value}</span>
-                              <span className="text-caption text-ink-500">{r.sub}</span>
-                              <span className="ml-auto inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
-                                {r.cta}
-                                <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                      {(pc.c.prepDueTech || pc.c.prepDueDate) && (
-                        <p className="border-t border-rule px-4 py-2 text-caption text-ink-500">
-                          {[pc.c.prepDueTech && `技術檢測文件繳交截止日 ${fmtMD(pc.c.prepDueTech)}`, pc.c.prepDueDate && `實地稽核文件繳交截止日 ${fmtMD(pc.c.prepDueDate)}`].filter(Boolean).join('・')}
-                        </p>
-                      )}
-                    </Card>
-                  );
-                })()}
+              {/* (大改造A 減法:原機關「準備讀數摘要卡」由上方全角色待辦清單涵蓋——未處理/待繳/檢核表列
+                  皆在清單直達,退補項由退回收件匣單項級承擔;不再三重呈現) */}
 
               <div className="flex items-baseline justify-between mb-3 px-1">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">

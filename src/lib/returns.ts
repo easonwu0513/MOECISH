@@ -93,6 +93,7 @@ export async function getOpenReturns(opts: {
       reviewedAt: true,
       requirement: {
         select: {
+          id: true,
           title: true,
           cycle: { select: { id: true, year: true, organization: { select: { name: true } } } },
         },
@@ -110,7 +111,8 @@ export async function getOpenReturns(opts: {
       title: `應備文件:${s.requirement.title}`,
       reason: s.reviewNote,
       returnedAt: s.reviewedAt,
-      href: `/cycles/${c.id}/prep`,
+      // 直達單項卡(#prep-item;大改造A 顆粒補齊——原只到頁級,承辦得自己找是哪一件)
+      href: `/cycles/${c.id}/prep#prep-item-${s.requirement.id}`,
     });
   }
 

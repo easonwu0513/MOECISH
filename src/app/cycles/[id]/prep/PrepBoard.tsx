@@ -409,7 +409,9 @@ export default function PrepBoard({
     const confirmedLook = !isCenter && status === 'CONFIRMED';
 
     return (
-      <Card key={item.id} padded={false} variant={confirmedLook ? 'filled' : 'elevated'}>
+      // 單項錨點:退回收件匣「應備文件退補」直達此卡(#prep-item-{id};大改造A 顆粒補齊)
+      <div key={item.id} id={`prep-item-${item.id}`} className="scroll-mt-24">
+      <Card padded={false} variant={confirmedLook ? 'filled' : 'elevated'}>
         <div className="p-5">
           <div className="flex items-start gap-4">
             <IndexBadge n={idx + 1} state={confirmedLook ? 'done' : 'default'} />
@@ -591,6 +593,7 @@ export default function PrepBoard({
           </div>
         </div>
       </Card>
+      </div>
     );
   }
 
