@@ -54,7 +54,13 @@ export default function ChecklistItemCard({
   // (原本固定讀 response?.version prop,存第二次時 prop 尚未經 router.refresh 更新 → 仍送舊版號 →
   //  單一使用者也誤判「資料已被他人更新」409。改本地追蹤後連續存檔版號正確遞增。)
   const [version, setVersion] = useState<number>(response?.version ?? 0);
-  useEffect(() => { setVersion((v) => Math.max(v, response?.version ?? 0)); }, [response?.version]);
+  // versionRef=存檔當下讀最新版號(收斂驗證高:重疊並發存檔若都讀 render 閉包的 version 會共用 stale 值→
+  // 單人單分頁「打字排程存 + 點符合度即時存」重疊即誤判 409;串接+ref 杜絕)。
+  const versionRef = useRef<number>(response?.version ?? 0);
+  const bumpVersion = (v: number) => { versionRef.current = Math.max(versionRef.current, v); setVersion(versionRef.current); };
+  useEffect(() => { bumpVersion(response?.version ?? 0); }, [response?.version]);
+  // 存檔串接鏈:前一個 in-flight 完成後才發下一個,避免重疊(每個都讀 versionRef 最新值)
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   // 批次標記(全標符合/未答全標不適用)或退回/他處刷新後,伺服器端符合度變動 → 同步本地顯示,
   // 免使用者重新整理才看到結果(符合度由按鈕即時存檔,此同步不會吞掉編輯中的文字)。
   useEffect(() => {
@@ -85,36 +91,49 @@ export default function ChecklistItemCard({
 
   // 成功一律安靜(卡片內 ✓ 已儲存 就地閃示),失敗才跳 toast —
   // 87 題逐題點選若每次都跳通知會轟炸使用者。
-  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
-    if (!canEdit) return;
-    startSaving(async () => {
-      const res = await fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
+  // 單次存檔(讀 versionRef 最新版號);409-版號衝突(server 回 current)自動以最新版號重試一次
+  async function doSave(nextCompliance: ComplianceLevel | null, nextDescription: string, nextRecordDocs: string) {
+    const put = (v: number) =>
+      fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           compliance: nextCompliance,
           description: nextDescription || null,
           recordDocs: nextRecordDocs || null,
-          version,
+          version: v,
         }),
       });
+    let res = await put(versionRef.current);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({} as { error?: string; current?: { version?: number } }));
+      // 版號衝突且拿得到現行版號 → 以現行版號重送一次(涵蓋佐證上傳先建 response 使版號跳動之窄窗)
+      if (res.status === 409 && j.current && typeof j.current.version === 'number') {
+        bumpVersion(j.current.version);
+        res = await put(versionRef.current);
+      }
       if (!res.ok) {
-        const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-        toast.error('儲存失敗', j.error);
+        const j2 = await res.json().catch(() => ({ error: '儲存失敗' }));
+        toast.error('儲存失敗', (j2 as { error?: string }).error ?? '儲存失敗');
         return;
       }
-      // 以伺服器回傳的新版號更新本地,確保下一次存檔送出正確版號(避免連續存檔誤判 409)
-      const saved = await res.json().catch(() => null);
-      if (saved && typeof saved.version === 'number') setVersion(saved.version);
-      setTextDirty(false);
-      setJustSaved(true);
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
-      // 存檔後往上捲的元凶在 ChecklistShell 的「捲動聚焦卡片」effect(已限定僅鍵盤導覽觸發),
-      // 這裡直接 refresh 即可;勿再加「記住/回復捲動位置」補丁 — refresh 完成時間不定,
-      // 定時回復只會在使用者剛捲動時把頁面拉回舊位置(反而製造跳動)。
-      router.refresh();
-    });
+    }
+    const saved = await res.json().catch(() => null);
+    if (saved && typeof saved.version === 'number') bumpVersion(saved.version);
+    setTextDirty(false);
+    setJustSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
+    // 存檔後往上捲的元凶在 ChecklistShell 的「捲動聚焦卡片」effect(已限定僅鍵盤導覽觸發),這裡直接 refresh 即可。
+    router.refresh();
+  }
+
+  function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
+    if (!canEdit) return;
+    // 串接:掛在前一個存檔之後執行,確保嚴格序列化(不重疊),下一個讀到已更新的 versionRef
+    const next = saveChainRef.current.then(() => doSave(nextCompliance, nextDescription, nextRecordDocs)).catch(() => {});
+    saveChainRef.current = next;
+    startSaving(async () => { await next; });
   }
 
   // 邊打邊存:停止輸入 900ms 後自動儲存;失焦則立即 flush。消除「有沒有存到」的不確定。
@@ -268,7 +287,7 @@ export default function ChecklistItemCard({
           currentDescription={description}
           currentRecordDocs={recordDocs}
           currentVersion={version}
-          onSaved={(v) => setVersion((cur) => Math.max(cur, v))}
+          onSaved={bumpVersion}
           canEdit={canEdit}
           viewOnly={userRole === 'AUDITOR'}
           expectedEvidence={item.expectedEvidence}
@@ -425,8 +444,14 @@ function EvidenceBlock({
       }),
     });
     if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '無法建立作答紀錄' }));
-      toast.error('上傳失敗', j.error);
+      const j = await res.json().catch(() => ({} as { error?: string; current?: { id?: string; version?: number } }));
+      // 版號衝突(先改答建了 response、prop 尚未回灌)→ server 回 current,直接沿用其 id/版號,不誤報上傳失敗
+      if (res.status === 409 && j.current?.id) {
+        setResponseId(j.current.id);
+        if (typeof j.current.version === 'number') onSaved?.(j.current.version);
+        return j.current.id;
+      }
+      toast.error('上傳失敗', (j as { error?: string }).error ?? '無法建立作答紀錄');
       return null;
     }
     const saved = await res.json();

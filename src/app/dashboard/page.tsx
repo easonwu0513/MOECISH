@@ -17,7 +17,6 @@ import {
   CheckCircle,
   AlertCircle,
   ShieldCheck,
-  Eye,
   Briefcase,
 } from '@/components/icons';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
@@ -159,8 +158,9 @@ export default async function HomePage() {
     }
 
     if (user.role === 'AUDITOR') {
-      // 委員逐題審閱屬實地稽核階段的「筆記/快速查找」用途,選填(未留意見不算未完成)
-      if (st === 'ONSITE' && c.checklistSubmittedAt) {
+      // 委員逐題審閱屬實地稽核階段的「筆記/快速查找」用途,選填(未留意見不算未完成)。
+      // 審閱窗口未開/未設時不導向 /review(=鎖定頁死路,收斂驗證修);與 buildModuleNav 審閱卡鎖定同基準。
+      if (st === 'ONSITE' && c.checklistSubmittedAt && e.reviewWindowOpen) {
         todos.push({ key: `${c.id}-review`, tone: 'neutral', title: `${org}:可逐題檢視機關自評、留審閱註記(選填)`, href: `${base}/review`, cta: '去檢視' });
       }
       if (e.submitted > 0) {

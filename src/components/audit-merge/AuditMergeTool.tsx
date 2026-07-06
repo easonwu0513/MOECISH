@@ -99,9 +99,14 @@ export function AuditMergeTool({
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
 
+  // 自動同步 debounce timer 的 ref(供手動「存回系統」取消,避免手動與自動兩條 PATCH 對同一 cycle 競態覆蓋)
+  const metaSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 週期模式:把封面/基本資訊 + 稽核小組 + 版面換頁存回系統(彙整報告頁與列印版同步)
   async function saveMetaToSystem() {
     if (!cycleId) return;
+    // 手動存回前先取消在途的自動同步(收斂驗證修:兩條 read-modify-write PATCH 競態→較舊快照可能後到覆蓋)
+    if (metaSyncTimerRef.current) { clearTimeout(metaSyncTimerRef.current); metaSyncTimerRef.current = null; }
     setSyncBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
       method: 'PATCH',
@@ -159,6 +164,7 @@ export function AuditMergeTool({
         body: JSON.stringify(buildMetaPayload(reportData)),
       }).catch(() => {});
     }, 1000);
+    metaSyncTimerRef.current = timer; // 供手動存回取消
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metaSig, cycleId, hydrated]);
@@ -297,7 +303,8 @@ export function AuditMergeTool({
   };
 
   const doReset = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    // 清「本模式實際使用的鍵」(週期模式=STORAGE_KEY:cycleId;收斂驗證修:原寫死 STORAGE_KEY 刪錯鍵→週期暫存沒清)
+    localStorage.removeItem(storageKey);
     pastRef.current = [];
     futureRef.current = [];
     setCanUndo(false);

@@ -1,4 +1,4 @@
-import type { CycleStatus, Role } from './types';
+import { auditorReviewWindowState, type CycleStatus, type Role } from './types';
 
 // 流程四步驟與「狀態→步驟」對映已收斂至單一真實來源 lib/stage.ts;
 // 此處 re-export 維持既有匯入路徑(CycleStepper/首頁/儀表板),deriveCycleFacts 內部亦由其派生。
@@ -22,6 +22,9 @@ export type CycleFactsInput = {
   checklistSubmittedAt?: Date | null;
   checklistVersion?: { _count?: { items: number } | null } | null;
   responses?: { compliance: string | null; comments?: { id: string }[] }[];
+  // 委員審閱窗口(選填):傳入才會讓「委員審閱」下一步在窗口關閉時降為告知(不導向鎖定頁)
+  reviewWindowStart?: Date | null;
+  reviewWindowEnd?: Date | null;
 };
 
 export type CycleFacts = {
@@ -65,6 +68,8 @@ export type CycleFacts = {
   checklistAnswered: number;
   checklistSubmitted: boolean;
   checklistOpenComments: number;
+  // 委員審閱窗口是否開啟(收斂驗證修:委員 ONSITE「去檢視」下一步須與 buildModuleNav 的審閱卡鎖定同基準)
+  reviewWindowOpen: boolean;
 };
 
 export type NextAction = { text: string; href?: string; cta?: string } | null;
@@ -128,6 +133,11 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), vie
   const checklistAnswered = (c.responses ?? []).filter((r) => r.compliance != null).length;
   const checklistSubmitted = !!c.checklistSubmittedAt;
   const checklistOpenComments = (c.responses ?? []).filter((r) => (r.comments?.length ?? 0) > 0).length;
+  // 審閱窗口未帶(未 include 兩欄)時視為 open,維持既有行為;帶了才據以降級委員「去檢視」下一步
+  const reviewWindowOpen =
+    c.reviewWindowStart === undefined && c.reviewWindowEnd === undefined
+      ? true
+      : auditorReviewWindowState(c.reviewWindowStart ?? null, c.reviewWindowEnd ?? null) === 'open';
 
   return {
     id: c.id, status, dueDate: c.dueDate, prepDueDate: c.prepDueDate, prepDueTech: c.prepDueTech, onsiteDate: c.onsiteDate,
@@ -139,6 +149,7 @@ export function deriveCycleFacts(c: CycleFactsInput, now: Date = new Date(), vie
     signedUploaded, signedConfirmed, overdue,
     step: cycleStepIndex(status, allPassed),
     checklistTotal, checklistAnswered, checklistSubmitted, checklistOpenComments,
+    reviewWindowOpen,
   };
 }
 
@@ -205,7 +216,8 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
   if (st === 'PREPARATION') return { text: '資料準備中(中心審核齊備中);待週期進入資料齊備階段後可檢視資料' };
   if (st === 'READY') return { text: `資料齊備,待實地稽核${onsite ? `(${onsite})` : ''}` };
   if (st === 'ONSITE') {
-    if (f.checklistSubmitted) {
+    // 審閱窗口關閉/未設時不導向 /review(=鎖定頁死路,收斂驗證修);降為告知,對齊 buildModuleNav 審閱卡鎖定
+    if (f.checklistSubmitted && f.reviewWindowOpen) {
       return {
         text: f.checklistOpenComments > 0
           ? `到場查核;檢核表已留 ${f.checklistOpenComments} 題意見(可續審)`
@@ -214,6 +226,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
         cta: '去檢視',
       };
     }
+    if (f.checklistSubmitted) return { text: '到場查核;待中心設定委員審閱時段後可逐題檢視機關自評' };
     return { text: '依排定日期到場查核' };
   }
   if (st === 'REPORT_ISSUED') return { text: '中心發布缺失中' };
