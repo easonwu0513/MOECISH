@@ -425,7 +425,6 @@ function ScoreSection({
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
             {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
             確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
-            同一構面多位委員評分時,報告以各構面平均彙整。
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -652,7 +651,7 @@ function ScoreSection({
           );
         })}
         <div className="flex items-center justify-end gap-3 px-5 py-3 bg-paper-sunk">
-          <span className="text-body-sm text-ink-500">您的評分小計(已評 {filledCount} 項;週期彙整得分見報告頁,以各構面平均計算)</span>
+          <span className="text-body-sm text-ink-500">您的評分小計(已評 {filledCount} 項)</span>
           <span className="text-title-lg text-ink-900 tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
         </div>
       </div>
@@ -928,7 +927,7 @@ function FindingSection({
         <h2 className="text-title-lg text-ink-900">稽核發現</h2>
       </div>
       <p className="text-body-sm text-ink-500 mb-4">
-        逐條輸入您的發現;全體委員的發現會自動彙整至報告。待改善事項與建議事項日後由管理員一鍵轉入缺失管考(法遵符合情形不轉)。
+        逐條輸入您的發現;全體委員的發現會自動彙整至報告。
       </p>
 
       {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打 */}
