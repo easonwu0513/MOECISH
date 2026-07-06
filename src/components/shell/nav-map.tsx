@@ -73,7 +73,7 @@ export const NAV_ROUTES: NavRoute[] = [
   // ── 統計與紀錄 ──
   { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '統計與紀錄', cmdGroup: '管理' },
   { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '統計與紀錄', cmdGroup: '管理' },
-  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '統計與紀錄', cmdGroup: '管理' },
+  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ADMIN, iconKey: 'auditLog', group: '統計與紀錄', cmdGroup: '管理' },
   // ── 題庫與範本 ──
   { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '題庫與範本', cmdGroup: '管理' },
   { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '題庫與範本', cmdGroup: '管理' },

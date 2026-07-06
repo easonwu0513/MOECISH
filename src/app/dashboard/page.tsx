@@ -149,7 +149,7 @@ export default async function HomePage() {
       }
       // 檢核表為與資料準備平行的任務(先前不在導引中)→ 獨立提示,未送出即顯示
       if (st === 'PREPARATION' && e.checklistTotal > 0 && !e.checklistSubmitted) {
-        todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資安檢核表待填報(${e.checklistAnswered}/${e.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' });
+        todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資通安全檢核表待填報(${e.checklistAnswered}/${e.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' });
       }
       if (st === 'REMEDIATION') {
         // (退回項由退回收件匣單項級獨任,不再彙總雙講)

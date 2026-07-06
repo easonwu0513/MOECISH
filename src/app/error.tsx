@@ -36,7 +36,8 @@ export default function Error({
           </p>
           <div className="mt-5 flex items-center justify-center gap-2">
             <Button onClick={() => reset()} variant="tonal" size="sm">重新整理</Button>
-            <Button href="/dashboard" variant="text" size="sm">回總覽</Button>
+            {/* 回公開首頁(全掃 P2):未登入訪客的錯誤邊界出口,/dashboard 會被導去登入牆 */}
+            <Button href="/" variant="text" size="sm">回首頁</Button>
           </div>
           {error.digest && (
             <p className="mt-4 text-caption font-mono text-ink-500">錯誤代碼 {error.digest}</p>

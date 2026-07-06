@@ -17,6 +17,7 @@ import {
 import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { TONE, POST_CATEGORY_TONE } from '@/lib/tone';
+import { fmtROC } from '@/lib/date';
 
 /** Markdown → 純文字摘要(新聞卡用,僅去符號不渲染)。 */
 function excerpt(md: string, len = 64): string {
@@ -45,7 +46,7 @@ const HERO_PHOTOS = [
 export default async function LandingPage() {
   const session = await auth();
 
-  const [posts, latestVersion] = await Promise.all([
+  const [posts, latestVersion, important] = await Promise.all([
     prisma.post.findMany({
       where: { status: 'PUBLISHED' },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
@@ -58,6 +59,13 @@ export default async function LandingPage() {
       orderBy: { items: { _count: 'desc' } },
       include: { _count: { select: { items: true } } },
     }),
+    // 重要橫幅獨立精準查詢(全掃 P2):原 posts.find(important) 只看前 6 筆,標了 important 但被較新/置頂
+    // 公告擠出前 6 就漏顯頂欄示警;此處直接撈最新一筆 important,與卡片列表解耦。
+    prisma.post.findFirst({
+      where: { status: 'PUBLISHED', important: true },
+      orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
+      select: { id: true, slug: true, title: true },
+    }),
   ]);
 
   const itemCount = latestVersion?._count.items ?? 87;
@@ -65,7 +73,6 @@ export default async function LandingPage() {
   // 精選固定 6 張依序輪播(不再隨機挑選)
   const heroPhotos = HERO_PHOTOS;
 
-  const important = posts.find((p) => p.important);
   const enterHref = session ? '/dashboard' : '/login';
   const enterLabel = session ? '進入系統' : '登入系統';
 
@@ -202,7 +209,7 @@ export default async function LandingPage() {
                     )}
                     <div className="mt-4 flex items-center justify-between">
                       <p className="text-caption text-ink-500 tabular-nums">
-                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+                        {fmtROC(p.publishedAt)}
                       </p>
                       {/* 常駐低調顯示(觸控裝置無 hover,純 hover 顯示等於永遠看不到) */}
                       <span className="inline-flex items-center gap-0.5 text-caption text-ink-500 group-hover:text-primary-700 transition-colors">

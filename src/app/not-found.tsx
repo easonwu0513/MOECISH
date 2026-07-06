@@ -20,7 +20,9 @@ export default function NotFound() {
           <p className="mt-2 text-body-sm text-ink-500">
             您要找的頁面不存在，可能已被移除或網址有誤。
           </p>
-          <Button href="/dashboard" variant="tonal" size="sm" className="mt-5">回總覽</Button>
+          {/* 回公開首頁而非 /dashboard(全掃 P2):未登入訪客打錯前台網址,/dashboard 會被 middleware
+              導去登入牆=公開站的死路;首頁 "/" 登入/未登入皆通。 */}
+          <Button href="/" variant="tonal" size="sm" className="mt-5">回首頁</Button>
         </div>
       </div>
     </div>

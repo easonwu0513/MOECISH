@@ -62,7 +62,9 @@ export default async function AuditLogPage({
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/admin/audit-log');
   const user = session.user;
-  if (user.role !== 'SUPER_ADMIN' && user.role !== 'AUDITOR') redirect('/dashboard');
+  // 稽核軌跡=中心專用鑑識台(全掃 P2:委員本有週期頁「最近活動」看自己軌跡,不需全域台;
+  // admin/layout 已擋非 SUPER_ADMIN,此為對齊而非唯一防線)。
+  if (user.role !== 'SUPER_ADMIN') redirect('/dashboard');
 
   const entity = searchParams.entity || undefined;
   const actorId = searchParams.actor || undefined;

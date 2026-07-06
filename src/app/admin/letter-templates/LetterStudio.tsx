@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
@@ -300,14 +300,15 @@ function VarInput({
   const isTime = name.includes('時間') && !isTable;
   const isDate = (name.includes('日期') || name.includes('期限') || name.includes('區間')) && !isTable;
   const isLong = name.includes('選項') || name.includes('連結') || name.includes('說明') || (value?.length ?? 0) > 40 || (value?.includes('\n') ?? false);
+  const fieldId = useId(); // a11y(全掃 P2):label htmlFor ↔ 控制項 id,讓螢幕報讀唸出欄位名(僅一分支渲染,共用同 id 安全)
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-caption text-ink-500 font-medium">{name}</label>
+      <label htmlFor={isTable ? undefined : fieldId} className="text-caption text-ink-500 font-medium">{name}</label>
       {isTable ? (
         <TableEditor value={value} onChange={onChange} />
       ) : isScenario ? (
-        <select className={CONTROL} value={SCENARIOS.find((s) => s.value === value)?.key ?? ''} onChange={(e) => {
+        <select id={fieldId} className={CONTROL} value={SCENARIOS.find((s) => s.value === value)?.key ?? ''} onChange={(e) => {
           const s = SCENARIOS.find((sc) => sc.key === e.target.value);
           onChange(s ? s.value : '');
         }}>
@@ -317,25 +318,26 @@ function VarInput({
           ))}
         </select>
       ) : isHospital ? (
-        <select className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)}>
+        <select id={fieldId} className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)}>
           <option value="">— 選擇醫院 —</option>
           {HOSPITAL_LIST.map((h) => (
             <option key={h} value={h}>{h}</option>
           ))}
         </select>
       ) : isDate ? (
-        <input type="date" className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={fieldId} type="date" className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : isTime ? (
-        <input type="time" className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={fieldId} type="time" className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : isLong ? (
         <textarea
+          id={fieldId}
           className={AREA}
           rows={Math.min(6, Math.max(2, (value?.match(/\n/g)?.length ?? 0) + 1))}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <input className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={fieldId} className={CONTROL} value={value} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   );
@@ -371,43 +373,46 @@ function EditForm({
   isNew: boolean;
 }) {
   const set = <K extends keyof EditDraft>(k: K, v: EditDraft[K]) => setDraft({ ...draft, [k]: v });
+  const uid = useId(); // a11y(全掃 P2):每欄 label htmlFor ↔ input id
+  const fid = (k: string) => `${uid}${k}`;
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1 md:col-span-2">
-          <label className="text-caption text-ink-500 font-medium">範本標題</label>
-          <input className={CONTROL} value={draft.title} onChange={(e) => set('title', e.target.value)} />
+          <label htmlFor={fid('title')} className="text-caption text-ink-500 font-medium">範本標題</label>
+          <input id={fid('title')} className={CONTROL} value={draft.title} onChange={(e) => set('title', e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-ink-500 font-medium">分類標籤（逗號分隔）</label>
-          <input className={CONTROL} value={draft.category} onChange={(e) => set('category', e.target.value)} placeholder="委員作業, 稽核-準備作業" />
+          <label htmlFor={fid('category')} className="text-caption text-ink-500 font-medium">分類標籤（逗號分隔）</label>
+          <input id={fid('category')} className={CONTROL} value={draft.category} onChange={(e) => set('category', e.target.value)} placeholder="委員作業, 稽核-準備作業" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-ink-500 font-medium">子分組（選填）</label>
-          <input className={CONTROL} value={draft.subGroup} onChange={(e) => set('subGroup', e.target.value)} placeholder="稽核委員共識會議" />
+          <label htmlFor={fid('subGroup')} className="text-caption text-ink-500 font-medium">子分組（選填）</label>
+          <input id={fid('subGroup')} className={CONTROL} value={draft.subGroup} onChange={(e) => set('subGroup', e.target.value)} placeholder="稽核委員共識會議" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-ink-500 font-medium">流程排序</label>
-          <input type="number" className={CONTROL} value={draft.workflowOrder} onChange={(e) => set('workflowOrder', e.target.value)} />
+          <label htmlFor={fid('order')} className="text-caption text-ink-500 font-medium">流程排序</label>
+          <input id={fid('order')} type="number" className={CONTROL} value={draft.workflowOrder} onChange={(e) => set('workflowOrder', e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-caption text-ink-500 font-medium">收件對象（選填）</label>
-          <input className={CONTROL} value={draft.audience} onChange={(e) => set('audience', e.target.value)} />
+          <label htmlFor={fid('audience')} className="text-caption text-ink-500 font-medium">收件對象（選填）</label>
+          <input id={fid('audience')} className={CONTROL} value={draft.audience} onChange={(e) => set('audience', e.target.value)} />
         </div>
         <div className="flex flex-col gap-1 md:col-span-2">
-          <label className="text-caption text-ink-500 font-medium">附件說明（選填）</label>
-          <input className={CONTROL} value={draft.attachment} onChange={(e) => set('attachment', e.target.value)} />
+          <label htmlFor={fid('attachment')} className="text-caption text-ink-500 font-medium">附件說明（選填）</label>
+          <input id={fid('attachment')} className={CONTROL} value={draft.attachment} onChange={(e) => set('attachment', e.target.value)} />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-caption text-ink-500 font-medium">主旨（可用 {'{{變數}}'}）</label>
-        <input className={CONTROL} value={draft.subject} onChange={(e) => set('subject', e.target.value)} />
+        <label htmlFor={fid('subject')} className="text-caption text-ink-500 font-medium">主旨（可用 {'{{變數}}'}）</label>
+        <input id={fid('subject')} className={CONTROL} value={draft.subject} onChange={(e) => set('subject', e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-caption text-ink-500 font-medium">
+        <label htmlFor={fid('content')} className="text-caption text-ink-500 font-medium">
           內文（可用 {'{{變數}}'}、{'{{表格_XXX}}'}；支援 &lt;b&gt; &lt;u&gt; &lt;span style&gt; 等內嵌標籤）
         </label>
         <textarea
+          id={fid('content')}
           className={cn(AREA, 'font-mono')}
           rows={18}
           value={draft.content}

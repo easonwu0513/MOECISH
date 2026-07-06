@@ -644,7 +644,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               <CardTitle>進階管理</CardTitle>
               <CardDescription>通知機關填報矯正、回退週期狀態</CardDescription>
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {(cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') && (
+                {/* 「通知機關填報矯正」僅在 REMEDIATION(填報真正開放)顯示(全掃 P2):REPORT_ISSUED 時
+                    機關 canAccess('deficiencies.view')=false,寄了「去填報」信機關點連結會被 redirect=踩空。
+                    REPORT_ISSUED 階段中心該做的是頂部「矯正執行」推進鈕(推進時自動通知)。 */}
+                {cycle.status === 'REMEDIATION' && (
                   <NotifyButton cycleId={cycle.id} />
                 )}
                 {rollbacks.map((t) => (

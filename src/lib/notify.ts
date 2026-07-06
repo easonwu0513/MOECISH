@@ -540,10 +540,10 @@ export async function notifyAuditScoreReturned(opts: {
     data: {
       userId: auditor.id,
       kind: 'audit-score-return',
-      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回,請重新確認`,
+      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回，請重新確認`,
       body:
-        '最高管理員已將您的實地稽核評分與稽核發現退回,已解除鎖定,請重新編輯後再次按「確認填寫完畢」。' +
-        (opts.reason ? ` 退回原因:${opts.reason}` : ''),
+        '最高管理員已將您的實地稽核評分與稽核發現退回，已解除鎖定，請重新編輯後再次按「確認填寫完畢」。' +
+        (opts.reason ? ` 退回原因：${opts.reason}` : ''),
       link: `/cycles/${cycle.id}/audit`,
     },
   });

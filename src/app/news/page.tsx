@@ -10,6 +10,7 @@ import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORIES, POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { POST_CATEGORY_TONE } from '@/lib/tone';
+import { fmtROC } from '@/lib/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,9 +79,8 @@ export default async function NewsPage({
                   </h2>
                   <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     <span className="text-caption text-ink-500 tabular-nums">
-                      <span className="hidden sm:inline">
-                        {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}
-                      </span>
+                      {/* 桌面=民國年全格式(全掃 P2 去西曆年);手機=月/日短格式(無年,不涉紀年矛盾) */}
+                      <span className="hidden sm:inline">{fmtROC(p.publishedAt)}</span>
                       <span className="sm:hidden">
                         {p.publishedAt ? new Date(p.publishedAt).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : ''}
                       </span>

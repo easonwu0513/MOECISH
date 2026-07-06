@@ -6,6 +6,7 @@ import { applyWatermark, isWatermarkable } from '@/lib/watermark';
 import { prepOrgCanEdit, checklistOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { rocDateDotted } from '@/lib/date';
 
 /**
  * 以檔案開頭 magic bytes 判定真實型別(僅認可加浮水印的三種),不信任副檔名 / Content-Type。
@@ -110,7 +111,9 @@ export async function POST(req: Request) {
         select: { name: true, shortName: true },
       });
       const orgName = org?.name || org?.shortName || '受稽機關';
-      const dateStr = new Date().toLocaleDateString('zh-TW');
+      // 民國點分隔(全掃 P2):原 toLocaleDateString 產西曆「2026/6/11」與同註記 ${yr}年度(民國)矛盾,
+      // 且無時區→UTC 主機近午夜偏日;rocDateDotted 走台北時區,產「115.06.11」。此為蓋在佐證檔上的永久註記。
+      const dateStr = rocDateDotted(new Date());
       const yr = cycle.year - 1911;
       const out = await applyWatermark(buf, mime, {
         tile: `${yr}年度資安稽核佐證・請勿外流`,

@@ -102,7 +102,11 @@ export default async function AuditReportPage({ params }: { params: { id: string
           {isAdmin && status !== 'CLOSED' && (
             status === 'REMEDIATION'
               ? <ConvertButton cycleId={data.id} pendingCount={pendingCount} />
-              : <FinishButton cycleId={data.id} pendingCount={pendingCount} blockReason={finishBlockReason} />
+              // 「完成年度稽核」僅在 ONSITE/REPORT_ISSUED 顯示(全掃 P2):更早階段委員尚不能評分,
+              // auditorsFinalized 必為 false→按了吃 400,可見卻必失敗的體驗瑕疵;收斂到唯一合理起點。
+              : (status === 'ONSITE' || status === 'REPORT_ISSUED')
+                ? <FinishButton cycleId={data.id} pendingCount={pendingCount} blockReason={finishBlockReason} />
+                : null
           )}
         </div>
       </header>

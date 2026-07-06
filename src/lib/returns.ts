@@ -85,7 +85,9 @@ export async function getOpenReturns(opts: {
   const prepSubs = await prisma.prepSubmission.findMany({
     where: {
       status: 'INSUFFICIENT',
-      requirement: { cycle: { ...orgFilter, status: { not: 'CLOSED' } } },
+      // 僅列「機關此刻仍可補正」者=週期在資料準備中(全掃 P2):階段已過(READY 起)機關無編輯權,
+      // 再放進退回收件匣並給「前往補正」CTA=點進去無上傳/改鈕的死路。機關已無法行動的退回別再催。
+      requirement: { cycle: { ...orgFilter, status: 'PREPARATION' } },
     },
     select: {
       id: true,

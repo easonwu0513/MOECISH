@@ -58,7 +58,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   // 開立中:機關尚不可填,顯示「尚未開放」提示(唯讀)
   const orgPhaseNotOpen = user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT';
   // 退回重填改由中心(最高管理員)單一決定;委員逐題留意見並按「意見填寫完成」
-  const canReopen = user.role === 'SUPER_ADMIN';
+  // 退回重填僅在「資料準備中」提供(全掃 P1):機關唯一能重編的階段,避免退了卻鎖死機關的死路
+  const canReopen = user.role === 'SUPER_ADMIN' && checklistOrgCanEdit(cycle.status);
 
   const items = cycle.checklistVersion.items.map((i) => ({
     id: i.id,

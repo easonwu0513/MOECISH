@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { DEFICIENCY_ASPECT_LABELS, auditorCanScore, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeHint, compareChecklistRef, sortRefsString,
@@ -46,8 +46,9 @@ export default async function Att17PrintPage({
 
   const isAssigned = cycle.assignments.some((a) => a.auditor.id === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
-  // 委員於「資料齊備」前不可列印(評分表含機關檢核結果統計)
-  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
+  // 委員於「實地稽核」前不可列印評分表(全掃 P2:與評分輸入頁 /audit 的 auditorCanScore 同一分界,
+  // 避免 READY 階段可印出全空白附件17=名實不符;維持不加窗口閘的既有裁定不變)
+  if (user.role === 'AUDITOR' && !auditorCanScore(cycle.status)) redirect('/dashboard');
   // 註(UAT 批67):實地稽核評分/附件17 屬委員 ONSITE 自身產出與工作台(來源頁 /audit 亦以 auditorCanScore 階段閘把關),
   // 不納入「委員審閱時間區間」(該窗口僅管制資料準備 + 檢核表審閱兩區,對齊使用者裁定範圍),故此處不加窗口閘。
 

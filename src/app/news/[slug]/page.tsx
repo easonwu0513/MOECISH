@@ -9,6 +9,7 @@ import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { POST_CATEGORY_TONE } from '@/lib/tone';
+import { fmtROC } from '@/lib/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,10 +43,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           </div>
           <h1 className="text-headline-lg text-ink-900 text-balance leading-snug">{post.title}</h1>
           <p className="mt-3 text-caption text-ink-500 tabular-nums">
-            發布於{' '}
-            {post.publishedAt
-              ? new Date(post.publishedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })
-              : ''}
+            發布於 {fmtROC(post.publishedAt)}
           </p>
 
           {/* 收斂閱讀行寬,長文不致一行過長(首頁已大量採 ch 量度) */}

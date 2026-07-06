@@ -54,7 +54,9 @@ export async function createInvitation(input: {
     `若您未預期收到此信，請忽略本信件。\n\n` +
     `— MOECISH 資通安全稽核管考平台`;
 
-  await sendEmail({
+  // 誠實回報寄送結果(全掃 P2):未設寄信服務(demo / 計中未開 Graph)時 status=simulated=信未真寄,
+  // 由呼叫端據此切換「已寄出」vs「未寄出,請複製連結」文案,避免承辦誤以為對方會收到。
+  const emailLog = await sendEmail({
     to: input.email,
     toName: input.name,
     subject: `[MOECISH] 邀請您加入資通安全稽核管考平台`,
@@ -64,7 +66,7 @@ export async function createInvitation(input: {
     context: { link, role: input.role, organizationId: input.organizationId },
   });
 
-  return { invitation: inv, link };
+  return { invitation: inv, link, delivered: emailLog.status === 'sent' };
 }
 
 export async function getInviteByToken(token: string) {
