@@ -126,6 +126,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/檢核表卡對委員鎖定+提示原因
   const reviewState = user.role === 'AUDITOR' ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
   const reviewLocked = reviewState !== 'open';
+  // 委員「委員審閱」入口是否『實際開放』:資料齊備(READY)起可檢視 + 審閱窗口開啟。
+  // (取代原以階段聚焦 modActive.review=ONSITE 判定狀態,導致資料齊備時可進入卻顯示「待開放」的名實不符。)
+  const auditorReviewActive =
+    user.role === 'AUDITOR' && auditorCanViewChecklistContent(cycle.status) && reviewState === 'open';
   // 實地稽核已結束(缺失發布起):改顯「實地稽核階段已結束,非審閱時段」——此時再提「未設定」不合情境(UAT 批69)
   const reviewLockHint = onsiteStageEnded(cycle.status)
     ? '實地稽核階段已結束,非審閱時段'
@@ -171,7 +175,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     ? '線上填報完成'
     : (facts.checklistTotal > 0 ? '逐題填報中' : '待中心開放填報');
   const auditStatus = onsitePast ? '已完成' : (stForMod === 'ONSITE' ? '進行中' : '尚未開始');
-  const reviewStatus = onsitePast ? '已完成' : (modActive.review ? '進行中' : '待開放');
+  const reviewStatus = onsitePast
+    ? '已完成'
+    : user.role === 'AUDITOR'
+      ? (auditorReviewActive ? '進行中' : '待開放')
+      : (modActive.review ? '進行中' : '待開放');
   const defStatus = total > 0 ? `${passed}/${total}` : '尚未發布';
   const defCaption = total > 0 ? `待填 ${pendingCount} · 退回 ${returned}` : '缺失發布後開放填報';
 
@@ -563,12 +571,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               status={user.role === 'AUDITOR' ? reviewStatus : checklistStatus}
               statusTone={
                 user.role === 'AUDITOR'
-                  ? (modActive.review ? 'primary' : 'default')
+                  ? (auditorReviewActive ? 'primary' : 'default')
                   : (checklistSubmitted ? 'success' : 'default')
               }
               caption={user.role === 'AUDITOR' ? '檢視填報、逐題留審查意見' : checklistCaption}
               href={user.role === 'AUDITOR' ? `/cycles/${cycle.id}/review` : `/cycles/${cycle.id}/checklist`}
-              muted={!(user.role === 'AUDITOR' ? modActive.review : modActive.checklist)}
+              muted={!(user.role === 'AUDITOR' ? auditorReviewActive : modActive.checklist)}
               locked={
                 (user.role === 'AUDITOR' && (!auditorCanViewChecklistContent(cycle.status) || reviewLocked)) ||
                 (user.role === 'ORG_ADMIN' && cycle.status === 'DRAFT')

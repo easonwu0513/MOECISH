@@ -118,11 +118,13 @@ export function AuditMergeTool({
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
   // 掛載時:載入暫存 + 啟用列印樣式 scope
-  // 週期模式:發現(findings)永遠取系統即時資料;頁首沿用上次在工具的編輯(本機暫存)
+  // 週期模式:發現(findings)與稽核小組(team)永遠取系統即時資料——兩者皆由現存委員指派派生,
+  //   若沿用本機暫存會殘留「已移除委員」(幽靈委員),故一律以 initial 覆蓋;其餘頁首(日期/範圍/
+  //   準則/正副領隊/版面換頁)沿用上次在工具的編輯(本機暫存)。
   useEffect(() => {
     if (cycleId && initial) {
       const stored = loadStoredReportData(storageKey);
-      setReportData(stored ? { ...stored, findings: initial.findings } : initial);
+      setReportData(stored ? { ...stored, findings: initial.findings, team: initial.team } : initial);
     } else {
       const stored = loadStoredReportData(storageKey);
       if (stored) setReportData(stored);

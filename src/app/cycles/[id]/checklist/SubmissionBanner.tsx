@@ -20,12 +20,15 @@ export default function SubmissionBanner({
   submittedBy,
   reopenNote,
   canReopen,
+  hideModifyHint,
 }: {
   cycleId: string;
   submittedAtISO: string | null;
   submittedBy: string | null;
   reopenNote: string | null;
   canReopen: boolean;
+  /** 委員審閱頁:隱藏「如需修改請洽中心退回」等機關向文案(委員只是檢視,不涉修改)。 */
+  hideModifyHint?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -65,7 +68,7 @@ export default function SubmissionBanner({
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
               {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需請機關補正,可點「退回重填」。' : ';如需修改請洽中心退回。'}
+              {hideModifyHint ? '。' : canReopen ? ';如需請機關補正,可點「退回重填」。' : ';如需修改請洽中心退回。'}
             </div>
           </div>
           {canReopen && (

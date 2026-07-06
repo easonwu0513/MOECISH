@@ -6,7 +6,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ClipboardCheck } from '@/components/icons';
+import { ClipboardCheck, ChevronRight } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, onsiteStageEnded, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
@@ -18,7 +18,6 @@ import { SURFACE_INFO } from '@/lib/tone';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import SubmissionBanner from '../checklist/SubmissionBanner';
-import ReviewReopenBar from './ReviewReopenBar';
 
 const complianceTone = COMPLIANCE_TONE;
 
@@ -124,16 +123,16 @@ export default async function ReviewPage({
     return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
   }).length;
 
-  // 委員審閱完成進度(中心掌握);本委員是否已標記「意見填寫完成」
-  const myReviewDone = Boolean(cycle.assignments.find((a) => a.auditorId === session.user.id)?.reviewDoneAt);
-  const reviewDoneList = cycle.assignments.map((a) => ({ name: a.auditor?.name ?? '委員', done: Boolean(a.reviewDoneAt) }));
-  const reviewDoneCount = reviewDoneList.filter((x) => x.done).length;
-
-  // 篩選:answered=只看已作答、comments=意見待補、resolved=已補正待複核
-  const filter =
-    ['answered', 'comments', 'resolved'].includes(searchParams.filter ?? '')
-      ? (searchParams.filter as 'answered' | 'comments' | 'resolved')
-      : null;
+  // 篩選:answered=只看已作答、comments=意見待補、resolved=已補正待複核、
+  //       comply/partial/noncomply/na=依機關作答符合度快速篩選(委員可一鍵挑出某類)。
+  const COMPLIANCE_FILTER = {
+    comply: 'COMPLIANT', partial: 'PARTIALLY_COMPLIANT', noncomply: 'NON_COMPLIANT', na: 'NOT_APPLICABLE',
+  } as const;
+  const FILTER_KEYS = ['answered', 'comments', 'resolved', 'comply', 'partial', 'noncomply', 'na'] as const;
+  type FilterKey = (typeof FILTER_KEYS)[number];
+  const filter = (FILTER_KEYS as readonly string[]).includes(searchParams.filter ?? '')
+    ? (searchParams.filter as FilterKey)
+    : null;
   const matchFilter = (itemId: string) => {
     const r = responsesByItem.get(itemId);
     if (filter === 'answered') return Boolean(r?.compliance);
@@ -142,8 +141,14 @@ export default async function ReviewPage({
       const cs = r?.comments ?? [];
       return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
     }
+    if (filter && filter in COMPLIANCE_FILTER) {
+      return r?.compliance === COMPLIANCE_FILTER[filter as keyof typeof COMPLIANCE_FILTER];
+    }
     return true;
   };
+  // 各符合度數量(供篩選 chip 顯示;僅列有題者)
+  const complianceCount = (level: ComplianceLevel) =>
+    cycle.checklistVersion.items.filter((i) => responsesByItem.get(i.id)?.compliance === level).length;
   const grouped = DIMENSION_ORDER.map((dim) => ({
     dim,
     items: cycle.checklistVersion.items.filter((i) => i.dimension === dim && matchFilter(i.id)),
@@ -168,7 +173,7 @@ export default async function ReviewPage({
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">委員審閱</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-          逐題檢視機關說明與佐證,於每題下方留意見;完成後按「意見填寫完成」通知中心。
+          逐題檢視機關說明與佐證,可於每題下方留下審閱筆記(依需要,不必每題),供您實地稽核時參考。
         </p>
         <p className="text-body-sm text-ink-500 mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -176,30 +181,16 @@ export default async function ReviewPage({
         </p>
       </header>
 
-      {/* 委員審閱為當天留存意見,不涉退回重填 → 此頁不提供退回(canReopen=false);僅顯示送出狀態 */}
+      {/* 委員審閱為留存筆記,不涉退回重填 → 此頁不提供退回(canReopen=false);僅顯示送出狀態。
+          委員向:隱藏「如需修改請洽中心退回」等機關向文案(委員只是檢視)。 */}
       <SubmissionBanner
         cycleId={cycle.id}
         submittedAtISO={cycle.checklistSubmittedAt?.toISOString() ?? null}
         submittedBy={cycle.checklistSubmittedBy}
         reopenNote={null}
         canReopen={false}
+        hideModifyHint={session.user.role === 'AUDITOR'}
       />
-
-      {/* 中心:委員審閱完成進度 */}
-      {session.user.role === 'SUPER_ADMIN' && cycle.checklistSubmittedAt && reviewDoneList.length > 0 && (
-        <div className="mb-5 rounded-md border border-rule bg-card px-5 py-3">
-          <p className="text-body-sm text-ink-900">
-            委員審閱進度:<span className="font-semibold tabular-nums">{reviewDoneCount}</span> / {reviewDoneList.length} 已完成意見
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {reviewDoneList.map((x, i) => (
-              <Chip key={i} tone={x.done ? 'success' : 'neutral'} size="sm" dot>
-                {x.name}{x.done ? ' · 已完成' : ' · 審閱中'}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 篩選 */}
       {answered > 0 && (
@@ -220,7 +211,36 @@ export default async function ReviewPage({
               已補正待複核 <FilterChipCount selected={filter === 'resolved'}>{resolvedPending}</FilterChipCount>
             </FilterChipLink>
           )}
+          {/* 依機關作答符合度快速篩選:委員可一鍵挑出某一類逐一檢視,不必逐題往下翻 */}
+          <span className="mx-1 h-4 w-px bg-rule" aria-hidden />
+          {(['comply', 'partial', 'noncomply', 'na'] as const).map((key) => {
+            const level = COMPLIANCE_FILTER[key];
+            const n = complianceCount(level);
+            if (n === 0) return null;
+            return (
+              <FilterChipLink key={key} href={`/cycles/${cycle.id}/review?filter=${key}`} selected={filter === key}>
+                {COMPLIANCE_LABELS[level]} <FilterChipCount selected={filter === key}>{n}</FilterChipCount>
+              </FilterChipLink>
+            );
+          })}
         </div>
+      )}
+
+      {/* 快速跳至構面(委員可直接跳到第一/四/七等構面,不必往下滑很久) */}
+      {grouped.length > 1 && (
+        <nav className="mb-5 flex items-center gap-1.5 flex-wrap" aria-label="構面快速導覽">
+          <span className="text-caption text-ink-400 mr-0.5">跳至構面:</span>
+          {grouped.map(({ dim, items }) => (
+            <a
+              key={dim}
+              href={`#dim-${dim}`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-rule text-caption text-ink-700 hover:border-primary-400 hover:text-primary-700 hover:bg-primary-50/60 transition-colors focus-ring"
+            >
+              {DIMENSION_LABELS[dim as Dimension]}
+              <span className="text-ink-400 tabular-nums">{items.length}</span>
+            </a>
+          ))}
+        </nav>
       )}
 
       {answered === 0 ? (
@@ -233,11 +253,12 @@ export default async function ReviewPage({
         </Card>
       ) : (
         grouped.map(({ dim, items }) => (
-          <section key={dim} className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
+          <details key={dim} id={`dim-${dim}`} open className="group mb-6 scroll-mt-4">
+            <summary className="flex items-center gap-2 mb-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+              <ChevronRight size={18} className="text-ink-400 shrink-0 transition-transform group-open:rotate-90" aria-hidden />
               <h2 className="text-title-md text-ink-900">{DIMENSION_LABELS[dim as Dimension]}</h2>
               <Chip tone="neutral" size="sm">{items.length}</Chip>
-            </div>
+            </summary>
             <div className="flex flex-col gap-3">
               {items.map((item) => {
                 const r = responsesByItem.get(item.id);
@@ -344,14 +365,11 @@ export default async function ReviewPage({
                 );
               })}
             </div>
-          </section>
+          </details>
         ))
       )}
 
-      {/* 審閱收尾:僅委員顯示「意見填寫完成」(通知中心);不提供退回重填 */}
-      {cycle.checklistSubmittedAt && cycle.status !== 'CLOSED' && session.user.role === 'AUDITOR' && (
-        <ReviewReopenBar cycleId={cycle.id} role={session.user.role} openComments={withOpenComments} reviewDone={myReviewDone} />
-      )}
+      {/* 委員審閱=留存筆記,中心不審閱委員意見→取消「意見填寫完成/通知中心」收尾動作(UAT)。 */}
     </AppShell>
   );
 }
