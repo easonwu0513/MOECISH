@@ -5,6 +5,14 @@ import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
+const SectionPB = z.object({ pageBreakBefore: z.boolean() });
+const CatSettings = z.object({
+  pageBreakBefore: z.boolean(),
+  compliance: SectionPB,
+  improvements: SectionPB,
+  suggestions: SectionPB,
+});
+
 const Body = z.object({
   auditDateRaw: z.string().optional(),
   scope: z.string().optional(),
@@ -16,6 +24,14 @@ const Body = z.object({
     management: z.array(z.string()),
     technical: z.array(z.string()),
   }).optional(),
+  // 版面換頁設定(彙整工具「設定構面換頁」等)存回系統,使正式報告列印同步顯示分頁。
+  sectionSettings: z.object({
+    strategy: CatSettings,
+    management: CatSettings,
+    technical: CatSettings,
+  }).optional(),
+  // 逐則發現的「此前換頁」(以 AuditFinding.id 為鍵;true 者才記錄)。
+  findingBreaks: z.record(z.boolean()).optional(),
 });
 
 /** 最高管理員設定彙整報告頁首(稽核日期/範圍/準則/稽核小組)。 */

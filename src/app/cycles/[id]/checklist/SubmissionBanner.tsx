@@ -65,7 +65,7 @@ export default function SubmissionBanner({
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
               {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需請機關補正,可在下方退回重填。' : ';如需修改請洽中心退回。'}
+              {canReopen ? ';如需請機關補正,可點「退回重填」。' : ';如需修改請洽中心退回。'}
             </div>
           </div>
           {canReopen && (
@@ -110,7 +110,7 @@ export default function SubmissionBanner({
         <div className="min-w-0">
           <div className="text-title-md text-warning-800">填報被退回,請補正後重新送出</div>
           <p className="mt-1.5 text-body text-ink-900 whitespace-pre-wrap leading-relaxed">{reopenNote}</p>
-          <p className="mt-1.5 text-caption text-ink-500">補正後於下方重新送出;機關僅能看到此退回原因,看不到委員逐題意見。</p>
+          <p className="mt-1.5 text-caption text-ink-500">補正後於下方重新送出。</p>
         </div>
       </div>
     );

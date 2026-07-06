@@ -46,6 +46,10 @@ export type ReportMeta = {
   lead?: { name: string; title: string };
   subLead?: { name: string; title: string; org: string };
   team?: { strategy: string[]; management: string[]; technical: string[] };
+  /** 彙整工具存回的版面換頁設定(構面/區段層級);正式報告列印據此同步顯示分頁。 */
+  sectionSettings?: ReportData['sectionSettings'];
+  /** 逐則發現「此前換頁」(以 AuditFinding.id 為鍵)。 */
+  findingBreaks?: Record<string, boolean>;
 };
 
 export function parseReportMeta(raw: string | null): ReportMeta {
@@ -88,7 +92,8 @@ export function buildReportData(data: AuditReportData): ReportData {
       id: f.id,
       code: sortRefsString(f.checklistRef),
       text: f.content,
-      pageBreakBefore: false,
+      // 套用彙整工具存回的逐則換頁設定(以 AuditFinding.id 為鍵),正式報告列印同步顯示分頁。
+      pageBreakBefore: !!meta.findingBreaks?.[f.id],
       duplicateAcknowledged: true,
     });
   }
@@ -138,6 +143,8 @@ export function buildReportData(data: AuditReportData): ReportData {
     subLead: meta.subLead ?? { name: '', title: '', org: '' },
     team,
     findings,
+    // 版面換頁:套用彙整工具存回系統的構面/區段換頁設定(無則沿用全 false 預設)。
+    sectionSettings: meta.sectionSettings ?? base.sectionSettings,
   };
 }
 

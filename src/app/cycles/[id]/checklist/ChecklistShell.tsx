@@ -189,10 +189,15 @@ export default function ChecklistShell({
   }
 
   function expandUnanswered() {
-    const unans = visible
-      .filter((i) => !responsesByItem.get(i.id)?.compliance)
-      .map((i) => i.id);
-    setExpanded(new Set(unans));
+    const unansItems = visible.filter((i) => !responsesByItem.get(i.id)?.compliance);
+    setExpanded(new Set(unansItems.map((i) => i.id)));
+    // 同步展開(取消收合)含未作答題的構面:收合構面的題卡已從 DOM 卸載(見 flatIds 註解),
+    // 只設題卡 expanded 仍看不到→須先把這些構面從 collapsedDims 移除,才會渲染其未作答題卡。
+    setCollapsedDims((prev) => {
+      const next = new Set(prev);
+      for (const i of unansItems) next.delete(i.dimension);
+      return next;
+    });
   }
 
   function toggleDim(dim: string) {
@@ -265,7 +270,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定;中心會收到通知進行審核,稽核委員待資料齊備後才檢視(不會立即收到通知)。如需再修改,須由中心退回重填。確定送出?`}
+        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定,鎖定後如需再修改檢核表內容,請通知中心工作人員,由中心退回重填。`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}

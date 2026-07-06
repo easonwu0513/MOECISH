@@ -78,11 +78,21 @@ export function AuditMergeTool({
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
 
-  // 週期模式:把封面/基本資訊存回系統(彙整報告頁與列印版同步)
+  // 週期模式:把封面/基本資訊 + 版面換頁設定存回系統(彙整報告頁與列印版同步)
   async function saveMetaToSystem() {
     if (!cycleId) return;
     setSyncBusy(true);
     const d = reportData;
+    // 逐則發現「此前換頁」以 AuditFinding.id 為鍵記錄(僅記 true 者);工具新增的臨時發現(非 DB id)
+    // 不持久化發現本體,其換頁亦不記錄——與「發現永遠取系統即時資料」的設計一致。
+    const findingBreaks: Record<string, boolean> = {};
+    for (const cat of ['strategy', 'management', 'technical'] as const) {
+      for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
+        for (const f of d.findings[cat][sec]) {
+          if (f.pageBreakBefore) findingBreaks[f.id] = true;
+        }
+      }
+    }
     const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -93,6 +103,8 @@ export function AuditMergeTool({
         lead: d.lead,
         subLead: d.subLead,
         team: d.team,
+        sectionSettings: d.sectionSettings,
+        findingBreaks,
       }),
     });
     setSyncBusy(false);
@@ -101,9 +113,8 @@ export function AuditMergeTool({
       toast.error('存回系統失敗', j.error);
       return;
     }
-    toast.success('已存回系統', '彙整報告頁的封面與基本資訊已同步。');
+    toast.success('已存回系統', '封面/基本資訊與版面換頁已同步到彙整報告頁與正式列印。');
   }
-  const [clearFindingsOpen, setClearFindingsOpen] = useState(false);
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
   // 掛載時:載入暫存 + 啟用列印樣式 scope
@@ -272,19 +283,6 @@ export function AuditMergeTool({
     setReportData(makeDefaultReportData());
     setResetOpen(false);
     toast.success('已重置', '所有暫存資料已恢復為預設值');
-  };
-
-  const doClearFindings = () => {
-    updateReportData((prev) => ({
-      ...prev,
-      findings: {
-        strategy: { compliance: [], improvements: [], suggestions: [] },
-        management: { compliance: [], improvements: [], suggestions: [] },
-        technical: { compliance: [], improvements: [], suggestions: [] },
-      },
-    }));
-    setClearFindingsOpen(false);
-    toast.success('稽核發現已全數清空', '基本資訊與團隊名單已保留');
   };
 
   /** 匯出/列印前防呆:回傳警告清單(空 = 可直接執行)。 */
@@ -641,15 +639,8 @@ export function AuditMergeTool({
               {/* 側邊導覽列 */}
               <nav className="w-48 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto p-3">
                 <div className="space-y-1">
-                  <button
-                    onClick={() => setClearFindingsOpen(true)}
-                    className="w-full text-center px-3 py-2 mb-3 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 rounded font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1"
-                    title="清空所有的稽核發現內容 (基本資料將保留)"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    一鍵清空所有發現
-                  </button>
-
+                  {/* 「一鍵清空所有發現」已移除:發現永遠取系統即時資料(重開即回填),清空只影響本機暫存、
+                      無持久效果卻外觀近似不可逆刪除,為避免誤觸與誤解而下架。 */}
                   {NAV_TABS.map((tab) => (
                     <button
                       key={tab.id}
@@ -1185,15 +1176,6 @@ export function AuditMergeTool({
         confirmLabel="重置"
         tone="danger"
         onConfirm={doReset}
-      />
-      <ConfirmDialog
-        open={clearFindingsOpen}
-        onOpenChange={setClearFindingsOpen}
-        title="清空所有稽核發現"
-        description="三構面的稽核發現將全數清空(基本資訊與委員名單保留)。確定清空?"
-        confirmLabel="全部清空"
-        tone="danger"
-        onConfirm={doClearFindings}
       />
       <ConfirmDialog
         open={forceState !== null}
