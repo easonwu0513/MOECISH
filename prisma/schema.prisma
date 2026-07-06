@@ -508,6 +508,26 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 }
 
+// 信件範本庫（LetterTemplate）：後台可編輯的公文/通知底稿，供產生器帶入變數→複製富文字貼到外部郵件用戶端寄送。
+// 移植自「信件範本工具」；templateKey 對應工具原編號（seed 冪等鍵）。不接管平台 HTML 寄信管線。
+model LetterTemplate {
+  id            String   @id @default(cuid())
+  templateKey   String   @unique          // 對應工具原 id（如 "7"），seed 冪等鍵
+  category      String                     // 逗號分隔雙標籤，如「委員作業, 稽核-準備作業」
+  workflowOrder Int      @default(99)      // 作業流程排序（1X 準備 / 2X 實地 / 3X 檢討 / 4XX 研討）
+  subGroup      String?                    // 子分組（如「稽核委員共識會議」）
+  title         String
+  attachment    String   @default("無")    // 附件說明（非實體檔，供承辦備忘）
+  audience      String   @default("")      // 收件對象說明
+  subject       String   @db.Text          // 主旨（含 {{變數}}）
+  content       String   @db.Text          // 內文（純文字 + 內嵌 HTML + {{變數}} + {{表格_XXX}}）
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([workflowOrder])
+}
+
 model EmailLog {
   id        String   @id @default(cuid())
   toEmail   String

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Role } from '@/lib/types';
 import {
   LayoutDashboard, ClipboardCheck, Users, History, Briefcase,
-  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings,
+  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings, Send,
 } from '../icons';
 
 /**
@@ -17,7 +17,7 @@ import {
 
 export type NavIconKey =
   | 'dashboard' | 'cycles' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'mergeTool' | 'auditLog' | 'designSystem';
+  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog' | 'designSystem';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
@@ -33,6 +33,7 @@ const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   journeyEdit: (s) => <Settings size={s} />,
   posts: (s) => <Megaphone size={s} />,
   emails: (s) => <Mail size={s} />,
+  letters: (s) => <Send size={s} />,
   mergeTool: (s) => <Folder size={s} />,
   auditLog: (s) => <History size={s} />,
   designSystem: (s) => <Settings size={s} />,
@@ -71,6 +72,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/admin/journey',           label: '精靈範本',     allow: ADMIN, iconKey: 'journeyEdit', group: '管理' },
   { href: '/admin/posts',             label: '公告管理',     allow: ADMIN, iconKey: 'posts',       group: '管理' },
   { href: '/admin/emails',            label: 'Email',        allow: ADMIN, iconKey: 'emails',      group: '管理' },
+  { href: '/admin/letter-templates',  label: '信件範本',     allow: ADMIN, iconKey: 'letters',     group: '管理' },
   { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '管理' },
   { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '管理' },
   { href: '/admin/design-system',     label: '設計系統',     allow: ADMIN, iconKey: 'designSystem', group: '管理' },

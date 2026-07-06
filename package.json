@@ -17,6 +17,7 @@
     "email:retry": "tsx src/scripts/retry-failed-emails.ts",
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
     "journey:seed": "tsx src/scripts/seed-journey.ts",
+    "letters:seed": "tsx src/scripts/seed-letter-templates.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
     "test:access": "tsx src/scripts/test-access-matrix.ts",
     "test:notify": "tsx src/scripts/test-notify-matrix.ts",
