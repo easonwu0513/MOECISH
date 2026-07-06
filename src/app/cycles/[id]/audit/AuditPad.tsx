@@ -20,6 +20,7 @@ import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE, DIMENSION_NUM,
   gradeOf, gradeHint, GRADE_TONE, compareChecklistRef, parseRefs, sortRefs, sortRefsString,
   FINDING_KIND_LABELS, FINDING_KIND_HINTS, type FindingKind,
+  dimCountSum, validateScoreCompleteness,
 } from '@/lib/audit-score';
 import { toFullWidthPunct } from '@/lib/fullwidth-punct';
 import { toneClasses } from '@/lib/stage';
@@ -344,37 +345,12 @@ function ScoreSection({
   const myTotal = Object.values(scores).reduce<number>((a, v) => a + (v ?? 0), 0);
   const filledCount = Object.values(scores).filter((v) => v !== null && v !== undefined).length;
 
-  /** 某構面判定數量四格合計(全空回 null,供行內提示區分「還沒動筆」與「合計 0」) */
-  function countSum(dim: Dimension): number | null {
-    const c = counts[dim];
-    if (!c || (c.c1 == null && c.c2 == null && c.c3 == null && c.c4 == null)) return null;
-    return (c.c1 ?? 0) + (c.c2 ?? 0) + (c.c3 ?? 0) + (c.c4 ?? 0);
-  }
+  /** 某構面判定數量四格合計(吃 lib/audit-score 純函式;供行內提示區分「還沒動筆」與「合計 0」) */
+  const countSum = (dim: Dimension): number | null => dimCountSum(counts[dim]);
 
-  // 送出完整性(UAT:分工評分)——硬性下限=至少一個構面「完整」(評分 + 判定數量合計===題數);
-  // 其餘「動過但沒填完」的構面列為軟性提示(送出前確認視窗詢問,委員可自行決定仍要送出)。
-  // 後端 lock API 僅硬擋「無任何完整構面」;此為即時回饋 + 軟性提示清單。
-  function validateCompleteness(): { hardBlock: boolean; problems: string[]; byDim: Record<string, string> } {
-    const problems: string[] = [];
-    const byDim: Record<string, string> = {};
-    let completeCount = 0;
-    for (const d of ALL_DIMS) {
-      const total = stats[d]?.total ?? 0;
-      const sum = countSum(d);
-      const scoreOk = scores[d] != null;
-      const countOk = sum !== null && sum === total;
-      if (scoreOk && countOk) { completeCount++; continue; }
-      // 完全沒動筆的構面:分工下視為非本次職責,略過不提示
-      if (scores[d] == null && sum === null) continue;
-      const issues: string[] = [];
-      if (!scoreOk) issues.push('未填評分');
-      // 四格全空=「未填」而非「合計 0」(誠實區分沒動筆與填了 0)
-      if (!countOk) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
-      problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
-      byDim[d] = issues.join('、');
-    }
-    return { hardBlock: completeCount === 0, problems, byDim };
-  }
+  // 送出完整性閘改吃 lib/audit-score.validateScoreCompleteness(純函式,已納 test:auditscore 真值表);
+  // 硬性下限=至少一完整構面,其餘軟性提示;後端 lock API 另有權威硬擋。此處僅即時回饋 + 軟性提示清單。
+  const validateCompleteness = () => validateScoreCompleteness(scores, counts, stats);
 
   // 送出被擋的構面 → 行內常駐紅字(toast 只活 6 秒,錯誤要留在表上);修正該構面即清除
   const [problemByDim, setProblemByDim] = useState<Record<string, string>>({});
@@ -1159,7 +1135,7 @@ function FindingSection({
         const matched = snippets.filter((s) => snippetMatches(s, clip.aspect, clip.kind));
         const shown = clipShowAll ? snippets : matched;
         const toggleCls = (active: boolean) =>
-          `inline-flex items-center min-h-8 px-3 rounded-full text-label-sm tabular-nums transition-colors ${
+          `inline-flex items-center min-h-8 [@media(pointer:coarse)]:min-h-11 px-3 rounded-full text-label-sm tabular-nums transition-colors ${
             active ? 'bg-focus-wash text-primary-700 font-medium' : 'text-ink-500 hover:bg-paper-sunk'
           }`;
         return (
@@ -1225,7 +1201,7 @@ function RefChips({ value, onChange, disabled }: { value: string; onChange: (nex
   return (
     <div className="flex flex-col gap-0.5 min-w-[10rem]">
       <span className="text-caption text-ink-500 px-1">對應項次(選填)</span>
-      <div className="flex flex-wrap items-center gap-1 rounded-md border border-neutral-400 bg-card px-2 py-1 min-h-9">
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-neutral-400 bg-card px-2 py-1 min-h-9 [@media(pointer:coarse)]:min-h-11">
         {refs.map((r) => (
           <span key={r} className="inline-flex items-center gap-1 rounded-full bg-paper-sunk px-2 py-0.5 text-caption text-ink-900">
             {r}
@@ -1242,7 +1218,7 @@ function RefChips({ value, onChange, disabled }: { value: string; onChange: (nex
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
               placeholder="項次"
-              className="w-14 h-6 bg-transparent text-caption outline-none placeholder:text-ink-500"
+              className="w-14 h-6 [@media(pointer:coarse)]:h-10 bg-transparent text-caption outline-none placeholder:text-ink-500"
             />
             <button type="button" onClick={add} className="text-caption text-primary-700 whitespace-nowrap">+ 新增</button>
           </span>
@@ -1287,7 +1263,7 @@ function AspectSelect({
       onChange={(e) => onChange(e.target.value as DeficiencyAspect)}
       disabled={disabled}
       aria-label="稽核構面"
-      className="h-10 rounded-md border border-neutral-400 bg-card px-3 text-body-sm focus-ring disabled:bg-paper-sunk disabled:text-ink-500"
+      className="h-10 [@media(pointer:coarse)]:h-11 rounded-md border border-neutral-400 bg-card px-3 text-body-sm focus-ring disabled:bg-paper-sunk disabled:text-ink-500"
     >
       {ASPECTS.map((a) => (
         <option key={a} value={a}>{DEFICIENCY_ASPECT_LABELS[a]}</option>

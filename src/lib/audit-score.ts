@@ -182,3 +182,49 @@ export function computeDimStats(
   }
   return stats;
 }
+
+// ── 委員「確認填寫完畢」送出完整性閘(純函式;供 UI 即時回饋 + 單元測試) ──
+// (原內嵌於 AuditPad.tsx 的 ScoreSection render 閉包,無法納入真值表測試;R7 抽出為純函式。)
+
+/** 委員判定數量四格輸入(null=未填) */
+export type DimCountsInput = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
+
+/** 全 9 稽核項目(策略→管理→技術序) */
+export const ALL_DIMENSIONS: Dimension[] = (['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as DeficiencyAspect[]).flatMap(
+  (a) => ASPECT_DIMENSIONS[a],
+);
+
+/** 某構面判定數量四格合計:全空回 null(區分「還沒動筆」與「合計 0」)。 */
+export function dimCountSum(c: DimCountsInput | undefined): number | null {
+  if (!c || (c.c1 == null && c.c2 == null && c.c3 == null && c.c4 == null)) return null;
+  return (c.c1 ?? 0) + (c.c2 ?? 0) + (c.c3 ?? 0) + (c.c4 ?? 0);
+}
+
+/**
+ * 送出完整性閘:硬性下限=至少一個構面「完整」(有評分 + 判定數量四格合計===該構面題數);
+ * 其餘「動過但沒填完」列軟性提示(送出前確認視窗詢問);完全沒動筆的構面(分工下非本次職責)略過。
+ * 後端 lock API 另有權威硬擋「無任何完整構面」;此為即時回饋 + 軟性提示清單的單一來源。
+ */
+export function validateScoreCompleteness(
+  scores: Record<string, number | null>,
+  counts: Record<string, DimCountsInput | undefined>,
+  totalByDim: Record<string, { total: number } | undefined>,
+): { hardBlock: boolean; problems: string[]; byDim: Record<string, string> } {
+  const problems: string[] = [];
+  const byDim: Record<string, string> = {};
+  let completeCount = 0;
+  for (const d of ALL_DIMENSIONS) {
+    const total = totalByDim[d]?.total ?? 0;
+    const sum = dimCountSum(counts[d]);
+    const scoreOk = scores[d] != null;
+    const countOk = sum !== null && sum === total;
+    if (scoreOk && countOk) { completeCount++; continue; }
+    if (scores[d] == null && sum === null) continue; // 沒動筆 → 分工下略過
+    const issues: string[] = [];
+    if (!scoreOk) issues.push('未填評分');
+    if (!countOk) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
+    problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
+    byDim[d] = issues.join('、');
+  }
+  return { hardBlock: completeCount === 0, problems, byDim };
+}
