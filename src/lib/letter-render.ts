@@ -185,7 +185,7 @@ function renderTableToCopyHtml(rawValue: string): string {
       let safeCell = formatted.replace(/\n/g, '<br/>');
       if (!allowEmpty && rIdx > 0 && formatted.replace(/<[^>]*>?/gm, '').trim() === '') {
         safeCell =
-          '<span style="color: #dc2626; background-color: #fee2e2; padding: 2px 6px; border: 1px solid #fca5a5; border-radius: 4px; font-weight: 600;">[請填寫]</span>';
+          '<span style="color: #dc2626; background-color: #fee2e2; padding: 2px 6px; border: 1px solid #fca5a5; border-radius: 4px; font-weight: 600;">（請填寫）</span>';
       }
       tbl += `<${tag}${rsAttr}${csAttr} style="border: 1px solid #666666; padding: 8px; text-align: left; vertical-align: top; ${bg}">${safeCell}</${tag}>`;
     });
@@ -230,11 +230,11 @@ export function buildEmailHtml(text: string, formData: FormData): string {
       const variableName = part.slice(2, -2);
       const rawValue = expandedForm[variableName];
       if (isTableVar(variableName)) {
-        if (!rawValue) return `<span style="color:#dc2626">[尚未填寫表格: ${variableName}]</span>`;
+        if (!rawValue) return `<span style="color:#dc2626">（尚未填寫表格：${variableName}）</span>`;
         try {
           return renderTableToCopyHtml(rawValue);
         } catch {
-          return `<span style="color:#dc2626">[表格解析錯誤]</span>`;
+          return `<span style="color:#dc2626">（表格解析錯誤）</span>`;
         }
       }
       // 未填變數用全形（變數名）佔位而非 [變數名]:部分郵件用戶端把 [..] 當合併欄位自動加藍底。
@@ -264,7 +264,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
       const rawValue = formData[variableName];
       if (isTableVar(variableName)) {
         if (!rawValue) {
-          finalHtml += `<div style="margin:0.75rem 0;padding:0.75rem;${UNFILLED}font-weight:500;">[請在左側填寫表格資訊：${variableName}]</div>`;
+          finalHtml += `<div style="margin:0.75rem 0;padding:0.75rem;${UNFILLED}font-weight:500;">（請在左側填寫表格資訊：${variableName}）</div>`;
           return;
         }
         try {
@@ -289,7 +289,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
                   // 避免二次套用把 下午02:30 誤翻成 上午02:30(格式化非冪等)。
                   processedCell = processedCell.replace(varRe(iv), `<span style="${FILLED}">${formData[iv]}</span>`);
                 } else {
-                  processedCell = processedCell.replace(varRe(iv), `<span style="${UNFILLED}">[${iv}]</span>`);
+                  processedCell = processedCell.replace(varRe(iv), `<span style="${UNFILLED}">（${iv}）</span>`);
                 }
               });
               let formatted = formatAutoTexts(processedCell);
@@ -298,7 +298,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
                 `<span style="${UNFILLED}font-weight:500;">$1</span>`,
               );
               if (!allowEmpty && rIdx > 0 && formatted.replace(/<[^>]*>?/gm, '').trim() === '') {
-                formatted = `<span style="${UNFILLED}font-weight:500;">[請填寫]</span>`;
+                formatted = `<span style="${UNFILLED}font-weight:500;">（請填寫）</span>`;
               }
               formatted = formatted.replace(/\n/g, '<br/>');
               const rsAttr = rowSpan > 1 ? ` rowspan="${rowSpan}"` : '';
@@ -311,10 +311,10 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
           tableHtml += '</tbody></table></div>';
           finalHtml += tableHtml;
         } catch {
-          finalHtml += `<span style="color:#dc2626">[表格格式錯誤]</span>`;
+          finalHtml += `<span style="color:#dc2626">（表格格式錯誤）</span>`;
         }
       } else {
-        const displayValue = rawValue ? formatAutoTexts(rawValue) : `[${variableName}]`;
+        const displayValue = rawValue ? formatAutoTexts(rawValue) : `（${variableName}）`;
         const style = rawValue ? FILLED : UNFILLED;
         finalHtml += `<span style="${style}">${displayValue.replace(/\n/g, '<br/>')}</span>`;
       }
@@ -340,7 +340,8 @@ export function processSubject(text: string, formData: FormData): string {
   allVars.forEach((variable) => {
     const rawValue = formData[variable];
     // 帶入原值;民國年/上午下午由最後單一 formatAutoTexts 一次處理(避免二次套用翻轉 AM/PM)。
-    const value = rawValue ? rawValue : `[尚未填寫: ${variable}]`;
+    // 未填變數用全形（變數名）而非 [變數名]:部分郵件用戶端把 [..] 當合併欄位自動加藍底(與內文一致)。
+    const value = rawValue ? rawValue : `（${variable}）`;
     finalSubject = finalSubject.replace(varRe(variable), value);
   });
   return formatAutoTexts(finalSubject);
