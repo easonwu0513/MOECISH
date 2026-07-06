@@ -75,7 +75,7 @@ export default async function ReviewPage({
         <header className="mb-5">
           <h1 className="text-headline text-ink-900">委員審閱</h1>
         </header>
-        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} />
+        <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} />
       </AppShell>
     );
   }

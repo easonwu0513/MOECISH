@@ -21,6 +21,7 @@ const kindLabel: Record<string, { label: string; tone: 'primary' | 'sage' | 'neu
   'all-passed':          { label: '全數通過',     tone: 'sage' },
   'checklist-submitted': { label: '檢核表送出',   tone: 'primary' },
   'checklist-reopened':  { label: '檢核表退回',   tone: 'warning' },
+  'review-window-request': { label: '委員求設時段', tone: 'warning' },
   'health-alert':        { label: '系統警報',     tone: 'danger' },
   other:                 { label: '其他',         tone: 'neutral' },
 };

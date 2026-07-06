@@ -339,6 +339,54 @@ export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl:
   return { recipientCount: recipients.length };
 }
 
+/**
+ * 委員求援:週期已進入可審閱階段,但中心尚未設定「委員審閱時段」(reviewWindowStart/End 為 null),
+ * 委員因而全被鎖在門外且無自救 → 一鍵通知最高管理員(中心)盡快設定。email + 站內鈴鐺,24h 去重。
+ */
+export async function notifyReviewWindowRequested(opts: {
+  cycleId: string;
+  auditorName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/prep`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 委員待審:請設定 ${orgName} ${yearROC} 年度委員審閱時段`,
+        body:
+          `${u.name} 您好,\n\n` +
+          `${opts.auditorName} 委員已可審閱 ${cycle.organization.name} ${yearROC} 年度資料,但本週期尚未設定「委員審閱時段」,委員目前無法檢視。\n` +
+          `請至資料準備頁的「委員審閱時段」設定起訖後,委員即可開始審閱:\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'review-window-request',
+        relatedCycleId: cycle.id,
+        notificationLink: `/cycles/${cycle.id}/prep`,
+        // 同一週期 24h 內只提醒一次(避免多位委員/重複點擊轟炸中心)
+        dedupeKey: `review-window-request-${cycle.id}`,
+        context: { auditorName: opts.auditorName },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
 /** 委員完成檢核表審閱意見 → 通知最高管理員(中心)彙整、決定是否退回。 */
 export async function notifyChecklistReviewDone(opts: {
   cycleId: string;

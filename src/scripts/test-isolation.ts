@@ -248,6 +248,12 @@ async function main() {
   await expectStatus('未指派委員X 催辦A週期(非中心)', jarX, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [403]);
   await expectStatus('匿名 催辦A週期', null, 'POST', `/api/cycles/${cycleA.id}/track-remind`, [401]);
 
+  console.log('\n── 委員求設審閱時段(僅受指派委員;正向會寄信給真實中心,故只驗負向)──');
+  await expectStatus('未指派委員X 求設A時段', jarX, 'POST', `/api/cycles/${cycleA.id}/request-review-window`, [403]);
+  await expectStatus('B管理員 求設A時段(跨機關)', jarB, 'POST', `/api/cycles/${cycleA.id}/request-review-window`, [403]);
+  await expectStatus('A管理員 求設A時段(非委員)', jarA, 'POST', `/api/cycles/${cycleA.id}/request-review-window`, [403]);
+  await expectStatus('匿名 求設A時段', null, 'POST', `/api/cycles/${cycleA.id}/request-review-window`, [401]);
+
   console.log('\n── 未登入 ──');
   await expectStatus('匿名 匯出檢核表', null, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [401]);
   await expectStatus('匿名 填檢核表', null, 'PUT', itemPath(cycleA.id), [401], putBody);

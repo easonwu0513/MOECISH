@@ -15,6 +15,7 @@ export type EmailKind =
   | 'all-passed'       // 全數通過 → 通知機關用印
   | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
   | 'committee-review'    // 資料齊備 → 通知委員開始審閱
+  | 'review-window-request' // 委員求援:審閱時段未設 → 通知中心設定
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
   | 'signed-report-submitted' // 機關確認繳交用印掃描檔 → 通知中心
   | 'signed-report-returned'  // 中心退回用印掃描檔(解除鎖定)→ 站內通知機關重新上傳
