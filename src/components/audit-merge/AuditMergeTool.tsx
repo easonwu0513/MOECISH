@@ -143,6 +143,42 @@ export function AuditMergeTool({
     setLastSavedTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
   }, [reportData, hydrated]);
 
+  // ★版面換頁(構面/區段換頁 + 逐則此前換頁)一經調整即自動同步回系統(debounce 1s):
+  // 使用者在工具設好分頁、看到預覽有分頁,卻常忘按「存回系統」→ 正式報告/列印看不到(UAT 重複回報)。
+  // 此效果讓分頁設定與系統即時一致(含掛載時把本機暫存的分頁補推上系統),不再依賴手動存回。僅週期模式。
+  const breaksSigOf = (d: ReportData) =>
+    JSON.stringify({
+      ss: d.sectionSettings,
+      fb: (['strategy', 'management', 'technical'] as const)
+        .flatMap((cat) =>
+          (['compliance', 'improvements', 'suggestions'] as const).flatMap((sec) =>
+            d.findings[cat][sec].filter((f) => f.pageBreakBefore).map((f) => f.id),
+          ),
+        )
+        .sort(),
+    });
+  const breaksSig = breaksSigOf(reportData);
+  // 系統目前已存的分頁簽章(來自 buildReportData 的 initial):與之相同就不必重推,避免每次開工具都寫一次。
+  const systemBreaksSig = initial ? breaksSigOf(initial) : null;
+  useEffect(() => {
+    if (!cycleId || !hydrated || breaksSig === systemBreaksSig) return;
+    const timer = setTimeout(() => {
+      const findingBreaks: Record<string, boolean> = {};
+      for (const cat of ['strategy', 'management', 'technical'] as const) {
+        for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
+          for (const f of reportData.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
+        }
+      }
+      fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sectionSettings: reportData.sectionSettings, findingBreaks }),
+      }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breaksSig, cycleId, hydrated]);
+
   const updateReportData = useCallback((updater: ReportData | ((prev: ReportData) => ReportData)) => {
     setReportData((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
