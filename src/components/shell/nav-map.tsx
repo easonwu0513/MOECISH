@@ -17,7 +17,7 @@ import {
 
 export type NavIconKey =
   | 'dashboard' | 'cycles' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog' | 'designSystem';
+  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
@@ -36,7 +36,6 @@ const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   letters: (s) => <Send size={s} />,
   mergeTool: (s) => <Folder size={s} />,
   auditLog: (s) => <History size={s} />,
-  designSystem: (s) => <Settings size={s} />,
 };
 
 /** 取得指定鍵的圖示;尺寸由各消費端指定(側欄 20、⌘K 16),避免在資料層綁死尺寸。 */
@@ -44,7 +43,11 @@ export function navIcon(key: NavIconKey, size: number): ReactNode {
   return ICONS[key](size);
 }
 
-export type NavGroup = '' | '稽核作業' | '管理';
+/**
+ * 側欄分組:原「管理」一長串 14 項難掃視 → 依工作性質歸納為五類(UAT:管理左欄太多請歸納分類)。
+ * ⌘K 分組刻意維持單一「管理」(cmdGroup),搜尋心智不變。
+ */
+export type NavGroup = '' | '稽核作業' | '機構與人員' | '分析與軌跡' | '題庫與範本' | '公告與信件' | '工具';
 
 export type NavRoute = {
   href: string;
@@ -53,6 +56,8 @@ export type NavRoute = {
   iconKey: NavIconKey;
   group: NavGroup;     // 側欄分組('' = 第一組,無標題)
   cmdGroup?: string;   // ⌘K 分組(預設沿用 group)
+  /** false = 不列側欄、仍可 ⌘K 搜尋(如「系統寄件紀錄」併入信件管理頁籤後,側欄只留一格) */
+  sidebar?: boolean;
 };
 
 const ALL: Role[] = ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'];
@@ -62,31 +67,36 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/dashboard', label: '總覽',     allow: ALL, iconKey: 'dashboard', group: '',     cmdGroup: '導覽' },
   { href: '/cycles',    label: '稽核週期', allow: ALL, iconKey: 'cycles',    group: '稽核作業', cmdGroup: '導覽' },
   { href: '/journey',   label: '引導式精靈', allow: ADMIN, iconKey: 'journey', group: '稽核作業', cmdGroup: '導覽' },
-  { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '管理' },
-  { href: '/admin/users',             label: '使用者管理',   allow: ADMIN, iconKey: 'users',       group: '管理' },
-  { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '管理' },
-  { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '管理' },
-  { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '管理' },
-  { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '管理' },
-  { href: '/admin/finding-snippets',  label: '發現片語庫',   allow: ADMIN, iconKey: 'snippets',    group: '管理' },
-  { href: '/admin/journey',           label: '精靈範本',     allow: ADMIN, iconKey: 'journeyEdit', group: '管理' },
-  { href: '/admin/posts',             label: '公告管理',     allow: ADMIN, iconKey: 'posts',       group: '管理' },
-  { href: '/admin/emails',            label: 'Email',        allow: ADMIN, iconKey: 'emails',      group: '管理' },
-  { href: '/admin/letter-templates',  label: '信件範本',     allow: ADMIN, iconKey: 'letters',     group: '管理' },
-  { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '管理' },
-  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '管理' },
-  { href: '/admin/design-system',     label: '設計系統',     allow: ADMIN, iconKey: 'designSystem', group: '管理' },
+  // ── 機構與人員 ──
+  { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '機構與人員', cmdGroup: '管理' },
+  { href: '/admin/users',             label: '使用者管理',   allow: ADMIN, iconKey: 'users',       group: '機構與人員', cmdGroup: '管理' },
+  // ── 分析與軌跡 ──
+  { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '分析與軌跡', cmdGroup: '管理' },
+  { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '分析與軌跡', cmdGroup: '管理' },
+  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '分析與軌跡', cmdGroup: '管理' },
+  // ── 題庫與範本 ──
+  { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '題庫與範本', cmdGroup: '管理' },
+  { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '題庫與範本', cmdGroup: '管理' },
+  { href: '/admin/finding-snippets',  label: '發現片語庫',   allow: ADMIN, iconKey: 'snippets',    group: '題庫與範本', cmdGroup: '管理' },
+  { href: '/admin/journey',           label: '精靈範本',     allow: ADMIN, iconKey: 'journeyEdit', group: '題庫與範本', cmdGroup: '管理' },
+  // ── 公告與信件(Email 寄件紀錄與信件範本併為「信件管理」單一入口,頁內頁籤切換) ──
+  { href: '/admin/posts',             label: '公告管理',     allow: ADMIN, iconKey: 'posts',       group: '公告與信件', cmdGroup: '管理' },
+  { href: '/admin/letter-templates',  label: '信件管理',     allow: ADMIN, iconKey: 'letters',     group: '公告與信件', cmdGroup: '管理' },
+  { href: '/admin/emails',            label: '系統寄件紀錄', allow: ADMIN, iconKey: 'emails',      group: '公告與信件', cmdGroup: '管理', sidebar: false },
+  // ── 工具 ──
+  { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '工具', cmdGroup: '管理' },
+  // 「設計系統」展示頁(開發用活文件)自導覽移除(UAT:承辦不需看);頁面保留可直接以網址開啟。
 ];
 
 export type SidebarGroup = { label?: string; items: NavRoute[] };
 
-/** 側欄分組:依角色過濾、依固定組序排列、剔除空組。 */
+/** 側欄分組:依角色過濾、依固定組序排列、剔除空組(sidebar:false 者不列)。 */
 export function sidebarGroups(role: Role): SidebarGroup[] {
-  const order: NavGroup[] = ['', '稽核作業', '管理'];
+  const order: NavGroup[] = ['', '稽核作業', '機構與人員', '分析與軌跡', '題庫與範本', '公告與信件', '工具'];
   return order
     .map((g) => ({
       label: g || undefined,
-      items: NAV_ROUTES.filter((r) => r.group === g && r.allow.includes(role)),
+      items: NAV_ROUTES.filter((r) => r.group === g && r.allow.includes(role) && r.sidebar !== false),
     }))
     .filter((grp) => grp.items.length > 0);
 }

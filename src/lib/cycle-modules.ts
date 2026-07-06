@@ -151,16 +151,18 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   };
 
   // ── 缺失與矯正管考 ──
+  // 委員讀數=限本人審閱(呼叫端已過濾):發布後 0 筆對委員顯「無指派」而非「尚未發布」(名實相符)
+  const defPublished = st === 'REPORT_ISSUED' || st === 'REMEDIATION' || st === 'CLOSED';
   const def: ModuleNavItem = {
     key: 'def',
     title: '缺失與矯正管考',
     sub: '缺失通知、改善',
     href: `${base}/deficiencies`,
-    status: i.def.total > 0 ? `${i.def.passed}/${i.def.total}` : '尚未發布',
+    status: i.def.total > 0 ? `${i.def.passed}/${i.def.total}` : isAuditor && defPublished ? '0 項' : '尚未發布',
     statusTone: i.def.total > 0 && i.def.passed === i.def.total ? 'success' : 'default',
     caption: i.def.total > 0
       ? `待填 ${i.def.pending} · 退回 ${i.def.returned}`
-      : '缺失發布後開放填報',
+      : isAuditor && defPublished ? '目前無指派您審閱的缺失' : '缺失發布後開放填報',
     muted: !modActive.def,
     locked: i.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', i.role, st),
     lockedHint: isOrg ? '矯正執行階段開放填報' : '缺失發布後開放',

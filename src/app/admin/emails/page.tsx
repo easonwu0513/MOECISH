@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
+import { MailTabs } from '@/components/admin/MailTabs';
 import { FilterBar, FilterInput } from '@/components/ui/FilterField';
 import { EmailBodyButton } from './EmailBodyButton';
 import { Chip } from '@/components/ui/Chip';
@@ -89,18 +90,22 @@ export default async function EmailLogPage({
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
-      crumbs={[{ label: '管理' }, { label: 'Email' }]}
+      crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '信件管理' }, { label: '系統寄件紀錄' }]}
     >
-      {/* ── 文件大標(黑體)+ 公文式底規線 ── */}
-      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+      {/* 「信件管理」單一模組(UAT):與信件範本以頁籤同居;本頁=系統自動寄送的紀錄與追蹤信 */}
+      <header className="mb-5 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-headline-lg text-ink-900 tracking-tight">Email</h1>
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">信件管理</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
-            寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
+            手動信件與系統通知的單一入口:「信件範本」產生公文與通知底稿供複製外寄;「系統寄件紀錄」查閱平台自動寄送的通知與追蹤信。
           </p>
         </div>
       </header>
+      <MailTabs active="log" />
+      <p className="mb-6 -mt-1 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+        寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
+        寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
+      </p>
 
       <ComposeTracking orgs={orgs} />
 

@@ -100,6 +100,9 @@ check('檢核表已送出 → 已送出+success',
   (() => { const m = byKey(nav('ORG_ADMIN', 'ONSITE', { checklist: { submitted: true, answered: 20, total: 20 } }), 'checklist'); return m.status === '已送出' && m.statusTone === 'success'; })());
 check('缺失=1/4+caption 待填/退回', (() => { const m = byKey(nav('SUPER_ADMIN', 'REMEDIATION'), 'def'); return m.status === '1/4' && m.caption === '待填 2 · 退回 1'; })());
 check('缺失 0 筆=尚未發布', byKey(nav('SUPER_ADMIN', 'ONSITE', { def: { total: 0, passed: 0, pending: 0, returned: 0 } }), 'def').status === '尚未發布');
+check('委員發布後 0 筆 → 0 項+無指派(非「尚未發布」)',
+  (() => { const m = byKey(nav('AUDITOR', 'REPORT_ISSUED', { def: { total: 0, passed: 0, pending: 0, returned: 0 } }), 'def'); return m.status === '0 項' && m.caption === '目前無指派您審閱的缺失'; })());
+check('委員發布前 0 筆 → 仍顯尚未發布', byKey(nav('AUDITOR', 'ONSITE', { def: { total: 0, passed: 0, pending: 0, returned: 0 } }), 'def').status === '尚未發布');
 check('缺失全通過 → success', byKey(nav('ORG_ADMIN', 'REMEDIATION', { def: { total: 4, passed: 4, pending: 0, returned: 0 } }), 'def').statusTone === 'success');
 
 // ── 階段聚焦(muted):當前階段相關卡不淡化 ──

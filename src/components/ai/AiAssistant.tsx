@@ -105,6 +105,7 @@ export function AiAssistant() {
               平台操作、各角色下一步,或幫你草擬文字,都可以問我!
             </div>
           )}
+          {/* 啟動鈕縮為 44px 圓形圖示(UAT:原含字 pill 太占畫面);44px 維持觸控目標下限 */}
           <button
             type="button"
             onClick={() => {
@@ -112,10 +113,10 @@ export function AiAssistant() {
               dismissHint();
             }}
             aria-label="開啟 AI 小幫手"
-            className="inline-flex items-center gap-2 rounded-full bg-primary-600 text-white h-12 pl-3.5 pr-4 shadow-elev-2 hover:bg-primary-700 transition-colors focus-ring"
+            title="AI 小幫手"
+            className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-primary-600 text-white shadow-elev-2 hover:bg-primary-700 transition-colors focus-ring"
           >
-            <Sparkles size={20} aria-hidden className="motion-safe:animate-pulse" />
-            <span className="text-label-lg font-medium">AI 小幫手</span>
+            <Sparkles size={19} aria-hidden />
           </button>
         </div>
       )}
