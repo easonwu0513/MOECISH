@@ -472,18 +472,32 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
       .sort((a, b) => a.workflowOrder - b.workflowOrder);
   }, [templates, search, catFilter, modeCats]);
 
-  // 依子分組(subGroup)分段顯示(對齊桌面工具的分組;無子分組者歸「其他」段,不顯標題)。
-  const groupedList = useMemo(() => {
-    const groups: { key: string; label: string | null; items: typeof filtered }[] = [];
-    for (const t of filtered) {
-      const label = t.subGroup?.trim() || null;
-      const key = label ?? '__none__';
-      const last = groups[groups.length - 1];
-      if (last && last.key === key) last.items.push(t);
-      else groups.push({ key, label, items: [t] });
+  // 全部/指定分類檢視:先依「當前檢視維度的分類」(modeCats=作業流程階段 或 對象人員)分段(對齊桌面工具的分組),
+  // 段內再依子分組(subGroup)分。取代舊的「只依 subGroup 分 + 每列顯 workflowOrder 編號」——編號(1X準備/2X實地/
+  // 3X檢討,含留空跳號)對承辦無意義且與桌面工具不符,改用既有的分類/子分組結構分段,不再外顯編號。
+  // 項目順序沿用 filtered(伺服器已依 [workflowOrder, createdAt] 排,filter 為穩定排序故保留該序):
+  // 保留作業流程先後,研討範本 workflowOrder 皆 99 時以建立序(createdAt)穩定不亂序。
+  const sections = useMemo(() => {
+    const catOf = (t: LetterTemplate) => {
+      const tags = categoryTags(t.category);
+      return (modeCats as readonly string[]).find((c) => tags.includes(c)) ?? null;
+    };
+    const out: { cat: string; subs: { key: string; label: string | null; items: LetterTemplate[] }[] }[] = [];
+    for (const cat of modeCats) {
+      const inCat = filtered.filter((t) => catOf(t) === cat);
+      if (inCat.length === 0) continue;
+      const subs: { key: string; label: string | null; items: LetterTemplate[] }[] = [];
+      for (const t of inCat) {
+        const label = t.subGroup?.trim() || null;
+        const key = label ?? '__none__';
+        const last = subs[subs.length - 1];
+        if (last && last.key === key) last.items.push(t);
+        else subs.push({ key, label, items: [t] });
+      }
+      out.push({ cat, subs });
     }
-    return groups;
-  }, [filtered]);
+    return out;
+  }, [filtered, modeCats]);
 
   // 選定範本 / 全域醫院·日期變動 → 重新帶入預設表單值（比照工具語意：全域為「一鍵帶入」）。
   // 刻意不把 mode 放進相依：進出「編輯底稿」不應清掉已填的變數值(全域選單僅 compose 態渲染,
@@ -712,35 +726,42 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
             </button>
           ))}
         </div>
-        {/* 依子分組分段的範本清單 */}
+        {/* 依「分類(階段/對象)→ 子分組」兩層分段的範本清單(對齊桌面工具;不再外顯 workflowOrder 編號) */}
         <div className="flex flex-col max-h-[70vh] overflow-y-auto pr-1">
-          {groupedList.map((g) => (
-            <div key={g.key} className="flex flex-col gap-1">
-              {g.label && (
-                <p className="px-3 pt-3 pb-1 text-label-sm font-medium uppercase tracking-[0.04em] text-ink-400">{g.label}</p>
-              )}
-              {g.items.map((t) => {
-                const isSel = t.id === selectedId;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => { setSelectedId(t.id); setMode('compose'); }}
-                    className={cn(
-                      'text-left rounded-md px-3 py-2 border-l-2 transition-colors',
-                      isSel ? 'bg-focus-wash border-l-primary-600' : 'border-l-transparent hover:bg-paper-sunk',
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-caption tabular-nums text-ink-400 shrink-0">{t.workflowOrder}</span>
-                      <span className={cn('text-body-sm truncate', isSel ? 'text-ink-900 font-medium' : 'text-ink-700')}>
-                        {t.title}
-                      </span>
-                      {!t.enabled && <span className="text-caption text-ink-400">(停用)</span>}
-                    </div>
-                  </button>
-                );
-              })}
+          {sections.map((sec) => (
+            <div key={sec.cat} className="flex flex-col">
+              {/* 分類段落標題(作業流程階段或對象人員) */}
+              <p className="px-3 pt-4 pb-1.5 text-label-sm font-semibold tracking-[0.02em] text-ink-500 first:pt-1">
+                {sec.cat}
+              </p>
+              {sec.subs.map((g) => (
+                <div key={g.key} className="flex flex-col gap-1">
+                  {g.label && (
+                    <p className="px-3 pt-1.5 pb-0.5 text-caption font-medium text-ink-400">{g.label}</p>
+                  )}
+                  {g.items.map((t) => {
+                    const isSel = t.id === selectedId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { setSelectedId(t.id); setMode('compose'); }}
+                        className={cn(
+                          'text-left rounded-md px-3 py-2 border-l-2 transition-colors',
+                          isSel ? 'bg-focus-wash border-l-primary-600' : 'border-l-transparent hover:bg-paper-sunk',
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-body-sm truncate', isSel ? 'text-ink-900 font-medium' : 'text-ink-700')}>
+                            {t.title}
+                          </span>
+                          {!t.enabled && <span className="text-caption text-ink-400 shrink-0">(停用)</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           ))}
           {filtered.length === 0 && (

@@ -70,6 +70,9 @@ export default async function DeficiencyDetailPage({
       })
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
+  // 機關管理員不需知道是哪位委員開立/審核缺失:審查歷程的委員姓名對機關遮蔽為通稱
+  //(中心 SUPER_ADMIN 與審閱委員本人 AUDITOR 仍見真名;對齊下方「審閱委員」整塊只對中心/委員顯示)。
+  const showAuditorNames = user.role === 'SUPER_ADMIN' || user.role === 'AUDITOR';
 
   // 批32/35:審閱委員 — 開立委員(顯示「由 X 開立」)、參與此次稽核的所有委員(供中心指派)、目前指派
   const relevantAuthors = await deficiencyAuthors(deficiency.id);
@@ -334,8 +337,10 @@ export default async function DeficiencyDetailPage({
         </div>
       )}
 
-      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心) */}
-      {(user.role === 'SUPER_ADMIN' || isDefReviewer || assignedReviewer) && (
+      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心)。
+          UAT:僅中心與被指派的審閱委員可見——機關管理員不需知道是哪位委員開立/審核缺失,整塊隱藏
+          (原 `|| assignedReviewer` 是資料條件,指派後對機關也顯示=洩漏委員身分,移除)。 */}
+      {isDefReviewer && (
         <div className="mb-6 rounded-lg border border-rule bg-card px-5 py-4">
           <p className="text-title-md text-ink-900 mb-1">審閱委員</p>
           <p className="text-body-sm text-ink-500 mb-3">
@@ -393,7 +398,7 @@ export default async function DeficiencyDetailPage({
                   comment: r.comment,
                   snapshot: r.snapshot,
                   decidedAt: r.decidedAt.toISOString(),
-                  auditorName: reviewerName.get(r.auditorId) ?? '稽核委員',
+                  auditorName: showAuditorNames ? (reviewerName.get(r.auditorId) ?? '稽核委員') : '審閱委員',
                 })),
               }
             : null
