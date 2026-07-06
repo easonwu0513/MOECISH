@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
-import { auditorCanScore, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanScore, auditorReviewWindowState, type DeficiencyAspect } from '@/lib/types';
 import AuditPad, { type MyFinding } from './AuditPad';
 
 /**
@@ -26,7 +26,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       organization: true,
       assignments: true,
       checklistVersion: { include: { items: { select: { id: true, dimension: true, itemNo: true, content: true, auditBasis: true, auditFocus: true, expectedEvidence: true }, orderBy: { orderIndex: 'asc' } } } },
-      responses: { select: { id: true, checklistItemId: true, compliance: true } },
+      responses: { select: { id: true, checklistItemId: true, compliance: true, description: true } },
     },
   });
   if (!cycle) notFound();
@@ -64,11 +64,11 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
     orderBy: [{ aspect: 'asc' }, { kind: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'asc' }],
   });
 
-  // A4:各構面「部分符合/不符合」題目明細(委員打分前就地看扣分依據)
-  const respByItemId = new Map(cycle.responses.map((r) => [r.checklistItemId, r.compliance]));
+  // A4:各構面「部分符合/不符合」題目明細(委員打分前就地看扣分依據);map 帶整列(含機關說明,供筆記側欄同框對照)
+  const respByItemId = new Map(cycle.responses.map((r) => [r.checklistItemId, r]));
   const dimIssues: Record<string, { itemNo: string; content: string; level: string }[]> = {};
   for (const i of cycle.checklistVersion.items) {
-    const comp = respByItemId.get(i.id);
+    const comp = respByItemId.get(i.id)?.compliance;
     if (comp === 'PARTIALLY_COMPLIANT' || comp === 'NON_COMPLIANT') {
       (dimIssues[i.dimension] ??= []).push({ itemNo: i.itemNo, content: i.content, level: comp });
     }
@@ -108,13 +108,23 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       (myNotesByItemNo[itemNo] ??= []).push(c.content);
     }
   }
-  const reviewNotesByDim: Record<string, { itemNo: string; content: string; notes: string[] }[]> = {};
+  // 同框對照(大改造B):筆記列附上機關作答(符合度+說明),評分/寫發現時免跳回審閱頁查上下文
+  const reviewNotesByDim: Record<string, { itemNo: string; content: string; notes: string[]; compliance: string | null; orgDesc: string | null }[]> = {};
   for (const i of cycle.checklistVersion.items) {
     const notes = myNotesByItemNo[i.itemNo];
     if (notes && notes.length) {
-      (reviewNotesByDim[i.dimension] ??= []).push({ itemNo: i.itemNo, content: i.content, notes });
+      const resp = respByItemId.get(i.id);
+      (reviewNotesByDim[i.dimension] ??= []).push({
+        itemNo: i.itemNo,
+        content: i.content,
+        notes,
+        compliance: resp?.compliance ?? null,
+        orgDesc: resp?.description ?? null,
+      });
     }
   }
+  // 審閱窗口是否開啟:決定側欄「在審閱頁開啟」深連結是否顯示(窗口關閉時目標頁是鎖定卡,不給死鏈)
+  const reviewOpen = auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) === 'open';
 
   const [myScores, myFindings] = await Promise.all([
     user.role === 'AUDITOR'
@@ -185,6 +195,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
           dimIssues={dimIssues}
           evidenceByItemNo={evidenceByItemNo}
           reviewNotes={reviewNotesByDim}
+          reviewOpen={reviewOpen}
           assignedLabels={assignedLabels}
           focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}

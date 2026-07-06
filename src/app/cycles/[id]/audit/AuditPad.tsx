@@ -10,7 +10,7 @@ import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
 import { Plus, Check, FileText, ClipboardCheck } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import { DEFICIENCY_ASPECT_LABELS, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { DEFICIENCY_ASPECT_LABELS, COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import { LawPanel } from '@/components/checklist/LawBasis';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import {
@@ -50,6 +50,20 @@ export type MyFinding = {
 };
 /** 項次 → 法規對照(供發現表單「法規對照」鈕展開) */
 export type ItemLaw = { auditBasis: string | null; auditFocus: string | null; expectedEvidence: string | null };
+/** 委員審閱筆記側欄一列(大改造B:附機關作答同框對照) */
+export type ReviewNoteItem = {
+  itemNo: string;
+  /** 檢核項題目 */
+  content: string;
+  /** 委員本人筆記(可多輪) */
+  notes: string[];
+  /** 機關作答符合度(未作答為 null) */
+  compliance?: string | null;
+  /** 機關作答說明 */
+  orgDesc?: string | null;
+};
+/** 筆記引用為發現(側欄→發現區橋接;由 FindingSection 註冊實作) */
+export type NoteSeed = { itemNo: string; dim: string; text: string };
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const ALL_DIMS: Dimension[] = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
@@ -82,6 +96,7 @@ export default function AuditPad({
   dimIssues = {},
   evidenceByItemNo = {},
   reviewNotes = {},
+  reviewOpen = false,
   assignedLabels = [],
   focusAspects = [],
   snippets = [],
@@ -101,8 +116,10 @@ export default function AuditPad({
   dimIssues?: Record<string, DimIssue[]>;
   /** 機關檢核表佐證檔,依項次歸戶(委員評分側欄就地檢視真實佐證) */
   evidenceByItemNo?: Record<string, EvidenceFile[]>;
-  /** 委員本人於「委員審閱」階段留下的逐題筆記,依構面歸戶(佐證側欄就地對照) */
-  reviewNotes?: Record<string, { itemNo: string; content: string; notes: string[] }[]>;
+  /** 委員本人於「委員審閱」階段留下的逐題筆記,依構面歸戶(佐證側欄就地對照;含機關作答同框對照) */
+  reviewNotes?: Record<string, ReviewNoteItem[]>;
+  /** 審閱窗口是否開啟:側欄「在審閱頁開啟」深連結僅窗口開啟時顯示(避免導到鎖定卡) */
+  reviewOpen?: boolean;
   /** 指派的負責構面標籤(三構面四類);空 = 未指定(全構面) */
   assignedLabels?: string[];
   /** 對應的評分構面(3 aspect),用於評分表聚焦標示 */
@@ -115,6 +132,8 @@ export default function AuditPad({
 }) {
   // 鎖定前需確認「稽核發現」沒有未儲存的編輯(兩個子元件不共享 state,以此 ref 橋接)。
   const unsavedFindingsRef = useRef<() => boolean>(() => false);
+  // 側欄筆記「引用為發現」→ FindingSection 建立發現草稿(同 ref 橋接模式;大改造B 同框動線)
+  const importNoteRef = useRef<(seed: NoteSeed) => void>(() => {});
   return (
     <div className="flex flex-col gap-6">
       {/* 對應檢核項次建議清單(委員輸入時下拉選 7.4 等有效項次) */}
@@ -135,10 +154,18 @@ export default function AuditPad({
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
         <div className="flex flex-col gap-8 min-w-0">
           <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} importNoteRef={importNoteRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
-          <EvidencePane reviewNotes={reviewNotes} evidenceByItemNo={evidenceByItemNo} focusAspects={focusAspects} />
+          <EvidencePane
+            reviewNotes={reviewNotes}
+            evidenceByItemNo={evidenceByItemNo}
+            focusAspects={focusAspects}
+            cycleId={cycleId}
+            canEdit={canEdit}
+            reviewOpen={reviewOpen}
+            onQuote={(seed) => importNoteRef.current(seed)}
+          />
         </aside>
       </div>
     </div>
@@ -152,10 +179,18 @@ function EvidencePane({
   reviewNotes,
   evidenceByItemNo,
   focusAspects,
+  cycleId,
+  canEdit,
+  reviewOpen,
+  onQuote,
 }: {
-  reviewNotes: Record<string, { itemNo: string; content: string; notes: string[] }[]>;
+  reviewNotes: Record<string, ReviewNoteItem[]>;
   evidenceByItemNo: Record<string, EvidenceFile[]>;
   focusAspects: DeficiencyAspect[];
+  cycleId: string;
+  canEdit: boolean;
+  reviewOpen: boolean;
+  onQuote: (seed: NoteSeed) => void;
 }) {
   const focusSet = new Set(focusAspects);
   const hasAny = Object.values(reviewNotes).some((v) => v.length > 0);
@@ -187,13 +222,29 @@ function EvidencePane({
                 </p>
                 {dims.map((dim) => (
                   <div key={dim} className="mb-4 last:mb-0">
-                    <p className="text-body-sm font-medium text-ink-700 mb-2">{DIMENSION_LABELS[dim as Dimension]}</p>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-body-sm font-medium text-ink-700">{DIMENSION_LABELS[dim as Dimension]}</p>
+                      {/* 窗口開啟時提供審閱頁深連結(構面錨點);窗口關閉導向鎖定卡=死鏈,不顯示 */}
+                      {reviewOpen && (
+                        <a
+                          href={`/cycles/${cycleId}/review#dim-${dim}`}
+                          className="shrink-0 text-caption text-primary-700 hover:underline focus-ring rounded-sm"
+                        >
+                          在審閱頁開啟 →
+                        </a>
+                      )}
+                    </div>
                     <ul className="flex flex-col gap-3">
                       {reviewNotes[dim].map((it) => (
                         <li key={it.itemNo} className="rounded-md bg-paper-sunk px-3.5 py-3">
                           <div className="flex items-start gap-2">
                             <span className="shrink-0 tabular-nums font-semibold text-primary-700 text-body-sm">{it.itemNo}</span>
-                            <span className="text-body-sm text-ink-700 leading-relaxed">{it.content}</span>
+                            <span className="min-w-0 flex-1 text-body-sm text-ink-700 leading-relaxed">{it.content}</span>
+                            {it.compliance && (
+                              <Chip size="sm" tone={COMPLIANCE_TONE[it.compliance as ComplianceLevel] ?? 'neutral'}>
+                                {COMPLIANCE_LABELS[it.compliance as ComplianceLevel] ?? it.compliance}
+                              </Chip>
+                            )}
                           </div>
                           <div className="mt-2.5 flex flex-col gap-2">
                             {it.notes.map((n, idx) => (
@@ -202,12 +253,36 @@ function EvidencePane({
                               </p>
                             ))}
                           </div>
+                          {/* 機關作答同框對照(大改造B):不必跳回審閱頁查機關怎麼說 */}
+                          {it.orgDesc?.trim() && (
+                            <details className="mt-2.5 group">
+                              <summary className="cursor-pointer text-caption text-ink-500 hover:text-ink-900 focus-ring rounded-sm select-none">
+                                機關作答說明<span className="group-open:hidden">(展開)</span>
+                              </summary>
+                              <p className="mt-1.5 rounded-md bg-card border border-rule px-3 py-2 text-body-sm text-ink-700 leading-relaxed whitespace-pre-wrap">
+                                {it.orgDesc}
+                              </p>
+                            </details>
+                          )}
                           {(evidenceByItemNo[it.itemNo]?.length ?? 0) > 0 && (
                             <div className="mt-2.5 flex flex-col gap-1">
                               <span className="text-caption text-ink-500">機關佐證(僅供線上檢視):</span>
                               {evidenceByItemNo[it.itemNo].map((f) => (
                                 <ProtectedFileLink key={f.id} fileId={f.id} name={f.name} sizeKB={f.sizeKB} viewOnly />
                               ))}
+                            </div>
+                          )}
+                          {/* 筆記引用為發現(同框動線):以筆記原文建立「待改善」發現草稿,免重打免跳頁 */}
+                          {canEdit && (
+                            <div className="mt-2.5">
+                              <Button
+                                size="sm"
+                                variant="text"
+                                leadingIcon={<Plus size={13} />}
+                                onClick={() => onQuote({ itemNo: it.itemNo, dim, text: it.notes.join('\n') })}
+                              >
+                                引用為發現
+                              </Button>
                             </div>
                           )}
                         </li>
@@ -674,7 +749,7 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
+  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef, importNoteRef,
 }: {
   cycleId: string;
   canEdit: boolean;
@@ -686,6 +761,8 @@ function FindingSection({
   focusAspects?: DeficiencyAspect[];
   initialFindings: MyFinding[];
   unsavedFindingsRef: MutableRefObject<() => boolean>;
+  /** 側欄筆記「引用為發現」橋接(於此註冊實作;大改造B) */
+  importNoteRef: MutableRefObject<(seed: NoteSeed) => void>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -836,6 +913,46 @@ function FindingSection({
     toast.success('已帶入發現草稿', '請補述缺失內容後儲存。');
   }
 
+  // 側欄筆記「引用為發現」(大改造B 同框動線):以委員筆記「原文」建立待改善發現
+  // (與 importFinding 的機關作答場景不同——筆記是委員自己的話,直接可為發現初稿;短於 5 字退佔位提示)
+  const importingNoteRef = useRef(false); // 側欄鈕看不到本區 busy 態→同步重入鎖防連點重複建立
+  useEffect(() => {
+    importNoteRef.current = async ({ itemNo, dim, text }: NoteSeed) => {
+      if (importingNoteRef.current) return;
+      importingNoteRef.current = true;
+      try {
+      const seeded = text.trim().length >= 5 ? text.trim() : '(請補述具體缺失或不符之處及改善建議)';
+      setBusy(`import:${itemNo}`);
+      const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
+          kind: 'IMPROVE',
+          content: toFullWidthPunct(seeded),
+          checklistRef: itemNo,
+        }),
+      });
+      setBusy(null);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: '引用失敗' }));
+        toast.error('引用失敗', j.error);
+        return;
+      }
+      const created = await res.json();
+      setFindings((f) => [...f, {
+        id: created.id, aspect: created.aspect, kind: created.kind,
+        content: created.content, checklistRef: created.checklistRef, locked: false,
+      }]);
+      toast.success('已引用為發現(待改善)', '筆記原文已帶入下方發現列,請確認或補述後即為您的稽核發現。');
+      requestAnimationFrame(() => document.getElementById('finding-kind-IMPROVE')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      } finally {
+        importingNoteRef.current = false;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleId]);
+
   async function patchFinding(f: MyFinding) {
     if (savingRef.current) return; // 不與其他儲存(單列/全部)並行
     savingRef.current = true;
@@ -977,7 +1094,7 @@ function FindingSection({
           const mine = findings.filter((f) => f.kind === kind);
           const draft = drafts[kind];
           return (
-            <div key={kind} className="rounded-md border border-rule bg-card">
+            <div key={kind} id={`finding-kind-${kind}`} className="rounded-md border border-rule bg-card scroll-mt-6">
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-rule">
                 <div>
                   <span className="text-title text-ink-900">{FINDING_KIND_LABELS[kind]}</span>
