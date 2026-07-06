@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { FilterBar, FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
-import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import { Chip } from '@/components/ui/Chip';
 import { TableScroll } from '@/components/ui/TableScroll';
 import { Button } from '@/components/ui/Button';
@@ -113,19 +112,21 @@ export default async function AuditLogPage({
         </div>
       </header>
 
-      {/* 統一 FilterBar 版位(批85):物件類型 chips + 操作者/日期表單,不再塞進 header actions */}
+      {/* 篩選單列化(UAT:上方區塊太亂):原「16 種物件類型 chips 牆 + 另一排表單」兩層
+          → 物件類型收成下拉,與操作者/日期併為單一篩選列,掃視負擔大減 */}
       <FilterBar>
-        <div className="flex gap-1.5 flex-wrap">
-          <FilterChipLink href="/admin/audit-log" selected={!entity}>全部</FilterChipLink>
-          {entityTypes.map((t) => (
-            <FilterChipLink key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`} selected={entity === t.entityType}>
-              {entityLabel(t.entityType)} <FilterChipCount selected={entity === t.entityType}>{t._count}</FilterChipCount>
-            </FilterChipLink>
-          ))}
-        </div>
-        {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
         <form method="get" className="flex items-end gap-2 flex-wrap">
-          {entity && <input type="hidden" name="entity" value={entity} />}
+          <FilterField label="物件類型">
+            <FilterSelect name="entity" defaultValue={entity ?? ''}>
+              <option value="">全部類型</option>
+              {entityTypes.map((t) => (
+                <option key={t.entityType} value={t.entityType}>
+                  {entityLabel(t.entityType)}({t._count})
+                </option>
+              ))}
+            </FilterSelect>
+          </FilterField>
+          {/* 操作者 / 日期區間(面對教育部稽核或院方申訴時快速舉證) */}
           <FilterField label="操作者">
             <FilterSelect name="actor" defaultValue={actorId ?? ''}>
               <option value="">全部</option>
@@ -139,8 +140,8 @@ export default async function AuditLogPage({
             <FilterInput type="date" name="to" defaultValue={to ?? ''} />
           </FilterField>
           <Button type="submit" size="sm">套用</Button>
-          {(actorId || from || to) && (
-            <Button href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} variant="ghost" size="sm">清除</Button>
+          {(entity || actorId || from || to) && (
+            <Button href="/admin/audit-log" variant="ghost" size="sm">清除</Button>
           )}
         </form>
       </FilterBar>

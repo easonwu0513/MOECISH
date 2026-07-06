@@ -47,7 +47,7 @@ export function navIcon(key: NavIconKey, size: number): ReactNode {
  * 側欄分組:原「管理」一長串 14 項難掃視 → 依工作性質歸納為五類(UAT:管理左欄太多請歸納分類)。
  * ⌘K 分組刻意維持單一「管理」(cmdGroup),搜尋心智不變。
  */
-export type NavGroup = '' | '稽核作業' | '機構與人員' | '分析與軌跡' | '題庫與範本' | '公告與信件' | '工具';
+export type NavGroup = '' | '稽核作業' | '機構與人員' | '統計與紀錄' | '題庫與範本' | '公告與信件' | '工具';
 
 export type NavRoute = {
   href: string;
@@ -70,10 +70,10 @@ export const NAV_ROUTES: NavRoute[] = [
   // ── 機構與人員 ──
   { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '機構與人員', cmdGroup: '管理' },
   { href: '/admin/users',             label: '使用者管理',   allow: ADMIN, iconKey: 'users',       group: '機構與人員', cmdGroup: '管理' },
-  // ── 分析與軌跡 ──
-  { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '分析與軌跡', cmdGroup: '管理' },
-  { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '分析與軌跡', cmdGroup: '管理' },
-  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '分析與軌跡', cmdGroup: '管理' },
+  // ── 統計與紀錄 ──
+  { href: '/admin/cycles',            label: '跨院週期總覽', allow: ADMIN, iconKey: 'crossCycles', group: '統計與紀錄', cmdGroup: '管理' },
+  { href: '/admin/scores',            label: '跨院評分比較', allow: ADMIN, iconKey: 'scores',      group: '統計與紀錄', cmdGroup: '管理' },
+  { href: '/admin/audit-log',         label: '稽核軌跡',     allow: ['SUPER_ADMIN', 'AUDITOR'], iconKey: 'auditLog', group: '統計與紀錄', cmdGroup: '管理' },
   // ── 題庫與範本 ──
   { href: '/admin/checklists',        label: '檢核表題庫',   allow: ADMIN, iconKey: 'checklists',  group: '題庫與範本', cmdGroup: '管理' },
   { href: '/admin/prep-template',     label: '資料準備清單', allow: ADMIN, iconKey: 'prepTemplate',group: '題庫與範本', cmdGroup: '管理' },
@@ -92,7 +92,7 @@ export type SidebarGroup = { label?: string; items: NavRoute[] };
 
 /** 側欄分組:依角色過濾、依固定組序排列、剔除空組(sidebar:false 者不列)。 */
 export function sidebarGroups(role: Role): SidebarGroup[] {
-  const order: NavGroup[] = ['', '稽核作業', '機構與人員', '分析與軌跡', '題庫與範本', '公告與信件', '工具'];
+  const order: NavGroup[] = ['', '稽核作業', '機構與人員', '統計與紀錄', '題庫與範本', '公告與信件', '工具'];
   return order
     .map((g) => ({
       label: g || undefined,

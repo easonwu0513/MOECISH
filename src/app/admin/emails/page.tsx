@@ -24,12 +24,13 @@ const kindLabel: Record<string, { label: string; tone: 'primary' | 'sage' | 'neu
   'checklist-reopened':  { label: '檢核表退回',   tone: 'warning' },
   'review-window-request': { label: '委員求設時段', tone: 'warning' },
   'health-alert':        { label: '系統警報',     tone: 'danger' },
+  'letter-manual':       { label: '手動信件',     tone: 'primary' },
   other:                 { label: '其他',         tone: 'neutral' },
 };
 
-type DeliveryKey = 'sent' | 'failed' | 'simulated' | 'skipped' | 'dead-letter';
+type DeliveryKey = 'sent' | 'failed' | 'simulated' | 'skipped' | 'dead-letter' | 'manual';
 
-const STATUS_KEYS = ['sent', 'failed', 'simulated', 'skipped', 'dead-letter'] as const;
+const STATUS_KEYS = ['sent', 'failed', 'simulated', 'skipped', 'dead-letter', 'manual'] as const;
 
 const deliveryMeta: Record<DeliveryKey, { label: string; tone: 'success' | 'neutral' | 'danger' | 'warning' }> = {
   sent:          { label: '已寄出',       tone: 'success' },
@@ -37,6 +38,7 @@ const deliveryMeta: Record<DeliveryKey, { label: string; tone: 'success' | 'neut
   simulated:     { label: '模擬',         tone: 'neutral' },
   skipped:       { label: '已去重',       tone: 'warning' },
   'dead-letter': { label: '死信(待人工)', tone: 'danger' },
+  manual:        { label: '手動外寄',     tone: 'neutral' }, // 信件範本留存:承辦於外部寄出,平台僅留檔
 };
 
 /** 以可查詢的 status 欄為準(死信補寄 timer 與寄信時皆同步寫入);未知值退回已寄出。 */
@@ -77,7 +79,7 @@ export default async function EmailLogPage({
     prisma.organization.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     Promise.all(STATUS_KEYS.map((s) => prisma.emailLog.count({ where: { status: s } }))),
   ]);
-  const [sentCount, failedCount, simulatedCount, skippedCount, deadCount] = totals;
+  const [sentCount, failedCount, simulatedCount, skippedCount, deadCount, manualCount] = totals;
 
   const qs = (over: Record<string, string | null>) => {
     const p = new URLSearchParams();
@@ -132,6 +134,11 @@ export default async function EmailLogPage({
           {deadCount > 0 && (
             <FilterChipLink href={qs({ status: 'dead-letter' })} selected={status === 'dead-letter'}>
               死信 <FilterChipCount selected={status === 'dead-letter'}>{deadCount}</FilterChipCount>
+            </FilterChipLink>
+          )}
+          {manualCount > 0 && (
+            <FilterChipLink href={qs({ status: 'manual' })} selected={status === 'manual'}>
+              手動外寄 <FilterChipCount selected={status === 'manual'}>{manualCount}</FilterChipCount>
             </FilterChipLink>
           )}
         </div>

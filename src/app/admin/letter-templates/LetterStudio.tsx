@@ -38,6 +38,17 @@ export type LetterTemplate = {
   enabled: boolean;
 };
 
+/** 平台稽核週期選項(快速帶入:選場次自動填醫院+實地/技檢日期——桌面工具沒有的平台資料串接) */
+export type CycleOption = {
+  id: string;
+  label: string;
+  hospital: string;
+  /** yyyy-mm-dd(實地稽核日);未排定為 null */
+  date: string | null;
+  /** yyyy-mm-dd(技術檢測日);未排定為 null */
+  tech: string | null;
+};
+
 const CONTROL =
   'h-9 w-full rounded-md border border-neutral-400 bg-card px-2.5 text-body-sm text-ink-900 ' +
   'transition-colors hover:border-neutral-500 focus-ring';
@@ -431,7 +442,13 @@ const EMPTY_DRAFT: EditDraft = {
   attachment: '無', audience: '', subject: '', content: '', enabled: true,
 };
 
-export default function LetterStudio({ initialTemplates }: { initialTemplates: LetterTemplate[] }) {
+export default function LetterStudio({
+  initialTemplates,
+  cycleOptions = [],
+}: {
+  initialTemplates: LetterTemplate[];
+  cycleOptions?: CycleOption[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const [templates, setTemplates] = useState(initialTemplates);
@@ -441,11 +458,16 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
   const [catFilter, setCatFilter] = useState('全部');
   const [formData, setFormData] = useState<FormData>({});
   const [globals, setGlobals] = useState<{ hospital: string; date: string; techDate: string }>({ hospital: '', date: '', techDate: '' });
+  const [cycleSel, setCycleSel] = useState('');
   const [mode, setMode] = useState<'compose' | 'edit' | 'create'>('compose');
   const [draft, setDraft] = useState<EditDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState<'' | 'content' | 'subject' | 'plain'>('');
+  // 未填欄位複製確認 + 手動寄出留存
+  const [confirmCopy, setConfirmCopy] = useState<'' | 'content' | 'subject' | 'plain'>('');
+  const [logConfirm, setLogConfirm] = useState(false);
+  const [logging, setLogging] = useState(false);
   // 可調三工作區欄寬(範本清單 / 填寫 / 預覽);預覽吃剩餘寬度。lg 以下堆疊不套用。
   const [listW, bumpListW] = usePersistedWidth('letter-listW', 280, 220, 560);
   const [fillW, bumpFillW] = usePersistedWidth('letter-fillW', 560, 380, 1040);
@@ -525,6 +547,44 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
     });
     setCopied('');
   };
+
+  // 未填欄位(表格另有 [請填寫] 就地標紅,此處只計文字變數):複製前確認,佔位符寄出事故在源頭擋
+  const unfilled = useMemo(
+    () => variables.filter((v) => !v.includes('表格') && !v.includes('清單') && !(formData[v] ?? '').trim()),
+    [variables, formData],
+  );
+  const runCopy = (k: 'content' | 'subject' | 'plain') => (k === 'content' ? copyRichContent() : copyText(k));
+  const requestCopy = (k: 'content' | 'subject' | 'plain') => {
+    if (unfilled.length > 0) setConfirmCopy(k);
+    else runCopy(k);
+  };
+
+  // 手動寄出留存:主旨+內文全文寫入系統寄件紀錄(kind=letter-manual;不寄信,純留檔供稽核留存)
+  async function logManualSend() {
+    if (!active) return;
+    setLogging(true);
+    try {
+      const res = await fetch('/api/admin/letters/log', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          templateKey: active.templateKey,
+          title: active.title,
+          subject: processSubject(active.subject, formData),
+          bodyText: buildPlainText(active.content, formData),
+          hospital: (formData['受稽醫院'] ?? globals.hospital ?? '').trim(),
+          audience: active.audience ?? '',
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? '留存失敗');
+      toast.success('已留存至系統寄件紀錄', '可於「信件管理 → 系統寄件紀錄」查閱(標示為手動外寄)');
+      setLogConfirm(false);
+    } catch (e) {
+      toast.error((e as Error).message || '留存失敗');
+    } finally {
+      setLogging(false);
+    }
+  }
 
   // ── 複製 ──
   async function copyRichContent() {
@@ -853,11 +913,33 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
               {/* 全域快填 */}
               <div className="rounded-md border border-rule bg-paper-sunk p-3 flex flex-col gap-2">
                 <p className="text-caption text-ink-500 font-medium">快速帶入（會回填所有相關欄位）</p>
+                {/* 平台資料串接:選稽核場次自動填醫院+實地/技檢日期(桌面工具需手選手填,平台有真值直接帶) */}
+                {cycleOptions.length > 0 && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-caption text-ink-400">帶入稽核場次（自動填醫院與日期）</span>
+                    <select
+                      className={CONTROL}
+                      value={cycleSel}
+                      onChange={(e) => {
+                        const c = cycleOptions.find((x) => x.id === e.target.value);
+                        setCycleSel(e.target.value);
+                        if (c) setGlobals({ hospital: c.hospital, date: c.date ?? '', techDate: c.tech ?? '' });
+                      }}
+                    >
+                      <option value="">— 從平台稽核週期選擇 —</option>
+                      {cycleOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                  </label>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <label className="flex flex-col gap-1">
                     <span className="text-caption text-ink-400">受稽醫院</span>
                     <select className={CONTROL} value={globals.hospital} onChange={(e) => setGlobals((g) => ({ ...g, hospital: e.target.value }))}>
                       <option value="">—</option>
+                      {/* 週期帶入的院名若不在固定清單(如命名差異),補當前值選項避免顯示空白 */}
+                      {globals.hospital && !HOSPITAL_LIST.includes(globals.hospital) && (
+                        <option value={globals.hospital}>{globals.hospital}</option>
+                      )}
                       {HOSPITAL_LIST.map((h) => <option key={h} value={h}>{h}</option>)}
                     </select>
                   </label>
@@ -870,6 +952,15 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
                     <input type="date" className={CONTROL} value={globals.techDate} onChange={(e) => setGlobals((g) => ({ ...g, techDate: e.target.value }))} />
                   </label>
                 </div>
+                {/* 寄件紀錄整合:一鍵查這家醫院的全部往來(自動通知+手動留存) */}
+                {globals.hospital && (
+                  <a
+                    href={`/admin/emails?q=${encodeURIComponent(globals.hospital)}`}
+                    className="self-start text-caption text-primary-700 hover:underline focus-ring rounded-sm"
+                  >
+                    查看「{globals.hospital}」的寄件紀錄 →
+                  </a>
+                )}
               </div>
 
               {/* 變數欄 */}
@@ -888,16 +979,23 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
 
             {/* 預覽 + 複製 */}
             <div className="flex flex-col gap-3 flex-1 min-w-0 xl:sticky xl:top-4">
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="filled" leadingIcon={copied === 'content' ? <Check size={16} /> : <Mail size={16} />} onClick={copyRichContent}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="filled" leadingIcon={copied === 'content' ? <Check size={16} /> : <Mail size={16} />} onClick={() => requestCopy('content')}>
                   {copied === 'content' ? '已複製' : '複製信件（含格式）'}
                 </Button>
-                <Button type="button" variant="outlined" size="sm" leadingIcon={copied === 'subject' ? <Check size={14} /> : <FileText size={14} />} onClick={() => copyText('subject')}>
+                <Button type="button" variant="outlined" size="sm" leadingIcon={copied === 'subject' ? <Check size={14} /> : <FileText size={14} />} onClick={() => requestCopy('subject')}>
                   {copied === 'subject' ? '已複製主旨' : '複製主旨'}
                 </Button>
-                <Button type="button" variant="outlined" size="sm" leadingIcon={copied === 'plain' ? <Check size={14} /> : <Download size={14} />} onClick={() => copyText('plain')}>
+                <Button type="button" variant="outlined" size="sm" leadingIcon={copied === 'plain' ? <Check size={14} /> : <Download size={14} />} onClick={() => requestCopy('plain')}>
                   {copied === 'plain' ? '已複製' : '複製純文字'}
                 </Button>
+                {/* 寄出後留存:主旨+內文全文寫入系統寄件紀錄(不寄信),往來檔案一處查 */}
+                <Button type="button" variant="text" size="sm" onClick={() => setLogConfirm(true)}>
+                  寄出後留存紀錄
+                </Button>
+                {unfilled.length > 0 && (
+                  <span className="text-caption text-warning-700">尚有 {unfilled.length} 欄未填</span>
+                )}
               </div>
               <div className="rounded-lg border border-rule bg-card overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-rule bg-paper-sunk">
@@ -931,6 +1029,31 @@ export default function LetterStudio({ initialTemplates }: { initialTemplates: L
         tone="danger"
         loading={saving}
         onConfirm={doDelete}
+      />
+
+      {/* 未填欄位複製確認:佔位符(（欄位名）)寄出事故在源頭擋一道 */}
+      <ConfirmDialog
+        open={confirmCopy !== ''}
+        onOpenChange={(v) => { if (!v) setConfirmCopy(''); }}
+        title={`尚有 ${unfilled.length} 個欄位未填`}
+        description={`未填:${unfilled.slice(0, 4).join('、')}${unfilled.length > 4 ? '…' : ''}。複製後這些欄位將以（欄位名）佔位顯示,請確認是否先填寫。`}
+        confirmLabel="仍要複製"
+        onConfirm={() => {
+          const k = confirmCopy;
+          setConfirmCopy('');
+          if (k) runCopy(k);
+        }}
+      />
+
+      {/* 寄出後留存確認:寫入系統寄件紀錄(不寄信) */}
+      <ConfirmDialog
+        open={logConfirm}
+        onOpenChange={setLogConfirm}
+        title="留存至系統寄件紀錄"
+        description={`將「${active?.title ?? ''}」的主旨與內文全文留存為一筆手動外寄紀錄(對象:${(formData['受稽醫院'] ?? globals.hospital ?? '').trim() || active?.audience || '未指定'}),供日後於「系統寄件紀錄」查閱。此動作不會寄信;請於實際寄出後再留存。`}
+        confirmLabel="留存紀錄"
+        loading={logging}
+        onConfirm={logManualSend}
       />
     </div>
   );

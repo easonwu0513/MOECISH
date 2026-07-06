@@ -17,6 +17,30 @@ export default async function LetterTemplatesPage() {
     orderBy: [{ workflowOrder: 'asc' }, { createdAt: 'asc' }],
   });
 
+  // 快速帶入的稽核場次(平台資料串接):近兩個年度的週期,選了自動填醫院+實地/技檢日期
+  const nowYear = new Date().getFullYear();
+  const cycles = await prisma.auditCycle.findMany({
+    where: { year: { gte: nowYear - 1 } },
+    include: { organization: { select: { name: true, shortName: true } } },
+    orderBy: [{ year: 'desc' }, { onsiteDate: 'asc' }],
+    take: 40,
+  });
+  // +08:00 儲存的日期還原為當地 yyyy-mm-dd(與 prep 頁 isoDate 同法)
+  const iso = (d: Date | null) => (d ? new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10) : null);
+  const roc = (d: Date | null) => {
+    const s = iso(d);
+    if (!s) return null;
+    const [y, m, dd] = s.split('-');
+    return `${parseInt(y, 10) - 1911}/${parseInt(m, 10)}/${parseInt(dd, 10)}`;
+  };
+  const cycleOptions = cycles.map((c) => ({
+    id: c.id,
+    label: `${c.year - 1911} 年度 · ${c.organization.shortName ?? c.organization.name}${c.onsiteDate ? ` · 實地 ${roc(c.onsiteDate)}` : ''}`,
+    hospital: c.organization.name,
+    date: iso(c.onsiteDate),
+    tech: iso(c.techCheckDate),
+  }));
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -37,6 +61,7 @@ export default async function LetterTemplatesPage() {
         本頁僅產生內容供外部寄送，不經平台寄信管線。
       </p>
       <LetterStudio
+        cycleOptions={cycleOptions}
         initialTemplates={templates.map((t) => ({
           id: t.id,
           templateKey: t.templateKey,
