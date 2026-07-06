@@ -220,6 +220,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   if (user.role === 'SUPER_ADMIN' && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED') && committeeTotal > 0 && committeeScored < committeeTotal) {
     alerts.push({ tone: 'danger', title: `${committeeTotal - committeeScored} 位委員尚未完成評分`, desc: '影響後續報告產出,建議催辦。' });
   }
+  // 委員審閱時段尚未設定:已指派委員但中心未設審閱區間 → 委員被鎖在門外無法檢視機關資料審閱。
+  // 於「資料齊備 / 實地稽核」相關階段提醒中心設定(對應委員自救按鈕 R2;此為中心端主動提醒)。
+  if (
+    user.role === 'SUPER_ADMIN' &&
+    committeeTotal > 0 &&
+    (stForMod === 'READY' || stForMod === 'ONSITE') &&
+    (!cycle.reviewWindowStart || !cycle.reviewWindowEnd)
+  ) {
+    alerts.push({ tone: 'warning', title: '委員審閱時段尚未設定', desc: '委員暫無法檢視機關資料審閱;請於「稽核前資料準備」頁設定審閱起訖。' });
+  }
   if (user.role === 'SUPER_ADMIN' && !cycle.dueDate && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION')) {
     alerts.push({ tone: 'warning', title: '矯正截止日尚未設定', desc: '發布缺失前請先於「編輯日曆」設定日期。' });
   }
