@@ -67,12 +67,20 @@ export function buildReportData(data: AuditReportData): ReportData {
   const leadDefault =
     data.assignments.find((a) => a.role === 'LEAD')?.auditor.name ?? '';
 
+  // 委員名冊單一真值 = 現存指派(AuditorAssignment)。已移除委員留下的孤兒發現/評分一律不帶入正式報告,
+  // 與 ScoreOverview 同源(避免彙整工具/列印出現「幽靈委員」的發現與掛名)。
+  const activeAuditorIds = new Set(data.assignments.map((a) => a.auditor.id));
+  const activeNames = new Set(
+    data.assignments.map((a) => a.auditor?.name).filter((n): n is string => !!n),
+  );
+
   const findings: ReportData['findings'] = {
     strategy: { compliance: [], improvements: [], suggestions: [] },
     management: { compliance: [], improvements: [], suggestions: [] },
     technical: { compliance: [], improvements: [], suggestions: [] },
   };
   for (const f of data.auditFindings) {
+    if (!activeAuditorIds.has(f.auditorId)) continue; // 過濾已移除委員的孤兒發現
     const cat = ASPECT_TO_CATEGORY[f.aspect as DeficiencyAspect];
     const sec = KIND_TO_SECTION[f.kind];
     if (!cat || !sec) continue;
@@ -102,10 +110,16 @@ export function buildReportData(data: AuditReportData): ReportData {
       if (!assignedTeam[cat].includes(name)) assignedTeam[cat].push(name);
     }
   }
+  // meta.team 是管理員手改並凍結的名單,可能仍留著已移除委員;以現存指派委員名字為白名單過濾,
+  // 過濾後為空則回退到由現存指派派生的 assignedTeam,確保稽核小組名冊不含已移除委員。
+  const pickTeam = (metaList: string[] | undefined, derived: string[]): string[] => {
+    const filtered = (metaList ?? []).filter((n) => activeNames.has(n));
+    return filtered.length ? filtered : derived;
+  };
   const team: Record<Category, string[]> = {
-    strategy: meta.team?.strategy?.length ? meta.team.strategy : assignedTeam.strategy,
-    management: meta.team?.management?.length ? meta.team.management : assignedTeam.management,
-    technical: meta.team?.technical?.length ? meta.team.technical : assignedTeam.technical,
+    strategy: pickTeam(meta.team?.strategy, assignedTeam.strategy),
+    management: pickTeam(meta.team?.management, assignedTeam.management),
+    technical: pickTeam(meta.team?.technical, assignedTeam.technical),
   };
 
   return {
@@ -131,16 +145,16 @@ export function buildReportData(data: AuditReportData): ReportData {
 export function ScoreOverview({ data }: { data: AuditReportData }) {
   const stats = computeDimStats(data.checklistVersion.items, data.responses);
 
-  const auditorById = new Map(data.assignments.map((a) => [a.auditor.id, a.auditor.name]));
-  for (const s of data.auditScores) {
-    if (!auditorById.has(s.auditorId)) auditorById.set(s.auditorId, '(已移除委員)');
-  }
-  const auditors = Array.from(auditorById.entries()).map(([id, name]) => ({ id, name }));
+  // 只採「現存指派委員」:已移除委員留下的孤兒評分不列入,亦不污染各構面平均與正式週期得分
+  // (與 buildReportData 的發現過濾同源;取代原「(已移除委員)」附記欄)。
+  const auditors = data.assignments.map((a) => ({ id: a.auditor.id, name: a.auditor.name }));
+  const activeAuditorIds = new Set(auditors.map((a) => a.id));
+  const activeScores = data.auditScores.filter((s) => activeAuditorIds.has(s.auditorId));
 
   const scoreOf = (auditorId: string, dim: Dimension): number | null =>
-    data.auditScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
+    activeScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
   const totalOf = (auditorId: string): number | null => {
-    const mine = data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null);
+    const mine = activeScores.filter((s) => s.auditorId === auditorId && s.score !== null);
     return mine.length > 0 ? mine.reduce((a, s) => a + (s.score ?? 0), 0) : null;
   };
   const avgOf = (dim: Dimension): number | null => {
@@ -159,7 +173,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
   const TOTAL_DIMS = ASPECTS.reduce((n, a) => n + ASPECT_DIMENSIONS[a].length, 0);
   const filledOf = (auditorId: string): number =>
-    data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
+    activeScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
 
   return (
     <div className="overflow-x-auto rounded-md border border-rule">

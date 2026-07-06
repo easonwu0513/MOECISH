@@ -13,8 +13,18 @@ export async function convertFindingsToDeficiencies(
   createdById: string,
   db: Prisma.TransactionClient = prisma,
 ) {
+  // 只轉「現存指派委員」的發現:已移除委員留下的孤兒發現不得轉成正式缺失,否則
+  // reviewerAuditorId 會指向已移除委員 → 機關端看到「幽靈委員」的缺失(縱深防禦,即使孤兒殘留亦不外洩)。
+  const liveAuditorIds = (
+    await db.auditorAssignment.findMany({ where: { cycleId }, select: { auditorId: true } })
+  ).map((a) => a.auditorId);
   const pending = await db.auditFinding.findMany({
-    where: { cycleId, deficiencyId: null, kind: { in: ['IMPROVE', 'SUGGEST'] } },
+    where: {
+      cycleId,
+      deficiencyId: null,
+      kind: { in: ['IMPROVE', 'SUGGEST'] },
+      auditorId: { in: liveAuditorIds },
+    },
     orderBy: [{ aspect: 'asc' }, { kind: 'asc' }, { createdAt: 'asc' }],
   });
   if (pending.length === 0) return 0;

@@ -336,7 +336,7 @@ function ScoreSection({
     setLockBusy(false);
     setUnlockConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
-    toast.success('已解除鎖定', '已通知最高管理員有內容異動,您可再編輯。');
+    toast.success('已解除鎖定', '請通知中心工作人員有內容異動,您可再編輯。');
     router.refresh();
   }
 
@@ -381,10 +381,10 @@ function ScoreSection({
                   分工評分下可僅送出您負責的構面;若確定其餘構面非本次職責,可直接送出。若為漏填,請取消後補齊。
                 </p>
               </div>
-              <p>將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。</p>
+              <p>將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知中心工作人員有內容異動。</p>
             </div>
           ) : (
-            '將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時系統會通知最高管理員有內容異動。'
+            '將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知中心工作人員有內容異動。'
           )
         }
         confirmLabel={confirmProblems.length > 0 ? '仍要送出並鎖定' : '確認並鎖定'}
@@ -398,7 +398,7 @@ function ScoreSection({
         description={
           <div className="flex flex-col gap-3">
             <p>
-              解除鎖定後,系統會通知最高管理員您的評分/發現有內容異動。
+              解除鎖定後,請通知中心工作人員您的評分/發現有內容異動。
               請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。
             </p>
             {/* 前置勾選(UAT 批63):委員須先告知工作人員,勾選後才可按「解除鎖定」 */}

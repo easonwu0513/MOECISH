@@ -194,6 +194,46 @@ export const ALL_DIMENSIONS: Dimension[] = (['STRATEGY', 'MANAGEMENT', 'TECHNICA
   (a) => ASPECT_DIMENSIONS[a],
 );
 
+/** 一列委員評分(對某構面)的資料庫形狀,供「是否完整」判定(lock 閘 + 完成年度稽核閘共用)。 */
+export type ScoreCountRow = {
+  dimension: string;
+  score: number | null;
+  cntComply: number | null;
+  cntPartial: number | null;
+  cntNonComply: number | null;
+  cntNa: number | null;
+};
+
+/** 單一構面評分列是否「完整」= 有評分 + 委員判定數量四格有填且合計===該構面題數。 */
+export function isScoreRowComplete(row: ScoreCountRow, totalByDim: Map<string, number>): boolean {
+  const total = totalByDim.get(row.dimension) ?? 0;
+  const touched = row.cntComply != null || row.cntPartial != null || row.cntNonComply != null || row.cntNa != null;
+  const sum = (row.cntComply ?? 0) + (row.cntPartial ?? 0) + (row.cntNonComply ?? 0) + (row.cntNa ?? 0);
+  return row.score != null && touched && sum === total;
+}
+
+/** 委員責任構面(AssignAspect)對應「應完整評分」的稽核項目;無責任構面(通用委員)回全 9 項。 */
+export function requiredDimensionsFor(assigned: AssignAspect[]): Dimension[] {
+  if (assigned.length === 0) return ALL_DIMENSIONS;
+  return [...new Set(assigned.flatMap((a) => ASPECT_DIMENSIONS[ASSIGN_TO_ASPECT[a]]))];
+}
+
+/**
+ * 委員「應評構面是否已完成評分」單一真值(供①委員定稿閘 lock ②中心完成年度稽核閘 auditorsFinalized 共用):
+ *  - 有責任構面:責任構面對應的每個稽核項目都須「完整」(擋掉被指派策略面卻只湊技術面一格、或責任構面 0 評分)。
+ *  - 無責任構面(通用委員):維持既有軟下限「至少一個構面完整」,不對通用委員過度收嚴。
+ * 註:scoreLockedAt(定稿時戳)只代表「按過確認鍵」,與評分內容脫鉤;此函式重新從評分列驗算真的評了分。
+ */
+export function auditorScoringComplete(
+  assigned: AssignAspect[],
+  myScores: ScoreCountRow[],
+  totalByDim: Map<string, number>,
+): boolean {
+  const dimComplete = (dim: Dimension) => myScores.some((s) => s.dimension === dim && isScoreRowComplete(s, totalByDim));
+  if (assigned.length === 0) return ALL_DIMENSIONS.some(dimComplete);
+  return requiredDimensionsFor(assigned).every(dimComplete);
+}
+
 /** 某構面判定數量四格合計:全空回 null(區分「還沒動筆」與「合計 0」)。 */
 export function dimCountSum(c: DimCountsInput | undefined): number | null {
   if (!c || (c.c1 == null && c.c2 == null && c.c3 == null && c.c4 == null)) return null;

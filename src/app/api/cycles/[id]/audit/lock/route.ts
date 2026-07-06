@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { auditorCanScore } from '@/lib/types';
+import { auditorScoringComplete } from '@/lib/audit-score';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditScoreLocked, notifyAuditScoreUnlocked } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -39,9 +40,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const { locked } = Body.parse(await req.json());
 
-    // 鎖定(確認填寫完畢)前置硬性下限(UAT:管理面/技術面委員分工評分,不強制填滿負責/全部構面)——
-    // 只要求「至少一個構面完整」(有評分 + 委員判定數量四格合計等於該構面題數)即可鎖定,防止空表/半套鎖定;
-    // 其餘「動過但沒填完」的構面由前端確認視窗提示,委員自行決定是否仍要送出(此處不再逐構面硬擋)。
+    // 鎖定(確認填寫完畢)前置軟性下限(批64):委員端只要求「至少一個構面完整」(有評分 + 委員判定數量
+    // 四格合計等於該構面題數)即可定稿,分工下不強制填滿責任/全部構面;其餘「動過但沒填完」的構面由前端
+    // 確認視窗提示,委員自行決定是否仍要送出。★「責任構面是否真的評完」的權威把關在中心「完成年度稽核/推進
+    //   REPORT_ISSUED」閘(auditorsFinalized 依責任構面重新驗算),刻意不在此逐責任構面硬擋,避免與批64
+    //   前端軟送出視窗(「仍要送出並鎖定」)衝突造成點了才吃 400。auditorScoringComplete([]) 即「至少一構面完整」。
     // 驗證+設鎖包進可序列化交易:防「驗證後、鎖定前」在途的評分 PUT 把唯一完整構面改回不完整
     // (check-then-act TOCTOU,與批54 check-then-delete 同類;scores PUT 亦已交易化,衝突方 P2034 重試/409)。
     if (locked) {
@@ -56,14 +59,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             tx.auditScore.findMany({ where: { cycleId: cycle.id, auditorId: user.id } }),
           ]);
           const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
-          // 「完整」= 有評分 且 判定數量四格有填、合計等於該構面題數
-          const hasComplete = myScores.some((s) => {
-            const total = totalByDim.get(s.dimension) ?? 0;
-            const touched = s.cntComply != null || s.cntPartial != null || s.cntNonComply != null || s.cntNa != null;
-            const sum = (s.cntComply ?? 0) + (s.cntPartial ?? 0) + (s.cntNonComply ?? 0) + (s.cntNa ?? 0);
-            return s.score != null && touched && sum === total;
-          });
-          if (!hasComplete) {
+          if (!auditorScoringComplete([], myScores, totalByDim)) {
             throw new LockValidationError('請至少完整填寫一個構面(評分,且委員判定數量合計等於該構面題數)後,再確認填寫完畢。');
           }
           await tx.auditorAssignment.update({

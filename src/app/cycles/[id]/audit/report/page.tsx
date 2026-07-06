@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
 import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChanges, AuditorStateChangeLog } from './ReportBody';
+import { auditorScoringComplete, parseAssignDimensions } from '@/lib/audit-score';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
@@ -27,21 +28,38 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const data = await loadAuditReport(params.id);
   if (!data) notFound();
 
+  // 待轉缺失發現數:只計「現存指派委員」的發現(排除已移除委員留下的孤兒發現,對齊彙整報告過濾)。
+  const activeAuditorIds = new Set(data.assignments.map((a) => a.auditor.id));
   const pendingCount = data.auditFindings.filter(
-    (f) => !f.deficiencyId && (f.kind === 'IMPROVE' || f.kind === 'SUGGEST'),
+    (f) => !f.deficiencyId && (f.kind === 'IMPROVE' || f.kind === 'SUGGEST') && activeAuditorIds.has(f.auditorId),
   ).length;
 
   const report = buildReportData(data);
   const isAdmin = user.role === 'SUPER_ADMIN';
   const status = data.status;
-  // 「已完成年度稽核」前置:全體委員評分表須定稿(scoreLockedAt);退件會清 scoreLockedAt,故此即「已繳交且非退件」。
+  // 「已完成年度稽核」前置(與後端 auditorsFinalized 同語彙,避免前端顯示可完成、按了才吃 400):
+  //  ① 全體委員評分表須定稿(scoreLockedAt;退件會清空,故此即「已繳交且非退件」)。
+  //  ② 定稿者須依責任構面「真的評了分」(擋 0 構面定稿的舊資料)。
   const unfinalizedAuditors = data.assignments.filter((a) => !a.scoreLockedAt).length;
+  const totalByDim = new Map<string, number>();
+  for (const it of data.checklistVersion.items) totalByDim.set(it.dimension, (totalByDim.get(it.dimension) ?? 0) + 1);
+  const incompleteFinalized = data.assignments.find(
+    (a) =>
+      a.scoreLockedAt &&
+      !auditorScoringComplete(
+        parseAssignDimensions(a.dimensions),
+        data.auditScores.filter((s) => s.auditorId === a.auditor.id),
+        totalByDim,
+      ),
+  );
   const finishBlockReason =
     data.assignments.length === 0
       ? '尚未指派稽核委員'
       : unfinalizedAuditors > 0
         ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
-        : null;
+        : incompleteFinalized
+          ? `委員「${incompleteFinalized.auditor.name}」已定稿但應評構面尚未完成評分,請對其退件補齊`
+          : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 
