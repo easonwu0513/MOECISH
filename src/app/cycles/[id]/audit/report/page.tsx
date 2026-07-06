@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
 import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChanges, AuditorStateChangeLog } from './ReportBody';
-import { auditorScoringComplete, parseAssignDimensions } from '@/lib/audit-score';
+import { auditorScoringComplete } from '@/lib/audit-score';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
@@ -43,14 +43,12 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const unfinalizedAuditors = data.assignments.filter((a) => !a.scoreLockedAt).length;
   const totalByDim = new Map<string, number>();
   for (const it of data.checklistVersion.items) totalByDim.set(it.dimension, (totalByDim.get(it.dimension) ?? 0) + 1);
+  // 與後端 auditorsFinalized 同語彙:定稿委員須「至少一個構面完整評分」(不逐責任構面硬擋——委員分工,
+  // 每人實填構面不同、不必填滿其負責構面全部);只擋「已定稿卻一個構面都沒完整評」的舊 0 構面定稿。
   const incompleteFinalized = data.assignments.find(
     (a) =>
       a.scoreLockedAt &&
-      !auditorScoringComplete(
-        parseAssignDimensions(a.dimensions),
-        data.auditScores.filter((s) => s.auditorId === a.auditor.id),
-        totalByDim,
-      ),
+      !auditorScoringComplete([], data.auditScores.filter((s) => s.auditorId === a.auditor.id), totalByDim),
   );
   const finishBlockReason =
     data.assignments.length === 0
@@ -58,7 +56,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
       : unfinalizedAuditors > 0
         ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
         : incompleteFinalized
-          ? `委員「${incompleteFinalized.auditor.name}」已定稿但應評構面尚未完成評分,請對其退件補齊`
+          ? `委員「${incompleteFinalized.auditor.name}」已定稿但尚未完成任何構面評分,請對其退件補齊`
           : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));

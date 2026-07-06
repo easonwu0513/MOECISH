@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { auditorScoringComplete, parseAssignDimensions } from './audit-score';
+import { auditorScoringComplete } from './audit-score';
 
 /**
  * 全體受指派委員的實地稽核評分表是否皆已「定稿」且「真的完成應評構面」。
@@ -44,10 +44,13 @@ export async function auditorsFinalized(cycleId: string): Promise<{ ok: boolean;
   const scores = await prisma.auditScore.findMany({ where: { cycleId } });
   for (const a of assignments) {
     const mine = scores.filter((s) => s.auditorId === a.auditorId);
-    if (!auditorScoringComplete(parseAssignDimensions(a.dimensions), mine, totalByDim)) {
+    // 以「至少一個構面完整」為準(與委員端定稿閘 batch64 同語彙),不逐責任構面硬擋:
+    // 委員分工評分,每人實際填的構面不同、且不必填滿其負責構面的全部題(有人只評責任構面中的一部分)。
+    // 此閘只擋「已定稿卻一個構面都沒完整評」(如批63 前的舊 0 構面定稿),不干涉正常分工。
+    if (!auditorScoringComplete([], mine, totalByDim)) {
       return {
         ok: false,
-        error: `委員「${a.auditor.name}」已定稿但應評構面尚未完成評分,請於「彙整報告」對其「退件」、待委員補齊評分並重新定稿後再完成稽核`,
+        error: `委員「${a.auditor.name}」已定稿但尚未完成任何構面評分,請於「彙整報告」對其「退件」、待補齊評分並重新定稿後再完成稽核`,
       };
     }
   }
