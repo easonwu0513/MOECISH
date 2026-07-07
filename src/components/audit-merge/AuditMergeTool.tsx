@@ -59,13 +59,14 @@ function buildMetaPayload(d: ReportData) {
   };
 }
 
-/** 法遵符合情形覆蓋層(UAT 批28,批29 修資料遺失):只為「中心實際編輯過的構面」產生覆蓋,未編輯構面不入
- *  →避免中心只改 scope 就把委員 compliance 快照凍結/(空構面)清除(批28 專審 P1)。空 touched=不送此鍵。 */
-function buildComplianceOverride(d: ReportData, touched: Set<Category>) {
+/** 發現覆蓋層(UAT 批28 法遵→批34 圖4 擴及待改善/建議):只為「中心實際編輯過的(構面×區段)」產生覆蓋,
+ *  未編輯者不入→避免中心只改 scope 就把委員發現快照凍結/(空)清除(批28 專審 P1 的教訓,批34 沿用同紀律)。
+ *  touched 以 `${cat}:${sec}` 為鍵;某 section 空=不送該 override 鍵,route 淺合併不動舊值。 */
+function buildSectionOverride(d: ReportData, touched: Set<string>, sec: SectionKey) {
   const out: Record<string, { code: string; text: string; pageBreakBefore: boolean }[]> = {};
   for (const cat of ['strategy', 'management', 'technical'] as const) {
-    if (touched.has(cat)) {
-      out[cat] = d.findings[cat].compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore }));
+    if (touched.has(`${cat}:${sec}`)) {
+      out[cat] = d.findings[cat][sec].map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore }));
     }
   }
   return out;
@@ -85,9 +86,10 @@ export function AuditMergeTool({
 } = {}) {
   const storageKey = cycleId ? `${STORAGE_KEY}:${cycleId}` : STORAGE_KEY;
   const [reportData, setReportData] = useState<ReportData>(makeDefaultReportData);
-  // 中心實際編輯過符合情形的構面(批29:只有這些構面才產生 complianceOverride 存回,杜絕「改別的欄位就凍結委員 compliance」)
-  const complianceTouchedRef = useRef<Set<Category>>(new Set());
-  const markComplianceTouched = (cat: Category, sec: SectionKey) => { if (sec === 'compliance') complianceTouchedRef.current.add(cat); };
+  // 中心實際編輯過的(構面×區段)(批29 起紀律,批34 圖4 擴及三區段):只有這些才產生 override 存回,
+  // 杜絕「改別的欄位就凍結委員發現」。鍵=`${cat}:${sec}`;三區段(法遵/待改善/建議)皆記錄。
+  const sectionTouchedRef = useRef<Set<string>>(new Set());
+  const markSectionTouched = (cat: Category, sec: SectionKey) => { sectionTouchedRef.current.add(`${cat}:${sec}`); };
   const [syncBusy, setSyncBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('basic');
@@ -117,11 +119,19 @@ export function AuditMergeTool({
   // 自動同步 debounce timer 的 ref(供手動「存回系統」取消,避免手動與自動兩條 PATCH 對同一 cycle 競態覆蓋)
   const metaSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 存回系統的完整酬載=基礎 meta + 法遵符合情形覆蓋層(僅中心編輯過的構面;未編輯則不含此鍵,route 淺合併不動舊值)
+  // 存回系統的完整酬載=基礎 meta + 三區段發現覆蓋層(僅中心編輯過的構面×區段;未編輯則不含該鍵,route 淺合併不動舊值)
   const buildFullPayload = () => {
     const base = buildMetaPayload(reportData);
-    const ov = buildComplianceOverride(reportData, complianceTouchedRef.current);
-    return Object.keys(ov).length ? { ...base, complianceOverride: ov } : base;
+    const touched = sectionTouchedRef.current;
+    const co = buildSectionOverride(reportData, touched, 'compliance');
+    const io = buildSectionOverride(reportData, touched, 'improvements');
+    const so = buildSectionOverride(reportData, touched, 'suggestions');
+    return {
+      ...base,
+      ...(Object.keys(co).length ? { complianceOverride: co } : {}),
+      ...(Object.keys(io).length ? { improvementsOverride: io } : {}),
+      ...(Object.keys(so).length ? { suggestionsOverride: so } : {}),
+    };
   };
 
   // 週期模式:把封面/基本資訊 + 稽核小組 + 版面換頁存回系統(彙整報告頁與列印版同步)
@@ -141,7 +151,7 @@ export function AuditMergeTool({
       toast.error('存回系統失敗', j.error);
       return;
     }
-    toast.success('已存回系統', '封面/基本資訊、稽核小組與版面換頁已同步到彙整報告頁與正式列印。');
+    toast.success('已存回系統', '封面/基本資訊、稽核小組、版面換頁,以及您編輯過的法遵/待改善/建議發現文字,已同步到彙整報告頁與正式列印。');
   }
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
@@ -429,7 +439,9 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const handleUpdateFinding = useCallback((cat: Category, sec: SectionKey, id: string, field: keyof Finding, value: FindingUpdateValue) => {
-    markComplianceTouched(cat, sec);
+    // duplicateAcknowledged 是純 UI 的重複警示確認,不入覆蓋層序列化——只勾它不算「編輯過此區段」,
+    // 不標 touched(批34 專審 P2-2:避免點個確認勾就把該區段凍結成中心覆蓋、脫離委員即時資料)。
+    if (field !== 'duplicateAcknowledged') markSectionTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -440,7 +452,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const addFinding = (cat: Category, sec: SectionKey) => {
-    markComplianceTouched(cat, sec);
+    markSectionTouched(cat, sec);
     const id = Date.now().toString();
     updateReportData((prev) => ({
       ...prev,
@@ -453,7 +465,7 @@ export function AuditMergeTool({
   };
 
   const removeFinding = useCallback((cat: Category, sec: SectionKey, id: string) => {
-    markComplianceTouched(cat, sec);
+    markSectionTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -465,7 +477,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const moveFinding = (cat: Category, sec: SectionKey, fromIndex: number, toIndex: number) => {
-    markComplianceTouched(cat, sec);
+    markSectionTouched(cat, sec);
     updateReportData((prev) => {
       const items = [...prev.findings[cat][sec]];
       if (toIndex >= 0 && toIndex < items.length) {

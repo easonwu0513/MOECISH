@@ -75,7 +75,7 @@ check('mentor 卡 READY 仍鎖(ONSITE 起)', byKey(nav('AUDITOR', 'READY', { men
 check('mentor 卡 ONSITE 開放', byKey(nav('AUDITOR', 'ONSITE', { mentorObservers: 1 }), 'practice').locked === false);
 
 // 進階設定卡(中心專屬):錨點直達、永不鎖、狀態=目前階段
-check('SUPER 進階設定卡 href=#advanced-settings', byKey(nav('SUPER_ADMIN', 'ONSITE'), 'settings').href === '/cycles/cyc-1#advanced-settings');
+check('SUPER 進階設定卡 href=/settings(批34 獨立頁)', byKey(nav('SUPER_ADMIN', 'ONSITE'), 'settings').href === '/cycles/cyc-1/settings');
 check('SUPER 進階設定卡永不鎖不淡化', CYCLE_STATUSES.every((st) => { const m = byKey(nav('SUPER_ADMIN', st), 'settings'); return !m.locked && !m.muted; }));
 check('ORG/AUDITOR 無進階設定卡', !nav('ORG_ADMIN', 'ONSITE').some((m) => m.key === 'settings') && !nav('AUDITOR', 'ONSITE').some((m) => m.key === 'settings'));
 

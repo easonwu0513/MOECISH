@@ -243,8 +243,11 @@ export function buildEmailHtml(text: string, formData: FormData): string {
     }
     return part.replace(/\n/g, '<br/>');
   });
-  // 不宣告 background-color:部分郵件用戶端會把 wrapper 的 background(即使 transparent)實體化成淡底色帶。
-  return `<div style="font-family: Arial, 'Microsoft JhengHei', sans-serif; font-size: 15px; line-height: 1.8; color: #000000;">${htmlParts.join('')}</div>`;
+  // 批34 圖3:明確宣告白底(而非省略)——真正造成「每行淡底色」的不是本 wrapper,而是複製時
+  // 臨時容器掛在 app body 下,CF_HTML 序列化把祖先 body{background:var(--surface)} 一併烙入片段。
+  // 對策:片段根(本 wrapper)給不透明白底,壓過祖先繼承;複製端(LetterStudio nativeCopy)容器亦白底隔離。
+  // 強調文字的黃色螢光筆是各強調 <span style="background-color:yellow"> inline 標記,不受此白底影響。
+  return `<div style="background-color: #ffffff; font-family: Arial, 'Microsoft JhengHei', sans-serif; font-size: 15px; line-height: 1.8; color: #000000;">${htmlParts.join('')}</div>`;
 }
 
 const FILLED = 'background-color:#e0edff;color:#1b4fa8;border-radius:3px;padding:0 0.15rem;';

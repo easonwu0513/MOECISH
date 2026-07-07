@@ -50,13 +50,18 @@ export type ReportMeta = {
   sectionSettings?: ReportData['sectionSettings'];
   /** 逐則發現「此前換頁」(以 AuditFinding.id 為鍵)。 */
   findingBreaks?: Record<string, boolean>;
-  /** 「法遵符合情形」中心撰寫覆蓋層(UAT 批28:符合情形常無委員 finding 對應,中心可於彙整工具撰寫並存回;
-   *  有此覆蓋層則取代委員 COMPLIANCE 發現。改善/建議仍取委員即時資料,不覆寫委員實質內容)。 */
-  complianceOverride?: {
-    strategy?: { code: string; text: string; pageBreakBefore?: boolean }[];
-    management?: { code: string; text: string; pageBreakBefore?: boolean }[];
-    technical?: { code: string; text: string; pageBreakBefore?: boolean }[];
-  };
+  /** 中心撰寫覆蓋層:有此覆蓋層則正式報告取此、取代該(構面×區段)委員即時發現。
+   *  批28 僅「法遵符合情形」;批34 圖4 擴及「待改善/建議」——中心於彙整工具改的三區段文字皆同步正式列印。
+   *  仍以「僅覆蓋中心實際編輯過的構面」為原則(彙整工具 touched-set),未編輯者續取委員即時資料。 */
+  complianceOverride?: OverrideCat;
+  improvementsOverride?: OverrideCat;
+  suggestionsOverride?: OverrideCat;
+};
+
+type OverrideCat = {
+  strategy?: { code: string; text: string; pageBreakBefore?: boolean }[];
+  management?: { code: string; text: string; pageBreakBefore?: boolean }[];
+  technical?: { code: string; text: string; pageBreakBefore?: boolean }[];
 };
 
 export function parseReportMeta(raw: string | null): ReportMeta {
@@ -110,15 +115,22 @@ export function buildReportData(data: AuditReportData): ReportData {
       findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
     }
   }
-  // 法遵符合情形覆蓋層(UAT 批28;批29 只覆蓋中心編輯過的構面):有覆蓋版則取代該構面委員 COMPLIANCE 發現;
-  // 改善/建議不覆蓋(維持委員即時資料原則)。列印/Word/預覽共用此 buildReportData,故三處同步。
+  // 發現覆蓋層(UAT 批28 法遵→批34 圖4 擴及三區段;僅覆蓋中心編輯過的「構面×區段」):有覆蓋版則取代
+  // 該(構面×區段)委員即時發現,未編輯者續取委員即時資料。列印/Word/預覽共用此 buildReportData,三處同步。
   // 註:此處項次順序僅為中間值,下游 renderFindingBlock 一律依 code 重排(與委員發現同規則),故最終輸出穩定。
-  if (meta.complianceOverride) {
+  // id 前綴各區段互異(co-/io-/so-),避免 findingBreaks(以 id 為鍵)與 React key 相撞。
+  const OVERRIDE_BY_SECTION: { sec: SectionKey; ov?: OverrideCat; prefix: string }[] = [
+    { sec: 'compliance', ov: meta.complianceOverride, prefix: 'co' },
+    { sec: 'improvements', ov: meta.improvementsOverride, prefix: 'io' },
+    { sec: 'suggestions', ov: meta.suggestionsOverride, prefix: 'so' },
+  ];
+  for (const { sec, ov: secOv, prefix } of OVERRIDE_BY_SECTION) {
+    if (!secOv) continue;
     for (const cat of ['strategy', 'management', 'technical'] as Category[]) {
-      const ov = meta.complianceOverride[cat];
+      const ov = secOv[cat];
       if (ov) {
-        findings[cat].compliance = ov.map((o, i) => ({
-          id: `co-${cat}-${i}`,
+        findings[cat][sec] = ov.map((o, i) => ({
+          id: `${prefix}-${cat}-${i}`,
           code: o.code,
           text: o.text,
           pageBreakBefore: !!o.pageBreakBefore,

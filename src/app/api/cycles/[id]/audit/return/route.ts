@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditScoreReturned } from '@/lib/notify';
+import { canAssignAuditors } from '@/lib/stage';
+import type { CycleStatus } from '@/lib/types';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 const Body = z.object({
@@ -27,8 +29,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const cycle = await prisma.auditCycle.findUnique({ where: { id: params.id } });
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
-    if (cycle.status === 'CLOSED') {
-      return NextResponse.json({ error: '已結案的週期不可退件' }, { status: 409 });
+    // 名單凍結同適用於「退件」(批34 圖7):實地稽核結束(缺失發布起)後,委員評分已定稿並已彙整/
+    // 轉入缺失,退件重評會讓評分與已發布缺失脫鉤——比照 canAssignAuditors 於 REPORT_ISSUED 起凍結,
+    // 不可再退件(如確需修正,須將週期回退至實地稽核後處理,屬重大操作)。CLOSED 亦涵蓋於此。
+    if (!canAssignAuditors(cycle.status as CycleStatus)) {
+      return NextResponse.json(
+        { error: '實地稽核階段已結束,委員評分已定稿凍結,不可退件。如確需修正,請先將週期回退至「實地稽核」後處理(重大操作,請審慎)' },
+        { status: 409 },
+      );
     }
 
     const { auditorId, reason } = Body.parse(await req.json());

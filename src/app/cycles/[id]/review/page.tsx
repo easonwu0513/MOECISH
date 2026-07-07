@@ -343,7 +343,6 @@ export default async function ReviewPage({
                                 responseId={r.id}
                                 commentId={cm.id}
                                 authorLabel={authorNameById[cm.auditorId] ?? '委員'}
-                                round={cm.round}
                                 timeLabel={fmtROCDateTime(cm.createdAt)}
                                 resolved={cm.resolvedAt != null}
                                 content={cm.content}

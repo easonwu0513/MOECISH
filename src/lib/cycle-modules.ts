@@ -171,7 +171,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     key: 'settings',
     title: '進階設定',
     sub: '日期、階段與委員指派',
-    href: `${base}#advanced-settings`,
+    href: `${base}/settings`,
     status: CYCLE_STATUS_LABELS[st] ?? st,
     statusTone: 'primary',
     caption: '編輯週期日期、推進階段、指派委員',

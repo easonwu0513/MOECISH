@@ -204,7 +204,7 @@ export default async function HomePage() {
       }
       if (st === 'REPORT_ISSUED') {
         // REPORT_ISSUED 的正確動作=推進至矯正執行(推進時自動通知機關;手動通知鈕僅 REMEDIATION 顯示)
-        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,推進至「矯正執行」後機關即可填報(推進時自動通知)`, href: `${base}#advanced-settings`, cta: '去推進' });
+        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,推進至「矯正執行」後機關即可填報(推進時自動通知)`, href: `${base}/settings`, cta: '去推進' });
       }
       if (st === 'REMEDIATION') {
         if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });

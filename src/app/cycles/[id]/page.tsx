@@ -20,15 +20,11 @@ import { buildModuleNav } from '@/lib/cycle-modules';
 import { getCycleActivities } from '@/lib/cycle-activity';
 import { Menu } from '@/components/ui/Menu';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History, Settings } from '@/components/icons';
-import NotifyButton from './NotifyButton';
 import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
-import AssignAuditorsPanel from './AssignAuditorsPanel';
-import AssignObserversPanel from './AssignObserversPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
-import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 import { TileIcon, statusToneText } from '@/components/cycle/tile';
 
 // 四模組卡圖示(key 對齊 lib/cycle-modules 的 ModuleKey)
@@ -452,11 +448,20 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             <Card className="mb-6">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <CardTitle>{viewAllStages ? '所有階段待辦進度' : `${selectedStage?.title ?? '此階段'}待完成事項`}</CardTitle>
-                  {/* 自訂(清單)階段:明示非流程關卡、無需推進(UAT:消除「為何不能推進到測試階段」的困惑) */}
+                  {/* 批34 圖2:自訂清單階段標題明示「清單階段待辦」,不可能誤讀為目前階段(?stage= 殘留
+                      使機關把「測試待完成事項」當成目前階段=測試;真實階段以下方提示併列)。 */}
+                  <CardTitle>
+                    {viewAllStages
+                      ? '所有階段待辦進度'
+                      : selectedStageKey && !statusKeySet.has(selectedStageKey)
+                        ? `「${selectedStage?.title ?? '清單'}」清單階段待辦`
+                        : `${selectedStage?.title ?? '此階段'}待完成事項`}
+                  </CardTitle>
+                  {/* 自訂(清單)階段:明示非流程關卡、無需推進,並併列真實目前階段(兩角色一致以 cycle.status 為準) */}
                   {!viewAllStages && selectedStageKey && !statusKeySet.has(selectedStageKey) && (
                     <p className="mt-0.5 text-caption text-ink-500">
-                      此為清單追蹤階段(非流程關卡),完成待辦即打勾,無需推進週期狀態。
+                      此為清單追蹤階段(非流程關卡),完成待辦即打勾,無需推進週期狀態;
+                      目前實際階段為「{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」。
                     </p>
                   )}
                   {!viewAllStages && selectedStageKey !== cycle.status && (
@@ -607,93 +612,6 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </section>
           )}
 
-          {/* ── 進階設定(中心;批26 集中區):日期、階段與委員指派的「家」。
-              頂部卡快捷鍵(編輯日期/推進)依裁定保留=捷徑;此處為完整版位。
-              模組卡「進階設定」與側欄可經 #advanced-settings 錨點直達。 ── */}
-          {user.role === 'SUPER_ADMIN' && (
-            <section id="advanced-settings" className="mb-6 scroll-mt-24">
-              <Card className="mb-4">
-                <CardTitle>進階設定</CardTitle>
-                <CardDescription>編輯週期日期、控制稽核階段;矯正通知、狀態回退與刪除</CardDescription>
-
-                {/* 日期 */}
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <span className="text-body-sm text-ink-500 w-20 shrink-0">週期日期</span>
-                  <EditCycleDialog
-                    cycleId={cycle.id}
-                    dueDate={cycle.dueDate?.toISOString() ?? ''}
-                    prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
-                    prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
-                    techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
-                    onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
-                  />
-                  <span className="text-caption text-ink-500">
-                    實地稽核 / 技術檢測 / 文件繳交截止 / 矯正截止
-                  </span>
-                </div>
-
-                {/* 階段 */}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="text-body-sm text-ink-500 w-20 shrink-0">稽核階段</span>
-                  <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
-                    目前:{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
-                  </Chip>
-                  {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && transitions.map((t) => (
-                    <TransitionButton
-                      key={`adv-${t}`}
-                      cycleId={cycle.id}
-                      target={t}
-                      disabled={t === 'READY' && readyBlockers.length > 0}
-                      disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
-                      warn={
-                        !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
-                          ? '缺失發布後機關須依此日期填報矯正措施。建議先設定矯正截止日;如稍後再設,可確認後繼續推進。'
-                          : undefined
-                      }
-                    />
-                  ))}
-                  {rollbacks.map((t) => (
-                    <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
-                  ))}
-                </div>
-
-                {/* 其他管理動作 */}
-                {(cycle.status === 'REMEDIATION' || cycle.status === 'DRAFT') && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-body-sm text-ink-500 w-20 shrink-0">其他</span>
-                    {/* 「通知機關填報矯正」僅 REMEDIATION(填報真正開放)顯示:REPORT_ISSUED 寄了機關點連結會踩空 */}
-                    {cycle.status === 'REMEDIATION' && <NotifyButton cycleId={cycle.id} />}
-                    {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
-                    {cycle.status === 'DRAFT' && (
-                      <DeleteCycleButton
-                        cycleId={cycle.id}
-                        orgName={cycle.organization.shortName ?? cycle.organization.name}
-                        yearROC={yearROC}
-                        redirectTo="/admin/cycles"
-                      />
-                    )}
-                  </div>
-                )}
-              </Card>
-
-              {/* 委員指派(指派該場次稽核委員);#assign-auditors 錨點保留供儀表板/精靈深連結 */}
-              <div id="assign-auditors" className="scroll-mt-24">
-                <AssignAuditorsPanel
-                  cycleId={cycle.id}
-                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
-                  confirmOnAssign={cycle.status === 'ONSITE'}
-                />
-              </div>
-
-              {/* 觀察員配對(批30 師徒制):為觀察員指派本場次指導委員;練習資料僅指導委員與中心可見 */}
-              <div id="assign-observers" className="scroll-mt-24">
-                <AssignObserversPanel
-                  cycleId={cycle.id}
-                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
-                />
-              </div>
-            </section>
-          )}
         </div>
 
         {/* 右欄:系統提醒 / 快捷統計 / 最近活動 */}

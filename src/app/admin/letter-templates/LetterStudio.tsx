@@ -605,6 +605,12 @@ export default function LetterStudio({
       container.style.position = 'fixed';
       container.style.left = '-9999px';
       container.style.top = '0';
+      // 批34 圖3:容器必須有「不透明白底」並與主題隔離——否則 execCommand('copy') 序列化成
+      // CF_HTML 時,會沿祖先鏈把 app 的 body{background:var(--surface)} 內聯進剪貼片段,貼到郵件
+      // 就變成每行帶淡底色(此為歷來假修兩次未命中的真正洩漏路徑)。白底容器+白底 wrapper 雙層壓過。
+      container.style.backgroundColor = '#ffffff';
+      container.style.color = '#000000';
+      container.style.isolation = 'isolate';
       document.body.appendChild(container);
       let ok = false;
       try {

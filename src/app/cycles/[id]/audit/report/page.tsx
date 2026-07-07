@@ -7,6 +7,8 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { FileText, Settings, Check, ChevronLeft } from '@/components/icons';
 import { loadAuditReport, buildReportData, ScoreOverview, loadAuditorStateChanges, AuditorStateChangeLog } from './ReportBody';
 import { auditorScoringComplete } from '@/lib/audit-score';
+import { canAssignAuditors } from '@/lib/stage';
+import type { CycleStatus } from '@/lib/types';
 import AssembledReport from './AssembledReport';
 import ConvertButton from './ConvertButton';
 import FinishButton from './FinishButton';
@@ -150,7 +152,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
         {isAdmin && data.assignments.length > 0 && (
           <div className="mt-4 pt-4 border-t border-rule">
             <p className="text-label-sm font-medium text-ink-500 mb-2">
-              各委員評分表(附件17):列印後交付委員紙本簽名;已定稿者可「退件」解除鎖定供其重新編輯
+              各委員評分表(附件17):列印後交付委員紙本簽名。{canAssignAuditors(status as CycleStatus) ? '已定稿者可「退件」解除鎖定供其重新編輯。' : '實地稽核階段已結束,評分已凍結,不可再退件。'}
             </p>
             <div className="flex flex-wrap gap-2">
               {data.assignments.map((a) => (
@@ -167,7 +169,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
                       {a.auditor.name} 評分表
                     </Button>
                   </Link>
-                  {a.scoreLockedAt && (
+                  {/* 退件僅在委員名單未凍結時可用(批34 圖7:REPORT_ISSUED 起評分已定稿凍結,前端隱藏+後端 409 雙層) */}
+                  {a.scoreLockedAt && canAssignAuditors(status as CycleStatus) && (
                     <ReturnScoreButton cycleId={data.id} auditorId={a.auditor.id} auditorName={a.auditor.name} />
                   )}
                 </div>

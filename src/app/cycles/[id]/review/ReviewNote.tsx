@@ -18,7 +18,6 @@ export default function ReviewNote({
   responseId,
   commentId,
   authorLabel,
-  round,
   timeLabel,
   resolved,
   content,
@@ -27,7 +26,6 @@ export default function ReviewNote({
   responseId: string;
   commentId: string;
   authorLabel: string;
-  round: number;
   timeLabel: string;
   resolved: boolean;
   content: string;
@@ -84,8 +82,9 @@ export default function ReviewNote({
       tone={resolved ? 'success' : 'primary'}
       header={
         <div className="text-caption text-ink-500 mb-1 flex items-center gap-2">
+          {/* 批34 圖1:委員審閱筆記無「輪次」概念,不顯示 round(資料欄仍在,供匯出/機關端補正對位) */}
           <span>
-            {authorLabel} · 第 {round} 輪 · {timeLabel}
+            {authorLabel} · {timeLabel}
           </span>
           {resolved && (
             <Chip tone="success" size="sm">

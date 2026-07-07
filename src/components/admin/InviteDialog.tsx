@@ -17,6 +17,7 @@ import type { Role } from '@/lib/types';
  */
 const ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
   { value: 'AUDITOR', label: '稽核委員', hint: '外聘委員,不隸屬任何機關' },
+  { value: 'OBSERVER', label: '觀察員', hint: '學習與練習定位,獨立審閱窗口,不隸屬任何機關(批30)' },
   { value: 'ORG_ADMIN', label: '機關管理員', hint: '受稽醫院的承辦人,須指定所屬醫院' },
   { value: 'SUPER_ADMIN', label: '最高管理員', hint: '中心人員,具全部權限' },
 ];
