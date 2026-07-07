@@ -19,6 +19,7 @@ import { NoteBox } from '@/components/cycle/NoteBox';
 import { SURFACE_INFO } from '@/lib/tone';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
+import ReviewNote from './ReviewNote';
 import SubmissionBanner from '../checklist/SubmissionBanner';
 
 const complianceTone = COMPLIANCE_TONE;
@@ -327,18 +328,19 @@ export default async function ReviewPage({
                         {r && r.comments.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {r.comments.map((cm) => (
-                              <NoteBox
+                              <ReviewNote
                                 key={cm.id}
-                                tone={cm.resolvedAt ? 'success' : 'primary'}
-                                header={
-                                  <div className="text-caption text-ink-500 mb-1 flex items-center gap-2">
-                                    <span>{authorNameById[cm.auditorId] ?? '委員'} · 第 {cm.round} 輪 · {fmtROCDateTime(cm.createdAt)}</span>
-                                    {cm.resolvedAt && <Chip tone="success" size="sm">已補正</Chip>}
-                                  </div>
-                                }
-                              >
-                                <p className="whitespace-pre-wrap text-body-sm text-ink-500 leading-relaxed">{cm.content}</p>
-                              </NoteBox>
+                                responseId={r.id}
+                                commentId={cm.id}
+                                authorLabel={authorNameById[cm.auditorId] ?? '委員'}
+                                round={cm.round}
+                                timeLabel={fmtROCDateTime(cm.createdAt)}
+                                resolved={cm.resolvedAt != null}
+                                content={cm.content}
+                                // 作者本人、且機關尚未回應(未補正、未填補正回應)才可就地修正/刪除自己的筆記
+                                // (與 API loadOwnEditableComment 的 resolvedAt / orgRevisionNote 雙閘一致)
+                                canManage={session.user.id === cm.auditorId && cm.resolvedAt == null && r.orgRevisionNote == null}
+                              />
                             ))}
                           </div>
                         )}

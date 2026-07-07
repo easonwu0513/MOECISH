@@ -263,8 +263,8 @@ export default function ChecklistItemCard({
               </div>
             ))
           )}
-          {/* 委員/中心可在此留審閱意見(委員私人審閱筆記,機關端不可見);需機關已作答(有 response) */}
-          {(userRole === 'AUDITOR' || userRole === 'SUPER_ADMIN') &&
+          {/* 委員審閱筆記僅委員可新增(UAT:最高管理員不像委員審閱,不需新增委員意見;既有意見中心仍可讀,見上方 map) */}
+          {userRole === 'AUDITOR' &&
             (response ? (
               <div className="pt-1">
                 <CommentForm responseId={response.id} />

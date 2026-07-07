@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Check, FileText, ClipboardCheck } from '@/components/icons';
+import { Plus, Check, FileText, ClipboardCheck, Copy } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import { LawPanel } from '@/components/checklist/LawBasis';
@@ -72,6 +72,36 @@ const KINDS: FindingKind[] = ['COMPLIANCE', 'IMPROVE', 'SUGGEST'];
 const DIM_TO_ASPECT: Record<string, DeficiencyAspect> = {};
 for (const a of ASPECTS) for (const dim of ASPECT_DIMENSIONS[a]) DIM_TO_ASPECT[dim] = a;
 
+// 複製文字到剪貼簿。正式機目前走 HTTP(尚未開 443),navigator.clipboard 只在安全內容
+// (HTTPS/localhost)可用,故非安全內容時退回 execCommand('copy') 隱藏 textarea 後備。
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* 落到後備 */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 // 五等第評分標準(實地稽核評分方式):依檢核結果「符合 / 部分符合」數量評定等第與分數,委員打分前參考。
 const GRADE_STANDARD: {
   cond: string; grade: string; tone: 'success' | 'sage' | 'primary' | 'warning' | 'danger'; s10: string; s20: string;
@@ -132,8 +162,6 @@ export default function AuditPad({
 }) {
   // 鎖定前需確認「稽核發現」沒有未儲存的編輯(兩個子元件不共享 state,以此 ref 橋接)。
   const unsavedFindingsRef = useRef<() => boolean>(() => false);
-  // 側欄筆記「引用為發現」→ FindingSection 建立發現草稿(同 ref 橋接模式;大改造B 同框動線)
-  const importNoteRef = useRef<(seed: NoteSeed) => void>(() => {});
   return (
     <div className="flex flex-col gap-6">
       {/* 對應檢核項次建議清單(委員輸入時下拉選 7.4 等有效項次) */}
@@ -154,7 +182,7 @@ export default function AuditPad({
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
         <div className="flex flex-col gap-8 min-w-0">
           <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} importNoteRef={importNoteRef} />
+          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
           <EvidencePane
@@ -164,7 +192,6 @@ export default function AuditPad({
             cycleId={cycleId}
             canEdit={canEdit}
             reviewOpen={reviewOpen}
-            onQuote={(seed) => importNoteRef.current(seed)}
           />
         </aside>
       </div>
@@ -182,7 +209,6 @@ function EvidencePane({
   cycleId,
   canEdit,
   reviewOpen,
-  onQuote,
 }: {
   reviewNotes: Record<string, ReviewNoteItem[]>;
   evidenceByItemNo: Record<string, EvidenceFile[]>;
@@ -190,8 +216,8 @@ function EvidencePane({
   cycleId: string;
   canEdit: boolean;
   reviewOpen: boolean;
-  onQuote: (seed: NoteSeed) => void;
 }) {
+  const toast = useToast();
   const focusSet = new Set(focusAspects);
   const hasAny = Object.values(reviewNotes).some((v) => v.length > 0);
   return (
@@ -272,16 +298,21 @@ function EvidencePane({
                               ))}
                             </div>
                           )}
-                          {/* 筆記引用為發現(同框動線):以筆記原文建立「待改善」發現草稿,免重打免跳頁 */}
+                          {/* 複製筆記原文到剪貼簿:委員可自行貼到下方發現列所需之處(待改善/建議由委員自選),
+                              不再自動建立「待改善」發現、也不合併多則筆記,避免一律帶入造成困擾。 */}
                           {canEdit && (
                             <div className="mt-2.5">
                               <Button
                                 size="sm"
                                 variant="text"
-                                leadingIcon={<Plus size={13} />}
-                                onClick={() => onQuote({ itemNo: it.itemNo, dim, text: it.notes.join('\n') })}
+                                leadingIcon={<Copy size={13} />}
+                                onClick={async () => {
+                                  const ok = await copyToClipboard(it.notes.join('\n'));
+                                  if (ok) toast.success('已複製筆記', '可貼到下方發現列,並自選「待改善事項」或「建議事項」。');
+                                  else toast.error('複製失敗', '請手動選取筆記文字複製。');
+                                }}
                               >
-                                引用為發現
+                                複製為發現
                               </Button>
                             </div>
                           )}
@@ -749,7 +780,7 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef, importNoteRef,
+  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
@@ -761,8 +792,6 @@ function FindingSection({
   focusAspects?: DeficiencyAspect[];
   initialFindings: MyFinding[];
   unsavedFindingsRef: MutableRefObject<() => boolean>;
-  /** 側欄筆記「引用為發現」橋接(於此註冊實作;大改造B) */
-  importNoteRef: MutableRefObject<(seed: NoteSeed) => void>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -884,18 +913,22 @@ function FindingSection({
     setDrafts((d) => { const n = { ...d }; delete n[kind]; return n; });
   }
 
-  // 從不符合/部分符合題一鍵帶成發現草稿(待改善),委員再補述後儲存
-  async function importFinding(itemNo: string, content: string, dim: string) {
-    setBusy(`import:${itemNo}`);
+  // 從不符合/部分符合題一鍵帶成發現草稿。委員回饋:一律帶入「待改善事項」會造成困擾,
+  // 故帶入前由委員自選「待改善事項」或「建議事項」(kind),再補述後儲存。
+  async function importFinding(itemNo: string, dim: string, kind: 'IMPROVE' | 'SUGGEST') {
+    const placeholder = kind === 'SUGGEST'
+      ? '(請補述建議事項:無法規要求但存有資安風險之處及改善建議)'
+      : '(請補述具體缺失或不符之處及改善建議)';
+    setBusy(`import:${kind}:${itemNo}`);
     const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
-        kind: 'IMPROVE',
+        kind,
         // 只帶入對應項次(checklistRef);發現內容留給委員自行撰寫,不預先述明檢核表題目
         // (委員回饋:自動代入只需項次;題目已由下方「對應檢核項」摘要就地顯示,不必塞進內容)。
-        content: toFullWidthPunct('(請補述具體缺失或不符之處及改善建議)'),
+        content: toFullWidthPunct(placeholder),
         checklistRef: itemNo,
       }),
     });
@@ -910,48 +943,8 @@ function FindingSection({
       id: created.id, aspect: created.aspect, kind: created.kind,
       content: created.content, checklistRef: created.checklistRef, locked: false,
     }]);
-    toast.success('已帶入發現草稿', '請補述缺失內容後儲存。');
+    toast.success(`已帶入${FINDING_KIND_LABELS[kind]}草稿`, '請補述內容後儲存。');
   }
-
-  // 側欄筆記「引用為發現」(大改造B 同框動線):以委員筆記「原文」建立待改善發現
-  // (與 importFinding 的機關作答場景不同——筆記是委員自己的話,直接可為發現初稿;短於 5 字退佔位提示)
-  const importingNoteRef = useRef(false); // 側欄鈕看不到本區 busy 態→同步重入鎖防連點重複建立
-  useEffect(() => {
-    importNoteRef.current = async ({ itemNo, dim, text }: NoteSeed) => {
-      if (importingNoteRef.current) return;
-      importingNoteRef.current = true;
-      try {
-      const seeded = text.trim().length >= 5 ? text.trim() : '(請補述具體缺失或不符之處及改善建議)';
-      setBusy(`import:${itemNo}`);
-      const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
-          kind: 'IMPROVE',
-          content: toFullWidthPunct(seeded),
-          checklistRef: itemNo,
-        }),
-      });
-      setBusy(null);
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({ error: '引用失敗' }));
-        toast.error('引用失敗', j.error);
-        return;
-      }
-      const created = await res.json();
-      setFindings((f) => [...f, {
-        id: created.id, aspect: created.aspect, kind: created.kind,
-        content: created.content, checklistRef: created.checklistRef, locked: false,
-      }]);
-      toast.success('已引用為發現(待改善)', '筆記原文已帶入下方發現列,請確認或補述後即為您的稽核發現。');
-      requestAnimationFrame(() => document.getElementById('finding-kind-IMPROVE')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      } finally {
-        importingNoteRef.current = false;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycleId]);
 
   async function patchFinding(f: MyFinding) {
     if (savingRef.current) return; // 不與其他儲存(單列/全部)並行
@@ -1059,7 +1052,8 @@ function FindingSection({
         逐條輸入您的發現;全體委員的發現會自動彙整至報告。
       </p>
 
-      {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打 */}
+      {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打。
+          委員回饋:帶入前自選「待改善事項」或「建議事項」,不再一律帶入待改善。 */}
       {canEdit && (() => {
         const issues = Object.entries(dimIssues).flatMap(([dim, items]) => items.map((it) => ({ ...it, dim })));
         if (issues.length === 0) return null;
@@ -1068,20 +1062,32 @@ function FindingSection({
             <summary className="cursor-pointer select-none px-4 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
               從檢核表「部分符合/不符合」題帶入發現({issues.length})
             </summary>
+            <p className="px-4 pt-3 text-caption text-ink-500 leading-relaxed">
+              選擇要帶入為「待改善事項」或「建議事項」;帶入後僅含對應項次,請於下方補述內容。
+            </p>
             <ul className="divide-y divide-rule">
               {issues.map((it) => (
                 <li key={it.itemNo} className="flex items-start gap-3 px-4 py-3">
                   <Chip size="sm" tone={it.level === 'NON_COMPLIANT' ? 'danger' : 'warning'} className="shrink-0 font-mono">{it.itemNo}</Chip>
                   <span className="flex-1 min-w-0 text-body-sm text-ink-500 leading-relaxed">{it.content}</span>
-                  <Button
-                    size="sm"
-                    variant="tonal"
-                    loading={busy === `import:${it.itemNo}`}
-                    onClick={() => importFinding(it.itemNo, it.content, it.dim)}
-                    className="shrink-0"
-                  >
-                    帶入
-                  </Button>
+                  <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
+                    <Button
+                      size="sm"
+                      variant="tonal"
+                      loading={busy === `import:IMPROVE:${it.itemNo}`}
+                      onClick={() => importFinding(it.itemNo, it.dim, 'IMPROVE')}
+                    >
+                      帶入待改善
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="text"
+                      loading={busy === `import:SUGGEST:${it.itemNo}`}
+                      onClick={() => importFinding(it.itemNo, it.dim, 'SUGGEST')}
+                    >
+                      帶入建議
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

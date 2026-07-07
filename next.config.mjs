@@ -1,6 +1,8 @@
 // 全站安全標頭(基線)。CSP 需逐頁調校 inline script/style,另案處理,此處先補低風險者。
 const securityHeaders = [
-  { key: 'X-Frame-Options', value: 'DENY' },                 // 防點擊劫持
+  // SAMEORIGIN(非 DENY):防跨源點擊劫持,同時允許同源 iframe——委員審閱以站內檢視器(iframe)開機關
+  // 上傳的 PDF 佐證,DENY 會讓 PDF 顯示「拒絕連線」(圖片走 <img> 不受此限,故只有 PDF 壞)。
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },

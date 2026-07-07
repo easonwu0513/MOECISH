@@ -110,8 +110,9 @@ export function buildReportData(data: AuditReportData): ReportData {
       findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
     }
   }
-  // 法遵符合情形覆蓋層(UAT 批28):有中心撰寫版則取代委員 COMPLIANCE 發現(此段順序沿用中心編輯序,不重排);
+  // 法遵符合情形覆蓋層(UAT 批28;批29 只覆蓋中心編輯過的構面):有覆蓋版則取代該構面委員 COMPLIANCE 發現;
   // 改善/建議不覆蓋(維持委員即時資料原則)。列印/Word/預覽共用此 buildReportData,故三處同步。
+  // 註:此處項次順序僅為中間值,下游 renderFindingBlock 一律依 code 重排(與委員發現同規則),故最終輸出穩定。
   if (meta.complianceOverride) {
     for (const cat of ['strategy', 'management', 'technical'] as Category[]) {
       const ov = meta.complianceOverride[cat];

@@ -47,13 +47,6 @@ function buildMetaPayload(d: ReportData) {
       for (const f of d.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
     }
   }
-  // 法遵符合情形覆蓋層(UAT 批28):中心於工具撰寫的符合情形逐則存回,使正式報告/列印/Word 同步顯示。
-  // 改善/建議不在此(維持委員即時資料原則,工具不改寫委員發現本體)。編輯符合情形即改變此 sig→觸發自動同步。
-  const complianceOverride = {
-    strategy: d.findings.strategy.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
-    management: d.findings.management.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
-    technical: d.findings.technical.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
-  };
   return {
     auditDateRaw: d.auditDateRaw,
     scope: d.scope,
@@ -63,8 +56,19 @@ function buildMetaPayload(d: ReportData) {
     team: d.team,
     sectionSettings: d.sectionSettings,
     findingBreaks,
-    complianceOverride,
   };
+}
+
+/** 法遵符合情形覆蓋層(UAT 批28,批29 修資料遺失):只為「中心實際編輯過的構面」產生覆蓋,未編輯構面不入
+ *  →避免中心只改 scope 就把委員 compliance 快照凍結/(空構面)清除(批28 專審 P1)。空 touched=不送此鍵。 */
+function buildComplianceOverride(d: ReportData, touched: Set<Category>) {
+  const out: Record<string, { code: string; text: string; pageBreakBefore: boolean }[]> = {};
+  for (const cat of ['strategy', 'management', 'technical'] as const) {
+    if (touched.has(cat)) {
+      out[cat] = d.findings[cat].compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore }));
+    }
+  }
+  return out;
 }
 
 /**
@@ -81,6 +85,9 @@ export function AuditMergeTool({
 } = {}) {
   const storageKey = cycleId ? `${STORAGE_KEY}:${cycleId}` : STORAGE_KEY;
   const [reportData, setReportData] = useState<ReportData>(makeDefaultReportData);
+  // 中心實際編輯過符合情形的構面(批29:只有這些構面才產生 complianceOverride 存回,杜絕「改別的欄位就凍結委員 compliance」)
+  const complianceTouchedRef = useRef<Set<Category>>(new Set());
+  const markComplianceTouched = (cat: Category, sec: SectionKey) => { if (sec === 'compliance') complianceTouchedRef.current.add(cat); };
   const [syncBusy, setSyncBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('basic');
@@ -110,6 +117,13 @@ export function AuditMergeTool({
   // 自動同步 debounce timer 的 ref(供手動「存回系統」取消,避免手動與自動兩條 PATCH 對同一 cycle 競態覆蓋)
   const metaSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 存回系統的完整酬載=基礎 meta + 法遵符合情形覆蓋層(僅中心編輯過的構面;未編輯則不含此鍵,route 淺合併不動舊值)
+  const buildFullPayload = () => {
+    const base = buildMetaPayload(reportData);
+    const ov = buildComplianceOverride(reportData, complianceTouchedRef.current);
+    return Object.keys(ov).length ? { ...base, complianceOverride: ov } : base;
+  };
+
   // 週期模式:把封面/基本資訊 + 稽核小組 + 版面換頁存回系統(彙整報告頁與列印版同步)
   async function saveMetaToSystem() {
     if (!cycleId) return;
@@ -119,7 +133,7 @@ export function AuditMergeTool({
     const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(buildMetaPayload(reportData)),
+      body: JSON.stringify(buildFullPayload()),
     });
     setSyncBusy(false);
     if (!res.ok) {
@@ -161,7 +175,9 @@ export function AuditMergeTool({
   // 使用者在工具改了內容、看到預覽已更新,卻常忘按「存回系統」→ 正式報告/列印仍是舊內容(UAT 重複回報)。
   // 此效果讓報告設定與系統即時一致(含掛載時把本機暫存但未存回的編輯補推上系統),不再依賴手動存回。僅週期模式。
   // 註:發現本體(逐則文字)不在此同步——設計上發現永遠取系統委員即時資料,工具不改寫委員發現內容。
-  const metaSig = JSON.stringify(buildMetaPayload(reportData));
+  // metaSig 含 complianceOverride(僅編輯過的構面);systemMetaSig 取 initial 的基礎 meta(初始 touched 為空,
+  // 故載入時兩者皆無 override→相符,不觸發幽靈同步)。編輯符合情形→touched 增→metaSig 含 override→觸發同步。
+  const metaSig = JSON.stringify(buildFullPayload());
   const systemMetaSig = initial ? JSON.stringify(buildMetaPayload(initial)) : null;
   useEffect(() => {
     if (!cycleId || !hydrated || metaSig === systemMetaSig) return;
@@ -169,7 +185,7 @@ export function AuditMergeTool({
       fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(buildMetaPayload(reportData)),
+        body: JSON.stringify(buildFullPayload()),
       }).catch(() => {});
     }, 1000);
     metaSyncTimerRef.current = timer; // 供手動存回取消
@@ -413,6 +429,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const handleUpdateFinding = useCallback((cat: Category, sec: SectionKey, id: string, field: keyof Finding, value: FindingUpdateValue) => {
+    markComplianceTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -423,6 +440,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const addFinding = (cat: Category, sec: SectionKey) => {
+    markComplianceTouched(cat, sec);
     const id = Date.now().toString();
     updateReportData((prev) => ({
       ...prev,
@@ -435,6 +453,7 @@ export function AuditMergeTool({
   };
 
   const removeFinding = useCallback((cat: Category, sec: SectionKey, id: string) => {
+    markComplianceTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -446,6 +465,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const moveFinding = (cat: Category, sec: SectionKey, fromIndex: number, toIndex: number) => {
+    markComplianceTouched(cat, sec);
     updateReportData((prev) => {
       const items = [...prev.findings[cat][sec]];
       if (toIndex >= 0 && toIndex < items.length) {
