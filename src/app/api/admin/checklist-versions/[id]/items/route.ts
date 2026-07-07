@@ -57,23 +57,27 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const all = [...siblings.map((s) => ({ id: s.id, itemNo: s.itemNo })), { id: '__new__', itemNo: body.itemNo }]
       .sort((a, b) => numKey(a.itemNo).localeCompare(numKey(b.itemNo)));
 
-    const item = await prisma.checklistItem.create({
-      data: {
-        versionId: version.id,
-        itemNo: body.itemNo,
-        dimension,
-        content: body.content,
-        auditBasis: body.auditBasis ?? null,
-        auditFocus: body.auditFocus ?? null,
-        expectedEvidence: body.expectedEvidence ?? null,
-        orderIndex: all.findIndex((x) => x.id === '__new__'),
-      },
+    // 批36:插入+重排包進單一交易(原逐筆 await 更新=N+1 且非原子,中途失敗留下半套 orderIndex);
+    // 只更新「插入點之後」真正位移的項(updateMany increment),免逐筆 O(N) 寫入。
+    const insertAt = all.findIndex((x) => x.id === '__new__');
+    const item = await prisma.$transaction(async (tx) => {
+      await tx.checklistItem.updateMany({
+        where: { versionId: version.id, orderIndex: { gte: insertAt } },
+        data: { orderIndex: { increment: 1 } },
+      });
+      return tx.checklistItem.create({
+        data: {
+          versionId: version.id,
+          itemNo: body.itemNo,
+          dimension,
+          content: body.content,
+          auditBasis: body.auditBasis ?? null,
+          auditFocus: body.auditFocus ?? null,
+          expectedEvidence: body.expectedEvidence ?? null,
+          orderIndex: insertAt,
+        },
+      });
     });
-    // 重排其餘項目
-    for (let i = 0; i < all.length; i++) {
-      if (all[i].id === '__new__') continue;
-      await prisma.checklistItem.update({ where: { id: all[i].id }, data: { orderIndex: i } });
-    }
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

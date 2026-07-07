@@ -141,7 +141,11 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      // 批36:收回的是現用身分時已自動切換——回傳新現用身分讓前端提示副作用(中心才知道對方換了身分)
+      ...(isCurrent ? { switchedTo: (await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } }))?.role ?? null } : {}),
+    });
   } catch (e) {
     return errorResponse(e);
   }

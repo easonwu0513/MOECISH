@@ -438,9 +438,13 @@ export default function PrepBoard({
               )}
 
               {!isCenter && status === 'INSUFFICIENT' && sub?.reviewNote && (
-                <div className="mt-2 flex items-start gap-2 rounded-sm bg-danger-50 text-danger-700 px-3 py-2 text-body-sm">
-                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  <span>退回說明:{sub.reviewNote}(請補正後重新繳交)</span>
+                <div className="mt-2 rounded-md border border-danger-200 bg-danger-50 px-3.5 py-2.5">
+                  <p className="flex items-center gap-1.5 text-body-sm font-medium text-danger-700">
+                    <AlertCircle size={15} className="shrink-0" />
+                    中心退回意見(補正重點)
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-body-sm text-ink-900 leading-relaxed">{sub.reviewNote}</p>
+                  <p className="mt-1 text-caption text-danger-700">請依上述意見補正後重新繳交。</p>
                 </div>
               )}
               {!isCenter && status === 'SUBMITTED' && (

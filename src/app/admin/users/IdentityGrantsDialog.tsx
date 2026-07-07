@@ -85,7 +85,12 @@ export default function IdentityGrantsDialog({
       toast.error('收回失敗', j.error);
       return;
     }
-    toast.success('已收回身分授權');
+    const j = await res.json().catch(() => ({} as { switchedTo?: string | null }));
+    if (j.switchedTo) {
+      toast.success('已收回身分授權', `該帳號現用身分已自動切換為「${ROLE_LABELS[j.switchedTo as Role] ?? j.switchedTo}」。`);
+    } else {
+      toast.success('已收回身分授權');
+    }
     await load();
     router.refresh();
   }

@@ -161,6 +161,25 @@ export default function ActionForm({
   const needExtended = exec === 'LATE_IN_PROGRESS';
   const needReason = exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS';
 
+  // 送出審核前端預檢(批36):鏡射 action/submit 後端必填規則——缺欄直接 toast 列出,
+  // 不開確認框(原本按了「送出」才由後端 400 報缺欄,得關框回捲找欄再來一次)。
+  function requestSubmit() {
+    const missing: string[] = [];
+    if (!rootCause.trim()) missing.push('發生原因(根因分析)');
+    if (!Object.values(measures).some((m) => m.on && m.text.trim())) missing.push('至少一項改善措施');
+    if (!plannedDate) missing.push('預計完成時程');
+    if (!trackingMethod.trim()) missing.push('進度追蹤方式');
+    if (!execStatus) missing.push('執行情形');
+    if (needActual && !actualDate) missing.push('實際完成日期');
+    if (needExtended && !extendedDate) missing.push('預計完成日期延長至');
+    if (needReason && !delayReason.trim()) missing.push('逾期原因');
+    if (missing.length > 0) {
+      toast.error('尚有必填未完成', `${missing.join('、')}。請補齊後再送出審核。`);
+      return;
+    }
+    setSubmitOpen(true);
+  }
+
   // 切換執行情形前,若新狀態會隱藏並清掉已填的日期/原因,先確認(防誤觸丟資料)
   function changeExecStatus(next: ExecStatus) {
     const nNeedActual = next === 'ON_TIME_DONE' || next === 'LATE_DONE';
@@ -576,7 +595,7 @@ export default function ActionForm({
               <Button variant="tonal" loading={saving} onClick={saveDraft}>
                 儲存草稿
               </Button>
-              <Button loading={saving} onClick={() => setSubmitOpen(true)}>
+              <Button loading={saving} onClick={requestSubmit}>
                 送出審核
               </Button>
               {/* 儲存狀態:dirty=琥珀點、saved=綠勾 — 核心安全感訊號要看得見 */}

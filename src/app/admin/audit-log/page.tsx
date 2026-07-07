@@ -79,12 +79,15 @@ export default async function AuditLogPage({
     ...(actorId ? { actorId } : {}),
     ...(createdAt ? { createdAt } : {}),
   };
-  const logs = await prisma.auditLog.findMany({
+  // 取 201 筆:多取 1 筆作「已截斷」訊號(批36:量大時使用者可能誤以為某操作「沒有紀錄」)
+  const logsRaw = await prisma.auditLog.findMany({
     where,
     include: { actor: { select: { name: true, email: true, role: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 200,
+    take: 201,
   });
+  const truncated = logsRaw.length > 200;
+  const logs = truncated ? logsRaw.slice(0, 200) : logsRaw;
 
   const entityTypes = await prisma.auditLog.groupBy({
     by: ['entityType'],
@@ -109,7 +112,7 @@ export default async function AuditLogPage({
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">稽核軌跡</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            所有寫入操作之不可否認紀錄;顯示最近 200 筆。
+            所有寫入操作之不可否認紀錄;{truncated ? '結果超過 200 筆,僅顯示最近 200 筆——請以日期區間或操作者縮小範圍後再查。' : '顯示最近 200 筆。'}
           </p>
         </div>
       </header>

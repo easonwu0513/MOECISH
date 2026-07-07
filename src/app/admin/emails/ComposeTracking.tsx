@@ -70,7 +70,14 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
       return;
     }
     const j = await res.json();
-    toast.success('已寄送追蹤信', `共 ${j.sent} 封,紀錄如下方列表。`);
+    if (Array.isArray(j.skippedOrgs) && j.skippedOrgs.length > 0) {
+      toast.warning(
+        `已寄 ${j.sent} 封;${j.skippedOrgs.length} 家未寄達`,
+        `下列機關無啟用中的機關管理員,未寄出:${j.skippedOrgs.join('、')}。請補建帳號或改以其他方式通知。`,
+      );
+    } else {
+      toast.success('已寄送追蹤信', `共 ${j.sent} 封,紀錄如下方列表。`);
+    }
     setSelected(new Set());
     router.refresh();
   }

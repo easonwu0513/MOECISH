@@ -45,6 +45,10 @@ export default async function AuditReportPage({ params }: { params: { id: string
   //  ① 全體委員評分表須定稿(scoreLockedAt;退件會清空,故此即「已繳交且非退件」)。
   //  ② 定稿者須依責任構面「真的評了分」(擋 0 構面定稿的舊資料)。
   const unfinalizedAuditors = data.assignments.filter((a) => !a.scoreLockedAt).length;
+  // ③ 帶入發現仍含「(請補述…)」佔位語者不可完成(後端 convert 亦硬擋;此為前端同語彙預警,批36)
+  const placeholderFindings = data.auditFindings.filter(
+    (f) => !f.deficiencyId && (f.kind === 'IMPROVE' || f.kind === 'SUGGEST') && /[(（]請補述/.test(f.content),
+  ).length;
   const totalByDim = new Map<string, number>();
   for (const it of data.checklistVersion.items) totalByDim.set(it.dimension, (totalByDim.get(it.dimension) ?? 0) + 1);
   // 與後端 auditorsFinalized 同語彙:定稿委員須「至少一個構面完整評分」(不逐責任構面硬擋——委員分工,
@@ -61,7 +65,9 @@ export default async function AuditReportPage({ params }: { params: { id: string
         ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
         : incompleteFinalized
           ? `委員「${incompleteFinalized.auditor.name}」已定稿但尚未完成任何構面評分,請對其退件補齊`
-          : null;
+          : placeholderFindings > 0
+            ? `${placeholderFindings} 條帶入的發現仍為「請補述…」佔位文字,請洽該委員補述(或退件),避免佔位語成為正式缺失`
+            : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
 

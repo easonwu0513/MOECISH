@@ -155,6 +155,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
   // (減法:原「全數缺失矯正通過!」success 提醒已刪——同一句話已由頂部「下一步」與用印卡/儀表板待辦表達,同頁三講)
   const stForMod = cycle.status as CycleStatus;
+  // 機關在開立中(批36):模組全上鎖但無事可做,補一句統攝說明,避免承辦人以為系統壞了或自己漏設定
+  if (user.role === 'ORG_ADMIN' && stForMod === 'DRAFT') {
+    alerts.push({ tone: 'info', title: '本週期尚在中心開立設定中', desc: '您目前無需任何動作;待中心推進至「資料準備中」,系統會通知您開始上傳資料與填報檢核表。' });
+  }
   if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
     alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
   }

@@ -63,7 +63,14 @@ export async function POST(req: Request) {
       ...meta,
     });
 
-    return NextResponse.json({ sent });
+    // 批36:被選取但「無啟用中機關管理員」的機關會被靜默略過——回傳名單讓前端警示,
+    // 避免中心以為全數催辦到了(最該催的往往正是沒人維運的那家)。
+    const coveredOrgIds = new Set(recipients.map((r) => r.organizationId));
+    const skippedOrgIds = input.organizationIds.filter((id) => !coveredOrgIds.has(id));
+    const skippedOrgs = skippedOrgIds.length
+      ? (await prisma.organization.findMany({ where: { id: { in: skippedOrgIds } }, select: { name: true } })).map((o) => o.name)
+      : [];
+    return NextResponse.json({ sent, skippedOrgs });
   } catch (e) {
     return errorResponse(e);
   }

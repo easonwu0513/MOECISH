@@ -1,6 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 
+/** 帶入發現的佔位文字偵測(批36):AuditPad「帶入」建立的發現含「(請補述…)」提示語,
+ *  委員未補述前不得轉成正式缺失送給機關(佔位語外洩=把提示當缺失內容,批35 稽核 high)。 */
+export const PLACEHOLDER_FINDING_RE = /[(（]請補述/;
+
 /**
  * 把週期內尚未轉換的「待改善/建議」稽核發現建立為缺失(共用核心):
  * - 法遵符合情形(COMPLIANCE)不轉
@@ -8,6 +12,9 @@ import { prisma } from './db';
  * 回傳轉換筆數。
  * @param db 可傳入交易 client(`$transaction`)以與呼叫端共用同一交易;預設用全域 prisma。
  */
+/** 佔位發現擋轉的專用錯誤:呼叫端(finish/convert route)以 400 回給前端,訊息可直接顯示。 */
+export class PlaceholderFindingsError extends Error {}
+
 export async function convertFindingsToDeficiencies(
   cycleId: string,
   createdById: string,
@@ -28,6 +35,22 @@ export async function convertFindingsToDeficiencies(
     orderBy: [{ aspect: 'asc' }, { kind: 'asc' }, { createdAt: 'asc' }],
   });
   if (pending.length === 0) return 0;
+
+  // 佔位閘(批36):任何待轉發現仍含「(請補述…)」佔位語 → 整批拒轉,列出項次供中心催補
+  // (不做「靜默跳過」——漏轉部分發現會讓中心以為全轉了;fail-loud 才能促成補述)。
+  const placeholders = pending.filter((f) => PLACEHOLDER_FINDING_RE.test(f.content));
+  if (placeholders.length > 0) {
+    const auditorIds = Array.from(new Set(placeholders.map((f) => f.auditorId)));
+    const names = await db.user.findMany({ where: { id: { in: auditorIds } }, select: { id: true, name: true } });
+    const nameOf = new Map(names.map((u) => [u.id, u.name]));
+    const list = placeholders
+      .slice(0, 8)
+      .map((f) => `${nameOf.get(f.auditorId) ?? '委員'}${f.checklistRef ? `【${f.checklistRef}】` : ''}`)
+      .join('、');
+    throw new PlaceholderFindingsError(
+      `${placeholders.length} 條帶入的發現尚未補述內容(仍為「請補述…」佔位文字),不可轉為正式缺失:${list}${placeholders.length > 8 ? '…' : ''}。請洽該委員補述或退件處理。`,
+    );
+  }
 
   const existing = await db.deficiency.groupBy({
     by: ['aspect', 'type'],

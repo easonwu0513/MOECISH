@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { convertFindingsToDeficiencies } from '@/lib/convert-findings';
+import { convertFindingsToDeficiencies, PlaceholderFindingsError } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 /**
@@ -35,6 +35,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     return NextResponse.json({ ok: true, converted });
   } catch (e) {
+    if (e instanceof PlaceholderFindingsError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
     return errorResponse(e);
   }
 }

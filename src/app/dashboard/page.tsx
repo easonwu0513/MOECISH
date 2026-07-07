@@ -174,8 +174,13 @@ export default async function HomePage() {
     if (user.role === 'AUDITOR') {
       // 委員逐題審閱屬實地稽核階段的「筆記/快速查找」用途,選填(未留意見不算未完成)。
       // 審閱窗口未開/未設時不導向 /review(=鎖定頁死路,收斂驗證修);與 buildModuleNav 審閱卡鎖定同基準。
-      if (st === 'ONSITE' && c.checklistSubmittedAt && e.reviewWindowOpen) {
-        todos.push({ key: `${c.id}-review`, tone: 'neutral', title: `${org}:可逐題檢視機關自評、留審閱註記(選填)`, href: `${base}/review`, cta: '去檢視' });
+      // READY 起審閱即開放(批36 措辭對齊模組卡):資料齊備=可先檢視熟悉背景;ONSITE=到場查核中可續審
+      if ((st === 'READY' || st === 'ONSITE') && c.checklistSubmittedAt && e.reviewWindowOpen) {
+        todos.push({
+          key: `${c.id}-review`, tone: 'neutral',
+          title: `${org}:${st === 'READY' ? '資料齊備,可先逐題檢視機關自評熟悉背景(選填)' : '可逐題檢視機關自評、留審閱註記(選填)'}`,
+          href: `${base}/review`, cta: '去檢視',
+        });
       }
       if (e.submitted > 0) {
         todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${org}:${e.submitted} 項矯正待審查`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' });

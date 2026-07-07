@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { convertFindingsToDeficiencies } from '@/lib/convert-findings';
+import { convertFindingsToDeficiencies, PlaceholderFindingsError } from '@/lib/convert-findings';
 import { auditorsFinalized } from '@/lib/audit-finalize';
 import { notifyCycleOrgAdmins } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -105,6 +105,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       notified,
     });
   } catch (e) {
+    // 佔位發現擋轉(批36):交易已整批回滾,以 400 回明確清單訊息供中心催補
+    if (e instanceof PlaceholderFindingsError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
     return errorResponse(e);
   }
 }
