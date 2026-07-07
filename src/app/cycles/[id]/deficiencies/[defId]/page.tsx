@@ -81,9 +81,6 @@ export default async function DeficiencyDetailPage({
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
-  const assignedReviewer = deficiency.reviewerAuditorId
-    ? assignedAuditors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
-    : null;
   const isDefReviewer =
     user.role === 'SUPER_ADMIN' ||
     (user.role === 'AUDITOR' && deficiency.reviewerAuditorId === user.id);
@@ -284,9 +281,8 @@ export default async function DeficiencyDetailPage({
               {sourceResponse.description && ` — ${sourceResponse.description}`}
             </p>
           )}
-          <Link href={`/cycles/${cycle.id}/checklist`} className="mt-2 inline-block text-caption text-primary-700 hover:underline focus-ring rounded-sm">
-            於檢核表查看 →
-          </Link>
+          {/* (UAT:移除「於檢核表查看→」連結——缺失矯正在 REPORT_ISSUED/REMEDIATION 階段,
+              檢核表審閱窗口通常止於實地稽核當天,此時委員已看不到檢核表=死連結;來源題目已就地顯示於上方) */}
         </Card>
       )}
 
@@ -337,22 +333,16 @@ export default async function DeficiencyDetailPage({
         </div>
       )}
 
-      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心)。
-          UAT:僅中心與被指派的審閱委員可見——機關管理員不需知道是哪位委員開立/審核缺失,整塊隱藏
-          (原 `|| assignedReviewer` 是資料條件,指派後對機關也顯示=洩漏委員身分,移除)。 */}
-      {isDefReviewer && (
+      {/* 審閱委員指派(僅中心 SUPER_ADMIN):中心於相關開立委員中指派審閱委員。
+          UAT:委員自己就是審閱委員(缺失清單本就只顯示指派給本人審閱者),顯示「審閱委員:自己」對委員無意義→
+          整塊僅中心可見(原 isDefReviewer 含委員本人,故委員也看到=贅餘,收為 SUPER_ADMIN)。機關端本就隱藏。 */}
+      {user.role === 'SUPER_ADMIN' && (
         <div className="mb-6 rounded-lg border border-rule bg-card px-5 py-4">
           <p className="text-title-md text-ink-900 mb-1">審閱委員</p>
           <p className="text-body-sm text-ink-500 mb-3">
             此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
           </p>
-          {user.role === 'SUPER_ADMIN' ? (
-            <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
-          ) : (
-            <p className="text-body-sm text-ink-900">
-              {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}
-            </p>
-          )}
+          <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
         </div>
       )}
 

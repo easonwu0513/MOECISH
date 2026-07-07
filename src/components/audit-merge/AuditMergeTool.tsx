@@ -909,6 +909,10 @@ export function AuditMergeTool({
                           <div className="flex-1 min-w-[200px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">受稽醫院名稱</label>
                             <select className="input-elegant w-full" value={reportData.hospitalName} onChange={(e) => updateReportData((p) => ({ ...p, hospitalName: e.target.value }))} onFocus={() => handleSetFocus('hospitalName')}>
+                              {/* 週期機關名(如試用機構)不在固定清單時補當前值選項,避免下拉顯示第一家而與報告預覽不符(UAT) */}
+                              {reportData.hospitalName && !HOSPITALS.includes(reportData.hospitalName) && (
+                                <option value={reportData.hospitalName}>{reportData.hospitalName}</option>
+                              )}
                               {HOSPITALS.map((h) => <option key={h} value={h}>{h}</option>)}
                             </select>
                           </div>

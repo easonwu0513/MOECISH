@@ -17,6 +17,7 @@ import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
 import { auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { buildModuleNav } from '@/lib/cycle-modules';
+import { getCycleActivities } from '@/lib/cycle-activity';
 import { Menu } from '@/components/ui/Menu';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History, Settings } from '@/components/icons';
 import NotifyButton from './NotifyButton';
@@ -37,32 +38,6 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   audit: <Eye size={18} />,
   def: <AlertTriangle size={18} />,
   report: <CheckCircle size={18} />,
-};
-
-// 最近活動:僅白名單動作轉中文顯示,未列者略過(避免顯示內部代碼或雜訊)
-const ACTIVITY_LABELS: Record<string, string> = {
-  CYCLE_TRANSITION: '推進了週期階段',
-  CYCLE_ROLLBACK: '回退了週期階段',
-  PREP_SUBMIT: '繳交了稽核前資料',
-  CYCLE_UPDATE: '更新了週期設定',
-  CYCLE_NOTIFY_ORG_ADMINS: '通知機關填報矯正',
-  CYCLE_NOTIFY_OPENED: '通知機關稽核作業開立',
-  CYCLE_NOTIFY_COMMITTEE_REVIEW: '通知委員開始審閱',
-  'audit.findings.convert': '彙整稽核發現為缺失',
-  'audit.finish': '完成年度稽核、發布缺失',
-  AUDITOR_ASSIGN: '指派了稽核委員',
-  AUDITOR_UNASSIGN: '移除了委員指派',
-  'audit.score.lock': '確認填寫完畢並鎖定評分',
-  'audit.score.unlock': '解除了評分鎖定',
-  'audit.score.return': '退回了委員評分',
-  CHECKLIST_REVIEW_DONE: '完成了檢核表審閱意見',
-  DEFICIENCY_CREATE: '新增了缺失',
-  DEFICIENCY_IMPORT: '匯入了缺失',
-  ACTION_SUBMIT: '送出了矯正措施',
-  SIGNED_REPORT_UPLOAD: '上傳了用印掃描檔',
-  SIGNED_REPORT_SUBMIT: '確認繳交用印掃描檔',
-  SIGNED_REPORT_CONFIRM: '確認了用印掃描檔',
-  SIGNED_REPORT_RETURN: '退回了用印掃描檔',
 };
 
 export default async function CyclePage({ params, searchParams }: { params: { id: string }; searchParams: { stage?: string } }) {
@@ -320,36 +295,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     );
   };
 
-  // 最近活動:本週期相關實體的稽核軌跡(白名單動作→中文);entityId 皆屬本週期,不跨租戶
-  const assignmentIds = cycle.assignments.map((a) => a.id);
-  // 委員的活動流限本人審閱範圍的缺失(myDeficiencies),不觸及他人缺失的軌跡
-  const deficiencyIds = myDeficiencies.map((d) => d.id);
-  const actionIds = myDeficiencies.map((d) => d.action?.id).filter((x): x is string => Boolean(x));
-  const signedReportIds = cycle.signedReports.map((r) => r.id);
-  const rawLogs = await prisma.auditLog.findMany({
-    where: {
-      OR: [
-        { entityType: 'AuditCycle', entityId: cycle.id },
-        { entityType: 'AuditorAssignment', entityId: { in: assignmentIds } },
-        { entityType: 'Deficiency', entityId: { in: deficiencyIds } },
-        { entityType: 'CorrectiveAction', entityId: { in: actionIds } },
-        { entityType: 'SignedReport', entityId: { in: signedReportIds } },
-      ],
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 40,
-    include: { actor: { select: { name: true, organizationId: true } } },
+  // 最近活動(共用 lib/cycle-activity;完整清單於 /cycles/[id]/activity)。委員限本人審閱範圍缺失。
+  const activities = await getCycleActivities({
+    cycleId: cycle.id,
+    role: user.role as Role,
+    userId: user.id,
+    organizationId: user.organizationId,
+    assignmentIds: cycle.assignments.map((a) => a.id),
+    deficiencyIds: myDeficiencies.map((d) => d.id),
+    actionIds: myDeficiencies.map((d) => d.action?.id).filter((x): x is string => Boolean(x)),
+    signedReportIds: cycle.signedReports.map((r) => r.id),
+    limit: 6,
   });
-  // 最近活動角色範圍:中心看全部;機關只看自己機關的活動;委員只看自己的活動
-  const activities = rawLogs
-    .filter((l) => ACTIVITY_LABELS[l.action])
-    .filter((l) => {
-      if (user.role === 'AUDITOR') return l.actorId === user.id;
-      if (user.role === 'ORG_ADMIN') return l.actor?.organizationId === user.organizationId;
-      return true;
-    })
-    .slice(0, 6)
-    .map((l) => ({ id: l.id, who: l.actor?.name ?? '系統', what: ACTIVITY_LABELS[l.action], at: l.createdAt }));
 
   const alertBox: Record<'danger' | 'warning' | 'info' | 'success', string> = {
     danger: 'bg-danger-50 border-danger-100',
@@ -746,11 +703,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </div>
           )}
 
-          {/* 最近活動(稽核軌跡) */}
+          {/* 最近活動(稽核軌跡);「查看全部」→ 完整活動歷史頁(UAT:多位管理員時知道彼此做了什麼) */}
           <div className="rounded-lg border border-rule bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <History size={16} className="text-ink-500" />
-              <h3 className="text-title font-medium text-ink-900">最近活動</h3>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-ink-500" />
+                <h3 className="text-title font-medium text-ink-900">最近活動</h3>
+              </div>
+              {activities.length > 0 && (
+                <Link href={`/cycles/${cycle.id}/activity`} className="text-caption text-primary-700 hover:underline whitespace-nowrap">
+                  查看全部
+                </Link>
+              )}
             </div>
             {activities.length === 0 ? (
               <p className="text-body-sm text-ink-500">尚無活動紀錄。</p>
