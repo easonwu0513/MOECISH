@@ -22,7 +22,7 @@ import {
  * (機關不參與實地評分;其收尾工作是用印報告,錨點 #signed-report 與儀表板待辦一致)
  */
 
-export type ModuleKey = 'prep' | 'checklist' | 'settings' | 'audit' | 'def' | 'report';
+export type ModuleKey = 'prep' | 'checklist' | 'settings' | 'audit' | 'def' | 'report' | 'practice';
 
 export type ModuleNavItem = {
   key: ModuleKey;
@@ -59,12 +59,17 @@ export type ModuleNavInput = {
   report?: { submitted: boolean; confirmed: boolean };
   /** 委員視角必帶:審閱窗口狀態(其餘角色忽略) */
   auditorReviewState?: ReviewWindowState;
+  /** 觀察員視角必帶:觀察員專屬窗口狀態(批30;其餘角色忽略) */
+  observerReviewState?: ReviewWindowState;
+  /** 委員視角選帶:本人於此週期指導的觀察員數(>0 → 顯示「指導觀察員」卡;批30 師徒制) */
+  mentorObservers?: number;
 };
 
 export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const st = i.status;
   const base = `/cycles/${i.cycleId}`;
   const isAuditor = i.role === 'AUDITOR';
+  const isObserver = i.role === 'OBSERVER';
   const isOrg = i.role === 'ORG_ADMIN';
   const onsitePast = st === 'REPORT_ISSUED' || st === 'REMEDIATION' || st === 'CLOSED';
 
@@ -77,16 +82,18 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     report: st === 'REMEDIATION' || st === 'CLOSED',
   };
 
-  // 委員審閱窗口:不在窗口內(或未設)→ 資料準備/委員審閱鎖定+提示原因
-  const reviewState: ReviewWindowState = i.auditorReviewState ?? 'open';
-  const reviewLocked = isAuditor && reviewState !== 'open';
+  // 委員/觀察員審閱窗口:不在窗口內(或未設)→ 資料準備/審閱鎖定+提示原因(觀察員用獨立窗口,批30)
+  const reviewState: ReviewWindowState =
+    (isAuditor ? i.auditorReviewState : isObserver ? i.observerReviewState : 'open') ?? 'open';
+  const reviewLocked = (isAuditor || isObserver) && reviewState !== 'open';
+  const windowNoun = isObserver ? '觀察員審閱時段' : '委員審閱時段';
   const reviewLockHint = onsiteStageEnded(st)
     ? '實地稽核階段已結束,非審閱時段'
-    : reviewState === 'before' ? '委員審閱時段尚未開始'
-    : reviewState === 'after' ? '委員審閱時段已結束'
-    : '中心尚未設定委員審閱時段';
-  // 委員「審閱」實際開放:資料齊備(READY)起可檢視 + 窗口開啟
-  const auditorReviewActive = isAuditor && auditorCanViewChecklistContent(st) && reviewState === 'open';
+    : reviewState === 'before' ? `${windowNoun}尚未開始`
+    : reviewState === 'after' ? `${windowNoun}已結束`
+    : `中心尚未設定${windowNoun}`;
+  // 委員/觀察員「審閱」實際開放:資料齊備(READY)起可檢視 + 窗口開啟
+  const auditorReviewActive = (isAuditor || isObserver) && auditorCanViewChecklistContent(st) && reviewState === 'open';
 
   // ── 資料準備(機關/中心視角含檢核表摘要:檢核表屬準備文件,批26 裁定不再獨立分類)──
   const prepDone = i.prep.total > 0 && i.prep.confirmed === i.prep.total;
@@ -99,22 +106,36 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const prep: ModuleNavItem = {
     key: 'prep',
     title: '稽核前資料準備',
-    sub: isAuditor ? '檢視機關繳交資料' : '附件收集與檢核表填報',
+    sub: isAuditor || isObserver ? '檢視機關繳交資料' : '附件收集與檢核表填報',
     href: `${base}/prep`,
     status: i.prep.total > 0 ? `${i.prep.confirmed}/${i.prep.total}` : '—',
     statusTone: prepDone ? 'success' : 'default',
-    caption: isAuditor ? prepBase : `${prepBase} · ${checklistBrief}`,
+    caption: isAuditor || isObserver ? prepBase : `${prepBase} · ${checklistBrief}`,
     muted: !modActive.prep,
     locked:
-      (isAuditor && (!auditorCanViewChecklistContent(st) || reviewLocked)) ||
+      ((isAuditor || isObserver) && (!auditorCanViewChecklistContent(st) || reviewLocked)) ||
       (isOrg && st === 'DRAFT'),
     lockedHint: isOrg
       ? '中心推進至「資料準備中」後開放填報'
-      : reviewLocked ? reviewLockHint : '資料齊備後開放委員檢視',
+      : reviewLocked ? reviewLockHint : '資料齊備後開放檢視',
   };
 
-  // ── 檢核表(機關/中心:prep 子項 childOf,不再獨立分類)/ 委員審閱(委員:獨立活動維持頂層)──
-  const checklist: ModuleNavItem = isAuditor
+  // ── 檢核表(機關/中心:prep 子項 childOf,不再獨立分類)/ 委員審閱(委員:獨立活動維持頂層)
+  //    觀察員(批30):同委員審閱動線但「唯讀」——不留審閱意見,作為撰寫練習的素材。──
+  const checklist: ModuleNavItem = isObserver
+    ? {
+        key: 'checklist',
+        title: '檢核表審閱',
+        sub: '逐題檢視機關自評(唯讀)',
+        href: `${base}/review`,
+        status: onsitePast ? '已結束' : auditorReviewActive ? '開放中' : '待開放',
+        statusTone: auditorReviewActive ? 'primary' : 'default',
+        caption: '檢視機關填報與佐證,作為撰寫練習素材',
+        muted: !auditorReviewActive,
+        locked: !auditorCanViewChecklistContent(st) || reviewLocked,
+        lockedHint: reviewLocked ? reviewLockHint : '資料齊備後開放檢視',
+      }
+    : isAuditor
     ? {
         key: 'checklist',
         title: '委員審閱',
@@ -131,7 +152,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
         key: 'checklist',
         childOf: 'prep',
         title: '資通安全檢核表',
-        sub: '機關自評與佐證(獨立填報)',
+        sub: '機關自評與佐證',
         href: `${base}/checklist`,
         status: i.checklist.submitted
           ? '已送出'
@@ -207,8 +228,39 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     lockedHint: '矯正執行階段開放',
   };
 
+  // ── 稽核發現撰寫練習(批30):觀察員專屬工作台;指導委員(mentor)另有「指導觀察員」入口 ──
+  const practiceStageOpen = canAccess('practice.access', 'OBSERVER', st); // 階段閘(ONSITE 起、結案鎖定)
+  const practice: ModuleNavItem = {
+    key: 'practice',
+    title: '稽核發現撰寫練習',
+    sub: '練習撰寫發現,指導委員回饋',
+    href: `${base}/practice`,
+    status: st === 'CLOSED' ? '已結案' : onsitePast ? '可回顧' : st === 'ONSITE' ? '進行中' : '尚未開始',
+    statusTone: st === 'ONSITE' ? 'primary' : 'default',
+    caption: '內容僅指導委員與中心可見,不進入正式報告',
+    muted: !modActive.audit,
+    locked: !practiceStageOpen,
+    lockedHint: '實地稽核階段開始後開放練習',
+  };
+  const mentorPractice: ModuleNavItem = {
+    key: 'practice',
+    title: '指導觀察員',
+    sub: '檢視練習發現並回饋',
+    href: `${base}/practice`,
+    status: `${i.mentorObservers ?? 0} 位`,
+    statusTone: st === 'ONSITE' ? 'primary' : 'default',
+    caption: '檢視您指導的觀察員練習,逐條給予回饋',
+    muted: !modActive.audit,
+    locked: !practiceStageOpen,
+    lockedHint: '實地稽核階段開始後開放',
+  };
+
   if (isOrg) return [prep, checklist, def, report];
-  if (isAuditor) return [prep, checklist, audit, def];
+  if (isAuditor) return (i.mentorObservers ?? 0) > 0
+    ? [prep, checklist, audit, def, mentorPractice]
+    : [prep, checklist, audit, def];
+  // 觀察員:資料準備(檢視)/檢核表審閱(唯讀)/撰寫練習——無評分、無缺失管考(需求一-2/二-1)
+  if (isObserver) return [prep, checklist, practice];
   // 中心:檢核表為 prep 子項;第二格=進階設定(頂層卡=網格 2×2:prep/settings/audit/def)
   return [prep, checklist, settings, audit, def];
 }

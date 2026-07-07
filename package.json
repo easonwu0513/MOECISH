@@ -23,6 +23,8 @@
     "test:notify": "tsx src/scripts/test-notify-matrix.ts",
     "test:punct": "tsx src/scripts/test-fullwidth-punct.ts",
     "test:auditscore": "tsx src/scripts/test-audit-score.ts",
+    "test:modules": "tsx src/scripts/test-cycle-modules.ts",
+    "test:posts": "tsx src/scripts/test-post-lifecycle.ts",
     "test:returns": "tsx src/scripts/test-returns.ts",
     "reset:hospitals": "tsx src/scripts/reset-hospitals.ts",
     "reset:cycles": "tsx src/scripts/reset-cycles.ts",

@@ -33,6 +33,8 @@ export default async function EditPostPage({ params }: { params: { id: string } 
           important: post.important,
           pinned: post.pinned,
           status: post.status,
+          publishedAtISO: post.publishedAt ? post.publishedAt.toISOString() : null,
+          unpublishAtISO: post.unpublishAt ? post.unpublishAt.toISOString() : null,
         }}
         attachments={post.attachments.map((a) => ({
           id: a.id,

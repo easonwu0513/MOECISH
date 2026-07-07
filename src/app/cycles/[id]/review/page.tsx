@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck, ChevronRight } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, auditorReviewWindowState, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, reviewWindowStateForRole, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPage';
 import { filterOwnComments } from '@/lib/auditor-visibility';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
@@ -33,7 +33,7 @@ export default async function ReviewPage({
 }) {
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/review`);
-  if (session.user.role !== 'AUDITOR' && session.user.role !== 'SUPER_ADMIN') {
+  if (session.user.role !== 'AUDITOR' && session.user.role !== 'SUPER_ADMIN' && session.user.role !== 'OBSERVER') {
     redirect(`/cycles/${params.id}`);
   }
 
@@ -55,17 +55,25 @@ export default async function ReviewPage({
   ) {
     redirect('/dashboard');
   }
-  // 委員一律於週期進入「資料齊備」後才可審閱機關檢核表(開立中/資料準備中不開放)
-  if (session.user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) {
+  // 觀察員(批30):僅能進入被配對的週期(CycleObserver);唯讀審閱,不留意見
+  if (session.user.role === 'OBSERVER') {
+    const paired = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: cycle.id, observerId: session.user.id } },
+      select: { id: true },
+    });
+    if (!paired) redirect('/dashboard');
+  }
+  // 委員/觀察員一律於週期進入「資料齊備」後才可審閱機關檢核表(開立中/資料準備中不開放)
+  if ((session.user.role === 'AUDITOR' || session.user.role === 'OBSERVER') && !auditorCanViewChecklistContent(cycle.status)) {
     redirect('/dashboard');
   }
-  // 審閱時間區間閘(UAT 批67):委員不在窗口內(或未設)→ 早退顯鎖定頁,不載入任何機關資料
-  const reviewState = session.user.role === 'AUDITOR'
-    ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd)
-    : 'open';
+  const isObserverView = session.user.role === 'OBSERVER';
+  const pageTitle = isObserverView ? '檢核表審閱' : '委員審閱';
+  // 審閱時間區間閘(UAT 批67;觀察員批30 查獨立窗口):不在窗口內(或未設)→ 早退顯鎖定頁,不載入任何機關資料
+  const reviewState = reviewWindowStateForRole(session.user.role, cycle);
   if (reviewState !== 'open') {
     // 早退鎖定頁(共用殼,與 /checklist 一致;不載入機關資料)
-    return <ReviewWindowLockedPage user={session.user} cycle={cycle} title="委員審閱" crumbLabel="委員審閱" state={reviewState} />;
+    return <ReviewWindowLockedPage user={session.user} cycle={cycle} title={pageTitle} crumbLabel={pageTitle} state={reviewState} />;
   }
 
   // 委員意見隱私(UAT 批62):委員僅見「自己」填寫的意見——各委員獨立審查,
@@ -153,7 +161,7 @@ export default async function ReviewPage({
       crumbs={[
         { label: '總覽', href: '/dashboard' },
         { label: `${cycle.year - 1911} 年度 · ${cycle.organization.name}`, href: `/cycles/${cycle.id}` },
-        { label: '委員審閱' },
+        { label: pageTitle },
       ]}
     >
       {/* 回工作台導引列:與 prep/checklist/deficiencies 一致(原 review/audit 缺=動線斷崖,審計#6) */}
@@ -163,9 +171,11 @@ export default async function ReviewPage({
         nextHint="逐題審閱後,回工作台查看下一步"
       />
       <header className="mb-5">
-        <h1 className="text-headline text-ink-900">委員審閱</h1>
+        <h1 className="text-headline text-ink-900">{pageTitle}</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-          逐題檢視機關說明與佐證,可於每題下方留下審閱筆記(依需要,不必每題),供您實地稽核時參考。
+          {isObserverView
+            ? '逐題檢視機關說明與佐證(唯讀),作為您撰寫練習的素材;觀察員不留審閱意見。'
+            : '逐題檢視機關說明與佐證,可於每題下方留下審閱筆記(依需要,不必每題),供您實地稽核時參考。'}
         </p>
         <p className="text-body-sm text-ink-500 mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -181,7 +191,7 @@ export default async function ReviewPage({
         submittedBy={cycle.checklistSubmittedBy}
         reopenNote={null}
         canReopen={false}
-        hideModifyHint={session.user.role === 'AUDITOR'}
+        hideModifyHint={session.user.role === 'AUDITOR' || isObserverView}
       />
 
       {/* 篩選 */}
@@ -345,7 +355,8 @@ export default async function ReviewPage({
                           </div>
                         )}
 
-                        {r ? (
+                        {/* 觀察員唯讀(批30):不留審閱意見(API 亦僅開放委員/中心) */}
+                        {isObserverView ? null : r ? (
                           <div className="mt-3">
                             <CommentForm responseId={r.id} />
                           </div>

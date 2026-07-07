@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +15,8 @@ export default async function AccountPage() {
   if (!session) redirect('/login?callbackUrl=/account');
   const user = session.user;
   const role = user.role as Role;
+  // 實習紀錄(批32):曾為觀察員撰寫過練習者(含已晉升委員)提供回顧入口
+  const practiceCount = await prisma.practiceFinding.count({ where: { observerId: user.id } });
 
   return (
     <AppShell
@@ -47,8 +50,13 @@ export default async function AccountPage() {
           )}
         </dl>
 
-        <div className="mt-6 pt-5 border-t border-rule">
+        <div className="mt-6 pt-5 border-t border-rule flex flex-wrap gap-2">
           <Button href="/account/password" variant="tonal" size="sm">變更密碼</Button>
+          {practiceCount > 0 && (
+            <Button href={`/users/${user.id}/practice-history`} variant="text" size="sm">
+              實習紀錄({practiceCount} 條練習)
+            </Button>
+          )}
         </div>
       </Card>
     </AppShell>

@@ -1,23 +1,29 @@
 import { canAccess } from './access-policy';
 
 // ════════════════════════════════════════════
-// 角色（2.0：四角色簡化為三角色）
+// 角色(2.0 三角色;觀察員批30 增為四角色)
 // ════════════════════════════════════════════
 
-export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR'] as const;
+// OBSERVER(觀察員):基礎權限對標稽核委員但「學習與練習」定位——獨立審閱窗口、
+// 不開放缺失與矯正管考、以「稽核發現撰寫練習」取代評分模組(練習資料硬隔離,
+// 絕不進正式報告)。⚠️ 新增角色時,所有 switch(user.role)/角色三元條件必須顯式
+// 處理並預設拒絕(歷史上 rbac/access-policy 對未知角色 fail-open,批30 已收斂)。
+export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: '最高管理員',
   ORG_ADMIN: '機關管理員',
   AUDITOR: '稽核委員',
+  OBSERVER: '觀察員',
 };
 
 /** 角色 → Chip 色調(單一來源,確保同角色跨頁同色;以 UserMenu 既有對應為準) */
-export const ROLE_TONE: Record<Role, 'primary' | 'sage' | 'warning'> = {
+export const ROLE_TONE: Record<Role, 'primary' | 'sage' | 'warning' | 'neutral'> = {
   SUPER_ADMIN: 'primary',
   AUDITOR: 'sage',
   ORG_ADMIN: 'warning',
+  OBSERVER: 'neutral',
 };
 
 // ════════════════════════════════════════════
@@ -248,6 +254,31 @@ export function auditorReviewWindowState(
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 'unset';
   if (now.getTime() < s.getTime()) return 'before';
   if (now.getTime() > e.getTime()) return 'after';
+  return 'open';
+}
+
+/**
+ * 觀察員獨立審閱窗口(批30):與委員窗口平行的第二組區間(AuditCycle.observerWindowStart/End),
+ * 語義完全比照委員窗口(未設=不開放)。以下兩個 ForRole 包裝讓呼叫端「依角色取對的欄位」,
+ * 避免觀察員誤走委員窗口。observerWindow* 為 optional:呼叫端 select 漏帶欄位時視同未設
+ * (fail-closed,寧可鎖住也不誤開)。中心/機關不受窗口管制(回 open/true)。
+ */
+export type ReviewWindowFields = {
+  reviewWindowStart: Date | string | null;
+  reviewWindowEnd: Date | string | null;
+  observerWindowStart?: Date | string | null;
+  observerWindowEnd?: Date | string | null;
+};
+
+export function reviewWindowOpenForRole(role: Role, c: ReviewWindowFields, now: Date = new Date()): boolean {
+  if (role === 'AUDITOR') return auditorReviewWindowOpen(c.reviewWindowStart, c.reviewWindowEnd, now);
+  if (role === 'OBSERVER') return auditorReviewWindowOpen(c.observerWindowStart ?? null, c.observerWindowEnd ?? null, now);
+  return true;
+}
+
+export function reviewWindowStateForRole(role: Role, c: ReviewWindowFields, now: Date = new Date()): ReviewWindowState {
+  if (role === 'AUDITOR') return auditorReviewWindowState(c.reviewWindowStart, c.reviewWindowEnd, now);
+  if (role === 'OBSERVER') return auditorReviewWindowState(c.observerWindowStart ?? null, c.observerWindowEnd ?? null, now);
   return 'open';
 }
 

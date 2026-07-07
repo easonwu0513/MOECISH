@@ -11,6 +11,12 @@ export function filterOwnComments<C extends { auditorId: string }>(
   role: Role | string,
   userId: string,
 ): void {
+  // 觀察員(批30):委員審閱意見為委員工作紀錄,觀察員一律不可見(批62 各委員獨立審查的
+  // 隔離哲學延伸——觀察員練習更不應被任何委員意見影響),整批清空。
+  if (role === 'OBSERVER') {
+    for (const r of responses) r.comments = [];
+    return;
+  }
   if (role !== 'AUDITOR') return;
   for (const r of responses) {
     r.comments = r.comments.filter((c) => c.auditorId === userId);

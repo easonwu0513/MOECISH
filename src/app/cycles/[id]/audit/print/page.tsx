@@ -29,7 +29,7 @@ export default async function Att17PrintPage({
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/print`);
   const user = session.user;
-  if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
+  if (user.role === 'ORG_ADMIN' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
 
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: params.id },

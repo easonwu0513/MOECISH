@@ -55,8 +55,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   try {
     const { user } = await assertCycleAccess(params.id);
     // 委員不匯出改善報告(僅於系統內檢視機關填報的矯正措施);機關/中心可匯出
-    if (user.role === 'AUDITOR') {
-      return NextResponse.json({ error: '委員無需匯出改善報告,請於系統內檢視矯正措施' }, { status: 403 });
+    if (user.role === 'AUDITOR' || user.role === 'OBSERVER') {
+      return NextResponse.json({ error: '此匯出限機關與中心;請於系統內檢視' }, { status: 403 });
     }
 
     const cycle = await prisma.auditCycle.findUnique({

@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
-import { auditorCanSeePrep, auditorCanSeeCycle, auditorReviewWindowState, onsiteStageEnded, type CycleStatus, type Role } from '@/lib/types';
+import { auditorCanSeePrep, auditorCanSeeCycle, reviewWindowStateForRole, onsiteStageEnded, type CycleStatus, type Role } from '@/lib/types';
 import { buildModuleNav } from '@/lib/cycle-modules';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
@@ -11,7 +11,7 @@ import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
 import { TileIcon, StatusPill } from '@/components/cycle/tile';
 import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
-import { FileText, ClipboardCheck, Eye, EyeOff, AlertTriangle, CheckCircle, ChevronRight, Check, Download } from '@/components/icons';
+import { FileText, ClipboardCheck, Eye, EyeOff, AlertTriangle, CheckCircle, ChevronRight, Check, Download, Pencil } from '@/components/icons';
 import { getTemplateFilesForYear } from '@/lib/prep-standard';
 import PrepBoard from './PrepBoard';
 import { ReviewWindowSetting } from './ReviewWindowSetting';
@@ -41,6 +41,14 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   // 委員:未指派或週期仍開立中(DRAFT) → 導回(對齊 access-policy 'cycle.access')
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
+  // 觀察員(批30):未配對或開立中 → 導回;配對查 CycleObserver(絕不與委員指派混表)
+  if (user.role === 'OBSERVER') {
+    const paired = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
+      select: { id: true },
+    });
+    if (!paired || !auditorCanSeeCycle(cycle.status)) redirect('/dashboard');
+  }
 
   const requirements = await prisma.prepRequirement.findMany({
     where: { cycleId: cycle.id },
@@ -57,12 +65,14 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
       })
     : [];
   const subWithFiles = new Set(allFiles.map((f) => f.targetId));
-  // 委員可見:機關區(技術檢測/實地稽核)看中心已「確認齊備」者;中心匯入區看已有檔案者
+  // 委員/觀察員可見:機關區(技術檢測/實地稽核)看中心已「確認齊備」者;中心匯入區看已有檔案者
   const isAuditor = user.role === 'AUDITOR';
-  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 顯鎖定卡,不渲染機關資料(資料不序列化至 client)
-  const reviewState = isAuditor ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
+  const isObserver = user.role === 'OBSERVER';
+  const isReviewer = isAuditor || isObserver; // 唯讀檢視者(觀察員批30 比照委員待遇,窗口各查各的)
+  // 審閱時間區間(UAT 批67;觀察員批30 用獨立窗口):不在窗口內(或未設)→ 顯鎖定卡,不渲染機關資料
+  const reviewState = reviewWindowStateForRole(user.role as Role, cycle);
   const reviewLocked = reviewState !== 'open';
-  const visibleRequirements = isAuditor
+  const visibleRequirements = isReviewer
     ? requirements.filter(
         (r) => !!r.submission && auditorCanSeePrep(r.submission.status, r.category, subWithFiles.has(r.submission.id), cycle.status),
       )
@@ -74,7 +84,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
   const yearROC = cycle.year - 1911;
   // 文件範本(中心於標準清單維護,依週期年度解析):機關/中心可整包下載依式填寫;委員不需要
-  const templateFiles = isAuditor ? [] : await getTemplateFilesForYear(cycle.year);
+  const templateFiles = isReviewer ? [] : await getTemplateFilesForYear(cycle.year);
   // 機關管理員只負責機關區(技術檢測 / 實地稽核);中心匯入由中心經手,不計入機關的「已確認齊備 X/Y」分母。
   const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
   const total = countReqs.length;
@@ -90,6 +100,13 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     select: { reviewerAuditorId: true, action: { select: { status: true } } },
   });
   const myDefs = isAuditor ? defs.filter((d) => d.reviewerAuditorId === user.id) : defs;
+  // 師徒制(批30):委員視角帶「本人指導的觀察員數」(>0 顯示指導卡);中心帶配對數(顯示觀察員窗口設定)
+  const mentorObservers = isAuditor
+    ? await prisma.cycleObserver.count({ where: { cycleId: cycle.id, mentorId: user.id } })
+    : 0;
+  const observerCount = user.role === 'SUPER_ADMIN'
+    ? await prisma.cycleObserver.count({ where: { cycleId: cycle.id } })
+    : 0;
   const defPassed = myDefs.filter((d) => d.action?.status === 'PASSED').length;
   const defReturned = myDefs.filter((d) => d.action?.status === 'RETURNED').length;
   const defSubmitted = myDefs.filter((d) => d.action?.status === 'SUBMITTED').length;
@@ -122,6 +139,8 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
       confirmed: cycle.signedReports.some((r) => r.confirmedAt),
     },
     auditorReviewState: isAuditor ? reviewState : undefined,
+    observerReviewState: isObserver ? reviewState : undefined,
+    mentorObservers: isAuditor ? mentorObservers : undefined,
   });
   const MODULE_ICONS: Record<string, React.ReactNode> = {
     prep: <FileText size={18} />,
@@ -129,6 +148,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     audit: <Eye size={18} />,
     def: <AlertTriangle size={18} />,
     report: <CheckCircle size={18} />,
+    practice: <Pencil size={18} />,
   };
 
   return (
@@ -155,8 +175,9 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           <div className="rounded-lg border border-rule bg-card p-2">
             <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">稽核作業項目</p>
             <div className="flex flex-col gap-0.5">
-              {/* 頂層模組列;檢核表為 prep 子項(childOf,批26)於 prep 列之後縮排呈現 */}
-              {modules.filter((m) => !m.childOf).flatMap((m) => [m, ...(m.key === 'prep' ? modules.filter((x) => x.childOf === 'prep') : [])]).map((m) => {
+              {/* 批33 圖1:prep 工作區左欄只列「本工作區」——稽核前資料準備 + 其檢核表子項;
+                  其他模組(進階設定/實地稽核/缺失)由頂部「回週期工作台」進入,不在此重列造成噪音。 */}
+              {modules.filter((m) => m.key === 'prep').flatMap((m) => [m, ...modules.filter((x) => x.childOf === 'prep')]).map((m) => {
                 const isChild = Boolean(m.childOf);
                 const isCurrent = m.key === 'prep';
                 const locked = m.locked && !isCurrent;
@@ -203,9 +224,18 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               initialEnd={cycle.reviewWindowEnd ? isoDate(cycle.reviewWindowEnd) : null}
             />
           )}
+          {/* 觀察員獨立審閱窗口(批30 需求一-1):僅本週期有配對觀察員時顯示,避免無觀察員時多一塊噪音 */}
+          {user.role === 'SUPER_ADMIN' && observerCount > 0 && (
+            <ReviewWindowSetting
+              variant="observer"
+              cycleId={cycle.id}
+              initialStart={cycle.observerWindowStart ? isoDate(cycle.observerWindowStart) : null}
+              initialEnd={cycle.observerWindowEnd ? isoDate(cycle.observerWindowEnd) : null}
+            />
+          )}
 
           {/* 文件範本:中心提供之應備文件空白範本(Word/Excel 等),下載依式填寫後轉 PDF 上傳 */}
-          {!isAuditor && templateFiles.length > 0 && (
+          {!isReviewer && templateFiles.length > 0 && (
             <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg ${SURFACE_INFO} px-4 py-3.5`}>
               <div className="min-w-0">
                 <p className="text-body-sm font-medium text-ink-900">文件範本({templateFiles.length} 檔)</p>
@@ -220,7 +250,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           )}
 
           {/* 完成時刻:全數確認齊備時以完成卡取代讀數格,給承辦人明確的「做完了」儀式感 */}
-          {!isAuditor && total > 0 && confirmed === total && (
+          {!isReviewer && total > 0 && confirmed === total && (
             <div className="mb-5 flex items-center gap-3.5 rounded-lg border border-success-100 bg-success-50 px-4 py-3.5">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success-600 text-white">
                 <Check size={20} />
@@ -233,7 +263,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           )}
 
           {/* 摘要統計(機關/中心):附件處理概況一目了然 */}
-          {!isAuditor && total > 0 && confirmed !== total && (
+          {!isReviewer && total > 0 && confirmed !== total && (
             <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: '要求項目', value: `${total}`, tone: '' },
@@ -248,16 +278,16 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               ))}
             </div>
           )}
-          {isAuditor && !reviewLocked && total > 0 && (
+          {isReviewer && !reviewLocked && total > 0 && (
             <p className="mb-4 text-caption text-ink-500">
               僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
             </p>
           )}
 
-          {isAuditor && reviewLocked ? (
+          {isReviewer && reviewLocked ? (
             // 審閱時間區間閘(UAT 批67):不在窗口內→顯鎖定卡,不渲染任何機關資料
             <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} />
-          ) : isAuditor && visibleRequirements.length === 0 ? (
+          ) : isReviewer && visibleRequirements.length === 0 ? (
             <div className="rounded-lg border border-rule bg-paper-sunk p-8 text-center text-body-sm text-ink-500">
               目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
             </div>

@@ -37,6 +37,8 @@ export type UserRow = {
   disabledByName: string | null;
   disabledAtISO: string | null;
   isSelf: boolean;
+  /** 有練習發現(觀察員實習;批32)→ 列「實習紀錄」連結 */
+  hasPractice: boolean;
 };
 
 type StatusFilter = 'all' | 'pending' | 'expired' | 'active' | 'disabled';
@@ -107,6 +109,7 @@ export default function UsersDirectory({
             <option value="all">全部角色</option>
             <option value="ORG_ADMIN">機關管理員</option>
             <option value="AUDITOR">稽核委員</option>
+            <option value="OBSERVER">觀察員</option>
             <option value="SUPER_ADMIN">最高管理員</option>
           </Select>
         </div>
@@ -190,7 +193,14 @@ export default function UsersDirectory({
                       <div className="text-caption font-mono text-ink-500">{u.email}</div>
                     </Td>
                     <Td>
-                      <Chip size="sm" tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Chip>
+                      <div className="flex items-center gap-1.5">
+                        <Chip size="sm" tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Chip>
+                        {u.hasPractice && (
+                          <a href={`/users/${u.id}/practice-history`} className="text-caption text-primary-700 hover:underline focus-ring rounded-sm">
+                            實習紀錄
+                          </a>
+                        )}
+                      </div>
                     </Td>
                     <Td className="text-ink-500">{u.orgName ?? '—'}</Td>
                     <Td>
@@ -223,6 +233,7 @@ export default function UsersDirectory({
                         isActive={u.isActive}
                         hasOrganization={!!u.orgId}
                         isSelf={u.isSelf}
+                        orgs={orgs}
                       />
                     </Td>
                   </Tr>

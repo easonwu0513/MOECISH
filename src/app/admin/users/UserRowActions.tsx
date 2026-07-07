@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { copyText } from '@/lib/clipboard';
 import { ROLE_LABELS, type Role } from '@/lib/types';
+import IdentityGrantsDialog from './IdentityGrantsDialog';
 
 /** 使用者列操作:停用/啟用、變更角色(不可操作自己,後端另有最後管理員防呆)。 */
 export default function UserRowActions({
@@ -18,6 +19,7 @@ export default function UserRowActions({
   isActive,
   hasOrganization,
   isSelf,
+  orgs,
 }: {
   userId: string;
   name: string;
@@ -25,6 +27,8 @@ export default function UserRowActions({
   isActive: boolean;
   hasOrganization: boolean;
   isSelf: boolean;
+  /** 身分授權(批31)ORG_ADMIN 授予時的機關清單 */
+  orgs: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -38,6 +42,9 @@ export default function UserRowActions({
   const [resetLink, setResetLink] = useState('');
   const [resetDelivered, setResetDelivered] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [grantsOpen, setGrantsOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   if (isSelf) {
     return <span className="text-caption text-ink-500">本人</span>;
@@ -76,13 +83,35 @@ export default function UserRowActions({
     setResetOpen(true);
   }
 
+  async function promote() {
+    setPromoting(true);
+    const res = await fetch(`/api/admin/users/${userId}/promote`, { method: 'POST' });
+    setPromoting(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '晉升失敗' }));
+      toast.error('晉升失敗', j.error);
+      return;
+    }
+    setPromoteOpen(false);
+    toast.success('已晉升為稽核委員', `${name} 的實習紀錄完整留存;可開始指派稽核週期。`);
+    router.refresh();
+  }
+
   const roleOptions: Role[] = hasOrganization
-    ? ['ORG_ADMIN', 'AUDITOR', 'SUPER_ADMIN']
-    : ['AUDITOR', 'SUPER_ADMIN'];
+    ? ['ORG_ADMIN', 'AUDITOR', 'OBSERVER', 'SUPER_ADMIN']
+    : ['AUDITOR', 'OBSERVER', 'SUPER_ADMIN'];
 
   return (
     <>
       <div className="flex items-center justify-end gap-1">
+        {role === 'OBSERVER' && isActive && (
+          <Button size="sm" variant="text" className="text-primary-700" onClick={() => setPromoteOpen(true)}>
+            晉升為委員
+          </Button>
+        )}
+        <Button size="sm" variant="text" onClick={() => setGrantsOpen(true)}>
+          身分授權
+        </Button>
         <Button size="sm" variant="text" onClick={() => { setNewRole(role); setRoleOpen(true); }}>
           改角色
         </Button>
@@ -216,6 +245,23 @@ export default function UserRowActions({
           <p className="text-caption text-ink-500">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
         </div>
       </Dialog>
+      <IdentityGrantsDialog
+        userId={userId}
+        name={name}
+        open={grantsOpen}
+        onOpenChange={setGrantsOpen}
+        orgs={orgs}
+      />
+
+      <ConfirmDialog
+        open={promoteOpen}
+        onOpenChange={(o) => !promoting && setPromoteOpen(o)}
+        title={`晉升「${name}」為稽核委員?`}
+        description="觀察員授權將結束(留歷史)、改持稽核委員授權;其實習紀錄(練習發現與指導回饋)完整留存,可於實習紀錄頁回顧。晉升後即可被指派為正式稽核委員。"
+        confirmLabel="晉升"
+        loading={promoting}
+        onConfirm={() => void promote()}
+      />
     </>
   );
 }

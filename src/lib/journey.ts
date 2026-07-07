@@ -185,6 +185,9 @@ export async function loadJourney(opts: {
 export function canToggleJourneyItem(role: Role, scope: JourneyScope, itemRole: string | null): boolean {
   if (scope === 'PROGRAMME') return role === 'SUPER_ADMIN';
   if (role === 'SUPER_ADMIN') return true;
+  // 觀察員(批30)不可勾選引導清單:精靈為機關/委員/中心的作業進度,觀察員僅觀摩,
+  // 勾「全體」項會污染實際作業進度紀錄。
+  if (role === 'OBSERVER') return false;
   return itemRole == null || itemRole === role;
 }
 

@@ -25,7 +25,13 @@ export async function GET() {
         ? { organizationId: user.organizationId ?? '__none__' }
         : user.role === 'AUDITOR'
           ? { assignments: { some: { auditorId: user.id } }, status: { notIn: ['DRAFT', 'CLOSED'] } }
-          : {};
+          : user.role === 'OBSERVER'
+            // 觀察員(批30):僅被配對之週期(CycleObserver),同委員排除開立中/已結案
+            ? { observers: { some: { observerId: user.id } }, status: { notIn: ['DRAFT', 'CLOSED'] } }
+            : user.role === 'SUPER_ADMIN'
+              ? {}
+              // 未知角色一律空集合(fail-closed;歷史 `: {}` 對新角色=全機關存在性洩漏)
+              : { id: '__none__' };
 
     const cycles = await prisma.auditCycle.findMany({
       where,

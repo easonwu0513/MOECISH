@@ -25,7 +25,12 @@ const BASE = {
   report: { submitted: false, confirmed: false },
 };
 const nav = (role: Role, status: CycleStatus, extra: Partial<Parameters<typeof buildModuleNav>[0]> = {}) =>
-  buildModuleNav({ ...BASE, role, status, auditorReviewState: role === 'AUDITOR' ? 'open' : undefined, ...extra });
+  buildModuleNav({
+    ...BASE, role, status,
+    auditorReviewState: role === 'AUDITOR' ? 'open' : undefined,
+    observerReviewState: role === 'OBSERVER' ? 'open' : undefined,
+    ...extra,
+  });
 const byKey = (items: ModuleNavItem[], key: string) => items.find((m) => m.key === key)!;
 
 // ── 角色卡組(批26:檢核表=prep 子項 childOf 不再獨立成卡;中心第二格=進階設定) ──
@@ -37,6 +42,38 @@ for (const st of CYCLE_STATUSES) {
   check(`ORG@${st} 頂層卡=prep,def,report(檢核表為子項)`, topKeys(nav('ORG_ADMIN', st)) === 'prep,def,report');
   check(`ORG@${st} 檢核表存在且 childOf=prep`, byKey(nav('ORG_ADMIN', st), 'checklist').childOf === 'prep');
 }
+// ── 觀察員卡組(批30):prep/檢核表審閱(唯讀)/撰寫練習——無評分、無缺失管考、無用印 ──
+for (const st of CYCLE_STATUSES) {
+  check(`OBSERVER@${st} 卡組=prep,checklist,practice`, topKeys(nav('OBSERVER', st)) === 'prep,checklist,practice');
+  const n = nav('OBSERVER', st);
+  check(`OBSERVER@${st} 無 audit/def/report/settings 卡`, !n.some((m) => ['audit', 'def', 'report', 'settings'].includes(m.key)));
+  check(`OBSERVER@${st} prep 鎖=!(可視檢核內容)`, byKey(n, 'prep').locked === !auditorCanViewChecklistContent(st));
+  check(`OBSERVER@${st} 審閱鎖=!(可視檢核內容)`, byKey(n, 'checklist').locked === !auditorCanViewChecklistContent(st));
+  check(`OBSERVER@${st} 練習鎖=!canAccess(practice.access)`, byKey(n, 'practice').locked === !canAccess('practice.access', 'OBSERVER', st));
+}
+check('OBSERVER 審閱卡標題=檢核表審閱(非委員審閱)', byKey(nav('OBSERVER', 'READY'), 'checklist').title === '檢核表審閱');
+check('OBSERVER 審閱卡 href=/review', byKey(nav('OBSERVER', 'READY'), 'checklist').href === '/cycles/cyc-1/review');
+check('OBSERVER 練習卡 href=/practice', byKey(nav('OBSERVER', 'ONSITE'), 'practice').href === '/cycles/cyc-1/practice');
+check('OBSERVER 練習卡標題=稽核發現撰寫練習', byKey(nav('OBSERVER', 'ONSITE'), 'practice').title === '稽核發現撰寫練習');
+check('OBSERVER 練習卡 caption 明示不進正式報告', byKey(nav('OBSERVER', 'ONSITE'), 'practice').caption.includes('不進入正式報告'));
+check('OBSERVER@READY 練習仍鎖(ONSITE 才開)', byKey(nav('OBSERVER', 'READY'), 'practice').locked === true);
+check('OBSERVER@ONSITE 練習開放+進行中', (() => { const m = byKey(nav('OBSERVER', 'ONSITE'), 'practice'); return !m.locked && m.status === '進行中'; })());
+// 觀察員窗口四態(獨立窗口;文案用「觀察員審閱時段」)
+check('OBSERVER@READY 窗口未設 → prep 鎖+提示未設定觀察員時段',
+  byKey(nav('OBSERVER', 'READY', { observerReviewState: 'unset' }), 'prep').lockedHint === '中心尚未設定觀察員審閱時段');
+check('OBSERVER@READY 窗口未開始 → 提示觀察員時段尚未開始',
+  byKey(nav('OBSERVER', 'READY', { observerReviewState: 'before' }), 'checklist').lockedHint === '觀察員審閱時段尚未開始');
+check('OBSERVER@READY 窗口已結束 → 提示觀察員時段已結束',
+  byKey(nav('OBSERVER', 'READY', { observerReviewState: 'after' }), 'checklist').lockedHint === '觀察員審閱時段已結束');
+check('OBSERVER@READY 窗口 open → 審閱卡開放中', byKey(nav('OBSERVER', 'READY'), 'checklist').status === '開放中');
+
+// ── 指導委員卡(批30 師徒制):有配對觀察員的委員多一張「指導觀察員」入口 ──
+check('AUDITOR 無配對 → 無 practice 卡', !nav('AUDITOR', 'ONSITE').some((m) => m.key === 'practice'));
+check('AUDITOR 有配對 → 卡組尾增 practice', topKeys(nav('AUDITOR', 'ONSITE', { mentorObservers: 2 })) === 'prep,checklist,audit,def,practice');
+check('mentor 卡標題=指導觀察員+人數', (() => { const m = byKey(nav('AUDITOR', 'ONSITE', { mentorObservers: 2 }), 'practice'); return m.title === '指導觀察員' && m.status === '2 位'; })());
+check('mentor 卡 READY 仍鎖(ONSITE 起)', byKey(nav('AUDITOR', 'READY', { mentorObservers: 1 }), 'practice').locked === true);
+check('mentor 卡 ONSITE 開放', byKey(nav('AUDITOR', 'ONSITE', { mentorObservers: 1 }), 'practice').locked === false);
+
 // 進階設定卡(中心專屬):錨點直達、永不鎖、狀態=目前階段
 check('SUPER 進階設定卡 href=#advanced-settings', byKey(nav('SUPER_ADMIN', 'ONSITE'), 'settings').href === '/cycles/cyc-1#advanced-settings');
 check('SUPER 進階設定卡永不鎖不淡化', CYCLE_STATUSES.every((st) => { const m = byKey(nav('SUPER_ADMIN', st), 'settings'); return !m.locked && !m.muted; }));

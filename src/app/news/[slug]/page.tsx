@@ -10,6 +10,7 @@ import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { POST_CATEGORY_TONE } from '@/lib/tone';
 import { fmtROC } from '@/lib/date';
+import { postPubliclyVisible } from '@/lib/posts';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
     where: { slug: params.slug },
     include: { attachments: { orderBy: { id: 'asc' } } },
   });
-  if (!post || post.status !== 'PUBLISHED') notFound();
+  if (!post || !postPubliclyVisible(post)) notFound();
 
   return (
     <div className="min-h-screen bg-paper-sunk flex flex-col">

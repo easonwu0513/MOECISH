@@ -5,9 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { cn } from '@/lib/cn';
 import { Chip } from '../ui/Chip';
-import { ChevronDown, LogOut, User } from '../icons';
+import { ChevronDown, LogOut, User, Users } from '../icons';
 import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
 import { ROLE_SURFACE } from '@/lib/tone';
+
+// 多重身分(批31/方案A):開選單時懶載本帳號可用身分;>1 個才顯示「切換身分」段。
+// 切換成功後整頁導回 /dashboard(full reload)——session 於下一請求由 jwt 回查同步,
+// 且各頁面/客端元件持有的角色態一併重建,避免半新半舊。
+type IdentityDTO = { role: Role; organizationId: string | null; organizationName: string | null; current: boolean };
 
 // 頭像底色由 lib/tone 的 ROLE_SURFACE 單一來源提供(批72:消除第二份角色配色,與 TopStrip 頂帶／角色 Chip 共用 ROLE_TONE)
 const avatarBg = ROLE_SURFACE;
@@ -25,6 +30,43 @@ export function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [identities, setIdentities] = useState<IdentityDTO[] | null>(null);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    if (!open || identities !== null) return;
+    let cancelled = false;
+    fetch('/api/identity')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j) setIdentities(j.identities ?? []); })
+      .catch(() => { if (!cancelled) setIdentities([]); });
+    return () => { cancelled = true; };
+  }, [open, identities]);
+
+  async function switchIdentity(target: IdentityDTO) {
+    if (target.current || switching) return;
+    setSwitching(true);
+    try {
+      const res = await fetch('/api/identity', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role: target.role, organizationId: target.organizationId }),
+      });
+      if (res.ok) {
+        // 清除側欄週期快取:兩個 ORG_ADMIN 身分的 nav 快取鍵僅含 role 會相撞,切換後殘留他機關院名
+        // (批31 對抗審查 P2);sessionStorage 跨 reload 存活,故切換前主動清 moecish.nav.*。
+        try {
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('moecish.nav.')) sessionStorage.removeItem(k);
+          }
+        } catch { /* ignore */ }
+        window.location.assign('/dashboard');
+        return;
+      }
+    } catch { /* 落到重置 */ }
+    setSwitching(false);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -98,6 +140,31 @@ export function UserMenu({
               )}
             </div>
           </div>
+          {identities !== null && identities.length > 1 && (
+            <div className="py-2 border-b border-rule">
+              <p className="px-5 pt-1 pb-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500 flex items-center gap-1.5">
+                <Users size={14} /> 切換身分
+              </p>
+              {identities.map((it) => (
+                <button
+                  key={`${it.role}:${it.organizationId ?? ''}`}
+                  role="menuitem"
+                  disabled={it.current || switching}
+                  onClick={() => void switchIdentity(it)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-5 h-11 text-body-sm transition-colors',
+                    it.current ? 'text-ink-500 cursor-default bg-card/60' : 'text-ink-900 hover:bg-card',
+                  )}
+                >
+                  <Chip tone={ROLE_TONE[it.role]} size="sm">{ROLE_LABELS[it.role]}</Chip>
+                  <span className="min-w-0 flex-1 truncate text-left">
+                    {it.organizationName ?? (it.role === 'SUPER_ADMIN' ? '中心' : '')}
+                  </span>
+                  {it.current && <span className="text-caption text-ink-500 shrink-0">目前</span>}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="py-2">
             <Link
               href="/account"

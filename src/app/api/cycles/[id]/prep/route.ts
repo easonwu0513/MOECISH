@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
-import { auditorCanSeePrep, auditorReviewWindowOpen } from '@/lib/types';
+import { auditorCanSeePrep, reviewWindowOpenForRole } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -23,10 +23,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           orderBy: { uploadedAt: 'asc' },
         })
       : [];
-    // 委員僅能看到開放項目(機關區已確認齊備、中心匯入區有檔)— API 層過濾,非僅畫面
-    if (user.role === 'AUDITOR') {
-      // 審閱時間區間閘(UAT 批67):不在窗口內(或未設)→ 委員一律看不到任何機關資料
-      if (!auditorReviewWindowOpen(cycle.reviewWindowStart, cycle.reviewWindowEnd)) {
+    // 委員/觀察員僅能看到開放項目(機關區已確認齊備、中心匯入區有檔)— API 層過濾,非僅畫面
+    if (user.role === 'AUDITOR' || user.role === 'OBSERVER') {
+      // 審閱時間區間閘(UAT 批67;觀察員批30 查獨立窗口):不在窗口內(或未設)→ 一律看不到任何機關資料
+      if (!reviewWindowOpenForRole(user.role, cycle)) {
         return NextResponse.json({ items: [], files: [] });
       }
       const withFiles = new Set(files.map((f) => f.targetId));

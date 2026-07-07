@@ -140,6 +140,10 @@ async function cleanup() {
   const defs = await prisma.deficiency.findMany({ where: { cycleId: { in: cycleIds } }, select: { id: true } });
   await prisma.correctiveAction.deleteMany({ where: { deficiencyId: { in: defs.map((d) => d.id) } } });
   await prisma.deficiency.deleteMany({ where: { cycleId: { in: cycleIds } } });
+  await prisma.practiceFeedback.deleteMany({ where: { practiceFinding: { cycleId: { in: cycleIds } } } }).catch(() => {});
+  await prisma.practiceFinding.deleteMany({ where: { cycleId: { in: cycleIds } } }).catch(() => {});
+  await prisma.cycleObserver.deleteMany({ where: { cycleId: { in: cycleIds } } }).catch(() => {});
+  await prisma.userRole.deleteMany({ where: { user: { email: { startsWith: 'isotest-' } } } }).catch(() => {});
   await prisma.auditorAssignment.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.prepRequirement.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.cycleStateTransition.deleteMany({ where: { cycleId: { in: cycleIds } } }).catch(() => {});
@@ -173,11 +177,15 @@ async function main() {
   const orgB = await prisma.organization.create({
     data: { code: 'ISOTEST-B', name: '隔離測試乙醫院', shortName: '測乙' },
   });
-  const [adminA, adminB, auditorX, auditorY] = await Promise.all([
+  const [adminA, adminB, auditorX, auditorY, auditorZ, observer1, observer2] = await Promise.all([
     prisma.user.create({ data: { email: 'isotest-orga@test.local', name: '甲機關管理員', passwordHash: hash, role: 'ORG_ADMIN', organizationId: orgA.id, isActive: true } }),
     prisma.user.create({ data: { email: 'isotest-orgb@test.local', name: '乙機關管理員', passwordHash: hash, role: 'ORG_ADMIN', organizationId: orgB.id, isActive: true } }),
     prisma.user.create({ data: { email: 'isotest-auditor-x@test.local', name: '未指派委員X', passwordHash: hash, role: 'AUDITOR', isActive: true } }),
     prisma.user.create({ data: { email: 'isotest-auditor-y@test.local', name: '指派委員Y', passwordHash: hash, role: 'AUDITOR', isActive: true } }),
+    // 批30 觀察員夾具:Z=同週期被指派但「非指導」委員(驗 mentor 隔離);O1=配對觀察員;O2=未配對觀察員
+    prisma.user.create({ data: { email: 'isotest-auditor-z@test.local', name: '非指導委員Z', passwordHash: hash, role: 'AUDITOR', isActive: true } }),
+    prisma.user.create({ data: { email: 'isotest-observer-1@test.local', name: '配對觀察員O1', passwordHash: hash, role: 'OBSERVER', isActive: true } }),
+    prisma.user.create({ data: { email: 'isotest-observer-2@test.local', name: '未配對觀察員O2', passwordHash: hash, role: 'OBSERVER', isActive: true } }),
   ]);
   const now = new Date();
   const in30d = new Date(now.getTime() + 30 * 86400000);
@@ -193,6 +201,20 @@ async function main() {
   });
   await prisma.auditorAssignment.create({ data: { cycleId: cycleA.id, auditorId: auditorY.id } });
   await prisma.auditorAssignment.create({ data: { cycleId: cycleOn.id, auditorId: auditorY.id } });
+  await prisma.auditorAssignment.create({ data: { cycleId: cycleOn.id, auditorId: auditorZ.id } });
+  // 觀察員配對(批30):O1 配對至 ONSITE 週期,指導委員=Y(Z 同週期被指派但非其 mentor)
+  await prisma.cycleObserver.create({ data: { cycleId: cycleOn.id, observerId: observer1.id, mentorId: auditorY.id } });
+  // O1 的既有練習發現(直接建夾具,供讀取/回饋/編修隔離測試)
+  const pf1 = await prisma.practiceFinding.create({
+    data: { cycleId: cycleOn.id, observerId: observer1.id, aspect: 'STRATEGY', kind: 'IMPROVE', content: '隔離測試練習發現內容' },
+  });
+  // A 機關用印掃描檔夾具(供 signed-report 跨機關 IDOR/角色隔離測試,對抗審查 P0)
+  const signedA = await prisma.signedReport.create({
+    data: {
+      cycleId: cycleA.id, fileName: 'iso-signed.pdf', sha256: 'isosignedhash',
+      fileKey: `signed/${cycleA.id}/iso-signed.pdf`, uploadedById: adminA.id,
+    },
+  });
   const defA = await prisma.deficiency.create({
     data: { cycleId: cycleA.id, aspect: 'STRATEGY', type: 'IMPROVE', itemNo: 999, description: '隔離測試用缺失', createdById: adminA.id },
   });
@@ -221,9 +243,10 @@ async function main() {
     },
   });
 
-  console.log('[isolation] 登入 4 個測試帳號…');
-  const [jarA, jarB, jarX, jarY] = await Promise.all([
+  console.log('[isolation] 登入 7 個測試帳號…');
+  const [jarA, jarB, jarX, jarY, jarZ, jarO1, jarO2] = await Promise.all([
     login(adminA.email), login(adminB.email), login(auditorX.email), login(auditorY.email),
+    login(auditorZ.email), login(observer1.email), login(observer2.email),
   ]);
 
   const itemPath = (cid: string) =>
@@ -323,6 +346,63 @@ async function main() {
   await expectStatus('指派委員Y 資料準備中匯出A檢核表', jarY, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [403]);
   await expectStatus('指派委員Y 資料準備中開A檢核表頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/checklist`, REDIRECTED);
   await expectStatus('指派委員Y 資料準備中開A審閱頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/review`, REDIRECTED);
+
+  console.log('\n── 觀察員練習模組隔離(批30 師徒制)──');
+  const practicePath = `/api/cycles/${cycleOn.id}/practice-findings`;
+  const practiceBody = { aspect: 'STRATEGY', kind: 'SUGGEST', content: '隔離測試觀察員練習內容' };
+  // 陽性:配對觀察員 O1 可讀寫自己的練習;指導委員 Y 可讀+回饋
+  await expectAllowed('配對觀察員O1 列自己練習', jarO1, 'GET', practicePath);
+  await expectAllowed('配對觀察員O1 新增練習發現', jarO1, 'POST', practicePath, practiceBody);
+  await expectAllowed('配對觀察員O1 編修自己練習', jarO1, 'PATCH', `/api/practice-findings/${pf1.id}`, { content: '隔離測試練習發現內容(修)' });
+  await expectAllowed('指導委員Y 列配對觀察員練習', jarY, 'GET', practicePath);
+  await expectAllowed('指導委員Y 給練習回饋', jarY, 'POST', `/api/practice-findings/${pf1.id}/feedback`, { content: '隔離測試回饋' });
+  // mentor 隔離:同週期被指派、但非該觀察員 mentor 的委員 Z 一律不可見/不可回饋
+  await expectStatus('非指導委員Z 列練習(非mentor)', jarZ, 'GET', practicePath, [403]);
+  await expectStatus('非指導委員Z 給練習回饋(非mentor)', jarZ, 'POST', `/api/practice-findings/${pf1.id}/feedback`, [403], { content: 'x' });
+  // 配對隔離:未配對觀察員 O2 全擋;跨週期(O1→未配對的 cycleA)亦擋
+  await expectStatus('未配對觀察員O2 列練習', jarO2, 'GET', practicePath, [403]);
+  await expectStatus('未配對觀察員O2 開練習頁(redirect)', jarO2, 'GET', `/cycles/${cycleOn.id}/practice`, REDIRECTED);
+  await expectStatus('未配對觀察員O2 編修O1練習', jarO2, 'PATCH', `/api/practice-findings/${pf1.id}`, [403], { content: 'xxxxx' });
+  await expectStatus('配對觀察員O1 列未配對週期練習', jarO1, 'GET', `/api/cycles/${cycleA.id}/practice-findings`, [403]);
+  // 機關完全不可見練習(需求二-2)
+  await expectStatus('A管理員 列練習(機關不可見)', jarA, 'GET', practicePath, [403]);
+  // 觀察員不可回饋(回饋=指導委員專屬)
+  await expectStatus('觀察員O1 自給回饋(非委員)', jarO1, 'POST', `/api/practice-findings/${pf1.id}/feedback`, [403], { content: 'x' });
+
+  console.log('\n── 觀察員擋官方稽核面(完全移除評分/缺失/正式發現/審閱意見)──');
+  await expectStatus('觀察員O1 評分(無評分功能)', jarO1, 'PUT', `/api/cycles/${cycleOn.id}/audit/scores`, [403], scoreBody);
+  await expectStatus('觀察員O1 新增正式發現', jarO1, 'POST', `/api/cycles/${cycleOn.id}/audit/findings`, [403], findingBody);
+  await expectStatus('觀察員O1 開評分頁(redirect→練習)', jarO1, 'GET', `/cycles/${cycleOn.id}/audit`, REDIRECTED);
+  await expectStatus('觀察員O1 留審閱意見(僅委員)', jarO1, 'POST', `/api/responses/${respOn.id}/comments`, [403], cmtBody);
+  await expectStatus('觀察員O1 開缺失頁(不開放,redirect)', jarO1, 'GET', `/cycles/${cycleOn.id}/deficiencies`, REDIRECTED);
+  await expectStatus('觀察員O1 匯出檢核表(不提供下載)', jarO1, 'GET', `/api/cycles/${cycleOn.id}/export/checklist`, [403]);
+  // 對抗審查修補回歸(端點層,非僅頁面 redirect):
+  await expectStatus('觀察員O1 直打缺失清單 API(P1)', jarO1, 'GET', `/api/cycles/${cycleOn.id}/deficiencies`, [403]);
+  await expectStatus('觀察員O1 列用印掃描檔清單(P2)', jarO1, 'GET', `/api/cycles/${cycleOn.id}/signed-reports`, [403]);
+  await expectStatus('觀察員O1 上傳檢核表佐證(唯讀,P2)', jarO1, 'POST', '/api/evidences', [403], undefined);
+  // 用印掃描檔跨機關 IDOR(P0):觀察員/未指派委員/他機關 一律不可下載他人用印檔
+  await expectStatus('觀察員O1 下載A用印掃描檔(跨租戶IDOR,P0)', jarO1, 'GET', `/api/signed-reports/${signedA.id}/download`, [403]);
+  await expectStatus('未指派委員X 下載A用印掃描檔', jarX, 'GET', `/api/signed-reports/${signedA.id}/download`, [403]);
+  await expectStatus('B管理員 下載A用印掃描檔(他機關)', jarB, 'GET', `/api/signed-reports/${signedA.id}/download`, [403]);
+  await expectStatus('指派委員Y 下載A用印掃描檔(委員不參與用印)', jarY, 'GET', `/api/signed-reports/${signedA.id}/download`, [403]);
+  // 陽性:自家機關管理員通過授權(200);夾具檔案未實際落地,故 readFileByKey 可能 500——
+  // 兩者皆證明「未被 403 擋下」(此案要證的是 allowlist 有放行自家機關,非檔案 I/O)。
+  await expectStatus('A管理員 下載自家用印掃描檔(陽性:通過授權)', jarA, 'GET', `/api/signed-reports/${signedA.id}/download`, [200, 500]);
+  // 觀察員檢核表佐證:ONSITE 練習豁免窗口(比照委員評分豁免;配對隔離仍在)
+  await expectAllowed('配對觀察員O1 ONSITE列檢核表佐證(練習豁免窗口)', jarO1, 'GET', eviListClOn);
+  await expectStatus('未配對觀察員O2 ONSITE列檢核表佐證', jarO2, 'GET', eviListClOn, [403]);
+
+  console.log('\n── 多重身分/晉升(批31/32)──');
+  await expectStatus('觀察員O1 切換為委員身分(無授權)', jarO1, 'POST', '/api/identity', [403], { role: 'AUDITOR', organizationId: null });
+  await expectStatus('觀察員O1 切換為中心身分(無授權)', jarO1, 'POST', '/api/identity', [403], { role: 'SUPER_ADMIN', organizationId: null });
+  await expectStatus('匿名 讀身分清單', null, 'GET', '/api/identity', [401]);
+  await expectStatus('B管理員 授予身分(非中心)', jarB, 'POST', `/api/admin/users/${observer2.id}/roles`, [403], { role: 'AUDITOR' });
+  await expectStatus('B管理員 晉升觀察員(非中心)', jarB, 'POST', `/api/admin/users/${observer1.id}/promote`, [403]);
+  await expectStatus('委員Y 晉升觀察員(非中心)', jarY, 'POST', `/api/admin/users/${observer1.id}/promote`, [403]);
+  await expectStatus('觀察員O2 讀他人身分授權(非中心)', jarO2, 'GET', `/api/admin/users/${observer1.id}/roles`, [403]);
+  // 身分切換不可跨機關竄改(Q3 org-hopping):A 管理員只持 ORG_ADMIN@A,冒 organizationId=B 一律 403
+  await expectStatus('A管理員 切換為B機關管理員(無授權/org-hop)', jarA, 'POST', '/api/identity', [403], { role: 'ORG_ADMIN', organizationId: orgB.id });
+  await expectStatus('A管理員 切換為委員(無授權)', jarA, 'POST', '/api/identity', [403], { role: 'AUDITOR', organizationId: null });
 
   console.log('\n[isolation] 清理夾具…');
   await cleanup();

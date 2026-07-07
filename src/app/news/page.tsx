@@ -11,6 +11,7 @@ import { PortalFooter } from '@/components/portal/PortalFooter';
 import { POST_CATEGORIES, POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { POST_CATEGORY_TONE } from '@/lib/tone';
 import { fmtROC } from '@/lib/date';
+import { publicPostWhere } from '@/lib/posts';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,12 +27,12 @@ export default async function NewsPage({
 
   const [posts, catCounts] = await Promise.all([
     prisma.post.findMany({
-      where: { status: 'PUBLISHED', ...(category ? { category } : {}) },
+      where: { ...publicPostWhere(), ...(category ? { category } : {}) },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       take: 50,
       select: { id: true, slug: true, category: true, title: true, important: true, pinned: true, publishedAt: true },
     }),
-    prisma.post.groupBy({ by: ['category'], where: { status: 'PUBLISHED' }, _count: true }),
+    prisma.post.groupBy({ by: ['category'], where: publicPostWhere(), _count: true }),
   ]);
   const countByCat = Object.fromEntries(catCounts.map((c) => [c.category, c._count])) as Record<string, number>;
   const totalCount = catCounts.reduce((s, c) => s + c._count, 0);

@@ -22,7 +22,19 @@ type PostData = {
   important: boolean;
   pinned: boolean;
   status: string;
+  publishedAtISO?: string | null;
+  unpublishAtISO?: string | null;
 };
+
+/** ISO(UTC)→ datetime-local 輸入值(台灣時間 YYYY-MM-DDTHH:mm);null→''。 */
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  // 轉 +08:00 當地時間再取 YYYY-MM-DDTHH:mm
+  const tw = new Date(d.getTime() + 8 * 3600 * 1000);
+  return tw.toISOString().slice(0, 16);
+}
 
 type PostAtt = { id: string; fileName: string; mimeType: string; sizeBytes: number };
 
@@ -41,6 +53,9 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
   const [contentMd, setContentMd] = useState(post?.contentMd ?? '');
   const [important, setImportant] = useState(post?.important ?? false);
   const [pinned, setPinned] = useState(post?.pinned ?? false);
+  // 批33 排程上下架(datetime-local;台灣時間)。空=立即上架/不自動下架。
+  const [publishAt, setPublishAt] = useState(isoToLocalInput(post?.publishedAtISO));
+  const [unpublishAt, setUnpublishAt] = useState(isoToLocalInput(post?.unpublishAtISO));
   const [busy, setBusy] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [titleErr, setTitleErr] = useState<string | null>(null);
@@ -48,15 +63,22 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
   const titleRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  async function save(): Promise<string | null> {
+  /** 儲存(建立=POST 為草稿;既有=PATCH)。extra 供發布時一併帶入 status+排程,避免分兩次 PATCH
+   *  導致第二次無排程 body 把 publishedAt 覆寫成 now(排程被清)。 */
+  async function save(extra: Record<string, unknown> = {}): Promise<string | null> {
     const badTitle = title.trim().length < 2;
     const badContent = contentMd.trim().length < 5;
     setTitleErr(badTitle ? '請輸入標題（至少 2 個字）' : null);
     setContentErr(badContent ? '請輸入內文（至少 5 個字）' : null);
     if (badTitle) { titleRef.current?.focus(); return null; }
     if (badContent) { contentRef.current?.focus(); return null; }
+    if (publishAt && unpublishAt && unpublishAt <= publishAt) {
+      toast.error('時間設定不正確', '排定下架時間須晚於上架時間。');
+      return null;
+    }
     setBusy(true);
-    const payload = { title: title.trim(), category, contentMd, important, pinned };
+    // 排程欄一律隨存帶上(草稿也保留設定);建立(POST)zod 會略去排程欄(新公告一律草稿)。
+    const payload = { title: title.trim(), category, contentMd, important, pinned, publishAt, unpublishAt, ...extra };
     const res = isNew
       ? await fetch('/api/admin/posts', {
           method: 'POST',
@@ -87,24 +109,47 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
     }
   }
 
+  const scheduledFuture = () => {
+    if (!publishAt) return false;
+    return new Date(`${publishAt}:00+08:00`).getTime() > Date.now();
+  };
+  // 發布後實際是否已過下架時間(前台不會顯示)——用於誠實的 toast(對抗審查 P2:避免「已發布/立即可見」誤導)。
+  const alreadyOff = () => {
+    if (!unpublishAt) return false;
+    return new Date(`${unpublishAt}:00+08:00`).getTime() <= Date.now();
+  };
+
   async function publish() {
-    const id = await save();
-    if (!id) return;
-    setBusy(true);
-    const res = await fetch(`/api/admin/posts/${id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status: 'PUBLISHED' }),
-    });
-    setBusy(false);
-    if (res.ok) {
-      toast.success('已發布', '前台立即可見。');
-      router.push('/admin/posts');
-      router.refresh();
+    // 既有公告:一次 PATCH 帶 status+排程。新公告:先 POST 建草稿,再 PATCH 發布(帶排程)。
+    let id: string | null;
+    if (isNew) {
+      id = await save();
+      if (!id) return;
+      setBusy(true);
+      const res = await fetch(`/api/admin/posts/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'PUBLISHED', publishAt, unpublishAt }),
+      });
+      setBusy(false);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: '發布失敗' }));
+        toast.error('發布失敗', j.error);
+        return;
+      }
     } else {
-      const j = await res.json().catch(() => ({ error: '發布失敗' }));
-      toast.error('發布失敗', j.error);
+      id = await save({ status: 'PUBLISHED' });
+      if (!id) return;
     }
+    if (alreadyOff()) {
+      toast.warning('已發布,但已過排定下架時間', '前台目前不會顯示;如需顯示,請於編輯頁調整或清除下架時間。');
+    } else if (scheduledFuture()) {
+      toast.success('已排程發布', '將於指定上架時間對外顯示。');
+    } else {
+      toast.success('已發布', '前台立即可見。');
+    }
+    router.push('/admin/posts');
+    router.refresh();
   }
 
   async function archive() {
@@ -218,6 +263,30 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
             標記重要(前台紅色橫幅)
           </label>
         </div>
+
+        {/* 批33 排程上下架:設定何時上架、何時自動下架,免人工盯場。 */}
+        <div className="rounded-lg border border-rule bg-paper-sunk p-4">
+          <p className="text-title text-ink-900">排程上下架</p>
+          <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
+            按「發布」後,系統依此時間窗自動控制前台顯示:上架時間未到=「待發布」、到達=「發布中」、
+            過下架時間=自動「已下架」。留空=立即上架 / 不自動下架。
+          </p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextField
+              label="排定上架時間(留空=立即)"
+              type="datetime-local"
+              value={publishAt}
+              onChange={(e) => setPublishAt(e.target.value)}
+            />
+            <TextField
+              label="排定下架時間(留空=不自動下架)"
+              type="datetime-local"
+              value={unpublishAt}
+              onChange={(e) => setUnpublishAt(e.target.value)}
+            />
+          </div>
+        </div>
+
         <Textarea
           ref={contentRef}
           label="內文(Markdown)"

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertEvidenceAccess } from '@/lib/rbac';
+import { assertEvidenceAccess, requireUser } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
 import { prepOrgCanEdit, checklistOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
@@ -40,6 +40,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    // 上傳=寫入官方紀錄:僅機關(自家佐證)與中心(匯入區)可上傳。委員/觀察員(批30)為唯讀,
+    // 於解析檔案前即擋下(assertEvidenceAccess 是「讀取」授權,已放行委員/觀察員的線上檢視;寫入須另擋
+    // ——否則觀察員可對機關檢核表/資料準備附加佐證,污染官方紀錄;批30 對抗審查 P2)。
+    const actor = await requireUser();
+    if (actor.role === 'AUDITOR' || actor.role === 'OBSERVER') {
+      return NextResponse.json({ error: '委員與觀察員為唯讀,不可上傳佐證' }, { status: 403 });
+    }
+
     const fd = await req.formData();
     const file = fd.get('file') as File | null;
     const targetType = String(fd.get('targetType') ?? '');

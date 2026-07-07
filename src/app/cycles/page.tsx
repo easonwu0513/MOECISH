@@ -30,7 +30,11 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
       : user.role === 'AUDITOR'
       // 委員不顯示開立中(DRAFT)週期(對齊 access-policy 'cycle.access';dashboard 同步)
       ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
-      : {};
+      : user.role === 'OBSERVER'
+      // 觀察員(批30):限被配對之週期(CycleObserver),同樣不顯示開立中
+      ? { observers: { some: { observerId: user.id } }, status: { not: 'DRAFT' } }
+      // 未知角色 fail-closed(對齊 nav/cycles;避免未來新角色落入全機關)
+      : user.role === 'SUPER_ADMIN' ? {} : { id: '__none__' };
 
   const cycles = await prisma.auditCycle.findMany({
     where,
@@ -109,8 +113,8 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
             const auditorDims = user.role === 'AUDITOR'
               ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
               : [];
-            // 委員於結案後不可再進入(access-policy cycle.access);清單顯示已結案、卡片鎖定不可點
-            const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+            // 委員/觀察員於結案後不可再進入(access-policy cycle.access);清單顯示已結案、卡片鎖定不可點
+            const lockedForAuditor = (user.role === 'AUDITOR' || user.role === 'OBSERVER') && c.status === 'CLOSED';
             const card = (
                 <Card interactive={!lockedForAuditor} variant="elevated" className={lockedForAuditor ? 'bg-paper-sunk' : undefined}>
                   <div className="flex items-center justify-between gap-3 mb-4">

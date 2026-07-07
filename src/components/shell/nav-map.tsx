@@ -60,7 +60,9 @@ export type NavRoute = {
   sidebar?: boolean;
 };
 
-const ALL: Role[] = ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN'];
+// ALL 含觀察員(批30):觀察員可用「總覽/稽核週期」基本導覽;其餘後台路由維持 ADMIN,
+// 觀察員的工作區入口(檢核表審閱/撰寫練習)由側欄週期樹(CycleNavTree)與週期頁模組卡派生。
+const ALL: Role[] = ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN', 'OBSERVER'];
 const ADMIN: Role[] = ['SUPER_ADMIN'];
 
 export const NAV_ROUTES: NavRoute[] = [

@@ -31,6 +31,8 @@ export default async function ChecklistPage({ params }: { params: { id: string }
   ) {
     redirect('/dashboard');
   }
+  // 觀察員(批30):檢核表「填報」頁為機關/中心動線;觀察員唯讀動線一律走審閱頁
+  if (user.role === 'OBSERVER') redirect(`/cycles/${params.id}/review`);
   // 委員僅能進入被指派的週期(與審閱頁/API 同一道隔離)
   if (
     user.role === 'AUDITOR' &&

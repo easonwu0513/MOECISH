@@ -30,6 +30,8 @@ export default async function CycleActivityPage({ params }: { params: { id: stri
   if (!cycle) notFound();
   // 存取控制(對齊週期頁):機關限本院、委員須受指派且非開立中
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  // 觀察員(批30):活動歷史屬機關/委員/中心工作紀錄,不對觀察員開放(未列舉即拒絕)
+  if (user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) {
     redirect('/dashboard');
   }

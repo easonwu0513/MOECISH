@@ -53,6 +53,8 @@ export default async function DeficiencyDetailPage({
 
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  // 觀察員(批30):缺失與矯正管考不開放(需求一-2;對齊 access-policy deficiencies.view=一律 false)
+  if (user.role === 'OBSERVER') redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
   // 委員只可檢視/審核「指派給本人審閱」的缺失(UAT 批66:不得以 URL 開他人審閱之缺失詳情);
   // 未指派審閱委員(reviewerAuditorId=null)之缺失,任一委員皆不可見(對齊清單/計數的 reviewer-aware 過濾)。

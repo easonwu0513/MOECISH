@@ -26,6 +26,9 @@ export default async function UsersPage() {
     }),
     prisma.organization.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ]);
+  // 實習紀錄(批32):有練習發現的帳號列「實習紀錄」連結(觀察員或已晉升委員皆適用)
+  const practiced = await prisma.practiceFinding.groupBy({ by: ['observerId'] });
+  const practicedIds = new Set(practiced.map((g) => g.observerId));
 
   // 生命週期視圖只列「待接受/已過期」邀請(已接受者已成帳號、已撤銷者已有替代邀請,不列避免噪音)
   const inviteRows: InviteRow[] = invites
@@ -55,6 +58,7 @@ export default async function UsersPage() {
     disabledByName: u.disabledByName,
     disabledAtISO: u.disabledAt ? u.disabledAt.toISOString() : null,
     isSelf: u.id === user.id,
+    hasPractice: practicedIds.has(u.id),
   }));
 
   return (

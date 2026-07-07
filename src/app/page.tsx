@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
 import { TONE, POST_CATEGORY_TONE } from '@/lib/tone';
 import { fmtROC } from '@/lib/date';
+import { publicPostWhere } from '@/lib/posts';
 
 /** Markdown → 純文字摘要(新聞卡用,僅去符號不渲染)。 */
 function excerpt(md: string, len = 64): string {
@@ -48,7 +49,7 @@ export default async function LandingPage() {
 
   const [posts, latestVersion, important] = await Promise.all([
     prisma.post.findMany({
-      where: { status: 'PUBLISHED' },
+      where: publicPostWhere(),
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       take: 6,
       select: { id: true, slug: true, category: true, title: true, contentMd: true, important: true, pinned: true, publishedAt: true },
@@ -62,7 +63,7 @@ export default async function LandingPage() {
     // 重要橫幅獨立精準查詢(全掃 P2):原 posts.find(important) 只看前 6 筆,標了 important 但被較新/置頂
     // 公告擠出前 6 就漏顯頂欄示警;此處直接撈最新一筆 important,與卡片列表解耦。
     prisma.post.findFirst({
-      where: { status: 'PUBLISHED', important: true },
+      where: { ...publicPostWhere(), important: true },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       select: { id: true, slug: true, title: true },
     }),

@@ -14,7 +14,7 @@ import { StageFlowRail } from '@/components/dashboard/StageFlowRail';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { loadJourney, toClientStages } from '@/lib/journey';
 import type { JourneyClientItem } from '@/components/journey/JourneyChecklist';
-import { auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
+import { auditorCanSeeCycle, reviewWindowStateForRole, CYCLE_STATUSES, DEFICIENCY_ASPECT_LABELS, ROLE_LABELS, ROLE_TONE, type CycleStatus, type Role, type DeficiencyAspect } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
 import { buildModuleNav } from '@/lib/cycle-modules';
 import { getCycleActivities } from '@/lib/cycle-activity';
@@ -24,6 +24,7 @@ import NotifyButton from './NotifyButton';
 import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
 import AssignAuditorsPanel from './AssignAuditorsPanel';
+import AssignObserversPanel from './AssignObserversPanel';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
@@ -38,6 +39,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   audit: <Eye size={18} />,
   def: <AlertTriangle size={18} />,
   report: <CheckCircle size={18} />,
+  practice: <ClipboardCheck size={18} />,
 };
 
 export default async function CyclePage({ params, searchParams }: { params: { id: string }; searchParams: { stage?: string } }) {
@@ -62,6 +64,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   // 委員:未指派 → 導回;開立中(DRAFT)亦不可見(中心仍在調整名單,PREPARATION 起才開放)
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
+  // 觀察員(批30):未配對 → 導回;開立中亦不可見(配對查 CycleObserver,絕不與委員指派混表)
+  if (user.role === 'OBSERVER') {
+    const paired = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
+      select: { id: true },
+    });
+    if (!paired || !auditorCanSeeCycle(cycle.status)) redirect('/dashboard');
+  }
+  // 師徒制(批30):委員視角帶「本人指導的觀察員數」(>0 顯示「指導觀察員」入口卡)
+  const mentorObservers = user.role === 'AUDITOR'
+    ? await prisma.cycleObserver.count({ where: { cycleId: cycle.id, mentorId: user.id } })
+    : 0;
 
   // 委員視角:本人於此週期受指派負責的構面(標頭標註;評分不再以 X/9 呈現,因各委員只評負責構面)
   const myAssignment = user.role === 'AUDITOR' ? cycle.assignments.find((a) => a.auditorId === user.id) : null;
@@ -108,8 +122,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const facts = deriveCycleFacts(cycle, undefined, user.role === 'AUDITOR' ? user.id : undefined);
   const next = nextActionForRole(user.role, facts);
 
-  // 委員審閱時間區間(UAT 批67):不在窗口內(或未設)→ 資料準備/委員審閱卡鎖定+提示原因(細節於 lib/cycle-modules)
-  const reviewState = user.role === 'AUDITOR' ? auditorReviewWindowState(cycle.reviewWindowStart, cycle.reviewWindowEnd) : 'open';
+  // 委員/觀察員審閱時間區間(UAT 批67;觀察員批30 獨立窗口):不在窗口內(或未設)→ 資料準備/審閱卡鎖定+提示原因
+  const reviewState = reviewWindowStateForRole(user.role as Role, cycle);
 
   // 下一步 CTA(頂部卡右側):
   //  中心=推進類(href 指回本頁)由頂部推進鈕群承擔不重複;但「跨頁捷徑」型下一步(去發布/去追蹤/寄提醒
@@ -145,7 +159,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
   // (減法:原「全數缺失矯正通過!」success 提醒已刪——同一句話已由頂部「下一步」與用印卡/儀表板待辦表達,同頁三講)
   const stForMod = cycle.status as CycleStatus;
-  if (user.role !== 'AUDITOR' && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
+  if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
     alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
   }
   if (user.role === 'SUPER_ADMIN' && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED') && committeeTotal > 0 && committeeScored < committeeTotal) {
@@ -164,7 +178,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   if (user.role === 'SUPER_ADMIN' && !cycle.dueDate && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION')) {
     alerts.push({ tone: 'warning', title: '矯正截止日尚未設定', desc: '發布缺失前請先於「編輯日曆」設定日期。' });
   }
-  if (user.role !== 'AUDITOR' && stForMod === 'REMEDIATION' && !facts.allPassed && cycle.dueDate) {
+  if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'REMEDIATION' && !facts.allPassed && cycle.dueDate) {
     if (facts.overdue) alerts.push({ tone: 'danger', title: `矯正已逾期 ${Math.abs(daysToDue)} 天`, desc: '請儘速完成或督促機關改善。' });
     else if (daysToDue <= 14) alerts.push({ tone: 'warning', title: `距矯正截止剩 ${daysToDue} 天`, desc: '請留意改善進度。' });
   }
@@ -189,6 +203,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       confirmed: cycle.signedReports.some((r) => r.confirmedAt),
     },
     auditorReviewState: user.role === 'AUDITOR' ? reviewState : undefined,
+    observerReviewState: user.role === 'OBSERVER' ? reviewState : undefined,
+    mentorObservers: user.role === 'AUDITOR' ? mentorObservers : undefined,
   });
 
   // 引導式精靈(本週期各階段 checklist):中心看全部、機關/委員看自己角色 + 全體項。
@@ -527,7 +543,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           {/* 匯出:委員不需匯出功能;僅機關/中心顯示。
               置於「用印掃描檔」之上(UAT 批68):流程=先由此匯出改善報告→機關用印→再將用印檔掃描上傳至下方。
               四顆平鋪鈕收斂為單一下載選單(roles#11;對齊 admin/cycles 的 Menu 模式)。 */}
-          {user.role !== 'AUDITOR' && (
+          {(user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && (
             <Card className="mb-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -666,6 +682,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   cycleId={cycle.id}
                   canAssign={canAssignAuditors(cycle.status as CycleStatus)}
                   confirmOnAssign={cycle.status === 'ONSITE'}
+                />
+              </div>
+
+              {/* 觀察員配對(批30 師徒制):為觀察員指派本場次指導委員;練習資料僅指導委員與中心可見 */}
+              <div id="assign-observers" className="scroll-mt-24">
+                <AssignObserversPanel
+                  cycleId={cycle.id}
+                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
                 />
               </div>
             </section>

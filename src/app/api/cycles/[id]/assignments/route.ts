@@ -44,13 +44,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '實地稽核階段已結束,委員名單已凍結,無法再新增指派' }, { status: 409 });
     }
 
-    const auditor = await prisma.user.findUnique({ where: { id: body.auditorId } });
+    const auditor = await prisma.user.findUnique({
+      where: { id: body.auditorId },
+      include: { roleGrants: { where: { endedAt: null } } },
+    });
     if (!auditor || auditor.role !== 'AUDITOR' || !auditor.isActive) {
       return NextResponse.json({ error: '稽核委員不存在或已停用' }, { status: 400 });
     }
-    // 委員迴避:不得審查自己服務機關
-    if (auditor.organizationId && auditor.organizationId === cycle.organizationId) {
-      return NextResponse.json({ error: '委員不得審查自己服務之機關（迴避原則）' }, { status: 400 });
+    // 委員迴避:不得審查自己服務機關——含多重身分授權(批31):持有該機關「機關管理員」授權者
+    // 亦不得被指派(利益迴避查授權全集,非只現用身分)。
+    const holdsOrgAdminOfCycleOrg = auditor.roleGrants.some(
+      (g) => g.role === 'ORG_ADMIN' && g.organizationId === cycle.organizationId,
+    );
+    if ((auditor.organizationId && auditor.organizationId === cycle.organizationId) || holdsOrgAdminOfCycleOrg) {
+      return NextResponse.json({ error: '委員不得審查自己服務之機關（迴避原則,含其多重身分所屬機關）' }, { status: 400 });
     }
 
     const item = await prisma.auditorAssignment.upsert({
@@ -191,6 +198,15 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       select: { scoreLockedAt: true },
     });
     if (!assignment) return NextResponse.json({ error: '該委員未被指派於本週期' }, { status: 404 });
+    // 師徒制(批30):該委員若為本週期觀察員的指導委員,移除會使配對懸空(觀察員練習無人指導)——
+    // 須先於「觀察員配對」改指派其他指導委員後再移除。
+    const menteeCount = await prisma.cycleObserver.count({ where: { cycleId: params.id, mentorId: auditorId } });
+    if (menteeCount > 0) {
+      return NextResponse.json(
+        { error: `該委員目前為本週期 ${menteeCount} 位觀察員的指導委員,請先於「觀察員配對」改指派其他指導委員後再移除` },
+        { status: 409 },
+      );
+    }
     // 定稿保護:已「確認填寫完畢」(定稿)的委員不可直接移除——移除會刪掉其定稿紀錄、
     // 並讓「全委員定稿才能完成年度稽核」的閘門失真;須先於彙整報告頁「退件」解除定稿。
     if (assignment.scoreLockedAt) {

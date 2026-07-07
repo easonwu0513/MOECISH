@@ -38,7 +38,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
   const user = session.user;
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   // 委員不需列印/匯出改善報告(僅於系統內檢視機關填報的矯正措施)→ 導回週期頁
-  if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}`);
+  if (user.role === 'AUDITOR' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
 
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 

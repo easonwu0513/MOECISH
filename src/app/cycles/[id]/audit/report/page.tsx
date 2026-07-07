@@ -24,6 +24,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
   // 彙整報告為中心(最高管理員)專用的全體委員整合視圖;機關回週期、委員回自己的評分頁。
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
   if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);
+  // 觀察員(批30):彙整報告中心專用(auditReport.view);觀察員導回練習工作台
+  if (user.role === 'OBSERVER') redirect(`/cycles/${params.id}/practice`);
 
   const data = await loadAuditReport(params.id);
   if (!data) notFound();

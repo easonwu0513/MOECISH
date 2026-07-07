@@ -171,7 +171,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
       return { text: `資料準備中:已確認 ${f.prepConfirmed}/${f.prepTotal}${prepDue ? `(截止 ${prepDue})` : ''}`, href: `${base}/prep`, cta: '查看' };
     }
     if (st === 'READY') return { text: `安排實地稽核${onsite ? `(${onsite})` : ''}`, href: base, cta: '去安排' };
-    if (st === 'ONSITE') return { text: '稽核結束後發布缺失(表單或 Excel 匯入)', href: `${base}/deficiencies`, cta: '去發布' };
+    if (st === 'ONSITE') return { text: '稽核結束後至彙整報告完成年度稽核(一鍵轉缺失並通知機關)', href: `${base}/audit/report`, cta: '去彙整' };
     if (st === 'REPORT_ISSUED') return { text: '確認缺失內容,通知機關開始矯正', href: base, cta: '去通知' };
     // REMEDIATION
     if (!f.allPassed) return { text: `追蹤填報:待填 ${f.toFill}・審查中 ${f.submitted}・退回 ${f.returned}${f.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '去追蹤' };
@@ -209,6 +209,16 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (!f.signedUploaded) return { text: '全數通過!列印改善報告,用印後上傳', href: `${base}#signed-report`, cta: '去上傳' };
     if (!f.signedConfirmed) return { text: '用印報告已上傳,等待中心確認結案' };
     return { text: '結案處理中' };
+  }
+
+  // OBSERVER(批30 師徒制):觀摩學習動線——檢視資料/撰寫練習/回顧回饋;不涉評分與缺失管考
+  if (role === 'OBSERVER') {
+    if (st === 'DRAFT') return { text: '週期開立中' };
+    if (st === 'PREPARATION') return { text: '資料準備中;待週期進入資料齊備階段後,可於觀察員審閱時段內檢視資料' };
+    if (st === 'READY') return { text: `資料齊備;請於觀察員審閱時段內檢視機關資料,熟悉受稽機關背景${onsite ? `(實地稽核 ${onsite})` : ''}`, href: `${base}/review`, cta: '去檢視' };
+    if (st === 'ONSITE') return { text: '隨同觀摩實地稽核;於「稽核發現撰寫練習」撰寫您的練習發現', href: `${base}/practice`, cta: '去練習' };
+    // REPORT_ISSUED / REMEDIATION:缺失管考不對觀察員開放,僅回顧練習
+    return { text: '可回顧您的撰寫練習與指導委員回饋', href: `${base}/practice`, cta: '查看' };
   }
 
   // AUDITOR
@@ -255,5 +265,11 @@ export const ROLE_STEP_DUTIES: Record<Role, [string, string, string, string]> = 
     '依排定日期到場實地查核。',
     '機關送審後逐項審查矯正措施,必要時退回補正(可多輪)。',
     '全數通過後,配合中心完成結案確認。',
+  ],
+  OBSERVER: [
+    '週期進入資料齊備階段後,於中心設定的觀察員審閱時段內檢視機關資料,熟悉受稽機關背景。',
+    '隨同到場觀摩實地稽核;於「稽核發現撰寫練習」撰寫練習發現,由指導委員檢視並回饋。',
+    '缺失發布與矯正管考不對觀察員開放;可回顧練習內容與指導回饋。',
+    '結案由中心與委員完成;您的練習紀錄將完整留存,供日後晉升參考。',
   ],
 };

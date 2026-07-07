@@ -17,7 +17,9 @@ const PUBLIC_EXACT = new Set([
 ]);
 // 皆帶邊界(尾斜線),避免 startsWith 把未來的 /news-internal 之類誤判為公開(對抗審查 F4)。
 // /api/invite/ = 邀請啟用流程(建立帳號,無 session;端點自帶 token 驗證)——漏此則新用戶 onboarding 全 401(F1)。
-const PUBLIC_PREFIX = ['/news/', '/invite/', '/api/auth/', '/api/invite/'];
+// /api/post-attachments/ = 公告附件/內文圖片(前台公告為公開頁;批33 圖4:漏此則匿名訪客圖片與附件全 401)
+// ——路由本體已自帶授權(已發布=公開、草稿/下架=僅中心),此處僅放行「認證」層。
+const PUBLIC_PREFIX = ['/news/', '/invite/', '/api/auth/', '/api/invite/', '/api/post-attachments/'];
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;

@@ -36,7 +36,8 @@ export function cycleWorkspaces(role: Role, c: NavCycle): WorkspaceLink[] {
   const out: WorkspaceLink[] = [];
   // 稽核前資料準備 / 檢核表:機關 DRAFT 未開放;委員資料齊備(READY)後可見(API 已排除委員的 DRAFT/CLOSED)
   const orgLocked = role === 'ORG_ADMIN' && c.status === 'DRAFT';
-  const prepOpen = role === 'AUDITOR' ? auditorCanViewChecklistContent(c.status) : !orgLocked;
+  const isReviewer = role === 'AUDITOR' || role === 'OBSERVER'; // 觀察員(批30)比照委員待遇(窗口另由頁面把關)
+  const prepOpen = isReviewer ? auditorCanViewChecklistContent(c.status) : !orgLocked;
   if (prepOpen) {
     // 分類錨點只列「該週期實際有項目」的分類(API 回傳布林;舊快取無 prep 欄位時不列=安全退化)。
     // 檢核表歸屬「稽核前資料準備」(批26 裁定:準備文件之一,獨立填報但不再獨立分類);
@@ -46,7 +47,7 @@ export function cycleWorkspaces(role: Role, c: NavCycle): WorkspaceLink[] {
       ...(c.prep?.onsite ? [{ label: '實地稽核', href: `${base}/prep#prep-onsite` }] : []),
       // 中心匯入區機關不顯示(PrepBoard 同規則)
       ...(role !== 'ORG_ADMIN' && c.prep?.center ? [{ label: '中心匯入', href: `${base}/prep#prep-center` }] : []),
-      { label: '資通安全檢核表', href: role === 'AUDITOR' ? `${base}/review` : `${base}/checklist` },
+      { label: '資通安全檢核表', href: isReviewer ? `${base}/review` : `${base}/checklist` },
     ];
     out.push({
       label: '稽核前資料準備',
@@ -54,9 +55,13 @@ export function cycleWorkspaces(role: Role, c: NavCycle): WorkspaceLink[] {
       children,
     });
   }
-  // 實地稽核評分與發現:委員於實地稽核(ONSITE)後;中心全程(檢視委員評分/發現);機關不涉入
+  // 實地稽核評分與發現:委員於實地稽核(ONSITE)後;中心全程(檢視委員評分/發現);機關/觀察員不涉入
   if (role === 'AUDITOR' ? auditorCanScore(c.status) : role === 'SUPER_ADMIN') {
     out.push({ label: '實地稽核評分與發現', href: `${base}/audit` });
+  }
+  // 稽核發現撰寫練習(批30):觀察員專屬工作台(ONSITE 起;指導委員入口在週期頁指導卡,不佔側欄)
+  if (canAccess('practice.access', role, c.status)) {
+    out.push({ label: '稽核發現撰寫練習', href: `${base}/practice` });
   }
   // 缺失與矯正管考:角色×階段閘同週期頁(委員缺失發布後、機關矯正執行後、中心全程)
   if (canAccess('deficiencies.view', role, c.status)) {

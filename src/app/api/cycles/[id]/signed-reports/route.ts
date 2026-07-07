@@ -11,7 +11,12 @@ const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg'];
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    await assertCycleAccess(params.id);
+    const { user } = await assertCycleAccess(params.id);
+    // 用印掃描檔僅中心/機關經手(access-policy 'signedReport.section' 排除委員);觀察員(批30)亦不可見。
+    // assertCycleAccess 通過的委員/配對觀察員在此再擋一道(避免直打 API 取得用印檔清單=metadata 洩漏)。
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'ORG_ADMIN') {
+      return NextResponse.json({ error: '用印掃描檔僅機關與中心可檢視' }, { status: 403 });
+    }
     const items = await prisma.signedReport.findMany({
       where: { cycleId: params.id },
       orderBy: { uploadedAt: 'desc' },

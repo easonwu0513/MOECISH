@@ -7,6 +7,11 @@ import { errorResponse } from '@/lib/api';
 import { POST_CATEGORIES, POST_STATUSES } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
+// datetime-local(無時區)字串;統一以台灣時間 +08:00 解讀(與週期日期一致)。空字串=清除。
+const DT = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, '時間格式須為 YYYY-MM-DDTHH:mm');
+const DTField = z.union([z.literal(''), DT]).optional();
+const parseDT = (s: string) => new Date(`${s}:00+08:00`);
+
 const Body = z.object({
   title: z.string().min(2).optional(),
   category: z.enum(POST_CATEGORIES).optional(),
@@ -14,6 +19,9 @@ const Body = z.object({
   important: z.boolean().optional(),
   pinned: z.boolean().optional(),
   status: z.enum(POST_STATUSES).optional(),
+  // 批33 排程上下架:publishAt=排定上架時間(空/未給且正在發布=立即);unpublishAt=排定下架(空=不自動下架)
+  publishAt: DTField,
+  unpublishAt: DTField,
 });
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -25,6 +33,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const body = Body.parse(await req.json());
     const publishingNow = body.status === 'PUBLISHED' && post.status !== 'PUBLISHED';
 
+    // 上架時間:明確給值用之(空=立即上架/或清除排程);未給但正在發布=立即上架(now)。
+    let publishedAt: Date | null | undefined = undefined;
+    if (body.publishAt !== undefined) {
+      publishedAt = body.publishAt ? parseDT(body.publishAt) : (publishingNow ? new Date() : null);
+    } else if (publishingNow) {
+      publishedAt = new Date();
+    }
+    // 下架時間:明確給值用之(空=清除);否則不動。
+    let unpublishAt: Date | null | undefined = undefined;
+    if (body.unpublishAt !== undefined) unpublishAt = body.unpublishAt ? parseDT(body.unpublishAt) : null;
+
+    // 順序驗證(以套用後最終值):下架不可早於或等於上架。
+    const finalPub = publishedAt !== undefined ? publishedAt : post.publishedAt;
+    const finalUn = unpublishAt !== undefined ? unpublishAt : post.unpublishAt;
+    if (finalPub && finalUn && finalUn.getTime() <= finalPub.getTime()) {
+      return NextResponse.json({ error: '排定下架時間須晚於上架時間' }, { status: 400 });
+    }
+
     const item = await prisma.post.update({
       where: { id: post.id },
       data: {
@@ -34,7 +60,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         important: body.important,
         pinned: body.pinned,
         status: body.status,
-        publishedAt: publishingNow ? new Date() : undefined,
+        publishedAt,
+        unpublishAt,
       },
     });
 
@@ -44,7 +71,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       action: publishingNow ? 'POST_PUBLISH' : 'POST_UPDATE',
       entityType: 'Post',
       entityId: item.id,
-      after: { title: item.title, status: item.status },
+      after: { title: item.title, status: item.status, publishedAt: item.publishedAt, unpublishAt: item.unpublishAt },
       ...meta,
     });
 

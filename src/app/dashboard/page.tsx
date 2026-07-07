@@ -30,7 +30,7 @@ import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { ReturnsInbox } from '@/components/dashboard/ReturnsInbox';
 import { getOpenReturns } from '@/lib/returns';
-import { ROLE_LABELS, ROLE_TONE, type CycleStatus } from '@/lib/types';
+import { ROLE_LABELS, ROLE_TONE, auditorReviewWindowOpen, type CycleStatus } from '@/lib/types';
 import { greetingByHour, EMPTY } from '@/lib/copy';
 
 type Todo = {
@@ -57,7 +57,11 @@ export default async function HomePage() {
       : user.role === 'AUDITOR'
       // 委員不顯示開立中(DRAFT)週期 — 中心仍在調整委員名單,PREPARATION 起才可見(對齊 access-policy 'cycle.access')
       ? { assignments: { some: { auditorId: user.id } }, status: { not: 'DRAFT' } }
-      : {};
+      : user.role === 'OBSERVER'
+      // 觀察員(批30):限被配對之週期(CycleObserver),同樣不顯示開立中
+      ? { observers: { some: { observerId: user.id } }, status: { not: 'DRAFT' } }
+      // 未知角色 fail-closed(對齊 nav/cycles)
+      : user.role === 'SUPER_ADMIN' ? {} : { id: '__none__' };
 
   const cycles = await prisma.auditCycle.findMany({
     where: cyclesWhere,
@@ -157,6 +161,16 @@ export default async function HomePage() {
       }
     }
 
+    if (user.role === 'OBSERVER') {
+      // 觀察員待辦(批30):審閱時段內去檢視資料;實地稽核起去撰寫練習(窗口查「觀察員」獨立區間)
+      if ((st === 'READY' || st === 'ONSITE') && auditorReviewWindowOpen(c.observerWindowStart, c.observerWindowEnd)) {
+        todos.push({ key: `${c.id}-ob-review`, tone: 'neutral', title: `${org}:觀察員審閱時段開放中,可檢視機關資料熟悉背景`, href: `${base}/review`, cta: '去檢視' });
+      }
+      if (st === 'ONSITE') {
+        todos.push({ key: `${c.id}-ob-practice`, tone: 'primary', title: `${org}:實地稽核中,於「稽核發現撰寫練習」撰寫您的練習發現`, href: `${base}/practice`, cta: '去練習' });
+      }
+    }
+
     if (user.role === 'AUDITOR') {
       // 委員逐題審閱屬實地稽核階段的「筆記/快速查找」用途,選填(未留意見不算未完成)。
       // 審閱窗口未開/未設時不導向 /review(=鎖定頁死路,收斂驗證修);與 buildModuleNav 審閱卡鎖定同基準。
@@ -184,7 +198,9 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-score`, tone: 'warning', title: `${org}:${sc.total - sc.scored} 位委員尚未完成評分(${sc.scored}/${sc.total})`, href: `${base}/audit/report`, cta: '去查看' });
       }
       if (st === 'ONSITE') {
-        todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
+        // 批33 圖5:實地稽核的「下一步」=至彙整報告頁「已完成年度稽核」(FinishButton 一鍵轉缺失+推狀態+通知機關);
+        // 該動作在 /audit/report,非 /deficiencies(ONSITE 尚無可發布的缺失)。
+        todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後至彙整報告完成年度稽核`, href: `${base}/audit/report`, cta: '去彙整' });
       }
       if (st === 'REPORT_ISSUED') {
         // REPORT_ISSUED 的正確動作=推進至矯正執行(推進時自動通知機關;手動通知鈕僅 REMEDIATION 顯示)
@@ -222,7 +238,9 @@ export default async function HomePage() {
       ? user.organizationName ?? '機關管理員'
       : user.role === 'AUDITOR'
         ? `稽核委員 · 受指派 ${cycles.length} 個週期`
-        : `教育部稽核中心 · 監督 ${orgCount} 院`;
+        : user.role === 'OBSERVER'
+          ? `觀察員 · 受配對 ${cycles.length} 個週期`
+          : `教育部稽核中心 · 監督 ${orgCount} 院`;
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
   const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
@@ -424,7 +442,7 @@ export default async function HomePage() {
 
               <div className="flex items-baseline justify-between mb-3 px-1">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">
-                  {user.role === 'AUDITOR' ? `我負責的週期 · ${enriched.length} 個機關` : '我的稽核週期'}
+                  {user.role === 'AUDITOR' ? `我負責的週期 · ${enriched.length} 個機關` : user.role === 'OBSERVER' ? `我觀摩的週期 · ${enriched.length} 個機關` : '我的稽核週期'}
                 </p>
                 <Link href="/cycles" className="text-caption text-primary-700 hover:underline">查看全部</Link>
               </div>
@@ -438,7 +456,7 @@ export default async function HomePage() {
                     ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
                     : [];
                   // 委員於結案後不可再進入(access-policy);列顯示已結案並鎖定
-                  const lockedForAuditor = user.role === 'AUDITOR' && c.status === 'CLOSED';
+                  const lockedForAuditor = (user.role === 'AUDITOR' || user.role === 'OBSERVER') && c.status === 'CLOSED';
                   if (lockedForAuditor) {
                     return (
                       <div

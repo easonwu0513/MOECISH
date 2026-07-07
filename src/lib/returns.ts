@@ -49,7 +49,9 @@ export async function getOpenReturns(opts: {
   role: Role;
   organizationId?: string | null;
 }): Promise<ReturnItem[]> {
-  if (opts.role === 'AUDITOR') return [];
+  // 退回收件匣僅機關(自家)與中心(全機關監督)適用;委員/觀察員(批30)一律空——
+  // 原僅擋 AUDITOR,OBSERVER 會落入 orgFilter={} 而讀到全機關退件(含退補原因等跨租戶敏感文字)。
+  if (opts.role !== 'ORG_ADMIN' && opts.role !== 'SUPER_ADMIN') return [];
   if (opts.role === 'ORG_ADMIN' && !opts.organizationId) return [];
   const orgFilter =
     opts.role === 'ORG_ADMIN' ? { organizationId: opts.organizationId as string } : {};

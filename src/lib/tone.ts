@@ -126,12 +126,13 @@ export function roleTone(role: Role): Tone {
   return ROLE_TONE[role];
 }
 
-/** 角色 → 頂端色帶 class(TopStrip 全站唯一常駐角色訊號):中心藍/委員綠/機關琥珀。
+/** 角色 → 頂端色帶 class(TopStrip 全站唯一常駐角色訊號):中心藍/委員綠/機關琥珀/觀察員墨灰。
  *  ⚠️必用完整靜態 class 字串——Tailwind JIT 不掃描 `border-t-${x}-600` 這類動態拼接。 */
 const ROLE_BORDER_TOP: Record<Role, string> = {
   SUPER_ADMIN: 'border-t-primary-600',
   AUDITOR:     'border-t-sage-600',
   ORG_ADMIN:   'border-t-warning-600',
+  OBSERVER:    'border-t-ink-500',
 };
 export function roleBorderTop(role: Role): string {
   return ROLE_BORDER_TOP[role];
@@ -142,4 +143,5 @@ export const ROLE_SURFACE: Record<Role, string> = {
   SUPER_ADMIN: 'bg-focus-wash text-primary-700',
   AUDITOR:     'bg-sage-100 text-sage-800',
   ORG_ADMIN:   'bg-warning-100 text-warning-800',
+  OBSERVER:    'bg-paper-sunk text-ink-700',
 };

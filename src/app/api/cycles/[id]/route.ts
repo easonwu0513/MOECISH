@@ -18,6 +18,9 @@ const PatchBody = z.object({
   // 委員審閱時間區間(UAT 批67):日粒度,start 取當日 00:00、end 取當日 23:59:59(含當日)
   reviewWindowStart: DateStr.nullable().optional(),
   reviewWindowEnd: DateStr.nullable().optional(),
+  // 觀察員獨立審閱窗口(批30):語義同委員窗口
+  observerWindowStart: DateStr.nullable().optional(),
+  observerWindowEnd: DateStr.nullable().optional(),
 });
 
 /** 編輯週期日期(矯正截止/資料準備截止/實地稽核日)— SUPER_ADMIN 限定。 */
@@ -41,6 +44,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (finalWStart && finalWEnd && finalWEnd.getTime() < finalWStart.getTime()) {
       return NextResponse.json({ error: '審閱區間的截止不可早於開始' }, { status: 400 });
     }
+    const finalOWStart = body.observerWindowStart === undefined ? cycle.observerWindowStart : (body.observerWindowStart ? toDate(body.observerWindowStart) : null);
+    const finalOWEnd = body.observerWindowEnd === undefined ? cycle.observerWindowEnd : (body.observerWindowEnd ? toDateEnd(body.observerWindowEnd) : null);
+    if (finalOWStart && finalOWEnd && finalOWEnd.getTime() < finalOWStart.getTime()) {
+      return NextResponse.json({ error: '觀察員審閱區間的截止不可早於開始' }, { status: 400 });
+    }
 
     const updated = await prisma.auditCycle.update({
       where: { id: cycle.id },
@@ -58,6 +66,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           body.reviewWindowStart === undefined ? undefined : body.reviewWindowStart ? toDate(body.reviewWindowStart) : null,
         reviewWindowEnd:
           body.reviewWindowEnd === undefined ? undefined : body.reviewWindowEnd ? toDateEnd(body.reviewWindowEnd) : null,
+        observerWindowStart:
+          body.observerWindowStart === undefined ? undefined : body.observerWindowStart ? toDate(body.observerWindowStart) : null,
+        observerWindowEnd:
+          body.observerWindowEnd === undefined ? undefined : body.observerWindowEnd ? toDateEnd(body.observerWindowEnd) : null,
       },
     });
 

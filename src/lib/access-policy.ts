@@ -32,31 +32,40 @@ function atOrAfter(cycleStatus: string, phase: CyclePhase): boolean {
 
 /** 受「角色 × 階段」管制的介面(頁面/API/動作/入口磚)。 */
 export type Surface =
-  | 'cycle.access' // 委員是否可見/可進入此週期(開立中名單調整期,委員尚不可見;PREPARATION 起開放)
-  | 'checklist.view' // 委員檢視機關檢核表內容(檢核表頁/審閱頁/匯出/佐證 list+download/留言)
+  | 'cycle.access' // 委員/觀察員是否可見/可進入此週期(開立中名單調整期尚不可見;PREPARATION 起開放)
+  | 'checklist.view' // 委員/觀察員檢視機關檢核表內容(檢核表頁/審閱頁/匯出/佐證 list+download;留言僅委員)
   | 'checklist.orgEdit' // 機關填寫/送出檢核表(逐題符合度、說明、批次標記、佐證)
   | 'prep.orgEdit' // 機關上傳/填無相關文件說明/確定繳交 資料準備
-  | 'audit.score' // 委員進入「實地稽核評分與發現」模組(評分頁/入口磚)
-  | 'deficiencies.view' // 檢視「缺失與矯正管考」模組(委員須待缺失發布後)
+  | 'audit.score' // 委員進入「實地稽核評分與發現」模組(評分頁/入口磚);觀察員一律不可(改走 practice.access)
+  | 'practice.access' // 觀察員「稽核發現撰寫練習」模組(批30;階段閘比照 audit.score,ONSITE 起)
+  | 'deficiencies.view' // 檢視「缺失與矯正管考」模組(委員須待缺失發布後;觀察員一律不可=需求一-2)
   | 'signedReport.section' // 「用印掃描檔」整段可見
   | 'signedReport.upload' // 上傳用印掃描檔
   | 'auditReport.view'; // 彙整報告(全體委員整合;中心專用)
 
 /**
  * 某角色在某週期階段是否可存取某介面(粗粒度)。所有頁面/API/磚請改呼叫此處,不要各自內聯階段判斷。
+ *
+ * ⚠️ 批30 收斂:各 surface 一律「顯式列舉角色 + 未列舉即拒絕」。歷史寫法
+ * (`role === 'AUDITOR' ? X : true`、`role !== 'AUDITOR' && X`)對「新角色」fail-open——
+ * 觀察員上線若沿用,會直接繼承中心級權限。日後再增角色,請逐 surface 顯式補列並擴充
+ * test-access-matrix 整欄,不可依賴 fallthrough。
  */
 export function canAccess(surface: Surface, role: Role, cycleStatus: string): boolean {
   switch (surface) {
     case 'cycle.access':
-      // 委員只在週期離開「開立中(DRAFT)」後才看得到/能進入(開立中中心仍在頻繁調整委員名單);
-      // 結案(CLOSED)後委員任務已了,資料對委員鎖定不可再進入(2026-07 UAT:清單顯示已結案、不可點)。
-      // 中心/機關全程(細粒度租戶/指派另由 rbac 管)。
-      return role === 'AUDITOR' ? cycleStatus !== 'DRAFT' && cycleStatus !== 'CLOSED' : true;
+      // 委員/觀察員只在週期離開「開立中(DRAFT)」後才看得到/能進入(開立中中心仍在頻繁調整名單);
+      // 結案(CLOSED)後任務已了,資料鎖定不可再進入(2026-07 UAT:清單顯示已結案、不可點)。
+      // 中心/機關全程(細粒度租戶/指派/配對另由 rbac 管)。
+      if (role === 'AUDITOR' || role === 'OBSERVER') return cycleStatus !== 'DRAFT' && cycleStatus !== 'CLOSED';
+      return role === 'SUPER_ADMIN' || role === 'ORG_ADMIN';
 
     case 'checklist.view':
-      // 委員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;結案後鎖定。
-      // 機關看自家、中心全程(細粒度租戶/指派另管)
-      return role === 'AUDITOR' ? !inPrepPhase(cycleStatus) && cycleStatus !== 'CLOSED' : true;
+      // 委員/觀察員一律於離開資料準備(進入資料齊備 READY)後才可見機關檢核表;結案後鎖定。
+      // 觀察員另受「觀察員窗口」時間閘(呼叫端 reviewWindowOpenForRole),此處只管階段。
+      // 機關看自家、中心全程(細粒度租戶/指派另管)。
+      if (role === 'AUDITOR' || role === 'OBSERVER') return !inPrepPhase(cycleStatus) && cycleStatus !== 'CLOSED';
+      return role === 'SUPER_ADMIN' || role === 'ORG_ADMIN';
 
     case 'checklist.orgEdit':
       // 機關填寫/送出檢核表僅限「資料準備中」;開立中(DRAFT)中心尚在設定,機關尚不可填(送出後另由項目狀態 checklistSubmittedAt 鎖定)
@@ -68,26 +77,32 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
 
     case 'audit.score':
       // 委員「實地稽核評分與發現」於進入「實地稽核(ONSITE)」階段才開放(資料齊備僅供熟悉背景,尚不評分);
-      // 結案後鎖定。中心改看彙整報告、機關不涉入。
+      // 結案後鎖定。中心改看彙整報告、機關不涉入;觀察員完全移除評分(需求二-1),改走 practice.access。
       return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE') && cycleStatus !== 'CLOSED';
+
+    case 'practice.access':
+      // 觀察員「稽核發現撰寫練習」:階段閘比照委員評分(ONSITE 起、結案鎖定)——練習與正式稽核同節奏。
+      // 指導委員檢視配對觀察員練習/中心唯讀監督,屬細粒度(rbac assertPracticeAccess),不在此粗閘。
+      return role === 'OBSERVER' && atOrAfter(cycleStatus, 'ONSITE') && cycleStatus !== 'CLOSED';
 
     case 'deficiencies.view':
       // 缺失與矯正管考:中心全程;委員待「缺失發布中(REPORT_ISSUED)」後可審、結案後鎖定;
-      // 機關待「矯正執行中(REMEDIATION)」後才開放填報矯正(結案後仍可檢視自家紀錄)。
+      // 機關待「矯正執行中(REMEDIATION)」後才開放填報矯正(結案後仍可檢視自家紀錄);
+      // 觀察員一律不可(需求一-2:不開放缺失與矯正管考)。
       if (role === 'AUDITOR') return atOrAfter(cycleStatus, 'REPORT_ISSUED') && cycleStatus !== 'CLOSED';
       if (role === 'ORG_ADMIN') return atOrAfter(cycleStatus, 'REMEDIATION');
-      return true; // SUPER_ADMIN 全程
+      return role === 'SUPER_ADMIN';
 
     case 'signedReport.section':
-      // 用印掃描檔屬機關用印 + 中心確認之收尾(矯正執行中之後才出現);委員不參與
-      return role !== 'AUDITOR' && (cycleStatus === 'REMEDIATION' || cycleStatus === 'CLOSED');
+      // 用印掃描檔屬機關用印 + 中心確認之收尾(矯正執行中之後才出現);委員/觀察員不參與
+      return (role === 'SUPER_ADMIN' || role === 'ORG_ADMIN') && (cycleStatus === 'REMEDIATION' || cycleStatus === 'CLOSED');
 
     case 'signedReport.upload':
       // 僅機關上傳(中心只檢視+確認);結案後不可再上傳(已確認鎖定屬項目狀態,由呼叫端另判)
       return role === 'ORG_ADMIN' && cycleStatus !== 'CLOSED';
 
     case 'auditReport.view':
-      // 彙整報告為中心(最高管理員)專用;委員印自己的附件17、機關不涉入
+      // 彙整報告為中心(最高管理員)專用;委員印自己的附件17、機關不涉入、觀察員練習資料結構性不進報告
       return role === 'SUPER_ADMIN';
   }
 }

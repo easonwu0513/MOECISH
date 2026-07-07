@@ -16,11 +16,14 @@ export function ReviewWindowSetting({
   cycleId,
   initialStart,
   initialEnd,
+  variant = 'auditor',
 }: {
   cycleId: string;
   /** yyyy-mm-dd(已依 +08:00 解析);null=未設 */
   initialStart: string | null;
   initialEnd: string | null;
+  /** 批30:observer=觀察員獨立審閱窗口(寫 observerWindow* 欄;文案換「觀察員」) */
+  variant?: 'auditor' | 'observer';
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -28,6 +31,8 @@ export function ReviewWindowSetting({
   const [end, setEnd] = useState(initialEnd ?? '');
   const [busy, setBusy] = useState(false);
   const isSet = !!(initialStart && initialEnd);
+  const isObserver = variant === 'observer';
+  const roleNoun = isObserver ? '觀察員' : '委員';
 
   async function save() {
     if (start && end && end < start) {
@@ -36,14 +41,18 @@ export function ReviewWindowSetting({
     }
     // 一端有一端空:提醒需兩端皆填才會開放(沒設區間就不開放)
     if ((start && !end) || (!start && end)) {
-      toast.error('請設定完整區間', '開始與截止都要填,委員才會在此時段內開放檢視。');
+      toast.error('請設定完整區間', `開始與截止都要填,${roleNoun}才會在此時段內開放檢視。`);
       return;
     }
     setBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reviewWindowStart: start || null, reviewWindowEnd: end || null }),
+      body: JSON.stringify(
+        isObserver
+          ? { observerWindowStart: start || null, observerWindowEnd: end || null }
+          : { reviewWindowStart: start || null, reviewWindowEnd: end || null },
+      ),
     }).catch(() => null);
     setBusy(false);
     if (!res || !res.ok) {
@@ -52,8 +61,8 @@ export function ReviewWindowSetting({
       return;
     }
     toast.success(
-      '已儲存委員審閱時間區間',
-      start && end ? '委員將於此時段內可檢視資料準備與檢核表審閱。' : '已清除;委員目前無法檢視(未設區間即不開放)。',
+      `已儲存${roleNoun}審閱時間區間`,
+      start && end ? `${roleNoun}將於此時段內可檢視資料準備與檢核表審閱。` : `已清除;${roleNoun}目前無法檢視(未設區間即不開放)。`,
     );
     router.refresh();
   }
@@ -63,10 +72,10 @@ export function ReviewWindowSetting({
       <div className="flex items-start gap-2.5">
         <span className={`mt-0.5 shrink-0 ${isSet ? 'text-primary-700' : 'text-warning-700'}`}><Eye size={18} /></span>
         <div className="min-w-0 flex-1">
-          <p className="text-body-sm font-medium text-ink-900">委員審閱時間區間</p>
+          <p className="text-body-sm font-medium text-ink-900">{roleNoun}審閱時間區間</p>
           <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-            設定委員可檢視「資料準備」與「資通安全檢核表審閱」的開放時段;
-            {isSet ? '未到不可看、超過不可看。' : <span className="text-warning-700 font-medium">目前未設定,委員無法檢視機關資料——請設定開始與截止日期。</span>}
+            設定{roleNoun}可檢視「資料準備」與「資通安全檢核表審閱」的開放時段;
+            {isSet ? '未到不可看、超過不可看。' : <span className="text-warning-700 font-medium">目前未設定,{roleNoun}無法檢視機關資料——請設定開始與截止日期。</span>}
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <TextField label="開放開始" type="date" value={start} onChange={(e) => setStart(e.target.value)} />

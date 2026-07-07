@@ -19,6 +19,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
   // 管理員此頁本只有一句說明+前往彙整報告鈕(零操作),直接導向彙整報告(委員仍進 AuditPad 評分)
   if (user.role === 'SUPER_ADMIN') redirect(`/cycles/${params.id}/audit/report`);
+  // 觀察員(批30):完全移除評分——一律導向「稽核發現撰寫練習」工作台(需求二-1)
+  if (user.role === 'OBSERVER') redirect(`/cycles/${params.id}/practice`);
 
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: params.id },
