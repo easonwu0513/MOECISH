@@ -32,6 +32,13 @@ const Body = z.object({
   }).optional(),
   // 逐則發現的「此前換頁」(以 AuditFinding.id 為鍵;true 者才記錄)。
   findingBreaks: z.record(z.boolean()).optional(),
+  // 「法遵符合情形」中心撰寫覆蓋層(UAT 批28):每構面一組 {項次代碼, 文字, 此前換頁};有此段則正式報告取此、
+  //  不取委員 COMPLIANCE 發現(改善/建議不在此,仍取委員即時資料)。長度上限防灌爆。
+  complianceOverride: z.object({
+    strategy: z.array(z.object({ code: z.string().max(50), text: z.string().max(20000), pageBreakBefore: z.boolean().optional() })).max(200).optional(),
+    management: z.array(z.object({ code: z.string().max(50), text: z.string().max(20000), pageBreakBefore: z.boolean().optional() })).max(200).optional(),
+    technical: z.array(z.object({ code: z.string().max(50), text: z.string().max(20000), pageBreakBefore: z.boolean().optional() })).max(200).optional(),
+  }).optional(),
 });
 
 /** 最高管理員設定彙整報告頁首(稽核日期/範圍/準則/稽核小組)。 */

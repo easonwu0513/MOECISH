@@ -50,6 +50,13 @@ export type ReportMeta = {
   sectionSettings?: ReportData['sectionSettings'];
   /** 逐則發現「此前換頁」(以 AuditFinding.id 為鍵)。 */
   findingBreaks?: Record<string, boolean>;
+  /** 「法遵符合情形」中心撰寫覆蓋層(UAT 批28:符合情形常無委員 finding 對應,中心可於彙整工具撰寫並存回;
+   *  有此覆蓋層則取代委員 COMPLIANCE 發現。改善/建議仍取委員即時資料,不覆寫委員實質內容)。 */
+  complianceOverride?: {
+    strategy?: { code: string; text: string; pageBreakBefore?: boolean }[];
+    management?: { code: string; text: string; pageBreakBefore?: boolean }[];
+    technical?: { code: string; text: string; pageBreakBefore?: boolean }[];
+  };
 };
 
 export function parseReportMeta(raw: string | null): ReportMeta {
@@ -101,6 +108,22 @@ export function buildReportData(data: AuditReportData): ReportData {
   for (const cat of Object.keys(findings) as Category[]) {
     for (const sec of Object.keys(findings[cat]) as SectionKey[]) {
       findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
+    }
+  }
+  // 法遵符合情形覆蓋層(UAT 批28):有中心撰寫版則取代委員 COMPLIANCE 發現(此段順序沿用中心編輯序,不重排);
+  // 改善/建議不覆蓋(維持委員即時資料原則)。列印/Word/預覽共用此 buildReportData,故三處同步。
+  if (meta.complianceOverride) {
+    for (const cat of ['strategy', 'management', 'technical'] as Category[]) {
+      const ov = meta.complianceOverride[cat];
+      if (ov) {
+        findings[cat].compliance = ov.map((o, i) => ({
+          id: `co-${cat}-${i}`,
+          code: o.code,
+          text: o.text,
+          pageBreakBefore: !!o.pageBreakBefore,
+          duplicateAcknowledged: true,
+        }));
+      }
     }
   }
 

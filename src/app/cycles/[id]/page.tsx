@@ -437,6 +437,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <CardTitle>{viewAllStages ? '所有階段待辦進度' : `${selectedStage?.title ?? '此階段'}待完成事項`}</CardTitle>
+                  {/* 自訂(清單)階段:明示非流程關卡、無需推進(UAT:消除「為何不能推進到測試階段」的困惑) */}
+                  {!viewAllStages && selectedStageKey && !statusKeySet.has(selectedStageKey) && (
+                    <p className="mt-0.5 text-caption text-ink-500">
+                      此為清單追蹤階段(非流程關卡),完成待辦即打勾,無需推進週期狀態。
+                    </p>
+                  )}
                   {!viewAllStages && selectedStageKey !== cycle.status && (
                     <p className="mt-0.5 text-caption text-ink-500">
                       正在檢視其他階段 · <Link href={`/cycles/${cycle.id}`} className="text-primary-700 hover:underline">回當前階段</Link>

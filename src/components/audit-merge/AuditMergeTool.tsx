@@ -47,6 +47,13 @@ function buildMetaPayload(d: ReportData) {
       for (const f of d.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
     }
   }
+  // 法遵符合情形覆蓋層(UAT 批28):中心於工具撰寫的符合情形逐則存回,使正式報告/列印/Word 同步顯示。
+  // 改善/建議不在此(維持委員即時資料原則,工具不改寫委員發現本體)。編輯符合情形即改變此 sig→觸發自動同步。
+  const complianceOverride = {
+    strategy: d.findings.strategy.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
+    management: d.findings.management.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
+    technical: d.findings.technical.compliance.map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore })),
+  };
   return {
     auditDateRaw: d.auditDateRaw,
     scope: d.scope,
@@ -56,6 +63,7 @@ function buildMetaPayload(d: ReportData) {
     team: d.team,
     sectionSettings: d.sectionSettings,
     findingBreaks,
+    complianceOverride,
   };
 }
 

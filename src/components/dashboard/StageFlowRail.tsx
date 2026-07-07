@@ -158,12 +158,15 @@ export function StageFlowRail({
             </span>
             <span className="mt-1.5 text-caption leading-tight whitespace-nowrap text-ink-500">
               {n.title}
-              <span className="sr-only">（自訂階段{n.done ? '・已完成' : ''}）</span>
+              <span className="sr-only">（清單階段{n.done ? '・已完成' : ''}）</span>
             </span>
+            {/* 自訂階段=清單追蹤,非狀態機關卡(UAT:消除「為何不能推進到此」的困惑);虛線+此小標明示無需推進 */}
+            <span className="mt-0.5 text-label-sm leading-none text-ink-400">清單階段</span>
             {stageHref && (
               <Link
                 href={stageHref(n.key)}
-                aria-label={`查看「${n.title}」階段的待完成事項`}
+                aria-label={`查看「${n.title}」清單階段的待完成事項(此為清單追蹤階段,非流程關卡,無需推進)`}
+                title="清單追蹤階段(非流程關卡);點擊查看待辦,無需推進"
                 className="absolute inset-0 z-20 rounded-lg hover:bg-primary-500/[0.06] focus-ring"
               />
             )}
