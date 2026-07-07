@@ -73,7 +73,7 @@ export default async function ReviewPage({
   const reviewState = reviewWindowStateForRole(session.user.role, cycle);
   if (reviewState !== 'open') {
     // 早退鎖定頁(共用殼,與 /checklist 一致;不載入機關資料)
-    return <ReviewWindowLockedPage user={session.user} cycle={cycle} title={pageTitle} crumbLabel={pageTitle} state={reviewState} />;
+    return <ReviewWindowLockedPage user={session.user} cycle={cycle} title={pageTitle} crumbLabel={pageTitle} state={reviewState} variant={isObserverView ? 'observer' : 'auditor'} />;
   }
 
   // 委員意見隱私(UAT 批62):委員僅見「自己」填寫的意見——各委員獨立審查,
@@ -250,7 +250,7 @@ export default async function ReviewPage({
           <EmptyState
             icon={<ClipboardCheck size={28} />}
             title="機關尚未開始填答"
-            description="等機關至少完成一題後，才能在此留下委員意見。"
+            description={isObserverView ? "等機關至少完成一題後,即可在此檢視其自評與佐證,作為撰寫練習的素材。" : "等機關至少完成一題後,才能在此留下委員意見。"}
           />
         </Card>
       ) : (

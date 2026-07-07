@@ -13,6 +13,7 @@ export function ReviewWindowLockedPage({
   title,
   crumbLabel,
   state,
+  variant = 'auditor',
 }: {
   user: { name: string; email: string; role: Role; organizationName?: string | null };
   cycle: {
@@ -21,6 +22,8 @@ export function ReviewWindowLockedPage({
     status: string;
     reviewWindowStart: Date | null;
     reviewWindowEnd: Date | null;
+    observerWindowStart?: Date | null;
+    observerWindowEnd?: Date | null;
     organization: { name: string };
   };
   /** 頁面 H1(資通安全檢核表 / 委員審閱) */
@@ -28,6 +31,8 @@ export function ReviewWindowLockedPage({
   /** 麵包屑末節(檢核表 / 委員審閱) */
   crumbLabel: string;
   state: 'before' | 'after' | 'unset';
+  /** 觀察員(批35 稽核):以其獨立窗口與稱謂顯示鎖定卡,而非委員窗口。 */
+  variant?: 'auditor' | 'observer';
 }) {
   return (
     <AppShell
@@ -44,10 +49,11 @@ export function ReviewWindowLockedPage({
       </header>
       <ReviewWindowLockNotice
         state={state}
-        start={cycle.reviewWindowStart}
-        end={cycle.reviewWindowEnd}
+        start={variant === 'observer' ? (cycle.observerWindowStart ?? null) : cycle.reviewWindowStart}
+        end={variant === 'observer' ? (cycle.observerWindowEnd ?? null) : cycle.reviewWindowEnd}
         stageEnded={onsiteStageEnded(cycle.status)}
         cycleId={cycle.id}
+        roleNoun={variant === 'observer' ? '觀察員' : '委員'}
       />
     </AppShell>
   );

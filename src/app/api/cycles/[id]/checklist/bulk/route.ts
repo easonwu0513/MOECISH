@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     if (cycle.checklistSubmittedAt) {
       return NextResponse.json(
-        { error: '填報已送出鎖定,如需修改請洽稽核委員退回重填' },
+        { error: '填報已送出鎖定,如需修改請洽教育部稽核中心退回重填' },
         { status: 409 },
       );
     }

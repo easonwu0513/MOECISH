@@ -343,9 +343,11 @@ export function AuditMergeTool({
     futureRef.current = [];
     setCanUndo(false);
     setCanRedo(false);
-    setReportData(makeDefaultReportData());
+    // 週期模式:重置回到剛進來的初始狀態(含自動帶入的委員發現),而非全空——否則委員以為只是清頁首,
+    // 卻把帶入的發現一起清光且只能重新整理才救回(批35 稽核)。手動(全域)模式維持回預設空白。
+    setReportData(cycleId && initial ? initial : makeDefaultReportData());
     setResetOpen(false);
-    toast.success('已重置', '所有暫存資料已恢復為預設值');
+    toast.success('已重置', cycleId ? '已恢復為剛進入時的狀態(含委員自動帶入的發現)。' : '所有暫存資料已恢復為預設值。');
   };
 
   /** 匯出/列印前防呆:回傳警告清單(空 = 可直接執行)。 */
@@ -367,7 +369,7 @@ export function AuditMergeTool({
 
   const doPrint = () => {
     const originalTitle = document.title;
-    document.title = `實地稽核報告_${reportData.hospitalName}`;
+    document.title = `實地稽核報告_${reportData.hospitalName || '未命名機關'}`;
     window.print();
     document.title = originalTitle;
   };
@@ -1245,7 +1247,7 @@ export function AuditMergeTool({
         open={resetOpen}
         onOpenChange={setResetOpen}
         title="重置所有資料"
-        description="將清除暫存並恢復為預設值,目前輸入的所有內容都會消失,無法復原。確定重置?"
+        description="將清除暫存;您手動輸入的封面/文字都會消失,無法復原。(週期模式會恢復為剛進入時的狀態,含委員自動帶入的發現。)確定重置?"
         confirmLabel="重置"
         tone="danger"
         onConfirm={doReset}

@@ -22,7 +22,8 @@ export default async function OrganizationDetail({ params }: { params: { id: str
   const org = await prisma.organization.findUnique({
     where: { id: params.id },
     include: {
-      users: { orderBy: [{ role: 'asc' }, { createdAt: 'asc' }] },
+      // 「已啟用帳號」卡只列啟用中帳號(停用者於使用者管理頁另有分流);避免標頭與內容矛盾(批35 稽核)
+      users: { where: { isActive: true }, orderBy: [{ role: 'asc' }, { createdAt: 'asc' }] },
       invitations: { orderBy: { createdAt: 'desc' } },
       cycles: {
         include: {

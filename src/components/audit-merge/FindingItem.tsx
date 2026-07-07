@@ -68,6 +68,7 @@ export const FindingItem = memo(function FindingItem({
       className={`relative flex flex-wrap sm:flex-nowrap gap-3 items-start mb-5 p-4 finding-row ${item.pageBreakBefore ? 'mt-8 border-primary-300' : ''}`}
       draggable
       onDragStart={(e) => onDragStart(e, cat, sec, index)}
+      onDragEnd={(e) => e.currentTarget.classList.remove('is-dragging')}
       onDragOver={(e) => onDragOver(e, cat, sec, index)}
       onDrop={(e) => onDrop(e, cat, sec, index)}
     >

@@ -62,8 +62,6 @@ export type ReviewNoteItem = {
   /** 機關作答說明 */
   orgDesc?: string | null;
 };
-/** 筆記引用為發現(側欄→發現區橋接;由 FindingSection 註冊實作) */
-export type NoteSeed = { itemNo: string; dim: string; text: string };
 
 const ASPECTS: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 const ALL_DIMS: Dimension[] = ASPECTS.flatMap((a) => ASPECT_DIMENSIONS[a]);
@@ -943,7 +941,7 @@ function FindingSection({
       id: created.id, aspect: created.aspect, kind: created.kind,
       content: created.content, checklistRef: created.checklistRef, locked: false,
     }]);
-    toast.success(`已帶入${FINDING_KIND_LABELS[kind]}草稿`, '請補述內容後儲存。');
+    toast.success(`已帶入${FINDING_KIND_LABELS[kind]}(待補述)`, '此發現已建立,請於下方補述具體內容後儲存;未補述前僅為佔位。');
   }
 
   async function patchFinding(f: MyFinding) {

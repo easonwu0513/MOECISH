@@ -182,9 +182,10 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   // ── 實地稽核評分與發現(中心/委員;機關不參與)──
   const audit: ModuleNavItem = {
     key: 'audit',
-    title: '實地稽核評分與發現',
-    sub: '委員評分與發現',
-    href: `${base}/audit`,
+    // 中心點此卡會被 /audit redirect 至彙整報告,故中心直接連 /audit/report、卡名點明(批35 稽核:卡名與落點一致);委員仍走 /audit 評分
+    title: isAuditor ? '實地稽核評分與發現' : '實地稽核彙整報告',
+    sub: isAuditor ? '委員評分與發現' : '全體委員評分與發現整合',
+    href: isAuditor ? `${base}/audit` : `${base}/audit/report`,
     status: onsitePast ? '已完成' : st === 'ONSITE' ? '進行中' : '尚未開始',
     statusTone: st === 'ONSITE' ? 'primary' : 'default',
     caption: '委員線上評分、記錄稽核發現',
@@ -204,7 +205,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     status: i.def.total > 0 ? `${i.def.passed}/${i.def.total}` : isAuditor && defPublished ? '0 項' : '尚未發布',
     statusTone: i.def.total > 0 && i.def.passed === i.def.total ? 'success' : 'default',
     caption: i.def.total > 0
-      ? `待填 ${i.def.pending} · 退回 ${i.def.returned}`
+      ? `待填 ${i.def.pending} · 退回補正 ${i.def.returned}`
       : isAuditor && defPublished ? '目前無指派您審閱的缺失' : '缺失發布後開放填報',
     muted: !modActive.def,
     locked: i.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', i.role, st),

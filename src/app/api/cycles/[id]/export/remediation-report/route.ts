@@ -69,7 +69,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         },
       },
     });
-    if (!cycle) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    if (!cycle) return NextResponse.json({ error: '找不到資料或您無權存取' }, { status: 404 });
 
     const children: (Paragraph | Table)[] = [];
 

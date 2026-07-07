@@ -144,7 +144,7 @@ check('委員 prep caption 不併檢核表摘要(審閱另有頂層卡)', !byKey
 check('檢核表未送出=10/20', byKey(nav('ORG_ADMIN', 'PREPARATION'), 'checklist').status === '10/20');
 check('檢核表已送出 → 已送出+success',
   (() => { const m = byKey(nav('ORG_ADMIN', 'ONSITE', { checklist: { submitted: true, answered: 20, total: 20 } }), 'checklist'); return m.status === '已送出' && m.statusTone === 'success'; })());
-check('缺失=1/4+caption 待填/退回', (() => { const m = byKey(nav('SUPER_ADMIN', 'REMEDIATION'), 'def'); return m.status === '1/4' && m.caption === '待填 2 · 退回 1'; })());
+check('缺失=1/4+caption 待填/退回補正(批35)', (() => { const m = byKey(nav('SUPER_ADMIN', 'REMEDIATION'), 'def'); return m.status === '1/4' && m.caption === '待填 2 · 退回補正 1'; })());
 check('缺失 0 筆=尚未發布', byKey(nav('SUPER_ADMIN', 'ONSITE', { def: { total: 0, passed: 0, pending: 0, returned: 0 } }), 'def').status === '尚未發布');
 check('委員發布後 0 筆 → 0 項+無指派(非「尚未發布」)',
   (() => { const m = byKey(nav('AUDITOR', 'REPORT_ISSUED', { def: { total: 0, passed: 0, pending: 0, returned: 0 } }), 'def'); return m.status === '0 項' && m.caption === '目前無指派您審閱的缺失'; })());

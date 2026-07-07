@@ -33,7 +33,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: '請於系統內逐題檢視(螢幕浮水印保護),不提供檢核表下載' }, { status: 403 });
     }
     const data = await loadCycle(cycle.id);
-    if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
+    if (!data) return NextResponse.json({ error: '找不到資料或您無權存取' }, { status: 404 });
 
     const format = new URL(req.url).searchParams.get('format');
     return format === 'docx' ? exportDocx(data) : exportXlsx(data);

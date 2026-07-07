@@ -7,6 +7,7 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
+import { ConfirmDialog } from '@/components/ui/Dialog';
 import { FilterChipButton } from '@/components/ui/FilterChip';
 import { Send } from '@/components/icons';
 
@@ -35,6 +36,7 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   const [body, setBody] = useState(DEFAULT_BODY);
   const [sending, setSending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);  // 批35 稽核:群發真實郵件需二次確認
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -45,8 +47,12 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
     });
   }
 
-  async function send() {
+  function requestSend() {
     if (selected.size === 0) { toast.error('請選擇至少一個機關'); return; }
+    setConfirmOpen(true);
+  }
+  async function send() {
+    setConfirmOpen(false);
     setSending(true);
     const res = await fetch('/api/admin/emails/send', {
       method: 'POST',
@@ -92,11 +98,20 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
         <Textarea label="內文" value={body} onChange={(e) => setBody(e.target.value)} rows={8} />
 
         <div>
-          <Button onClick={send} loading={sending} leadingIcon={<Send size={16} />}>
+          <Button onClick={requestSend} loading={sending} leadingIcon={<Send size={16} />}>
             寄送({selected.size} 個機關)
           </Button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => !sending && setConfirmOpen(o)}
+        title={`確定寄送追蹤信給 ${selected.size} 個機關?`}
+        description={`將對下列機關的機關管理員寄出真實郵件(無法收回):${orgs.filter((o) => selected.has(o.id)).map((o) => o.name).join('、')}`}
+        confirmLabel="確定寄送"
+        loading={sending}
+        onConfirm={send}
+      />
     </Card>
   );
 }

@@ -15,7 +15,8 @@ export default async function OrganizationsPage() {
   const orgs = await prisma.organization.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
-      _count: { select: { users: true, cycles: true, invitations: true } },
+      // 「邀請」欄只計待接受邀請(已接受/已撤銷/已過期不算),與使用者管理頁語意一致(批35 稽核)
+      _count: { select: { users: true, cycles: true, invitations: { where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } } } },
       cycles: {
         orderBy: { year: 'desc' },
         take: 1,

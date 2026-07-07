@@ -100,7 +100,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const url = new URL(req.url);
     const reportId = url.searchParams.get('reportId') ?? '';
     const action = url.searchParams.get('action') ?? 'confirm';
-    if (!reportId) return NextResponse.json({ error: 'reportId required' }, { status: 400 });
+    if (!reportId) return NextResponse.json({ error: '請求參數不完整,請重新整理後再試' }, { status: 400 });
 
     // 只操作本週期下的掃描檔,避免跨週期竄改
     const report = await prisma.signedReport.findUnique({ where: { id: reportId } });

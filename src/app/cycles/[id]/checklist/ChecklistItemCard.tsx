@@ -463,8 +463,8 @@ function EvidenceBlock({
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) {
-      toast.error('上傳失敗', '檔案超過 5MB 上限');
+    if (f.size > 20 * 1024 * 1024) {
+      toast.error('上傳失敗', '檔案超過 20MB 上限');
       e.target.value = '';
       return;
     }
@@ -493,7 +493,7 @@ function EvidenceBlock({
     <div>
       <div className="flex items-center justify-between mb-2">
         <p className="text-label text-ink-500">紀錄佐證上傳</p>
-        <span className="text-caption text-ink-500">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
+        <span className="text-caption text-ink-500">每檔 ≤ 20MB · 規範、紀錄、公文、截圖…</span>
       </div>
       {expectedEvidence && (
         <div className={`mb-3 rounded-sm ${SURFACE_INFO} px-3 py-2`}>

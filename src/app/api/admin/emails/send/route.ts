@@ -43,7 +43,9 @@ export async function POST(req: Request) {
       await sendEmail({
         to: r.email,
         toName: r.name,
-        subject: input.subject,
+        subject: input.subject
+          .replaceAll('{{orgName}}', r.organization?.name ?? '')
+          .replaceAll('{{loginUrl}}', `${base}/login`),
         body,
         kind: 'tracking',
         context: { organizationId: r.organizationId, triggeredBy: user.id },

@@ -176,7 +176,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const user = await requireRole('SUPER_ADMIN');
     const url = new URL(req.url);
     const auditorId = url.searchParams.get('auditorId') ?? '';
-    if (!auditorId) return NextResponse.json({ error: 'auditorId required' }, { status: 400 });
+    if (!auditorId) return NextResponse.json({ error: '請求參數不完整,請重新整理後再試' }, { status: 400 });
 
     const cycle = await prisma.auditCycle.findUnique({
       where: { id: params.id },

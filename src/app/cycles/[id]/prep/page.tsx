@@ -286,7 +286,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
 
           {isReviewer && reviewLocked ? (
             // 審閱時間區間閘(UAT 批67):不在窗口內→顯鎖定卡,不渲染任何機關資料
-            <ReviewWindowLockNotice state={reviewState} start={cycle.reviewWindowStart} end={cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} />
+            <ReviewWindowLockNotice state={reviewState} start={isObserver ? cycle.observerWindowStart : cycle.reviewWindowStart} end={isObserver ? cycle.observerWindowEnd : cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} roleNoun={isObserver ? '觀察員' : '委員'} />
           ) : isReviewer && visibleRequirements.length === 0 ? (
             <div className="rounded-lg border border-rule bg-paper-sunk p-8 text-center text-body-sm text-ink-500">
               目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。

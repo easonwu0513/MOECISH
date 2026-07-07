@@ -40,11 +40,15 @@ export default function SignedReportPanel({
   const [pendingSubmit, setPendingSubmit] = useState<string | null>(null);
   const [pendingReturn, setPendingReturn] = useState<string | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
   async function load() {
-    const res = await fetch(`/api/cycles/${cycleId}/signed-reports`);
-    if (!res.ok) return;
+    const res = await fetch(`/api/cycles/${cycleId}/signed-reports`).catch(() => null);
+    if (!res || !res.ok) { setLoadErr(true); setLoaded(true); return; }
     const j = await res.json();
     setItems(j.items ?? []);
+    setLoadErr(false);
+    setLoaded(true);
   }
   useEffect(() => { load(); }, [cycleId]);
 
@@ -138,7 +142,11 @@ export default function SignedReportPanel({
         </CardDescription>
 
         <div className="mt-4 flex flex-col gap-3">
-          {items.length === 0 ? (
+          {!loaded ? (
+            <p className="text-body-sm text-ink-500">載入中…</p>
+          ) : loadErr ? (
+            <p className="text-body-sm text-danger-700">無法載入掃描檔清單,請重新整理頁面再試。</p>
+          ) : items.length === 0 ? (
             <p className="text-body-sm text-ink-500">尚未上傳</p>
           ) : (
             <ul className="flex flex-col gap-2">

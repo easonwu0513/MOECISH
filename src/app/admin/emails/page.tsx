@@ -77,7 +77,8 @@ export default async function EmailLogPage({
   const [logs, orgs, totals] = await Promise.all([
     prisma.emailLog.findMany({ where, orderBy: { sentAt: 'desc' }, take: 200 }),
     prisma.organization.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    Promise.all(STATUS_KEYS.map((s) => prisma.emailLog.count({ where: { status: s } }))),
+    // 狀態 chip 計數併入當前類型/關鍵字篩選,與下方清單一致(批35 稽核:原忽略篩選顯全站總數,誤導)
+    Promise.all(STATUS_KEYS.map((s) => prisma.emailLog.count({ where: { ...where, status: s } }))),
   ]);
   const [sentCount, failedCount, simulatedCount, skippedCount, deadCount, manualCount] = totals;
 
