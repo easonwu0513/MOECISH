@@ -38,23 +38,21 @@ export function cycleWorkspaces(role: Role, c: NavCycle): WorkspaceLink[] {
   const orgLocked = role === 'ORG_ADMIN' && c.status === 'DRAFT';
   const prepOpen = role === 'AUDITOR' ? auditorCanViewChecklistContent(c.status) : !orgLocked;
   if (prepOpen) {
-    // 分類錨點只列「該週期實際有項目」的分類(API 回傳布林;舊快取無 prep 欄位時不列=安全退化)
+    // 分類錨點只列「該週期實際有項目」的分類(API 回傳布林;舊快取無 prep 欄位時不列=安全退化)。
+    // 檢核表歸屬「稽核前資料準備」(批26 裁定:準備文件之一,獨立填報但不再獨立分類);
+    // 委員 → 審閱頁(檢視超集)、機關/中心 → 檢核表頁,可見時機與 prep 同閘(原兩閘條件本就相同)。
     const children = [
       ...(c.prep?.tech ? [{ label: '技術檢測', href: `${base}/prep#prep-tech` }] : []),
       ...(c.prep?.onsite ? [{ label: '實地稽核', href: `${base}/prep#prep-onsite` }] : []),
       // 中心匯入區機關不顯示(PrepBoard 同規則)
       ...(role !== 'ORG_ADMIN' && c.prep?.center ? [{ label: '中心匯入', href: `${base}/prep#prep-center` }] : []),
+      { label: '資通安全檢核表', href: role === 'AUDITOR' ? `${base}/review` : `${base}/checklist` },
     ];
     out.push({
       label: '稽核前資料準備',
       href: `${base}/prep`,
-      ...(children.length > 0 ? { children } : {}),
+      children,
     });
-  }
-  // 資通安全檢核表:委員 → 審閱頁(檢視超集);機關/中心 → 檢核表頁
-  const checklistOpen = role === 'AUDITOR' ? auditorCanViewChecklistContent(c.status) : !orgLocked;
-  if (checklistOpen) {
-    out.push({ label: '資通安全檢核表', href: role === 'AUDITOR' ? `${base}/review` : `${base}/checklist` });
   }
   // 實地稽核評分與發現:委員於實地稽核(ONSITE)後;中心全程(檢視委員評分/發現);機關不涉入
   if (role === 'AUDITOR' ? auditorCanScore(c.status) : role === 'SUPER_ADMIN') {

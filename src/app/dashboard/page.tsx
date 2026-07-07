@@ -187,8 +187,8 @@ export default async function HomePage() {
         todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後發布缺失`, href: `${base}/deficiencies`, cta: '去發布' });
       }
       if (st === 'REPORT_ISSUED') {
-        // 直達週期頁「進階管理」錨點(通知鈕所在),不再丟到頁頂讓人自己找(審計#4)
-        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,通知機關開始矯正`, href: `${base}#management`, cta: '去通知' });
+        // REPORT_ISSUED 的正確動作=推進至矯正執行(推進時自動通知機關;手動通知鈕僅 REMEDIATION 顯示)
+        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,推進至「矯正執行」後機關即可填報(推進時自動通知)`, href: `${base}#advanced-settings`, cta: '去推進' });
       }
       if (st === 'REMEDIATION') {
         if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });

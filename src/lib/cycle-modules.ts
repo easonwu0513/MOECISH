@@ -1,4 +1,5 @@
 import { canAccess } from './access-policy';
+import { CYCLE_STATUS_LABELS } from './state-machine';
 import {
   auditorCanViewChecklistContent,
   auditorCanScore,
@@ -13,14 +14,15 @@ import {
  * 狀態/鎖定/文案 → 平行漂移(磚顯 20/20、左欄顯「已送出」;鎖定條件兩套)。
  * 收斂於此:兩處同吃 buildModuleNav(),只有版面(磚 vs 側欄列)不同。
  *
- * 角色的四模組(2×2):
- *   中心   = 資料準備 / 檢核表 / 實地稽核 / 缺失矯正
- *   委員   = 資料準備 / 委員審閱 / 實地稽核 / 缺失矯正(限己審)
- *   機關   = 資料準備 / 檢核表 / 缺失矯正 / 改善報告(用印)
- * (機關不參與實地評分;其收尾工作是用印報告 → 第四卡,錨點 #signed-report 與儀表板待辦一致)
+ * 角色的模組卡(UAT 批26 裁定:檢核表=稽核前資料準備中的文件,獨立填報但「不再獨立分類」,
+ * 降為 prep 子項 childOf='prep';模組卡網格只渲染頂層,子項於 prep 左欄/側欄樹縮排呈現):
+ *   中心   = 資料準備(含檢核表) / 進階設定(日期、階段、委員指派) / 實地稽核 / 缺失矯正
+ *   委員   = 資料準備 / 委員審閱(審閱為委員獨立活動,維持頂層) / 實地稽核 / 缺失矯正(限己審)
+ *   機關   = 資料準備(含檢核表) / 缺失矯正 / 改善報告(用印)
+ * (機關不參與實地評分;其收尾工作是用印報告,錨點 #signed-report 與儀表板待辦一致)
  */
 
-export type ModuleKey = 'prep' | 'checklist' | 'audit' | 'def' | 'report';
+export type ModuleKey = 'prep' | 'checklist' | 'settings' | 'audit' | 'def' | 'report';
 
 export type ModuleNavItem = {
   key: ModuleKey;
@@ -37,6 +39,8 @@ export type ModuleNavItem = {
   muted: boolean;
   locked: boolean;
   lockedHint?: string;
+  /** 子項歸屬(如檢核表 childOf='prep'):模組卡網格不渲染,由 prep 左欄/側欄樹縮排呈現 */
+  childOf?: 'prep';
 };
 
 /** 委員審閱窗口狀態(auditorReviewWindowState 的輸出)。 */
@@ -84,18 +88,22 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   // 委員「審閱」實際開放:資料齊備(READY)起可檢視 + 窗口開啟
   const auditorReviewActive = isAuditor && auditorCanViewChecklistContent(st) && reviewState === 'open';
 
-  // ── 資料準備 ──
+  // ── 資料準備(機關/中心視角含檢核表摘要:檢核表屬準備文件,批26 裁定不再獨立分類)──
   const prepDone = i.prep.total > 0 && i.prep.confirmed === i.prep.total;
+  const checklistBrief = i.checklist.submitted
+    ? '檢核表已送出'
+    : i.checklist.total > 0 ? `檢核表 ${i.checklist.answered}/${i.checklist.total}` : '檢核表未開放';
+  const prepBase = i.prep.total > 0
+    ? (prepDone ? '資料齊備' : `待繳 ${i.prep.draft} · 退補 ${i.prep.insufficient}`)
+    : '尚無資料需求';
   const prep: ModuleNavItem = {
     key: 'prep',
     title: '稽核前資料準備',
-    sub: isAuditor ? '檢視機關繳交資料' : '附件收集與繳交',
+    sub: isAuditor ? '檢視機關繳交資料' : '附件收集與檢核表填報',
     href: `${base}/prep`,
     status: i.prep.total > 0 ? `${i.prep.confirmed}/${i.prep.total}` : '—',
     statusTone: prepDone ? 'success' : 'default',
-    caption: i.prep.total > 0
-      ? (prepDone ? '資料齊備' : `待繳 ${i.prep.draft} · 退補 ${i.prep.insufficient}`)
-      : '尚無資料需求',
+    caption: isAuditor ? prepBase : `${prepBase} · ${checklistBrief}`,
     muted: !modActive.prep,
     locked:
       (isAuditor && (!auditorCanViewChecklistContent(st) || reviewLocked)) ||
@@ -105,7 +113,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
       : reviewLocked ? reviewLockHint : '資料齊備後開放委員檢視',
   };
 
-  // ── 檢核表(機關/中心)/ 委員審閱(委員;入口名全站統一,roles#10)──
+  // ── 檢核表(機關/中心:prep 子項 childOf,不再獨立分類)/ 委員審閱(委員:獨立活動維持頂層)──
   const checklist: ModuleNavItem = isAuditor
     ? {
         key: 'checklist',
@@ -121,8 +129,9 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
       }
     : {
         key: 'checklist',
+        childOf: 'prep',
         title: '資通安全檢核表',
-        sub: '機關自評與佐證',
+        sub: '機關自評與佐證(獨立填報)',
         href: `${base}/checklist`,
         status: i.checklist.submitted
           ? '已送出'
@@ -135,6 +144,19 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
         locked: isOrg && st === 'DRAFT',
         lockedHint: '中心推進至「資料準備中」後開放填報',
       };
+
+  // ── 進階設定(中心):日期、階段與委員指派的「家」;頂部卡快捷鍵保留(批26 裁定)──
+  const settings: ModuleNavItem = {
+    key: 'settings',
+    title: '進階設定',
+    sub: '日期、階段與委員指派',
+    href: `${base}#advanced-settings`,
+    status: CYCLE_STATUS_LABELS[st] ?? st,
+    statusTone: 'primary',
+    caption: '編輯週期日期、推進階段、指派委員',
+    muted: false,
+    locked: false,
+  };
 
   // ── 實地稽核評分與發現(中心/委員;機關不參與)──
   const audit: ModuleNavItem = {
@@ -186,5 +208,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   };
 
   if (isOrg) return [prep, checklist, def, report];
-  return [prep, checklist, audit, def];
+  if (isAuditor) return [prep, checklist, audit, def];
+  // 中心:檢核表為 prep 子項;第二格=進階設定(頂層卡=網格 2×2:prep/settings/audit/def)
+  return [prep, checklist, settings, audit, def];
 }

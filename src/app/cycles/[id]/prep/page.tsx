@@ -155,12 +155,14 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           <div className="rounded-lg border border-rule bg-card p-2">
             <p className="px-2 py-1.5 text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">稽核作業項目</p>
             <div className="flex flex-col gap-0.5">
-              {modules.map((m) => {
+              {/* 頂層模組列;檢核表為 prep 子項(childOf,批26)於 prep 列之後縮排呈現 */}
+              {modules.filter((m) => !m.childOf).flatMap((m) => [m, ...(m.key === 'prep' ? modules.filter((x) => x.childOf === 'prep') : [])]).map((m) => {
+                const isChild = Boolean(m.childOf);
                 const isCurrent = m.key === 'prep';
                 const locked = m.locked && !isCurrent;
                 const inner = (
-                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${isCurrent ? 'bg-focus-wash border border-primary-100' : locked ? 'opacity-70' : 'transition-colors hover:bg-paper-sunk'}`}>
-                    <TileIcon size={32} className={isCurrent ? 'bg-card text-primary-700' : 'bg-paper-sunk text-ink-500'}>
+                  <div className={`flex items-center gap-2.5 rounded-md px-2.5 py-2.5 ${isChild ? 'ml-5 border-l-2 border-rule pl-2.5' : ''} ${isCurrent ? 'bg-focus-wash border border-primary-100' : locked ? 'opacity-70' : 'transition-colors hover:bg-paper-sunk'}`}>
+                    <TileIcon size={isChild ? 26 : 32} className={isCurrent ? 'bg-card text-primary-700' : 'bg-paper-sunk text-ink-500'}>
                       {MODULE_ICONS[m.key]}
                     </TileIcon>
                     <div className="min-w-0 flex-1">

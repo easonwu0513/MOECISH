@@ -28,12 +28,19 @@ const nav = (role: Role, status: CycleStatus, extra: Partial<Parameters<typeof b
   buildModuleNav({ ...BASE, role, status, auditorReviewState: role === 'AUDITOR' ? 'open' : undefined, ...extra });
 const byKey = (items: ModuleNavItem[], key: string) => items.find((m) => m.key === key)!;
 
-// ── 角色卡組(2×2 各四張;機關以用印卡取代實地稽核) ──
+// ── 角色卡組(批26:檢核表=prep 子項 childOf 不再獨立成卡;中心第二格=進階設定) ──
+const topKeys = (items: ModuleNavItem[]) => items.filter((m) => !m.childOf).map((m) => m.key).join();
 for (const st of CYCLE_STATUSES) {
-  check(`SUPER@${st} 卡組=prep,checklist,audit,def`, nav('SUPER_ADMIN', st).map((m) => m.key).join() === 'prep,checklist,audit,def');
-  check(`AUDITOR@${st} 卡組=prep,checklist,audit,def`, nav('AUDITOR', st).map((m) => m.key).join() === 'prep,checklist,audit,def');
-  check(`ORG@${st} 卡組=prep,checklist,def,report`, nav('ORG_ADMIN', st).map((m) => m.key).join() === 'prep,checklist,def,report');
+  check(`SUPER@${st} 全清單=prep,checklist,settings,audit,def`, nav('SUPER_ADMIN', st).map((m) => m.key).join() === 'prep,checklist,settings,audit,def');
+  check(`SUPER@${st} 頂層卡=prep,settings,audit,def(檢核表為子項)`, topKeys(nav('SUPER_ADMIN', st)) === 'prep,settings,audit,def');
+  check(`AUDITOR@${st} 卡組=prep,checklist,audit,def(審閱維持頂層)`, topKeys(nav('AUDITOR', st)) === 'prep,checklist,audit,def');
+  check(`ORG@${st} 頂層卡=prep,def,report(檢核表為子項)`, topKeys(nav('ORG_ADMIN', st)) === 'prep,def,report');
+  check(`ORG@${st} 檢核表存在且 childOf=prep`, byKey(nav('ORG_ADMIN', st), 'checklist').childOf === 'prep');
 }
+// 進階設定卡(中心專屬):錨點直達、永不鎖、狀態=目前階段
+check('SUPER 進階設定卡 href=#advanced-settings', byKey(nav('SUPER_ADMIN', 'ONSITE'), 'settings').href === '/cycles/cyc-1#advanced-settings');
+check('SUPER 進階設定卡永不鎖不淡化', CYCLE_STATUSES.every((st) => { const m = byKey(nav('SUPER_ADMIN', st), 'settings'); return !m.locked && !m.muted; }));
+check('ORG/AUDITOR 無進階設定卡', !nav('ORG_ADMIN', 'ONSITE').some((m) => m.key === 'settings') && !nav('AUDITOR', 'ONSITE').some((m) => m.key === 'settings'));
 
 // ── 中心永不鎖 ──
 for (const st of CYCLE_STATUSES) {
@@ -92,9 +99,11 @@ check('用印卡 href=#signed-report 錨點', byKey(nav('ORG_ADMIN', 'REMEDIATIO
 
 // ── 狀態字串/讀數 ──
 check('prep 狀態=3/5', byKey(nav('SUPER_ADMIN', 'PREPARATION'), 'prep').status === '3/5');
-check('prep 全齊 → success+資料齊備',
-  (() => { const m = byKey(nav('SUPER_ADMIN', 'READY', { prep: { confirmed: 5, total: 5, draft: 0, insufficient: 0 } }), 'prep'); return m.statusTone === 'success' && m.caption === '資料齊備'; })());
-check('prep 未齊 caption=待繳/退補', byKey(nav('SUPER_ADMIN', 'PREPARATION'), 'prep').caption === '待繳 1 · 退補 1');
+check('prep 全齊 → success+資料齊備(併檢核表摘要,批26)',
+  (() => { const m = byKey(nav('SUPER_ADMIN', 'READY', { prep: { confirmed: 5, total: 5, draft: 0, insufficient: 0 } }), 'prep'); return m.statusTone === 'success' && m.caption === '資料齊備 · 檢核表 10/20'; })());
+check('prep 未齊 caption=待繳/退補+檢核表摘要', byKey(nav('SUPER_ADMIN', 'PREPARATION'), 'prep').caption === '待繳 1 · 退補 1 · 檢核表 10/20');
+check('prep caption 檢核表已送出摘要', byKey(nav('ORG_ADMIN', 'ONSITE', { checklist: { submitted: true, answered: 20, total: 20 } }), 'prep').caption.endsWith('檢核表已送出'));
+check('委員 prep caption 不併檢核表摘要(審閱另有頂層卡)', !byKey(nav('AUDITOR', 'READY'), 'prep').caption.includes('檢核表'));
 check('檢核表未送出=10/20', byKey(nav('ORG_ADMIN', 'PREPARATION'), 'checklist').status === '10/20');
 check('檢核表已送出 → 已送出+success',
   (() => { const m = byKey(nav('ORG_ADMIN', 'ONSITE', { checklist: { submitted: true, answered: 20, total: 20 } }), 'checklist'); return m.status === '已送出' && m.statusTone === 'success'; })());

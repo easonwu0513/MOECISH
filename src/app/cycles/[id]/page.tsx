@@ -18,7 +18,7 @@ import { auditorCanSeeCycle, auditorReviewWindowState, CYCLE_STATUSES, DEFICIENC
 import { canAccess } from '@/lib/access-policy';
 import { buildModuleNav } from '@/lib/cycle-modules';
 import { Menu } from '@/components/ui/Menu';
-import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History } from '@/components/icons';
+import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History, Settings } from '@/components/icons';
 import NotifyButton from './NotifyButton';
 import NotifyOrgButton from './NotifyOrgButton';
 import TransitionButton from './TransitionButton';
@@ -33,6 +33,7 @@ import { TileIcon, statusToneText } from '@/components/cycle/tile';
 const MODULE_ICONS: Record<string, React.ReactNode> = {
   prep: <FileText size={18} />,
   checklist: <ClipboardCheck size={18} />,
+  settings: <Settings size={18} />,
   audit: <Eye size={18} />,
   def: <AlertTriangle size={18} />,
   report: <CheckCircle size={18} />,
@@ -453,11 +454,10 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">
         <div className="min-w-0">
 
-          {/* 四模組工作卡 2×2(三角色統一;圖1 結構):資料/檢核表(或委員審閱)/實地稽核(或機關的用印報告)/缺失。
-              單一來源 buildModuleNav——原中心「稽核作業/委員」分區磚(實地稽核磚曾重複渲染兩次)與
-              機關「七章文件進度尺」皆收斂於此。 */}
+          {/* 模組工作卡網格(單一來源 buildModuleNav;批26:檢核表=prep 子項不再獨立成卡,
+              中心第二格=進階設定;子項(childOf)於 prep 左欄與側欄樹縮排呈現) */}
           <section className="grid grid-cols-2 gap-3 mb-6">
-            {modules.map((m) => (
+            {modules.filter((m) => !m.childOf).map((m) => (
               <StatusTile
                 key={m.key}
                 icon={MODULE_ICONS[m.key]}
@@ -559,16 +559,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </Card>
           )}
 
-          {/* 委員指派(中心;圖1 順位=待辦之後)。實地稽核進行中新增委員屬重大變動 → 事前確認視窗 */}
-          {user.role === 'SUPER_ADMIN' && (
-            <div id="assign-auditors" className="mb-6 scroll-mt-24">
-              <AssignAuditorsPanel
-                cycleId={cycle.id}
-                canAssign={canAssignAuditors(cycle.status as CycleStatus)}
-                confirmOnAssign={cycle.status === 'ONSITE'}
-              />
-            </div>
-          )}
+          {/* (委員指派移入頁尾「進階設定」集中區,批26 裁定:設定相關的東西都放進去) */}
 
           {/* 匯出:委員不需匯出功能;僅機關/中心顯示。
               置於「用印掃描檔」之上(UAT 批68):流程=先由此匯出改善報告→機關用印→再將用印檔掃描上傳至下方。
@@ -637,36 +628,84 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             </section>
           )}
 
-          {/* 進階管理(中心):矯正通知、狀態回退與刪除。「推進」主動作已上移至頂部卡,不在此重複 */}
-          {user.role === 'SUPER_ADMIN' &&
-            ((cycle.status === 'REPORT_ISSUED' || cycle.status === 'REMEDIATION') || rollbacks.length > 0 || cycle.status === 'DRAFT') && (
-            <Card id="management" className="mb-6 scroll-mt-24">
-              <CardTitle>進階管理</CardTitle>
-              <CardDescription>通知機關填報矯正、回退週期狀態</CardDescription>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {/* 「通知機關填報矯正」僅在 REMEDIATION(填報真正開放)顯示(全掃 P2):REPORT_ISSUED 時
-                    機關 canAccess('deficiencies.view')=false,寄了「去填報」信機關點連結會被 redirect=踩空。
-                    REPORT_ISSUED 階段中心該做的是頂部「矯正執行」推進鈕(推進時自動通知)。 */}
-                {cycle.status === 'REMEDIATION' && (
-                  <NotifyButton cycleId={cycle.id} />
-                )}
-                {rollbacks.map((t) => (
-                  <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
-                ))}
-                {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
-                {cycle.status === 'DRAFT' && (
-                  <>
-                    <span className="w-px h-5 bg-rule-strong mx-1" aria-hidden />
-                    <DeleteCycleButton
+          {/* ── 進階設定(中心;批26 集中區):日期、階段與委員指派的「家」。
+              頂部卡快捷鍵(編輯日期/推進)依裁定保留=捷徑;此處為完整版位。
+              模組卡「進階設定」與側欄可經 #advanced-settings 錨點直達。 ── */}
+          {user.role === 'SUPER_ADMIN' && (
+            <section id="advanced-settings" className="mb-6 scroll-mt-24">
+              <Card className="mb-4">
+                <CardTitle>進階設定</CardTitle>
+                <CardDescription>編輯週期日期、控制稽核階段;矯正通知、狀態回退與刪除</CardDescription>
+
+                {/* 日期 */}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-body-sm text-ink-500 w-20 shrink-0">週期日期</span>
+                  <EditCycleDialog
+                    cycleId={cycle.id}
+                    dueDate={cycle.dueDate?.toISOString() ?? ''}
+                    prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+                    prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                    techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
+                    onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+                  />
+                  <span className="text-caption text-ink-500">
+                    實地稽核 / 技術檢測 / 文件繳交截止 / 矯正截止
+                  </span>
+                </div>
+
+                {/* 階段 */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-body-sm text-ink-500 w-20 shrink-0">稽核階段</span>
+                  <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
+                    目前:{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+                  </Chip>
+                  {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && transitions.map((t) => (
+                    <TransitionButton
+                      key={`adv-${t}`}
                       cycleId={cycle.id}
-                      orgName={cycle.organization.shortName ?? cycle.organization.name}
-                      yearROC={yearROC}
-                      redirectTo="/admin/cycles"
+                      target={t}
+                      disabled={t === 'READY' && readyBlockers.length > 0}
+                      disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                      warn={
+                        !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
+                          ? '缺失發布後機關須依此日期填報矯正措施。建議先設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                          : undefined
+                      }
                     />
-                  </>
+                  ))}
+                  {rollbacks.map((t) => (
+                    <TransitionButton key={`rb-${t}`} cycleId={cycle.id} target={t} rollback />
+                  ))}
+                </div>
+
+                {/* 其他管理動作 */}
+                {(cycle.status === 'REMEDIATION' || cycle.status === 'DRAFT') && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-body-sm text-ink-500 w-20 shrink-0">其他</span>
+                    {/* 「通知機關填報矯正」僅 REMEDIATION(填報真正開放)顯示:REPORT_ISSUED 寄了機關點連結會踩空 */}
+                    {cycle.status === 'REMEDIATION' && <NotifyButton cycleId={cycle.id} />}
+                    {/* 刪除週期:僅開立中(建錯醫院/年度時);推進後不可刪(後端亦擋) */}
+                    {cycle.status === 'DRAFT' && (
+                      <DeleteCycleButton
+                        cycleId={cycle.id}
+                        orgName={cycle.organization.shortName ?? cycle.organization.name}
+                        yearROC={yearROC}
+                        redirectTo="/admin/cycles"
+                      />
+                    )}
+                  </div>
                 )}
+              </Card>
+
+              {/* 委員指派(指派該場次稽核委員);#assign-auditors 錨點保留供儀表板/精靈深連結 */}
+              <div id="assign-auditors" className="scroll-mt-24">
+                <AssignAuditorsPanel
+                  cycleId={cycle.id}
+                  canAssign={canAssignAuditors(cycle.status as CycleStatus)}
+                  confirmOnAssign={cycle.status === 'ONSITE'}
+                />
               </div>
-            </Card>
+            </section>
           )}
         </div>
 
