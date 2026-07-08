@@ -17,7 +17,7 @@ export default async function UsersPage() {
 
   const [users, invites, orgs] = await Promise.all([
     prisma.user.findMany({
-      include: { organization: true },
+      include: { organization: true, roleGrants: { where: { endedAt: null } } },
       orderBy: [{ createdAt: 'desc' }],
     }),
     prisma.invitation.findMany({
@@ -45,6 +45,9 @@ export default async function UsersPage() {
       status: status as 'pending' | 'expired',
     }));
 
+  // 多重身分(批31):角色欄同時列出現用身分+其他有效授權身分——
+  // 只顯示現用身分時,中心無從得知「現用機關管理員、另持觀察員授權」者可被配對為觀察員
+  const orgNameById = new Map(orgs.map((o) => [o.id, o.name] as const));
   const userRows: UserRow[] = users.map((u) => ({
     id: u.id,
     name: u.name,
@@ -52,6 +55,12 @@ export default async function UsersPage() {
     role: u.role as Role,
     orgId: u.organizationId,
     orgName: u.organization?.name ?? null,
+    otherIdentities: u.roleGrants
+      .filter((g) => !(g.role === u.role && g.organizationId === u.organizationId))
+      .map((g) => ({
+        role: g.role as Role,
+        orgName: g.organizationId ? orgNameById.get(g.organizationId) ?? null : null,
+      })),
     isActive: u.isActive,
     lastLoginAtISO: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
     disableReason: u.disableReason,

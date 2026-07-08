@@ -39,6 +39,8 @@ export type UserRow = {
   isSelf: boolean;
   /** 有練習發現(觀察員實習;批32)→ 列「實習紀錄」連結 */
   hasPractice: boolean;
+  /** 多重身分(批31):現用身分以外的有效授權身分(UserRole,endedAt=null),角色欄併列顯示 */
+  otherIdentities: { role: Role; orgName: string | null }[];
 };
 
 type StatusFilter = 'all' | 'pending' | 'expired' | 'active' | 'disabled';
@@ -68,8 +70,9 @@ export default function UsersDirectory({
     disabled: users.filter((u) => !u.isActive).length,
   }), [invites, users]);
 
-  const matchCommon = (r: { role: Role; orgId: string | null; name: string; email: string }) => {
-    if (roleFilter !== 'all' && r.role !== roleFilter) return false;
+  // extraRoles:帳號的其他有效授權身分——角色篩選須涵蓋多重身分(否則篩「觀察員」漏掉現用他身分的授權持有者)
+  const matchCommon = (r: { role: Role; orgId: string | null; name: string; email: string }, extraRoles: Role[] = []) => {
+    if (roleFilter !== 'all' && r.role !== roleFilter && !extraRoles.includes(roleFilter)) return false;
     if (orgFilter !== 'all' && r.orgId !== orgFilter) return false;
     const needle = q.trim().toLowerCase();
     if (needle && !r.name.toLowerCase().includes(needle) && !r.email.toLowerCase().includes(needle)) return false;
@@ -86,7 +89,7 @@ export default function UsersDirectory({
     if (status === 'pending' || status === 'expired') return false;
     if (status === 'active' && !u.isActive) return false;
     if (status === 'disabled' && u.isActive) return false;
-    return matchCommon(u);
+    return matchCommon(u, u.otherIdentities.map((it) => it.role));
   });
 
   return (
@@ -193,8 +196,25 @@ export default function UsersDirectory({
                       <div className="text-caption font-mono text-ink-500">{u.email}</div>
                     </Td>
                     <Td>
-                      <div className="flex items-center gap-1.5">
-                        <Chip size="sm" tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Chip>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Chip
+                          size="sm"
+                          tone={ROLE_TONE[u.role]}
+                          dot={u.otherIdentities.length > 0}
+                          title={u.otherIdentities.length > 0 ? '現用身分' : undefined}
+                        >
+                          {ROLE_LABELS[u.role]}
+                        </Chip>
+                        {u.otherIdentities.map((it, i) => (
+                          <Chip
+                            key={`${it.role}:${it.orgName ?? ''}:${i}`}
+                            size="sm"
+                            tone={ROLE_TONE[it.role]}
+                            title={`已授身分(可切換)${it.orgName ? ` · ${it.orgName}` : ''}`}
+                          >
+                            {ROLE_LABELS[it.role]}
+                          </Chip>
+                        ))}
                         {u.hasPractice && (
                           <a href={`/users/${u.id}/practice-history`} className="text-caption text-primary-700 hover:underline focus-ring rounded-sm">
                             實習紀錄

@@ -224,7 +224,8 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
       const end = el.selectionEnd ?? start;
       setContentMd(contentMd.slice(0, start) + `\n${md}\n` + contentMd.slice(end));
       requestAnimationFrame(() => {
-        el.focus();
+        // preventScroll:附件列在 textarea 下方,focus 預設會把高大的 textarea 捲進視野=整頁跳到上方
+        el.focus({ preventScroll: true });
         const pos = start + md.length + 2;
         el.setSelectionRange(pos, pos);
       });
