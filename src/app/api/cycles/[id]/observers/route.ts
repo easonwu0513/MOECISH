@@ -9,7 +9,7 @@ import type { CycleStatus } from '@/lib/types';
 
 /**
  * 觀察員配對(批30 師徒制;SUPER_ADMIN 專用):
- * - GET:本週期配對清單 + 可選觀察員池(role=OBSERVER)+ 可選指導委員池(=本週期已指派委員)
+ * - GET:本週期配對清單 + 可選觀察員池(現用身分=OBSERVER 或持有效 UserRole 觀察員授權)+ 可選指導委員池(=本週期已指派委員)
  * - POST:新增/改指導委員(upsert)——mentor 必須是本週期 AuditorAssignment 中的正式委員
  * - DELETE:移除配對(練習紀錄留存,由中心仍可檢視;觀察員即失去此週期存取)
  * 名單凍結與委員指派同閘(canAssignAuditors):實地稽核結束後不得增刪改(參與紀錄不可事後改寫)。
@@ -25,8 +25,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       },
       orderBy: { createdAt: 'asc' },
     });
+    // 可選觀察員池=「現用身分為觀察員」∪「多重身分授權(UserRole)持有效觀察員授權」——
+    // 只查現用身分會漏掉如「現用機關管理員、已被授予觀察員身分」者(UAT:已授身分卻選不到)
     const observers = await prisma.user.findMany({
-      where: { role: 'OBSERVER', isActive: true },
+      where: {
+        isActive: true,
+        OR: [
+          { role: 'OBSERVER' },
+          { roleGrants: { some: { role: 'OBSERVER', endedAt: null } } },
+        ],
+      },
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     });
@@ -61,8 +69,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       where: { id: body.observerId },
       include: { roleGrants: { where: { endedAt: null } } },
     });
-    if (!observer || observer.role !== 'OBSERVER' || !observer.isActive) {
-      return NextResponse.json({ error: '觀察員不存在或已停用(帳號現用身分須為「觀察員」)' }, { status: 400 });
+    // 與 GET 池同規則:現用身分為觀察員,或持有效觀察員授權(多重身分者切換至觀察員身分後即可使用)
+    const holdsObserverIdentity =
+      observer && (observer.role === 'OBSERVER' || observer.roleGrants.some((g) => g.role === 'OBSERVER'));
+    if (!observer || !observer.isActive || !holdsObserverIdentity) {
+      return NextResponse.json({ error: '觀察員不存在或已停用(帳號須具「觀察員」身分)' }, { status: 400 });
     }
     // 迴避原則(比照委員):觀察員不得觀摩自己服務之機關——含現用身分之機關,
     // 以及多重身分授權(UserRole)中持有該機關「機關管理員」授權者(利益迴避查授權全集,非只現用身分)。

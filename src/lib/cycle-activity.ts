@@ -37,13 +37,17 @@ export type CycleActivity = { id: string; who: string; what: string; at: Date };
 
 /**
  * 取某週期的活動流(已依角色收斂範圍、白名單過濾、映射中文)。
- * 角色範圍:中心看全部;機關只看自己機關的活動;委員只看自己的活動(且缺失軌跡限本人審閱範圍)。
+ * 角色範圍:中心看全部;機關只看自己機關的活動;委員只看自己的活動(且缺失軌跡限本人審閱範圍);
+ * 觀察員只看自己 + 配對指導委員的活動(師徒制,不可見中心/機關/其他委員的工作紀錄);
+ * 未列舉角色一律只看自己(逐角色顯式列舉、預設拒絕——批30 雷區:新角色落入 fail-open 即繼承中心視野)。
  */
 export async function getCycleActivities(input: {
   cycleId: string;
   role: Role;
   userId: string;
   organizationId?: string | null;
+  /** 觀察員專用:本週期配對的指導委員 userId(僅此人與本人的活動可見) */
+  mentorUserId?: string | null;
   assignmentIds: string[];
   /** 委員限本人審閱範圍(myDeficiencies);其餘角色為全部缺失 */
   deficiencyIds: string[];
@@ -75,9 +79,13 @@ export async function getCycleActivities(input: {
   return rawLogs
     .filter((l) => ACTIVITY_LABELS[l.action])
     .filter((l) => {
-      if (input.role === 'AUDITOR') return l.actorId === input.userId;
-      if (input.role === 'ORG_ADMIN') return l.actor?.organizationId === input.organizationId;
-      return true;
+      switch (input.role) {
+        case 'SUPER_ADMIN': return true;
+        case 'ORG_ADMIN': return l.actor?.organizationId === input.organizationId;
+        case 'AUDITOR': return l.actorId === input.userId;
+        case 'OBSERVER': return l.actorId === input.userId || (!!input.mentorUserId && l.actorId === input.mentorUserId);
+        default: return l.actorId === input.userId; // 未列舉角色:僅見本人(預設拒絕)
+      }
     })
     .slice(0, input.limit)
     .map((l) => ({ id: l.id, who: l.actor?.name ?? '系統', what: ACTIVITY_LABELS[l.action], at: l.createdAt }));

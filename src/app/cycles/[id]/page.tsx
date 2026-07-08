@@ -61,13 +61,18 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 委員:未指派 → 導回;開立中(DRAFT)亦不可見(中心仍在調整名單,PREPARATION 起才開放)
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) redirect('/dashboard');
   // 觀察員(批30):未配對 → 導回;開立中亦不可見(配對查 CycleObserver,絕不與委員指派混表)
+  // mentorId 留給「最近活動」收斂範圍用:觀察員只看自己 + 配對指導委員的活動
+  let observerMentorId: string | null = null;
   if (user.role === 'OBSERVER') {
     const paired = await prisma.cycleObserver.findUnique({
       where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
-      select: { id: true },
+      select: { mentorId: true },
     });
     if (!paired || !auditorCanSeeCycle(cycle.status)) redirect('/dashboard');
+    observerMentorId = paired.mentorId;
   }
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過上列 if 即 fail-open 繼承中心視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
   // 師徒制(批30):委員視角帶「本人指導的觀察員數」(>0 顯示「指導觀察員」入口卡)
   const mentorObservers = user.role === 'AUDITOR'
     ? await prisma.cycleObserver.count({ where: { cycleId: cycle.id, mentorId: user.id } })
@@ -215,11 +220,12 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     .filter((r) => r.category === 'CENTER')
     .every((r) => r.submission?.status === 'CONFIRMED');
   const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
+  const observersCount = await prisma.cycleObserver.count({ where: { cycleId: cycle.id } });
   const journeyView = await loadJourney({
     scope: 'CYCLE',
     cycleId: cycle.id,
     role: journeyRole,
-    autoCtx: { facts, assignmentsCount: cycle.assignments.length, orgNotified, centerDataReleased },
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length, observersCount, orgNotified, centerDataReleased },
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
   const donePct = journeyView && journeyView.total > 0 ? Math.round((journeyView.doneCount / journeyView.total) * 100) : 0;
@@ -317,6 +323,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     role: user.role as Role,
     userId: user.id,
     organizationId: user.organizationId,
+    mentorUserId: observerMentorId,
     assignmentIds: cycle.assignments.map((a) => a.id),
     deficiencyIds: myDeficiencies.map((d) => d.id),
     actionIds: myDeficiencies.map((d) => d.action?.id).filter((x): x is string => Boolean(x)),
@@ -365,54 +372,61 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               {myAssignedLabels.length > 0 && <> · 您負責構面:{myAssignedLabels.join('、')}</>}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="flex items-center justify-end gap-1.5 flex-wrap">
-              {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
-                <>
-                  {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
-                    <NotifyOrgButton
-                      cycleId={cycle.id}
-                      orgName={cycle.organization.shortName ?? cycle.organization.name}
-                      datesConfirmed={Boolean(cycle.onsiteDate)}
-                    />
-                  )}
-                  <EditCycleDialog
-                    cycleId={cycle.id}
-                    dueDate={cycle.dueDate?.toISOString() ?? ''}
-                    prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
-                    prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
-                    techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
-                    onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
-                  />
-                  {transitions.map((t) => (
-                    <TransitionButton
-                      key={t}
-                      cycleId={cycle.id}
-                      target={t}
-                      disabled={t === 'READY' && readyBlockers.length > 0}
-                      disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
-                      // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
-                      warn={
-                        !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
-                          ? '缺失發布後機關須依此日期填報矯正措施。建議先按「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
-                          : undefined
-                      }
-                    />
-                  ))}
-                </>
-              )}
-              {bannerNext?.href && bannerNext.cta && (
-                <Link href={bannerNext.href}>
-                  <Button size="sm">{bannerNext.cta}</Button>
-                </Link>
-              )}
-            </div>
-            {bannerNext?.text && (
-              <p className="max-w-xs text-right text-caption text-ink-500 leading-snug">下一步:{bannerNext.text}</p>
-            )}
-            <p className="text-caption text-ink-500 tabular-nums">流程完成度 {donePct}%</p>
-          </div>
+          <p className="shrink-0 text-caption text-ink-500 tabular-nums">流程完成度 {donePct}%</p>
         </div>
+
+        {/* 動作列(全寬):中心的管理捷徑靠左,「下一步」提示+CTA 靠右——
+            原本掛在標題右欄,遇上推進鈕的長 disabledHint 會把整欄擠到換行、右側大片留白(UAT 圖3) */}
+        {((user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED') || bannerNext) && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-2">
+            {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
+              <>
+                {(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION') && (
+                  <NotifyOrgButton
+                    cycleId={cycle.id}
+                    orgName={cycle.organization.shortName ?? cycle.organization.name}
+                    datesConfirmed={Boolean(cycle.onsiteDate)}
+                  />
+                )}
+                <EditCycleDialog
+                  cycleId={cycle.id}
+                  dueDate={cycle.dueDate?.toISOString() ?? ''}
+                  prepDueDate={cycle.prepDueDate?.toISOString() ?? null}
+                  prepDueTech={cycle.prepDueTech?.toISOString() ?? null}
+                  techCheckDate={cycle.techCheckDate?.toISOString() ?? null}
+                  onsiteDate={cycle.onsiteDate?.toISOString() ?? null}
+                />
+                {transitions.map((t) => (
+                  <TransitionButton
+                    key={t}
+                    cycleId={cycle.id}
+                    target={t}
+                    disabled={t === 'READY' && readyBlockers.length > 0}
+                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                    // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
+                    warn={
+                      !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
+                        ? '缺失發布後機關須依此日期填報矯正措施。建議先按「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                        : undefined
+                    }
+                  />
+                ))}
+              </>
+            )}
+            {bannerNext && (
+              <span className="ml-auto flex items-center gap-2">
+                {bannerNext.text && (
+                  <span className="text-caption text-ink-500 leading-snug">下一步:{bannerNext.text}</span>
+                )}
+                {bannerNext.href && bannerNext.cta && (
+                  <Link href={bannerNext.href}>
+                    <Button size="sm">{bannerNext.cta}</Button>
+                  </Link>
+                )}
+              </span>
+            )}
+          </div>
+        )}
 
         <StageFlowRail
           status={cycle.status as CycleStatus}

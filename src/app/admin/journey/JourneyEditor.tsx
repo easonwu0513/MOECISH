@@ -158,7 +158,8 @@ export default function JourneyEditor({ data }: { data: EData }) {
       role: it.role ?? '',
       kind: kindOf(it),
       autoKey: it.autoKey ?? '',
-      href: it.href == null ? HREF_AUTO : it.href,
+      // 舊存值相容:委員指派錨點批34起搬進階設定頁,正規化成現行選項值(否則 Select 對不到選項顯示空白)
+      href: it.href == null ? HREF_AUTO : it.href === '#assign-auditors' ? '/settings#assign-auditors' : it.href,
     });
     setItemOpen(true);
   }

@@ -35,6 +35,8 @@ export default async function CycleActivityPage({ params }: { params: { id: stri
   if (user.role === 'AUDITOR' && (!cycle.assignments.some((a) => a.auditorId === user.id) || !auditorCanSeeCycle(cycle.status))) {
     redirect('/dashboard');
   }
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過上列 if 即 fail-open 繼承中心視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR'].includes(user.role)) redirect('/dashboard');
 
   const yearROC = cycle.year - 1911;
   // 委員的缺失軌跡限本人審閱範圍(對齊週期頁 reviewer-aware)

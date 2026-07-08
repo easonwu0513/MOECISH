@@ -40,7 +40,9 @@ type ToneFacets = {
 
 export const TONE: Record<Tone, ToneFacets> = {
   neutral: {
-    soft:     'bg-paper-sunk text-ink-700',
+    // soft 補 ring:neutral 原是唯一無描邊的 tone,在 bg-paper-sunk 面(UserMenu 選單等)上
+    // 與背景同色而完全隱形(UAT:觀察員標籤看不出是標籤)——比照其餘 tone 的「淺底+ring」型式
+    soft:     'bg-paper-sunk text-ink-700 ring-1 ring-inset ring-rule-strong',
     solid:    'bg-neutral-800 text-white',
     fill:     'bg-rule-strong',
     outlined: 'bg-transparent text-ink-500 border border-rule',
@@ -143,5 +145,5 @@ export const ROLE_SURFACE: Record<Role, string> = {
   SUPER_ADMIN: 'bg-focus-wash text-primary-700',
   AUDITOR:     'bg-sage-100 text-sage-800',
   ORG_ADMIN:   'bg-warning-100 text-warning-800',
-  OBSERVER:    'bg-paper-sunk text-ink-700',
+  OBSERVER:    'bg-paper-sunk text-ink-700 ring-1 ring-inset ring-rule-strong',
 };

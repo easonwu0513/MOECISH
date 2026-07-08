@@ -59,6 +59,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if ((auditor.organizationId && auditor.organizationId === cycle.organizationId) || holdsOrgAdminOfCycleOrg) {
       return NextResponse.json({ error: '委員不得審查自己服務之機關（迴避原則,含其多重身分所屬機關）' }, { status: 400 });
     }
+    // 反向防呆(與 observers POST 的 observerAlsoAuditor 對稱):已配對為本週期觀察員者
+    // 不可再被指派為正式委員,否則同人同週期雙重身分,破壞師徒制練習硬隔離的前提
+    const alsoObserver = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: params.id, observerId: body.auditorId } },
+      select: { id: true },
+    });
+    if (alsoObserver) {
+      return NextResponse.json({ error: '該員已是本週期配對觀察員,不可同時指派為正式委員(請先移除觀察員配對)' }, { status: 400 });
+    }
 
     const item = await prisma.auditorAssignment.upsert({
       where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.auditorId } },

@@ -101,7 +101,9 @@ export async function loadJourney(opts: {
           const manual = !informational && it.autoKey == null;
           // 跳轉:編輯器覆寫(it.href,''=週期主頁)優先,否則依 autoKey/標題/階段推導
           const overridden = it.href != null;
-          const sub = cycleId ? (overridden ? it.href : journeyItemHref(st.stageKey, it.autoKey, it.title)) : null;
+          // 舊存值相容:委員指派面板批34起搬進階設定頁,早期項目存的 '#assign-auditors' 錨點已不在週期主頁
+          const storedHref = it.href === '#assign-auditors' ? '/settings#assign-auditors' : it.href;
+          const sub = cycleId ? (overridden ? storedHref : journeyItemHref(st.stageKey, it.autoKey, it.title)) : null;
           const status = autoCtx?.facts.status;
           // 尚未到達該階段:推導型 href 不連結(避免導到尚無意義的頁/週期主頁,誤以為功能壞掉)。
           const reached = status ? cycleStageReached(st.stageKey, status) : true;

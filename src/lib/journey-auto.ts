@@ -14,6 +14,8 @@ import type { CycleFacts } from './process-guide';
 export type JourneyAutoCtx = {
   facts: CycleFacts;
   assignmentsCount: number;
+  /** 本週期已配對的觀察員數(CycleObserver;「指派觀察員」項自動完成判定)。 */
+  observersCount: number;
   /** 是否已寄發「稽核作業通知」給機關(開立中「通知機關」項自動完成判定)。 */
   orgNotified: boolean;
   /** 中心匯入區資料是否皆已上傳並「開放委員檢視」(CONFIRMED);無中心匯入項則視為已完成。 */
@@ -27,6 +29,8 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   dates_set: (c) => !!c.facts.prepDueDate && !!c.facts.onsiteDate,
   prep_list_set: (c) => c.facts.prepTotal > 0,
   auditors_assigned: (c) => c.assignmentsCount > 0,
+  // 「指派觀察員」(批30 師徒制):已配對至少一位觀察員才算完成(觀察員為選配,僅手動加項者才綁此鍵)
+  observers_assigned: (c) => c.observersCount > 0,
   // 「通知機關」:已寄發稽核作業通知(notify-open;需先設實地稽核日)才算完成
   org_notified: (c) => c.orgNotified,
   // 「上傳並開放中心匯入區資料」:中心匯入區皆已上傳並按「開放委員檢視」(CONFIRMED)才算完成
@@ -60,6 +64,7 @@ export const AUTO_KEY_OPTIONS: { key: string; label: string }[] = [
   { key: 'dates_set', label: '已設定文件繳交期限與稽核日期' },
   { key: 'prep_list_set', label: '已掛上資料準備需求清單' },
   { key: 'auditors_assigned', label: '已指派至少一位稽核委員' },
+  { key: 'observers_assigned', label: '已配對至少一位觀察員' },
   { key: 'org_notified', label: '已寄發稽核作業通知給機關' },
   { key: 'center_data_released', label: '中心匯入區已上傳並開放委員檢視' },
   { key: 'prep_uploaded', label: '機關區資料全部已上傳/敘明' },
@@ -85,7 +90,8 @@ export const HREF_OPTIONS: { value: string; label: string }[] = [
   { value: '/audit', label: '實地稽核評分與發現' },
   { value: '/audit/report', label: '彙整報告' },
   { value: '/deficiencies', label: '缺失與矯正管考' },
-  { value: '#assign-auditors', label: '委員指派(頁內)' },
+  { value: '/settings#assign-auditors', label: '委員指派(進階設定)' },
+  { value: '/settings#assign-observers', label: '觀察員配對(進階設定)' },
   { value: '#setup', label: '日期設定(頁內)' },
   { value: '#signed-report', label: '用印報告(頁內)' },
 ];
@@ -116,7 +122,8 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
     case 'signed_uploaded':
     case 'signed_confirmed': return ''; // 委員安排/用印確認在週期主頁
     case 'prep_list_set': return '/prep'; // 資料準備需求清單於 /prep 設定
-    case 'auditors_assigned': return '#assign-auditors'; // 委員指派面板錨點
+    case 'auditors_assigned': return '/settings#assign-auditors'; // 委員指派面板(批34 起在進階設定頁)
+    case 'observers_assigned': return '/settings#assign-observers'; // 觀察員配對面板(進階設定頁)
     case 'dates_set': return '#setup'; // 設定文件繳交期限與稽核日期 → 跳頁首設定區(編輯日期)
     case 'org_notified': return '#setup'; // 通知機關 → 跳頁首(「通知機關」按鈕在身分帶,與編輯日期同列)
     case 'always':
