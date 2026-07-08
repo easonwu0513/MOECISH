@@ -45,6 +45,7 @@ export default function PracticePad({
   viewerKind,
   canEdit,
   canFeedback,
+  mentorObserverIds,
   userId,
   itemRefs,
   initialItems,
@@ -53,6 +54,8 @@ export default function PracticePad({
   viewerKind: 'observer' | 'mentor' | 'center';
   canEdit: boolean;
   canFeedback: boolean;
+  /** 本人擔任指導者的觀察員 ids:回饋表單僅對這些觀察員的練習開放(中心人員可為部分觀察員的指導者) */
+  mentorObserverIds: string[];
   userId: string;
   itemRefs: string[];
   initialItems: PracticeItemDTO[];
@@ -203,7 +206,7 @@ export default function PracticePad({
                   key={it.id}
                   item={it}
                   canEdit={canEdit && it.observerId === userId}
-                  canFeedback={canFeedback}
+                  canFeedback={canFeedback && mentorObserverIds.includes(it.observerId)}
                   userId={userId}
                   onDelete={() => setDeleting(it)}
                 />

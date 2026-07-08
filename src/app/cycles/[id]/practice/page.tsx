@@ -35,6 +35,8 @@ export default async function PracticePage({ params }: { params: { id: string } 
   // 觀察員:須被配對 + 階段閘(practice.access:ONSITE 起、結案鎖定=cycle.access 已擋)
   let viewerKind: 'observer' | 'mentor' | 'center';
   let observerIds: string[];
+  // 本人擔任指導者的觀察員(可寫回饋的範圍):委員=自己帶的;中心人員亦可被配對為指導者(初期場次由中心帶審)
+  let mentorObserverIds: string[] = [];
   if (user.role === 'OBSERVER') {
     const paired = await prisma.cycleObserver.findUnique({
       where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
@@ -53,14 +55,16 @@ export default async function PracticePage({ params }: { params: { id: string } 
     if (!stageOpen) redirect(`/cycles/${cycle.id}`);
     viewerKind = 'mentor';
     observerIds = mentees.map((m) => m.observerId);
+    mentorObserverIds = observerIds;
   } else if (user.role === 'SUPER_ADMIN') {
     if (!stageOpen) redirect(`/cycles/${cycle.id}`);
     const all = await prisma.cycleObserver.findMany({
       where: { cycleId: cycle.id },
-      select: { observerId: true },
+      select: { observerId: true, mentorId: true },
     });
     viewerKind = 'center';
     observerIds = all.map((m) => m.observerId);
+    mentorObserverIds = all.filter((m) => m.mentorId === user.id).map((m) => m.observerId);
   } else {
     redirect('/dashboard');
   }
@@ -100,7 +104,8 @@ export default async function PracticePage({ params }: { params: { id: string } 
   const itemRefs = cycle.checklistVersion?.items.map((i) => i.itemNo) ?? [];
   const yearROC = cycle.year - 1911;
   const canEdit = user.role === 'OBSERVER' && canAccess('practice.access', 'OBSERVER', cycle.status);
-  const canFeedback = viewerKind === 'mentor' && cycle.status !== 'CLOSED';
+  // 可寫回饋=本人是(至少一位觀察員的)指導者且未結案;逐條再以 mentorObserverIds 限縮到自己帶的觀察員
+  const canFeedback = mentorObserverIds.length > 0 && cycle.status !== 'CLOSED';
 
   return (
     <AppShell
@@ -127,7 +132,9 @@ export default async function PracticePage({ params }: { params: { id: string } 
             ? '此為撰寫練習:內容僅您本人、您的指導委員與中心可見,不會代入彙整工具、也不會出現在正式稽核報告。'
             : viewerKind === 'mentor'
               ? '檢視您指導的觀察員練習發現,逐條給予回饋;練習內容不進入正式報告。'
-              : '中心唯讀監督:全部觀察員的練習發現與指導回饋;練習內容不進入正式報告。'}
+              : mentorObserverIds.length > 0
+                ? '中心監督全部觀察員的練習;您同時是部分觀察員的指導者,可對其練習逐條給予回饋。練習內容不進入正式報告。'
+                : '中心唯讀監督:全部觀察員的練習發現與指導回饋;練習內容不進入正式報告。'}
         </p>
       </header>
 
@@ -136,6 +143,7 @@ export default async function PracticePage({ params }: { params: { id: string } 
         viewerKind={viewerKind}
         canEdit={canEdit}
         canFeedback={canFeedback}
+        mentorObserverIds={mentorObserverIds}
         userId={user.id}
         itemRefs={itemRefs}
         initialItems={items}

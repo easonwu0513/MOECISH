@@ -14,7 +14,11 @@ export const dynamic = 'force-dynamic';
 
 const LIFECYCLE_ORDER: PostLifecycle[] = ['draft', 'scheduled', 'live', 'off'];
 
-export default async function AdminPostsPage({ searchParams }: { searchParams: { cat?: string; state?: string } }) {
+const FLAGS = ['pinned', 'important'] as const;
+type PostFlag = (typeof FLAGS)[number];
+const FLAG_LABELS: Record<PostFlag, string> = { pinned: '置頂', important: '重要' };
+
+export default async function AdminPostsPage({ searchParams }: { searchParams: { cat?: string; state?: string; flag?: string } }) {
   const session = await auth();
   const user = session!.user;
 
@@ -25,19 +29,25 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: {
   const now = new Date();
   const withState = all.map((p) => ({ p, state: postLifecycle(p, now) }));
 
-  // 篩選:分類(cat)+ 生命週期四態(state);其一為 all/未指定=不篩。
+  // 篩選:分類(cat)+ 生命週期四態(state)+ 標記(flag:置頂/重要);其一為 all/未指定=不篩。
   const cat = POST_CATEGORIES.includes(searchParams.cat as PostCategory) ? (searchParams.cat as PostCategory) : null;
   const state = LIFECYCLE_ORDER.includes(searchParams.state as PostLifecycle) ? (searchParams.state as PostLifecycle) : null;
-  const shown = withState.filter(({ p, state: st }) => (!cat || p.category === cat) && (!state || st === state));
+  const flag = FLAGS.includes(searchParams.flag as PostFlag) ? (searchParams.flag as PostFlag) : null;
+  const shown = withState.filter(
+    ({ p, state: st }) => (!cat || p.category === cat) && (!state || st === state) && (!flag || p[flag]),
+  );
 
   const catCount = (c: PostCategory) => withState.filter(({ p }) => p.category === c).length;
   const stateCount = (s: PostLifecycle) => withState.filter(({ state: st }) => st === s).length;
-  const qs = (next: { cat?: string | null; state?: string | null }) => {
+  const flagCount = (f: PostFlag) => withState.filter(({ p }) => p[f]).length;
+  const qs = (next: { cat?: string | null; state?: string | null; flag?: string | null }) => {
     const c = next.cat === undefined ? cat : next.cat;
     const s = next.state === undefined ? state : next.state;
+    const f = next.flag === undefined ? flag : next.flag;
     const params = new URLSearchParams();
     if (c) params.set('cat', c);
     if (s) params.set('state', s);
+    if (f) params.set('flag', f);
     const q = params.toString();
     return q ? `/admin/posts?${q}` : '/admin/posts';
   };
@@ -74,7 +84,7 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: {
           </FilterChipLink>
         ))}
       </div>
-      <div className="mb-6 flex items-center gap-2 flex-wrap">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <span className="text-caption text-ink-500 mr-0.5 w-10 shrink-0">狀態</span>
         <FilterChipLink href={qs({ state: null })} selected={!state}>
           全部
@@ -82,6 +92,17 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: {
         {LIFECYCLE_ORDER.map((s) => (
           <FilterChipLink key={s} href={qs({ state: s })} selected={state === s}>
             {POST_LIFECYCLE_LABELS[s]} <FilterChipCount selected={state === s}>{stateCount(s)}</FilterChipCount>
+          </FilterChipLink>
+        ))}
+      </div>
+      <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <span className="text-caption text-ink-500 mr-0.5 w-10 shrink-0">標記</span>
+        <FilterChipLink href={qs({ flag: null })} selected={!flag}>
+          全部
+        </FilterChipLink>
+        {FLAGS.map((f) => (
+          <FilterChipLink key={f} href={qs({ flag: f })} selected={flag === f}>
+            {FLAG_LABELS[f]} <FilterChipCount selected={flag === f}>{flagCount(f)}</FilterChipCount>
           </FilterChipLink>
         ))}
       </div>

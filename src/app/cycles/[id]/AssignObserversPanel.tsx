@@ -43,6 +43,12 @@ export default function AssignObserversPanel({
     setMentors(j.mentors ?? []);
   }
   useEffect(() => { load(); }, [cycleId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 同頁的委員指派面板剛指派/移除委員時,指導池要跟著更新(否則要整頁重載才選得到新委員)
+  useEffect(() => {
+    const onChanged = () => { void load(); };
+    window.addEventListener('moecish:auditors-changed', onChanged);
+    return () => window.removeEventListener('moecish:auditors-changed', onChanged);
+  }, [cycleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pairedIds = new Set(pairings.map((p) => p.observer.id));
   const available = observers.filter((o) => !pairedIds.has(o.id));
@@ -135,8 +141,8 @@ export default function AssignObserversPanel({
       />
       <CardTitle>觀察員配對(師徒制)</CardTitle>
       <CardDescription>
-        為觀察員指派本場次的指導委員(限已指派之稽核委員)。觀察員以獨立審閱時段檢視資料、
-        於「稽核發現撰寫練習」練習撰寫;練習內容僅指導委員與中心可見,不進入正式報告。
+        為觀察員指派本場次的指導者(本週期已指派之稽核委員,或中心人員——初期場次多由中心帶審)。
+        觀察員以獨立審閱時段檢視資料、於「稽核發現撰寫練習」練習撰寫;練習內容僅指導者與中心可見,不進入正式報告。
       </CardDescription>
 
       {pairings.length > 0 && (
@@ -199,7 +205,7 @@ export default function AssignObserversPanel({
             disabled={busy || mentors.length === 0}
             onChange={(e) => setPickMentor(e.target.value)}
           >
-            <option value="">{mentors.length === 0 ? '(請先指派稽核委員)' : '選擇指導委員…'}</option>
+            <option value="">{mentors.length === 0 ? '(無可選指導者)' : '選擇指導委員或中心人員…'}</option>
             {mentors.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}

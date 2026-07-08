@@ -22,6 +22,12 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
   });
   if (!post || !postPubliclyVisible(post)) notFound();
 
+  // 附件下載清單排除「已嵌入內文的圖片」(UAT:圖片為了內嵌必須先上傳成附件,
+  // 但讀者已在內文看到圖,再列一次下載徒增噪音);未嵌入的圖片與一般檔案照列。
+  const listedAttachments = post.attachments.filter(
+    (a) => !(/^image\//i.test(a.mimeType) && post.contentMd.includes(`/api/post-attachments/${a.id}/download`)),
+  );
+
   return (
     <div className="min-h-screen bg-paper-sunk flex flex-col">
       <PortalHeader authed={!!session} />
@@ -53,11 +59,11 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           </div>
 
           {/* 附件下載(公告附件公開;下載端 attachment+nosniff) */}
-          {post.attachments.length > 0 && (
+          {listedAttachments.length > 0 && (
             <div className="mt-8 rounded-lg border border-rule bg-paper-sunk p-4 max-w-[70ch]">
               <p className="text-title text-ink-900 mb-2">附件下載</p>
               <ul className="flex flex-col gap-1.5">
-                {post.attachments.map((a) => (
+                {listedAttachments.map((a) => (
                   <li key={a.id} className="flex items-center gap-2 text-body-sm min-w-0">
                     <a
                       href={`/api/post-attachments/${a.id}/download`}

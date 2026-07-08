@@ -72,6 +72,8 @@ export default function AssignAuditorsPanel({
         setPick('');
         toast.success('已指派委員');
         await load();
+        // 通知同頁觀察員配對面板更新指導池(其為獨立 client fetch,router.refresh 不會重跑)
+        window.dispatchEvent(new CustomEvent('moecish:auditors-changed'));
         router.refresh();
       } else {
         const j = await res.json().catch(() => ({ error: '指派失敗' }));
@@ -117,6 +119,7 @@ export default function AssignAuditorsPanel({
       if (res.ok) {
         toast.success('已移除指派');
         await load();
+        window.dispatchEvent(new CustomEvent('moecish:auditors-changed'));
         router.refresh();
       } else {
         const j = await res.json().catch(() => ({ error: '移除失敗' }));

@@ -9,8 +9,8 @@ import type { CycleStatus } from '@/lib/types';
 
 /**
  * 觀察員配對(批30 師徒制;SUPER_ADMIN 專用):
- * - GET:本週期配對清單 + 可選觀察員池(現用身分=OBSERVER 或持有效 UserRole 觀察員授權)+ 可選指導委員池(=本週期已指派委員)
- * - POST:新增/改指導委員(upsert)——mentor 必須是本週期 AuditorAssignment 中的正式委員
+ * - GET:本週期配對清單 + 可選觀察員池(現用身分=OBSERVER 或持有效 UserRole 觀察員授權)+ 可選指導池(=本週期已指派委員 ∪ 中心人員)
+ * - POST:新增/改指導者(upsert)——mentor 必須是本週期 AuditorAssignment 中的正式委員,或中心人員(初期場次由中心帶審)
  * - DELETE:移除配對(練習紀錄留存,由中心仍可檢視;觀察員即失去此週期存取)
  * 名單凍結與委員指派同閘(canAssignAuditors):實地稽核結束後不得增刪改(參與紀錄不可事後改寫)。
  */
@@ -38,12 +38,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     });
+    // 指導池=本週期已指派委員 ∪ 中心人員(UAT:觀察員初期場次由中心人員帶審,第三場起才由委員;
+    // 中心恆存在,亦解決開立中尚未指派委員時池空無法配對的問題)。中心人員名稱加註以資區別。
     const mentors = await prisma.auditorAssignment.findMany({
       where: { cycleId: params.id },
       select: { auditor: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'asc' },
     });
-    return NextResponse.json({ items, observers, mentors: mentors.map((m) => m.auditor) });
+    const centerStaff = await prisma.user.findMany({
+      where: { role: 'SUPER_ADMIN', isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    const mentorPool = [
+      ...mentors.map((m) => m.auditor),
+      ...centerStaff
+        .filter((u) => !mentors.some((m) => m.auditor.id === u.id))
+        .map((u) => ({ id: u.id, name: `${u.name}(中心)` })),
+    ];
+    return NextResponse.json({ items, observers, mentors: mentorPool });
   } catch (e) {
     return errorResponse(e);
   }
@@ -84,13 +97,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '觀察員不得觀摩自己服務之機關(迴避原則,含其多重身分所屬機關)' }, { status: 400 });
     }
 
-    // 指導委員必須是本週期已指派的正式委員(師徒制的「當場次」約束)
+    // 指導者=本週期已指派的正式委員,或中心人員(觀察員初期場次由中心帶審)
     const mentorAssigned = await prisma.auditorAssignment.findUnique({
       where: { cycleId_auditorId: { cycleId: params.id, auditorId: body.mentorId } },
       select: { auditorId: true },
     });
     if (!mentorAssigned) {
-      return NextResponse.json({ error: '指導委員必須是本週期已指派的稽核委員' }, { status: 400 });
+      const centerMentor = await prisma.user.findUnique({
+        where: { id: body.mentorId },
+        select: { role: true, isActive: true },
+      });
+      if (!centerMentor || centerMentor.role !== 'SUPER_ADMIN' || !centerMentor.isActive) {
+        return NextResponse.json({ error: '指導者必須是本週期已指派的稽核委員或中心人員' }, { status: 400 });
+      }
     }
     // 防呆(批30 對抗審查 P2):不可自己指導自己;觀察員不可同時是本週期的正式委員(多重身分邊角)
     if (body.observerId === body.mentorId) {
@@ -102,6 +121,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (observerAlsoAuditor) {
       return NextResponse.json({ error: '該員已是本週期指派委員,不可同時列為觀察員' }, { status: 400 });
+    }
+    // 對稱防呆(專審 P2,指導池納中心人員後的新邊角):mentor 與 observer 兩集合必不相交——
+    // 放寬前 mentor 必為指派委員、observerAlsoAuditor 已保證不相交;放寬後中心人員 fallback 繞過該對稱,
+    // 持觀察員授權的中心帳號可能同週期「既是練習者又是評回饋者」,此處雙向補閘。
+    const mentorIsObserver = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: params.id, observerId: body.mentorId } },
+      select: { id: true },
+    });
+    if (mentorIsObserver) {
+      return NextResponse.json({ error: '該員已是本週期配對觀察員,不可同時擔任指導者' }, { status: 400 });
+    }
+    const observerIsMentor = await prisma.cycleObserver.count({
+      where: { cycleId: params.id, mentorId: body.observerId },
+    });
+    if (observerIsMentor > 0) {
+      return NextResponse.json({ error: '該員已是本週期其他觀察員的指導者,不可再配對為觀察員' }, { status: 400 });
     }
 
     const item = await prisma.cycleObserver.upsert({

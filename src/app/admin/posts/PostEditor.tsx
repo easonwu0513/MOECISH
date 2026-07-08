@@ -7,11 +7,14 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
-import { ConfirmDialog } from '@/components/ui/Dialog';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
+import { Chip } from '@/components/ui/Chip';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { useToast } from '@/components/ui/Toast';
 import { FileText } from '@/components/icons';
-import { POST_CATEGORIES, POST_CATEGORY_LABELS } from '@/lib/types';
+import { Markdown } from '@/lib/markdown';
+import { POST_CATEGORIES, POST_CATEGORY_LABELS, type PostCategory } from '@/lib/types';
+import { POST_CATEGORY_TONE } from '@/lib/tone';
 
 type PostData = {
   id: string;
@@ -58,6 +61,8 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
   const [unpublishAt, setUnpublishAt] = useState(isoToLocalInput(post?.unpublishAtISO));
   const [busy, setBusy] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  // 預覽(UAT):上架前先看前台實際渲染樣貌(同一支 lib/markdown 渲染器,與前台公告頁一致)
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [titleErr, setTitleErr] = useState<string | null>(null);
   const [contentErr, setContentErr] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -304,7 +309,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
             <div className="min-w-0">
               <p className="text-title text-ink-900">附件與圖片</p>
               <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-                不限檔案格式,單檔 ≤ 20MB。圖片可點「插入內文」嵌入 Markdown 顯示;所有附件都會在前台公告底部列為可下載檔案。
+                不限檔案格式,單檔 ≤ 20MB。圖片可點「插入內文」嵌入 Markdown 顯示;已嵌入內文的圖片不會重複列在前台附件下載清單,其餘附件會列於公告底部供下載。
               </p>
             </div>
             {!isNew && (
@@ -346,7 +351,31 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
           )}
         </div>
 
+        <Dialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          size="lg"
+          title="預覽公告"
+          description="以前台公告頁相同的渲染方式顯示;確認排版無誤後再發布。"
+          footer={<Button variant="tonal" onClick={() => setPreviewOpen(false)}>關閉</Button>}
+        >
+          <div className="max-h-[60vh] overflow-y-auto pr-1">
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <Chip tone={POST_CATEGORY_TONE[category as PostCategory] ?? 'primary'} size="sm" dot>
+                {POST_CATEGORY_LABELS[category as PostCategory] ?? category}
+              </Chip>
+              {important && <Chip tone="danger" size="sm">重要</Chip>}
+              {pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
+            </div>
+            <h2 className="text-headline text-ink-900 leading-snug">{title || '(未輸入標題)'}</h2>
+            <div className="mt-4 border-t border-rule pt-4">
+              {contentMd.trim() ? <Markdown content={contentMd} /> : <p className="text-body-sm text-ink-500">(內文尚未填寫)</p>}
+            </div>
+          </div>
+        </Dialog>
+
         <div className="flex flex-wrap gap-2 pt-1">
+          <Button variant="text" onClick={() => setPreviewOpen(true)} disabled={busy}>預覽</Button>
           <Button variant="tonal" onClick={saveDraft} loading={busy}>儲存草稿</Button>
           <Button onClick={publish} loading={busy}>
             {post?.status === 'PUBLISHED' ? '更新並保持發布' : '發布'}

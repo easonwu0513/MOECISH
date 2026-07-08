@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireRole, AuthError } from '@/lib/rbac';
+import { canAccess } from '@/lib/access-policy';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -14,8 +15,10 @@ async function loadOwnFeedback(fbid: string, userId: string) {
   });
   if (!fb) throw new AuthError(404, '回饋不存在');
   if (fb.mentorId !== userId) throw new AuthError(403, '僅能編修自己的回饋');
-  if (fb.practiceFinding.cycle.status === 'CLOSED') {
-    throw new AuthError(409, '週期已結案,回饋已鎖定');
+  // 階段閘與回饋 POST 對稱(專審 P2):practice.access 涵蓋 CLOSED 鎖定,
+  // 亦擋「週期回退至 ONSITE 前」仍可改刪回饋的不對稱(原僅擋 CLOSED)
+  if (!canAccess('practice.access', 'OBSERVER', fb.practiceFinding.cycle.status)) {
+    throw new AuthError(409, '目前非練習開放階段,回饋已鎖定');
   }
   return fb;
 }
@@ -24,7 +27,8 @@ const Body = z.object({ content: z.string().trim().min(1).max(5000) });
 
 export async function PATCH(req: Request, { params }: { params: { fbid: string } }) {
   try {
-    const user = await requireRole('AUDITOR');
+    // 指導者可為稽核委員或中心人員(初期場次由中心帶審);作者本人閘於 loadOwnFeedback
+    const user = await requireRole('AUDITOR', 'SUPER_ADMIN');
     const body = Body.parse(await req.json());
     const fb = await loadOwnFeedback(params.fbid, user.id);
 
@@ -52,7 +56,7 @@ export async function PATCH(req: Request, { params }: { params: { fbid: string }
 
 export async function DELETE(req: Request, { params }: { params: { fbid: string } }) {
   try {
-    const user = await requireRole('AUDITOR');
+    const user = await requireRole('AUDITOR', 'SUPER_ADMIN');
     const fb = await loadOwnFeedback(params.fbid, user.id);
 
     await prisma.practiceFeedback.delete({ where: { id: fb.id } });

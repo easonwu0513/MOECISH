@@ -9,14 +9,15 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 const Body = z.object({ content: z.string().trim().min(1).max(5000) });
 
 /**
- * 指導委員對單條練習發現給回饋(批30 師徒制)。
- * 授權:僅「該觀察員在該週期的指導委員」(CycleObserver.mentorId)可回饋——非其 mentor 的
- * 委員一律 403(與「委員意見僅見己見」同隔離哲學);中心唯讀不回饋、機關不可見。
+ * 指導者對單條練習發現給回饋(批30 師徒制)。
+ * 授權:僅「該觀察員在該週期的指導者」(CycleObserver.mentorId)可回饋——非其 mentor 一律 403
+ * (與「委員意見僅見己見」同隔離哲學);機關不可見。指導者可為稽核委員或中心人員
+ * (初期場次由中心帶審);非該觀察員指導者的中心人員維持唯讀。
  * 階段:結案(CLOSED)後鎖定;其餘階段皆可(觀摩後的回饋常在實地稽核後補寫)。
  */
 export async function POST(req: Request, { params }: { params: { pid: string } }) {
   try {
-    const user = await requireRole('AUDITOR');
+    const user = await requireRole('AUDITOR', 'SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
     const pf = await prisma.practiceFinding.findUnique({
@@ -35,7 +36,7 @@ export async function POST(req: Request, { params }: { params: { pid: string } }
       select: { mentorId: true },
     });
     if (!pairing || pairing.mentorId !== user.id) {
-      return NextResponse.json({ error: '僅該觀察員的指導委員可給予回饋' }, { status: 403 });
+      return NextResponse.json({ error: '僅該觀察員的指導者可給予回饋' }, { status: 403 });
     }
 
     const created = await prisma.practiceFeedback.create({
