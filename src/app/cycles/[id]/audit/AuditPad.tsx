@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog, Dialog } from '@/components/ui/Dialog';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Check, FileText, ClipboardCheck, Copy } from '@/components/icons';
+import { Plus, Check, FileText, ClipboardCheck, Copy, ChevronDown } from '@/components/icons';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { DEFICIENCY_ASPECT_LABELS, COMPLIANCE_LABELS, COMPLIANCE_TONE, type ComplianceLevel, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import { LawPanel } from '@/components/checklist/LawBasis';
@@ -348,6 +348,18 @@ function ScoreSection({
   unsavedFindingsRef: MutableRefObject<() => boolean>;
 }) {
   const focusSet = new Set(focusAspects);
+  // 構面收合(批44):委員/觀察員被指派特定構面時,只展開負責構面、其餘預設收合,免上下捲過無關構面找評分標準;
+  // 未指派特定構面(全構面)則全展開。點標題列可自行展開/收合其他構面。
+  const [collapsedAspects, setCollapsedAspects] = useState<Set<DeficiencyAspect>>(
+    () => new Set(focusAspects.length > 0 ? ASPECTS.filter((a) => !focusSet.has(a)) : []),
+  );
+  const toggleAspect = (a: DeficiencyAspect) =>
+    setCollapsedAspects((prev) => {
+      const next = new Set(prev);
+      if (next.has(a)) next.delete(a);
+      else next.add(a);
+      return next;
+    });
   const toast = useToast();
   const router = useRouter();
   const [scores, setScores] = useState<Record<string, number | null>>(initialScores);
@@ -642,13 +654,26 @@ function ScoreSection({
       <div className="rounded-md border border-rule overflow-hidden">
         {ASPECTS.map((aspect) => {
           const focused = focusSet.has(aspect);
+          const collapsed = collapsedAspects.has(aspect);
+          // 收合列摘要:本構面已評 X/共 Y 項(讓委員收合時仍一眼知道分佈、要不要展開)
+          const aspectDims = ASPECT_DIMENSIONS[aspect];
+          const aspectScored = aspectDims.filter((d) => scores[d] != null).length;
           return (
           <div key={aspect}>
-            <div className={`px-5 py-2 text-label border-b border-rule flex items-center gap-2 ${focused ? 'bg-focus-wash text-primary-700' : 'bg-paper-sunk text-ink-500'}`}>
+            <button
+              type="button"
+              onClick={() => toggleAspect(aspect)}
+              aria-expanded={!collapsed}
+              className={`w-full px-5 py-2.5 text-label border-b border-rule flex items-center gap-2 transition-colors focus-ring ${focused ? 'bg-focus-wash text-primary-700 hover:bg-focus-wash/70' : 'bg-paper-sunk text-ink-500 hover:bg-paper-sunk/70'}`}
+            >
+              <ChevronDown size={16} className={`shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
               {DEFICIENCY_ASPECT_LABELS[aspect]}
               {focused && <Chip size="sm" tone="primary">您負責</Chip>}
-            </div>
-            {ASPECT_DIMENSIONS[aspect].map((dim) => {
+              <span className="ml-auto text-caption text-ink-500 tabular-nums font-normal">
+                已評 {aspectScored}/{aspectDims.length} 項{collapsed ? ' · 點此展開' : ''}
+              </span>
+            </button>
+            {!collapsed && ASPECT_DIMENSIONS[aspect].map((dim) => {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const v = scores[dim] ?? null;
               const issues = dimIssues[dim] ?? [];
@@ -925,9 +950,11 @@ function FindingSection({
   // 從不符合/部分符合題一鍵帶成發現草稿。委員回饋:一律帶入「待改善事項」會造成困擾,
   // 故帶入前由委員自選「待改善事項」或「建議事項」(kind),再補述後儲存。
   async function importFinding(itemNo: string, dim: string, kind: 'IMPROVE' | 'SUGGEST') {
+    // 委員開立待改善/建議事項時只述「缺失/不符或風險之處」,不給改善建議(批44),故佔位文字不含「及改善建議」。
+    // 仍保留「(請補述」前綴——批36 convert 佔位閘以 /[(（]請補述/ 偵測未補述者,不可拿掉此前綴。
     const placeholder = kind === 'SUGGEST'
-      ? '(請補述建議事項:無法規要求但存有資安風險之處及改善建議)'
-      : '(請補述具體缺失或不符之處及改善建議)';
+      ? '(請補述建議事項:無法規要求但存有資安風險之處)'
+      : '(請補述具體缺失或不符之處)';
     setBusy(`import:${kind}:${itemNo}`);
     const res = await fetch(findingsUrl, {
       method: 'POST',
