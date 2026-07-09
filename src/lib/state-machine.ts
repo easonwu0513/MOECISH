@@ -41,7 +41,8 @@ export const CYCLE_ROLLBACKS: CycleTransition[] = [
   { from: 'PREPARATION',   to: 'DRAFT',         allowedRoles: ['SUPER_ADMIN'] },
   { from: 'READY',         to: 'PREPARATION',   allowedRoles: ['SUPER_ADMIN'] },
   { from: 'ONSITE',        to: 'READY',         allowedRoles: ['SUPER_ADMIN'] },
-  { from: 'REPORT_ISSUED', to: 'DRAFT',         allowedRoles: ['SUPER_ADMIN'] },
+  // 缺失發布中 → 實地稽核(退一階;原誤設為 DRAFT 會一次跳回開立中,批48 圖2 修正)
+  { from: 'REPORT_ISSUED', to: 'ONSITE',        allowedRoles: ['SUPER_ADMIN'] },
   { from: 'REMEDIATION',   to: 'REPORT_ISSUED', allowedRoles: ['SUPER_ADMIN'] },
   { from: 'CLOSED',        to: 'REMEDIATION',   allowedRoles: ['SUPER_ADMIN'] },
 ];
@@ -96,7 +97,8 @@ export function actionStatusTone(
   switch (status) {
     case 'PENDING':   return 'neutral';
     case 'DRAFT':     return 'primary';
-    case 'SUBMITTED': return 'sage';
+    // 已送審/審查中 → 琥珀(等待委員審查);原為 sage 綠與 PASSED 的 success 綠太相近難辨(批48 圖4)
+    case 'SUBMITTED': return 'warning';
     case 'RETURNED':  return 'danger';
     case 'PASSED':    return 'success';
   }

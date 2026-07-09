@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
-import { AlertTriangle, Info, ChevronRight } from '@/components/icons';
+import { AlertTriangle, Info, ChevronRight, ChevronDown } from '@/components/icons';
 import { ACTION_STATUS_LABELS, type ActionStatus, type DeficiencyType } from '@/lib/types';
 import { actionStatusTone } from '@/lib/state-machine';
 import { toneClasses } from '@/lib/stage';
@@ -29,6 +29,56 @@ export function DeficiencyAccordionProvider({ children }: { children: React.Reac
   return <AccordionCtx.Provider value={{ openId, setOpenId }}>{children}</AccordionCtx.Provider>;
 }
 
+/**
+ * 構面分組可收合 section(批48 圖7):策略/管理/技術三面各為一個可展開收合區塊。
+ * 機關管理員填報時預設收合(defaultCollapsed),點標頭才展開該面逐筆填報;
+ * 委員/中心預設展開(維持批47 逐筆快速檢視)。
+ */
+export function DeficiencyAspectSection({
+  title,
+  improveN,
+  suggestN,
+  defaultCollapsed,
+  children,
+}: {
+  title: string;
+  improveN: number;
+  suggestN: number;
+  defaultCollapsed?: boolean;
+  children?: React.ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(!!defaultCollapsed);
+  const total = improveN + suggestN;
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        className="w-full flex items-center justify-between gap-3 py-1.5 text-left focus-ring rounded-md"
+      >
+        <h2 className="text-title-lg text-ink-900">{title}</h2>
+        <span className="flex items-center gap-2.5 shrink-0">
+          <span className="text-caption text-ink-500 tabular-nums">
+            {total === 0 ? '無缺失' : `待改善 ${improveN}・建議 ${suggestN}`}
+          </span>
+          <ChevronDown
+            size={18}
+            className={cn('text-ink-500 transition-transform', collapsed && '-rotate-90')}
+            aria-hidden
+          />
+        </span>
+      </button>
+      {!collapsed &&
+        (total === 0 ? (
+          <p className="mt-2 mb-1 text-body-sm text-ink-500">此構面目前無缺失事項。</p>
+        ) : (
+          <div className="mt-4">{children}</div>
+        ))}
+    </section>
+  );
+}
+
 type PanelData = {
   type: DeficiencyType;
   description: string;
@@ -36,6 +86,7 @@ type PanelData = {
   status: ActionStatus;
   canFill: boolean;
   canReview: boolean;
+  reviewerIsAdmin: boolean;
   viewOnly: boolean;
   orgReadonlyReason: string | null;
   round: number;
@@ -195,6 +246,7 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
               deficiencyId={deficiencyId}
               round={data.action.round}
               onMutated={load}
+              adminLock={data.reviewerIsAdmin}
             />
           )}
 
@@ -206,6 +258,7 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
             editable={data.canFill}
             viewOnly={data.viewOnly}
             onMutated={load}
+            roundSubmit={data.canFill}
           />
 
           {/* 完整詳情:就地面板僅涵蓋填報/審查;來源檢核項、歷年同類、審閱指派仍在詳情頁 */}

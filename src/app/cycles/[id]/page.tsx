@@ -248,6 +248,20 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     }
   }
 
+  // 自訂「清單階段」與「下一步」同步(批49 圖1/圖4;使用者裁量:只同步提示文字,不改狀態機/推進):
+  // 目前狀態後方若有「未完成」的自訂清單階段,「下一步」先導向完成該清單階段——避免提示直接跳到再下一個
+  // 正式階段(如結案)的工作而略過清單階段。矯正未全數通過時不覆蓋(此時下一步應是矯正,勿蓋掉機關待辦)。
+  const pendingCustomStage = customRail.find((c) => c.afterKey === cycle.status && !c.done);
+  const suppressCustomHint = cycle.status === 'REMEDIATION' && !facts.allPassed;
+  const effectiveNext =
+    pendingCustomStage && !suppressCustomHint
+      ? {
+          text: `先完成「${pendingCustomStage.title}」清單階段的待辦(清單追蹤,非結案前置關卡)`,
+          href: `/cycles/${cycle.id}?stage=${pendingCustomStage.key}`,
+          cta: '去查看',
+        }
+      : bannerNext;
+
   // 階段待辦:預設當前階段;點橫向階段列(?stage=KEY)看該階段;?stage=all 看全部階段進度
   const stageParam = typeof searchParams?.stage === 'string' ? searchParams.stage : undefined;
   const stageKeySet = new Set(journeyStages.map((s) => s.stageKey));
@@ -416,14 +430,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 ))}
               </>
             )}
-            {bannerNext && (
+            {effectiveNext && (
               <span className="ml-auto flex items-center gap-2">
-                {bannerNext.text && (
-                  <span className="text-caption text-ink-500 leading-snug">下一步:{bannerNext.text}</span>
+                {effectiveNext.text && (
+                  <span className="text-caption text-ink-500 leading-snug">下一步:{effectiveNext.text}</span>
                 )}
-                {bannerNext.href && bannerNext.cta && (
-                  <Link href={bannerNext.href}>
-                    <Button size="sm">{bannerNext.cta}</Button>
+                {effectiveNext.href && effectiveNext.cta && (
+                  <Link href={effectiveNext.href}>
+                    <Button size="sm">{effectiveNext.cta}</Button>
                   </Link>
                 )}
               </span>

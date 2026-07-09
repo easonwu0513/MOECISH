@@ -46,6 +46,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (count === 0) {
         return NextResponse.json({ error: '尚未發布任何缺失，無法開放填報' }, { status: 400 });
       }
+      // 矯正截止日須先設定(機關依此填報;與 audit/finish 一致的閘,兩路徑不被繞過;批48 圖8)
+      if (!cycle.dueDate) {
+        return NextResponse.json(
+          { error: '尚未設定矯正截止日,無法進入矯正執行;請先於週期首頁「編輯日期」設定矯正截止日。' },
+          { status: 400 },
+        );
+      }
     }
 
     // 進入「資料齊備」(READY)前置:所有「必要」資料準備項須確認齊備,避免資料未齊就推進

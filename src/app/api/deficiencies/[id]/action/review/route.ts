@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { REVIEW_DECISIONS } from '@/lib/types';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyOrgOnReturn, notifyOrgAllPassed } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -31,6 +32,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const body = Body.parse(await req.json());
     if (body.decision === 'RETURN' && !body.comment?.trim()) {
       return NextResponse.json({ error: '退回補正必須填寫理由' }, { status: 400 });
+    }
+    // 縱深防禦(批48 圖6):缺失內容仍為佔位文字或空白者不可審核通過
+    //(佔位缺失應由中心補述或退件;避免「沒寫任何實際內容」的缺失被通過結案)。
+    if (body.decision === 'PASS' && isInvalidDeficiencyDescription(deficiency.description)) {
+      return NextResponse.json(
+        { error: '此缺失內容仍為佔位文字或空白,請中心先補述實際缺失內容後再審核通過。' },
+        { status: 400 },
+      );
     }
 
     // 快照本輪審查當下的填報內容(多輪比對用)

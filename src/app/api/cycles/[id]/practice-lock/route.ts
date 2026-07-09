@@ -25,9 +25,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (viewerKind !== 'observer' || user.role !== 'OBSERVER') {
       return NextResponse.json({ error: '僅觀察員本人可確認填寫完畢' }, { status: 403 });
     }
-    if (cycle.status === 'CLOSED') {
-      return NextResponse.json({ error: '已結案的週期不可變更' }, { status: 409 });
-    }
+    // 結案後仍允許送出/解除練習(批49 圖2):練習隔離不影響正式結果;階段閘由 practice.access 統一(現含 CLOSED)。
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
       return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可送出/解除練習' }, { status: 403 });
     }

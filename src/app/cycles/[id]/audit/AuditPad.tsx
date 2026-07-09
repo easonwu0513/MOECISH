@@ -966,7 +966,9 @@ function FindingSection({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        aspect: DIM_TO_ASPECT[dim] ?? 'TECHNICAL',
+        // 構面依檢核項維度對應;維度未解析時預設為「本委員負責構面」而非一律技術面——
+        // 原 ?? 'TECHNICAL' 會把管理/策略委員帶入的發現靜默塞進技術面(該構面空、技術面看似重複;批48 圖5)。
+        aspect: DIM_TO_ASPECT[dim] ?? focusAspects[0] ?? 'STRATEGY',
         kind,
         // 只帶入對應項次(checklistRef);發現內容留給委員自行撰寫,不預先述明檢核表題目
         // (委員回饋:自動代入只需項次;題目已由下方「對應檢核項」摘要就地顯示,不必塞進內容)。

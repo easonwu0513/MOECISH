@@ -62,7 +62,8 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     SUPER_ADMIN: NONE,
     ORG_ADMIN: NONE,
     AUDITOR: NONE,
-    OBSERVER: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    // 結案後仍開放(批49 圖2):練習為觀察員學習素材、結構性隔離,不隨結案鎖定。
+    OBSERVER: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
   },
   // 缺失與矯正管考:中心全程;機關待矯正執行(REMEDIATION)後才填報(結案後仍可看自家紀錄);
   // 委員待缺失發布後可審、結案後鎖定;觀察員一律不可(需求一-2)。

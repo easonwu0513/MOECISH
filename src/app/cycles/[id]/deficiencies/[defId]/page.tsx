@@ -356,6 +356,7 @@ export default async function DeficiencyDetailPage({
           nextHref={nextHref}
           remaining={remaining}
           backHref={`/cycles/${cycle.id}/deficiencies`}
+          adminLock={user.role === 'SUPER_ADMIN'}
         />
       )}
 
@@ -364,6 +365,7 @@ export default async function DeficiencyDetailPage({
         deficiencyId={deficiency.id}
         editable={canFill}
         viewOnly={user.role === 'AUDITOR'}
+        roundSubmit={user.role === 'ORG_ADMIN'}
         nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
         remaining={user.role === 'ORG_ADMIN' ? remaining : 0}
         backHref={`/cycles/${cycle.id}/deficiencies`}

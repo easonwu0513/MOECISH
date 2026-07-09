@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅觀察員本人可撰寫練習發現' }, { status: 403 });
     }
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
-      return NextResponse.json({ error: '練習於實地稽核階段開放(結案後鎖定)' }, { status: 403 });
+      return NextResponse.json({ error: '練習於實地稽核階段起開放(結案後仍可續寫)' }, { status: 403 });
     }
     const body = CreateBody.parse(await req.json());
 

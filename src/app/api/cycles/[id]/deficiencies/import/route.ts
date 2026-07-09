@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import type { DeficiencyAspect, DeficiencyType } from '@/lib/types';
+import { PLACEHOLDER_FINDING_RE } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 type ParsedRow = {
@@ -43,9 +44,9 @@ function parseWorkbook(ws: ExcelJS.Worksheet): ParsedRow[] {
       return;
     }
 
-    // 資料列
+    // 資料列(佔位文字「(請補述…)」列略過:視為範本殘留,不匯入為正式缺失;批48 圖6)
     const no = Number(c1);
-    if (aspect && type && Number.isInteger(no) && no > 0 && c2.length >= 10) {
+    if (aspect && type && Number.isInteger(no) && no > 0 && c2.length >= 10 && !PLACEHOLDER_FINDING_RE.test(c2)) {
       const refMatch = c2.match(/[（(]([0-9]+(?:\.[0-9]+)*(?:[、,][0-9]+(?:\.[0-9]+)*)*)[)）]\s*$/);
       rows.push({
         aspect,

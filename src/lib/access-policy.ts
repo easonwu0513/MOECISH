@@ -81,9 +81,10 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
       return role === 'AUDITOR' && atOrAfter(cycleStatus, 'ONSITE') && cycleStatus !== 'CLOSED';
 
     case 'practice.access':
-      // 觀察員「稽核發現撰寫練習」:階段閘比照委員評分(ONSITE 起、結案鎖定)——練習與正式稽核同節奏。
+      // 觀察員「稽核發現撰寫練習」:ONSITE 起開放;結案後「仍可解鎖/編輯」(批49 圖2 使用者裁量)——
+      // 練習為觀察員個人學習素材,結構性隔離不影響正式結果,故不隨結案鎖定,讓觀察員可持續精進。
       // 指導委員檢視配對觀察員練習/中心唯讀監督,屬細粒度(rbac assertPracticeAccess),不在此粗閘。
-      return role === 'OBSERVER' && atOrAfter(cycleStatus, 'ONSITE') && cycleStatus !== 'CLOSED';
+      return role === 'OBSERVER' && atOrAfter(cycleStatus, 'ONSITE');
 
     case 'deficiencies.view':
       // 缺失與矯正管考:中心全程;委員待「缺失發布中(REPORT_ISSUED)」後可審、結案後鎖定;

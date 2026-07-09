@@ -20,7 +20,7 @@ async function loadOwnPractice(pid: string, userId: string) {
   if (pf.observerId !== userId) throw new AuthError(403, '僅能編修自己的練習發現');
   await assertPracticeUnlocked(pf.cycleId, userId); // 送出鎖定後不可再改/刪(批45)
   if (!canAccess('practice.access', 'OBSERVER', pf.cycle.status)) {
-    throw new AuthError(403, '練習於實地稽核階段開放(結案後鎖定)');
+    throw new AuthError(403, '練習於實地稽核階段起開放(結案後仍可續寫)');
   }
   return pf;
 }

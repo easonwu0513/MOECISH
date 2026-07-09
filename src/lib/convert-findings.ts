@@ -6,6 +6,15 @@ import { prisma } from './db';
 export const PLACEHOLDER_FINDING_RE = /[(（]請補述/;
 
 /**
+ * 缺失/發現描述是否「無效」(空白或仍為佔位文字),不可發布亦不可審核通過(批48 圖6)。
+ * 原佔位閘僅在「帶入發現→轉缺失」把關;手動開立/Excel 匯入/編修/審核通過均漏檢,
+ * 導致佔位缺失可被發布並審核通過。以此共用判斷補齊各寫入路徑與審核路徑。
+ */
+export function isInvalidDeficiencyDescription(desc: string | null | undefined): boolean {
+  return !desc || desc.trim().length === 0 || PLACEHOLDER_FINDING_RE.test(desc);
+}
+
+/**
  * 把週期內尚未轉換的「待改善/建議」稽核發現建立為缺失(共用核心):
  * - 法遵符合情形(COMPLIANCE)不轉
  * - 項次依構面×類型接續編號;原發現回填 deficiencyId 鎖定

@@ -3,7 +3,8 @@ import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
-import type { ActionStatus, ExecStatus } from '@/lib/types';
+import type { ActionStatus } from '@/lib/types';
+import { missingActionFields } from '@/lib/corrective-action';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditorsOnSubmit } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -24,25 +25,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '此項目已送審或已通過' }, { status: 400 });
     }
 
-    // 必填驗證(對齊範本)
-    const missing: string[] = [];
-    if (!action.rootCause?.trim()) missing.push('發生原因（根因分析）');
-    if (!action.measureStrategy?.trim() && !action.measureManagement?.trim() && !action.measureTechnical?.trim()) {
-      missing.push('至少一項改善措施');
-    }
-    if (!action.plannedDate) missing.push('預計完成時程');
-    if (!action.trackingMethod?.trim()) missing.push('進度追蹤方式');
-    if (!action.execStatus) missing.push('執行情形');
-    const exec = action.execStatus as ExecStatus | null;
-    if ((exec === 'ON_TIME_DONE' || exec === 'LATE_DONE') && !action.actualDate) {
-      missing.push('實際完成日期');
-    }
-    if (exec === 'LATE_IN_PROGRESS' && !action.extendedDate) {
-      missing.push('預計完成日期延長至');
-    }
-    if ((exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS') && !action.delayReason?.trim()) {
-      missing.push('逾期原因');
-    }
+    // 必填驗證(對齊範本;與批次一輪送審共用 missingActionFields)
+    const missing = missingActionFields(action);
     if (missing.length > 0) {
       return NextResponse.json({ error: `尚未填寫：${missing.join('、')}` }, { status: 400 });
     }

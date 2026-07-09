@@ -56,6 +56,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       status,
       canFill,
       canReview,
+      // 最高管理員代審:前端 ReviewPanel 預設鎖定,需解鎖才顯示退回/通過(批48 圖3)
+      reviewerIsAdmin: user.role === 'SUPER_ADMIN',
       viewOnly: user.role === 'AUDITOR',
       orgReadonlyReason,
       round: action?.round ?? 1,

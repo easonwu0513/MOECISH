@@ -7,6 +7,7 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
+import { Shield, ShieldCheck } from '@/components/icons';
 import { TOAST } from '@/lib/copy';
 
 /** 退回理由常用片語(點擊附加到意見欄) */
@@ -29,6 +30,7 @@ export default function ReviewPanel({
   remaining,
   backHref,
   onMutated,
+  adminLock,
 }: {
   deficiencyId: string;
   round: number;
@@ -38,12 +40,17 @@ export default function ReviewPanel({
   backHref?: string | null;
   /** 就地展開面板(批47):審查完成後通知外層重抓面板(通過/退回後不再可審;詳情頁不傳=無副作用) */
   onMutated?: () => void;
+  /** 最高管理員代委員審查:預設鎖定,需明確解鎖才顯示退回/通過(批48 圖3);委員本人不傳=不鎖 */
+  adminLock?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState<'PASS' | 'RETURN' | null>(null);
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+  // 最高管理員解鎖代審(預設鎖定;委員本人 adminLock=false 恆解鎖)
+  const [unlocked, setUnlocked] = useState(false);
+  const locked = !!adminLock && !unlocked;
 
   // 開啟對話框時重置意見,避免「取消退回再按通過」殘留文字被誤送
   function openDialog(kind: 'PASS' | 'RETURN') {
@@ -97,16 +104,36 @@ export default function ReviewPanel({
         <div>
           <CardTitle>委員審查（第 {round} 輪）</CardTitle>
           <CardDescription>
-            檢視下方機關填報內容與佐證後，決定本項矯正措施是否通過。
-            {remaining != null && remaining > 0 && (
+            {locked
+              ? '審查權責屬指派委員。最高管理員此功能預設鎖定,僅於特殊情況(如協助操作)才解鎖代為審查。'
+              : '檢視下方機關填報內容與佐證後，決定本項矯正措施是否通過。'}
+            {!locked && remaining != null && remaining > 0 && (
               <span className="text-primary-700">本週期還有 {remaining} 筆待審。</span>
+            )}
+            {adminLock && unlocked && (
+              <span className="text-warning-700"> 目前為最高管理員代審模式。</span>
             )}
           </CardDescription>
         </div>
-        <div className="flex gap-2">
-          <Button variant="tonal" onClick={() => openDialog('RETURN')}>退回補正</Button>
-          <Button onClick={() => openDialog('PASS')}>審核通過</Button>
-        </div>
+        {locked ? (
+          <Button
+            variant="tonal"
+            leadingIcon={<Shield size={15} />}
+            onClick={() => setUnlocked(true)}
+          >
+            解鎖以代為審查
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            {adminLock && (
+              <Button variant="text" leadingIcon={<ShieldCheck size={15} />} onClick={() => setUnlocked(false)}>
+                重新鎖定
+              </Button>
+            )}
+            <Button variant="tonal" onClick={() => openDialog('RETURN')}>退回補正</Button>
+            <Button onClick={() => openDialog('PASS')}>審核通過</Button>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog

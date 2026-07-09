@@ -15,15 +15,20 @@ export default function FinishButton({
   cycleId,
   pendingCount,
   blockReason,
+  dueDateSet,
 }: {
   cycleId: string;
   pendingCount: number;
   /** 非 null 時代表尚不可完成(如委員未全數定稿):按鈕停用並顯示原因。 */
   blockReason?: string | null;
+  /** 是否已設定矯正截止日(dueDate)。未設定則完成稽核前先跳窗要求設定(批48 圖8)。 */
+  dueDateSet?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
+  // 未設矯正截止日時,點「已完成年度稽核」改跳「需先設定日期」提醒窗(而非確認窗)
+  const [needDateOpen, setNeedDateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function finish() {
@@ -59,7 +64,11 @@ export default function FinishButton({
 
   return (
     <>
-      <Button size="sm" leadingIcon={<CheckCircle size={15} />} onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        leadingIcon={<CheckCircle size={15} />}
+        onClick={() => (dueDateSet ? setOpen(true) : setNeedDateOpen(true))}
+      >
         已完成年度稽核
       </Button>
       <ConfirmDialog
@@ -75,6 +84,19 @@ export default function FinishButton({
         tone="primary"
         onConfirm={finish}
         loading={busy}
+      />
+      {/* 未設矯正截止日:完成稽核會讓週期進入矯正執行中、機關需依截止日填報,故先要求設定(批48 圖8) */}
+      <ConfirmDialog
+        open={needDateOpen}
+        onOpenChange={setNeedDateOpen}
+        title="尚未設定矯正截止日"
+        description="「已完成年度稽核」會將週期推進至「矯正執行中」,機關須依「矯正截止日」填報矯正措施。請先於週期首頁「編輯日期」設定矯正截止日,再完成年度稽核。"
+        confirmLabel="前往設定日期"
+        tone="primary"
+        onConfirm={() => {
+          setNeedDateOpen(false);
+          router.push(`/cycles/${cycleId}`);
+        }}
       />
     </>
   );

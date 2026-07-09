@@ -2,7 +2,13 @@ import { prisma } from './db';
 import { sendEmail } from './email';
 import { fmtROC } from './date';
 import { cycleTransitionNotify } from './notify-policy';
-import type { CycleStatus } from './types';
+import {
+  DEFICIENCY_ASPECT_LABELS,
+  DEFICIENCY_TYPE_LABELS,
+  type CycleStatus,
+  type DeficiencyAspect,
+  type DeficiencyType,
+} from './types';
 
 /**
  * 週期狀態 → 通知機關的訊息內容(僅 org 通知政策為 true 的狀態才有條目)。
@@ -165,6 +171,90 @@ export async function notifyAuditorsOnSubmit(opts: {
     ),
   );
   return { recipientCount: auditors.length };
+}
+
+/**
+ * 一輪矯正措施「批次送審」後,對每位委員寄「單一封」彙整通知(批50):
+ * 原 notifyAuditorsOnSubmit 每送一件就對全體委員各寄一封 → N 件會讓每位委員收到 N 封信;
+ * 改為每位委員一封,只列「本輪送審且屬其審閱(或尚未指派)」的缺失,杜絕信件轟炸。
+ */
+export async function notifyAuditorsOnRoundSubmit(opts: {
+  cycleId: string;
+  deficiencyIds: string[];
+  appBaseUrl: string;
+}) {
+  if (opts.deficiencyIds.length === 0) return { recipientCount: 0 };
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, assignments: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const [defs, auditors, admins] = await Promise.all([
+    prisma.deficiency.findMany({
+      where: { id: { in: opts.deficiencyIds } },
+      select: { id: true, itemNo: true, aspect: true, type: true, reviewerAuditorId: true },
+      orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
+    }),
+    prisma.user.findMany({
+      where: { id: { in: cycle.assignments.map((a) => a.auditorId) }, isActive: true },
+    }),
+    prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } }),
+  ]);
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies?status=submitted`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  type Def = (typeof defs)[number];
+  const sendReviewMail = (u: { email: string; name: string }, list: Def[], salutation: string) => {
+    const listText = list
+      .map(
+        (d) =>
+          `・${DEFICIENCY_ASPECT_LABELS[d.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[d.type as DeficiencyType]} 第 ${d.itemNo} 項`,
+      )
+      .join('\n');
+    return sendEmail({
+      to: u.email,
+      toName: u.name,
+      subject: `[MOECISH] ${orgName} 已送審 ${list.length} 項矯正措施，敬請審查`,
+      body:
+        `${salutation}\n\n` +
+        `${cycle.organization.name} 於 ${yearROC} 年度稽核本輪送審以下 ${list.length} 項矯正措施,\n` +
+        `請登入系統檢視填報內容與佐證並進行審查：\n\n` +
+        `${listText}\n\n` +
+        `${link}\n\n` +
+        `— MOECISH 資通安全稽核管考平台`,
+      kind: 'review-request',
+      relatedCycleId: cycle.id,
+      context: { deficiencyIds: list.map((d) => d.id) },
+    });
+  };
+
+  let recipientCount = 0;
+  const covered = new Set<string>();
+  // 指派審閱委員:每位只收「指派給他審閱」的本輪缺失(一封彙整信)
+  await Promise.all(
+    auditors.map(async (u) => {
+      const mine = defs.filter((d) => d.reviewerAuditorId === u.id);
+      if (mine.length === 0) return;
+      mine.forEach((d) => covered.add(d.id));
+      await sendReviewMail(u, mine, `${u.name} 委員您好，`);
+      recipientCount++;
+    }),
+  );
+  // 無「在職且被指派」委員涵蓋的缺失(未指派審閱委員,或指派給已停用委員)→ 通知中心:
+  // 未指派者僅中心可審(委員清單/審查 API 皆 reviewer-scoped),否則會漏通知(批50 專審 P2)。
+  const uncovered = defs.filter((d) => !covered.has(d.id));
+  if (uncovered.length > 0) {
+    await Promise.all(
+      admins.map(async (u) => {
+        await sendReviewMail(u, uncovered, `${u.name} 您好，`);
+        recipientCount++;
+      }),
+    );
+  }
+  return { recipientCount };
 }
 
 /** 委員退回後通知機關管理員(帶退回理由與直達連結)。 */

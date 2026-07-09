@@ -41,6 +41,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: finalized.error }, { status: 400 });
     }
 
+    // 0.5) 前置:矯正截止日須先設定(本動作會進入矯正執行中,機關依此截止日填報;批48 圖8)。
+    //      前端 FinishButton 亦先跳窗要求設定;此為後端縱深防禦,避免繞過。
+    if (!cycle.dueDate) {
+      return NextResponse.json(
+        { error: '尚未設定矯正截止日,無法完成年度稽核;請先於週期首頁「編輯日期」設定矯正截止日。' },
+        { status: 400 },
+      );
+    }
+
     // 1) 前置:確認有可發布的缺失(待轉發現或既有缺失),否則不啟動(不進交易)
     const pendingFindings = await prisma.auditFinding.count({
       where: { cycleId: cycle.id, deficiencyId: null, kind: { in: ['IMPROVE', 'SUGGEST'] } },

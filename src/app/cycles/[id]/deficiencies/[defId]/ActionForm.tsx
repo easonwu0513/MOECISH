@@ -100,6 +100,7 @@ export default function ActionForm({
   remaining,
   backHref,
   onMutated,
+  roundSubmit,
 }: {
   deficiencyId: string;
   action: ActionData | null;
@@ -112,6 +113,8 @@ export default function ActionForm({
   backHref?: string | null;
   /** 就地展開面板(批47):送出成功後通知外層重抓面板資料,讓可編輯性/狀態即時反映(詳情頁不傳=無副作用) */
   onMutated?: () => void;
+  /** 一輪統一送審(批50):隱藏個別「送出審核」鈕,機關只存草稿,於缺失列表統一送出(避免每項一封信) */
+  roundSubmit?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -617,12 +620,20 @@ export default function ActionForm({
           {/* 動作 */}
           {editable && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
-              <Button variant="tonal" loading={saving} onClick={saveDraft}>
+              <Button variant={roundSubmit ? 'filled' : 'tonal'} loading={saving} onClick={saveDraft}>
                 儲存草稿
               </Button>
-              <Button loading={saving} onClick={requestSubmit}>
-                送出審核
-              </Button>
+              {/* 批50:一輪統一送審模式隱藏個別「送出審核」,改於缺失列表「送出本輪審核」統一送出 */}
+              {!roundSubmit && (
+                <Button loading={saving} onClick={requestSubmit}>
+                  送出審核
+                </Button>
+              )}
+              {roundSubmit && (
+                <span className="text-caption text-ink-500">
+                  填寫完成請「儲存草稿」;全部填妥後於缺失列表按「送出本輪審核」一次送出。
+                </span>
+              )}
               {/* 儲存狀態:dirty=琥珀點、saved=綠勾 — 核心安全感訊號要看得見 */}
               {dirty ? (
                 <span className="inline-flex items-center gap-1.5 text-caption text-warning-700">

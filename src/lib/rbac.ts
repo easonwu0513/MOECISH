@@ -28,13 +28,18 @@ export async function requireRole(...roles: Role[]) {
  * - ORG_ADMIN：限自家機關之週期
  * ⚠️ switch 必留 default deny:未知角色一律 403(批30 前對未知角色 fail-open,已收斂)。
  */
-export async function assertCycleAccess(cycleId: string) {
+export async function assertCycleAccess(cycleId: string, opts?: { allowClosed?: boolean }) {
   const user = await requireUser();
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: cycleId },
     include: { assignments: true },
   });
   if (!cycle) throw new AuthError(404, '稽核週期不存在');
+
+  // 練習模組(批49 圖2)結案後仍開放觀察員/指導委員存取:allowClosed 時只擋 DRAFT、放行 CLOSED
+  //(練習資料結構性隔離,不影響正式結果);其餘呼叫端維持 DRAFT+CLOSED 皆擋。
+  const canSee = (status: (typeof cycle)['status']) =>
+    opts?.allowClosed ? status !== 'DRAFT' : auditorCanSeeCycle(status);
 
   switch (user.role) {
     case 'SUPER_ADMIN':
@@ -44,19 +49,20 @@ export async function assertCycleAccess(cycleId: string) {
       if (!assigned) throw new AuthError(403, '您未被指派此稽核週期');
       // 開立中(DRAFT)委員尚不可存取(中心仍在調整委員名單);PREPARATION 起才開放。
       // 中心指派/抽換委員不經此閘(assignments API 為 SUPER_ADMIN-only、無階段限制)。
-      if (!auditorCanSeeCycle(cycle.status)) {
+      if (!canSee(cycle.status)) {
         throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放委員存取');
       }
       break;
     }
     case 'OBSERVER': {
-      // 觀察員限被配對之週期(CycleObserver,非 assignments);階段閘與委員一致(DRAFT 不可見/CLOSED 鎖定)。
+      // 觀察員限被配對之週期(CycleObserver,非 assignments);階段閘與委員一致(DRAFT 不可見);
+      // 練習模組另以 allowClosed 於結案後仍放行(批49 圖2)。
       const paired = await prisma.cycleObserver.findUnique({
         where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
         select: { id: true },
       });
       if (!paired) throw new AuthError(403, '您未被配對至此稽核週期');
-      if (!auditorCanSeeCycle(cycle.status)) {
+      if (!canSee(cycle.status)) {
         throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放存取');
       }
       break;
@@ -236,7 +242,9 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
  * 寫入權另由呼叫端把關(練習發現=觀察員本人;回饋=mentor)。
  */
 export async function assertPracticeAccess(cycleId: string) {
-  const { user, cycle } = await assertCycleAccess(cycleId);
+  // 練習結案後仍開放(批49 圖2):放行 CLOSED,使 practice.access 的粗閘與細閘一致
+  //(否則練習頁顯示可編輯,新增/評分/送出卻在此 403,且訊息誤稱「尚在開立中」)。
+  const { user, cycle } = await assertCycleAccess(cycleId, { allowClosed: true });
 
   if (user.role === 'ORG_ADMIN') {
     throw new AuthError(403, '練習內容僅供觀察員、指導委員與中心檢視');

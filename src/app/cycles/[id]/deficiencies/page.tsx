@@ -22,7 +22,8 @@ import { canAccess } from '@/lib/access-policy';
 import { EMPTY } from '@/lib/copy';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
-import { DeficiencyAccordionProvider, DeficiencyRow } from './DeficiencyAccordion';
+import SubmitRoundButton from './SubmitRoundButton';
+import { DeficiencyAccordionProvider, DeficiencyRow, DeficiencyAspectSection } from './DeficiencyAccordion';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
 // 列卡左緣狀態色條沿用 stage.ts toneClasses().dot(單一真實來源,與矩陣/任務卡同語彙)
@@ -81,6 +82,14 @@ export default async function DeficienciesPage({
   const reviewable = myDeficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
   const firstReviewable = reviewable[0];
   const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
+  // 機關「一輪統一送審」候選數(批50):草稿/退回補正中(可送);僅機關於矯正執行中顯示送出鈕。
+  const submittableCount =
+    user.role === 'ORG_ADMIN'
+      ? myDeficiencies.filter((d) => {
+          const s = (d.action?.status ?? 'PENDING') as ActionStatus;
+          return s === 'DRAFT' || s === 'RETURNED';
+        }).length
+      : 0;
 
   // 套用狀態篩選(基準=本人可見缺失)
   const statusOf = (d: (typeof cycle.deficiencies)[number]) => (d.action?.status ?? 'PENDING') as ActionStatus;
@@ -121,6 +130,9 @@ export default async function DeficienciesPage({
             <Link href={`/cycles/${cycle.id}/deficiencies/${firstReviewable.id}`}>
               <Button variant="filled" size="sm">開始連續審查({reviewable.length})</Button>
             </Link>
+          )}
+          {user.role === 'ORG_ADMIN' && cycle.status === 'REMEDIATION' && (
+            <SubmitRoundButton cycleId={cycle.id} count={submittableCount} />
           )}
           {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
             <AdminDeficiencyTools cycleId={cycle.id} cycleStatus={cycle.status} />
@@ -177,16 +189,24 @@ export default async function DeficienciesPage({
         </Card>
       ) : (
         <DeficiencyAccordionProvider>
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-4">
           {aspects.map((aspect) => {
             const inAspect = filtered.filter((d) => d.aspect === aspect);
-            if (inAspect.length === 0) return null;
+            // 機關管理員:三構面永遠顯示(即使無缺失)且預設收合,填報時再展開(批48 圖7);
+            // 委員/中心:僅顯示有缺失的構面且預設展開(維持批47 逐筆快速檢視)。
+            const isOrgAdmin = user.role === 'ORG_ADMIN';
+            if (inAspect.length === 0 && !isOrgAdmin) return null;
             const types: DeficiencyType[] = ['IMPROVE', 'SUGGEST'];
+            const improveN = inAspect.filter((d) => d.type === 'IMPROVE').length;
+            const suggestN = inAspect.filter((d) => d.type === 'SUGGEST').length;
             return (
-              <section key={aspect}>
-                <h2 className="text-title-lg text-ink-900 mb-4">
-                  {DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
-                </h2>
+              <DeficiencyAspectSection
+                key={aspect}
+                title={`${DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－${DEFICIENCY_ASPECT_LABELS[aspect]}`}
+                improveN={improveN}
+                suggestN={suggestN}
+                defaultCollapsed={isOrgAdmin}
+              >
                 <div className="flex flex-col gap-6">
                   {types.map((type) => {
                     const items = inAspect.filter((d) => d.type === type);
@@ -214,7 +234,7 @@ export default async function DeficienciesPage({
                     );
                   })}
                 </div>
-              </section>
+              </DeficiencyAspectSection>
             );
           })}
           </div>

@@ -5,6 +5,7 @@ import { assertCycleAccess } from '@/lib/rbac';
 import { canAccess } from '@/lib/access-policy';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS, DEFICIENCY_TYPES, type Role } from '@/lib/types';
+import { PLACEHOLDER_FINDING_RE } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -33,7 +34,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 const CreateBody = z.object({
   aspect: z.enum(DEFICIENCY_ASPECTS),
   type: z.enum(DEFICIENCY_TYPES),
-  description: z.string().min(10, '缺失描述至少 10 字'),
+  description: z
+    .string()
+    .trim()
+    .min(10, '缺失描述至少 10 字')
+    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字(請補述…),請填寫實際缺失內容後再發布'),
   checklistRef: z.string().optional(),
   itemNo: z.number().int().positive().optional(),
 });
