@@ -8,7 +8,9 @@ import { Paperclip, X } from '@/components/icons';
  * - 委員(viewOnly=true):以站內檢視器開啟 —— 禁右鍵/禁拖曳,PDF 隱藏工具列下載鈕,不提供下載連結。
  *   (檔案本身已燒入機關浮水印 lib/watermark.ts,畫面另有 ScreenWatermark;瀏覽器無法 100% 防截圖,
  *    但移除「右鍵另存圖片/另存新檔」的便捷途徑,且留存可溯源浮水印。)
- * - 其餘角色(機關/中心):維持新分頁預覽連結(可另存自家文件/工作底稿)。
+ * - 圖片檔:**所有角色一律僅站內檢視,不提供下載**(UAT 批40 裁定:機關上傳的圖片佐證不開放下載,
+ *   與頁面「禁止外流」浮水印姿態一致)。
+ * - 其餘角色的非圖片檔(機關/中心的 PDF/Office 等):維持新分頁預覽連結(可另存自家文件/工作底稿)。
  */
 export function ProtectedFileLink({
   fileId,
@@ -32,6 +34,9 @@ export function ProtectedFileLink({
   }, [open]);
   const url = `/api/evidences/${fileId}/download?inline=1`;
   const isPdf = /\.pdf$/i.test(name);
+  const isImage = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
+  // 圖片一律視為僅檢視(關閉下載),其餘檔型依呼叫端角色決定
+  const effectiveViewOnly = viewOnly || isImage;
   const base = className ?? 'inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm';
 
   const label = (
@@ -42,7 +47,7 @@ export function ProtectedFileLink({
     </>
   );
 
-  if (!viewOnly) {
+  if (!effectiveViewOnly) {
     return (
       <a href={url} target="_blank" rel="noopener" className={base}>
         {label}
