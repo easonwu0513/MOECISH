@@ -28,6 +28,7 @@ export default function ReviewPanel({
   nextHref,
   remaining,
   backHref,
+  onMutated,
 }: {
   deficiencyId: string;
   round: number;
@@ -35,6 +36,8 @@ export default function ReviewPanel({
   remaining?: number;
   /** 無下一筆待審時審完跳回的「缺失與矯正」總覽 */
   backHref?: string | null;
+  /** 就地展開面板(批47):審查完成後通知外層重抓面板(通過/退回後不再可審;詳情頁不傳=無副作用) */
+  onMutated?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -85,6 +88,7 @@ export default function ReviewPanel({
     } else {
       router.refresh();
     }
+    onMutated?.(); // 就地展開:審查已定案,通知外層重抓面板(批47)
   }
 
   return (

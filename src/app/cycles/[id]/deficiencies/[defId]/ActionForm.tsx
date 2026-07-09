@@ -64,7 +64,7 @@ function SnapshotDetails({ snapshot }: { snapshot: string }) {
   );
 }
 
-type ActionData = {
+export type ActionData = {
   id: string;
   status: ActionStatus;
   round: number;
@@ -99,6 +99,7 @@ export default function ActionForm({
   nextHref,
   remaining,
   backHref,
+  onMutated,
 }: {
   deficiencyId: string;
   action: ActionData | null;
@@ -109,6 +110,8 @@ export default function ActionForm({
   remaining?: number;
   /** 無下一筆時送出後跳回的「缺失與矯正」總覽 */
   backHref?: string | null;
+  /** 就地展開面板(批47):送出成功後通知外層重抓面板資料,讓可編輯性/狀態即時反映(詳情頁不傳=無副作用) */
+  onMutated?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -231,6 +234,27 @@ export default function ActionForm({
     return () => window.removeEventListener('beforeunload', h);
   }, [editable]);
 
+  // 卸載搶救(批47):元件卸載時若有未儲存變更,盡力補送一筆草稿。
+  // 就地展開面板中「切換到其他缺失列」是本功能核心手勢,會直接卸載本表單——
+  // 這不觸發 beforeunload,且上面 30 秒自動儲存的 timer 會被 cleanup 清掉,
+  // 否則剛輸入且尚未達 30 秒的內容會靜默消失(而畫面正顯示「30 秒內自動儲存」的安心承諾)。
+  // 用 latest-ref 讓卸載時讀到最新的 editable/dirty/payload;keepalive 讓連同關分頁也能送達。
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!editable || !dirtyRef.current) return;
+    try {
+      fetch(`/api/deficiencies/${deficiencyId}/action`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payloadRef.current()),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* 盡力而為的搶救;失敗不阻斷卸載 */
+    }
+  };
+  useEffect(() => () => flushRef.current(), []);
+
   function buildPayload() {
     return {
       rootCause,
@@ -297,6 +321,7 @@ export default function ActionForm({
       toast.success(t.title, t.description);
       router.refresh();
     }
+    onMutated?.(); // 就地展開:狀態已變(→送審),通知外層重抓面板改為唯讀檢視(批47)
   }
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {

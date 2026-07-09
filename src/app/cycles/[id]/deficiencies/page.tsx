@@ -5,27 +5,24 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
-import { AlertTriangle, ChevronRight } from '@/components/icons';
+import { AlertTriangle } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_ASPECT_NUM,
   DEFICIENCY_TYPE_LABELS,
-  ACTION_STATUS_LABELS,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
   type Role,
 } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
-import { actionStatusTone } from '@/lib/state-machine';
-import { toneClasses } from '@/lib/stage';
 import { EMPTY } from '@/lib/copy';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
+import { DeficiencyAccordionProvider, DeficiencyRow } from './DeficiencyAccordion';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
 // 列卡左緣狀態色條沿用 stage.ts toneClasses().dot(單一真實來源,與矩陣/任務卡同語彙)
@@ -179,7 +176,8 @@ export default async function DeficienciesPage({
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-8">
+        <DeficiencyAccordionProvider>
+          <div className="flex flex-col gap-8">
           {aspects.map((aspect) => {
             const inAspect = filtered.filter((d) => d.aspect === aspect);
             if (inAspect.length === 0) return null;
@@ -199,49 +197,18 @@ export default async function DeficienciesPage({
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
                         <div className="flex flex-col gap-2.5">
-                          {items.map((d) => {
-                            const status = (d.action?.status ?? 'PENDING') as ActionStatus;
-                            const round = d.action?.round ?? 1;
-                            return (
-                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="group block focus-ring rounded-md">
-                                <Card interactive padded={false} className="overflow-hidden">
-                                  <div className="flex">
-                                    {/* 左緣狀態色條(顏色非唯一訊號,右側仍有 Chip+dot+文字) */}
-                                    <div
-                                      className={`w-1.5 self-stretch shrink-0 ${toneClasses(actionStatusTone(status)).dot}`}
-                                      aria-hidden
-                                    />
-                                    <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">
-                                    <span className="w-9 h-9 rounded-md bg-paper-sunk flex items-center justify-center text-title text-ink-500 tabular-nums shrink-0">
-                                      {d.itemNo}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-body-sm text-ink-500 leading-relaxed line-clamp-2">
-                                        {d.description}
-                                      </p>
-                                      <div className="mt-1.5 flex items-center gap-2">
-                                        {d.checklistRef && (
-                                          <span className="text-caption font-mono text-ink-500">
-                                            檢核項 {d.checklistRef}
-                                          </span>
-                                        )}
-                                        {round > 1 && (
-                                          <span className="text-caption text-ink-500">
-                                            第 {round} 輪
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <Chip tone={actionStatusTone(status)} size="sm" dot>
-                                      {ACTION_STATUS_LABELS[status]}
-                                    </Chip>
-                                    <ChevronRight size={16} className="text-ink-500 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                                    </div>
-                                  </div>
-                                </Card>
-                              </Link>
-                            );
-                          })}
+                          {items.map((d) => (
+                            <DeficiencyRow
+                              key={d.id}
+                              cycleId={cycle.id}
+                              id={d.id}
+                              itemNo={d.itemNo}
+                              description={d.description}
+                              checklistRef={d.checklistRef}
+                              status={(d.action?.status ?? 'PENDING') as ActionStatus}
+                              round={d.action?.round ?? 1}
+                            />
+                          ))}
                         </div>
                       </div>
                     );
@@ -250,7 +217,8 @@ export default async function DeficienciesPage({
               </section>
             );
           })}
-        </div>
+          </div>
+        </DeficiencyAccordionProvider>
       )}
     </AppShell>
   );
