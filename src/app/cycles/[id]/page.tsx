@@ -21,6 +21,7 @@ import { getCycleActivities } from '@/lib/cycle-activity';
 import { Menu } from '@/components/ui/Menu';
 import { AlertTriangle, ClipboardCheck, Eye, FileText, CheckCircle, ChevronRight, Check, Bell, History, Settings } from '@/components/icons';
 import NotifyOrgButton from './NotifyOrgButton';
+import RefreshOnFocus from '@/components/cycle/RefreshOnFocus';
 import TransitionButton from './TransitionButton';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
@@ -349,6 +350,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       ]}
     >
       <h1 className="sr-only">{yearROC} 年度資通安全稽核 · {cycle.organization.name}</h1>
+      {/* 多角色協作面:切回本視窗/分頁時自動重取伺服器資料(他人勾選待辦/繳交即反映,免手動重載) */}
+      <RefreshOnFocus />
       <div id="setup" className="scroll-mt-24" aria-hidden />
 
       {/* 頂部總覽卡(圖1 結構):標題+日期 / 可點階段 stepper / 下一步 CTA。
