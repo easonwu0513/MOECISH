@@ -8,9 +8,11 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
+import { cn } from '@/lib/cn';
+import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type AssignAspect } from '@/lib/audit-score';
 
 type PersonRef = { id: string; name: string; email?: string };
-type Pairing = { id: string; observer: PersonRef; mentor: PersonRef };
+type Pairing = { id: string; observer: PersonRef; mentor: PersonRef; dimensions?: string | null };
 
 /**
  * 觀察員配對(批30 師徒制;中心進階設定):為觀察員指派本場次的「指導委員」。
@@ -102,6 +104,30 @@ export default function AssignObserversPanel({
     }
   }
 
+  // 觀察員負責構面(UAT 批43:比照委員指派):純練習聚焦標籤,未勾視同全構面
+  async function toggleDim(p: Pairing, aspect: AssignAspect) {
+    const cur = parseAssignDimensions(p.dimensions ?? null);
+    const next = cur.includes(aspect) ? cur.filter((x) => x !== aspect) : [...cur, aspect];
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/cycles/${cycleId}/observers`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ observerId: p.observer.id, dimensions: next }),
+      });
+      if (res.ok) {
+        await load();
+      } else {
+        const j = await res.json().catch(() => ({ error: '更新構面失敗' }));
+        toast.error('更新構面失敗', j.error);
+      }
+    } catch {
+      toast.error('更新構面失敗', '連線逾時或網路中斷,請稍後再試');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove(observerId: string) {
     setBusy(true);
     try {
@@ -143,16 +169,45 @@ export default function AssignObserversPanel({
       <CardDescription>
         為觀察員指派本場次的指導者(本週期已指派之稽核委員,或中心人員——初期場次多由中心帶審)。
         觀察員以獨立審閱時段檢視資料、於「稽核發現撰寫練習」練習撰寫;練習內容僅指導者與中心可見,不進入正式報告。
+        可勾選各觀察員練習聚焦之構面(未勾視同全構面),僅供練習標示,不影響檢視範圍。
       </CardDescription>
 
       {pairings.length > 0 && (
         <ul className="mt-4 flex flex-col divide-y divide-rule rounded-md border border-rule">
-          {pairings.map((p) => (
+          {pairings.map((p) => {
+            const dims = parseAssignDimensions(p.dimensions ?? null);
+            return (
             <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-              <div className="min-w-0 flex-1">
+              {/* UAT 批43:名字後不再顯示 email(邀請/下拉已足供辨識);加負責構面勾選(比照委員指派) */}
+              <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                 <span className="text-body-sm font-medium text-ink-900">{p.observer.name}</span>
-                {p.observer.email && <span className="ml-2 text-caption text-ink-500">{p.observer.email}</span>}
-                <Chip size="sm" tone="neutral" className="ml-2">觀察員</Chip>
+                <Chip size="sm" tone="neutral">觀察員</Chip>
+                <div className="flex flex-wrap items-center gap-1">
+                  {ASSIGN_ASPECTS.map((asp) => {
+                    const on = dims.includes(asp);
+                    return (
+                      <button
+                        key={asp}
+                        type="button"
+                        disabled={busy || !canAssign}
+                        aria-pressed={on}
+                        title={!canAssign ? '名單已凍結' : undefined}
+                        onClick={() => toggleDim(p, asp)}
+                        className={cn(
+                          'px-2 py-0.5 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
+                          on
+                            ? 'bg-primary-600 border-primary-600 text-white'
+                            : 'border-neutral-400 bg-card text-ink-500 hover:bg-paper-sunk hover:border-neutral-500',
+                        )}
+                      >
+                        {ASSIGN_ASPECT_LABELS[asp]}
+                      </button>
+                    );
+                  })}
+                  {dims.length === 0 && (
+                    <span className="text-caption text-ink-500">全構面</span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-caption text-ink-500">指導委員</span>
@@ -182,7 +237,8 @@ export default function AssignObserversPanel({
                 )}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

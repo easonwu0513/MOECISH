@@ -82,7 +82,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
       return null;
     }
     setBusy(true);
-    // 排程欄一律隨存帶上(草稿也保留設定);建立(POST)zod 會略去排程欄(新公告一律草稿)。
+    // 排程欄一律隨存帶上(草稿也保留設定;建立與更新皆會保存排程——UAT 批43 前建立會丟棄)。
     const payload = { title: title.trim(), category, contentMd, important, pinned, publishAt, unpublishAt, ...extra };
     const res = isNew
       ? await fetch('/api/admin/posts', {

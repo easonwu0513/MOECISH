@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { canAssignAuditors } from '@/lib/stage';
+import { ASSIGN_ASPECTS } from '@/lib/audit-score';
 import type { CycleStatus } from '@/lib/types';
 
 /**
@@ -159,6 +160,53 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
 
     return NextResponse.json({ item });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+const PatchBody = z.object({
+  observerId: z.string().min(1),
+  dimensions: z.array(z.enum(ASSIGN_ASPECTS)), // 觀察員負責構面(比照委員;空陣列=清空,視同全構面)
+});
+
+/**
+ * 設定觀察員負責構面(UAT 批43:比照委員指派的構面勾選)。
+ * 純練習聚焦標籤(練習工作台標示負責構面),不影響授權;凍結閘與配對增刪同(canAssignAuditors)。
+ */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const body = PatchBody.parse(await req.json());
+
+    const cycle = await prisma.auditCycle.findUnique({
+      where: { id: params.id },
+      select: { status: true },
+    });
+    if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
+    if (!canAssignAuditors(cycle.status as CycleStatus)) {
+      return NextResponse.json({ error: '實地稽核階段已結束,參與名單已凍結,無法再調整觀察員構面' }, { status: 409 });
+    }
+
+    const uniq = Array.from(new Set(body.dimensions));
+    const updated = await prisma.cycleObserver.updateMany({
+      where: { cycleId: params.id, observerId: body.observerId },
+      data: { dimensions: uniq.length ? JSON.stringify(uniq) : null },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ error: '該觀察員未配對於本週期' }, { status: 404 });
+    }
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'OBSERVER_SET_DIMENSIONS',
+      entityType: 'AuditCycle',
+      entityId: params.id,
+      after: { observerId: body.observerId, dimensions: uniq },
+      ...extractRequestMeta(req),
+    });
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);
   }

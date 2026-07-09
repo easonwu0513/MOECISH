@@ -320,6 +320,9 @@ model CycleObserver {
   // 委員被抽換前需先改配對)。指導委員可檢視「自己帶的」觀察員練習並回饋。
   mentorId   String
   mentor     User       @relation("MentorAssignments", fields: [mentorId], references: [id])
+  // 觀察員負責構面(比照 AuditorAssignment.dimensions;JSON 陣列 AssignAspect)。
+  // 純練習聚焦標籤(練習工作台標示負責構面),不影響任何授權;null/空=未指定(視同全構面)。
+  dimensions String?
   createdAt  DateTime   @default(now())
 
   @@unique([cycleId, observerId])

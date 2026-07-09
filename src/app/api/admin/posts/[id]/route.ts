@@ -6,11 +6,8 @@ import { deleteFileByKey } from '@/lib/storage';
 import { errorResponse } from '@/lib/api';
 import { POST_CATEGORIES, POST_STATUSES } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-
-// datetime-local(無時區)字串;統一以台灣時間 +08:00 解讀(與週期日期一致)。空字串=清除。
-const DT = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, '時間格式須為 YYYY-MM-DDTHH:mm');
-const DTField = z.union([z.literal(''), DT]).optional();
-const parseDT = (s: string) => new Date(`${s}:00+08:00`);
+// 排程時間解析與建立(POST)共用單一來源(lib/posts;UAT 批43)
+import { postScheduleField as DTField, parsePostScheduleDT as parseDT } from '@/lib/posts';
 
 const Body = z.object({
   title: z.string().min(2).optional(),

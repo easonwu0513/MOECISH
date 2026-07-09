@@ -6,8 +6,8 @@ import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { canAccess } from '@/lib/access-policy';
-import { computeDimStats } from '@/lib/audit-score';
-import { DIMENSIONS, reviewWindowStateForRole } from '@/lib/types';
+import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
+import { DIMENSIONS, reviewWindowStateForRole, type DeficiencyAspect } from '@/lib/types';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { fmtROCDateTime } from '@/lib/date';
 import AuditPad, { type MyFinding } from '../audit/AuditPad';
@@ -52,15 +52,18 @@ export default async function PracticePage({ params }: { params: { id: string } 
   let observerIds: string[];
   // 本人擔任指導者的觀察員(可寫回饋的範圍):委員=自己帶的;中心人員亦可被配對為指導者(初期場次由中心帶審)
   let mentorObserverIds: string[] = [];
+  // 觀察員負責構面(UAT 批43:比照委員的評分頁聚焦標示;純練習標籤,不影響檢視範圍)
+  let myDimsRaw: string | null = null;
   if (user.role === 'OBSERVER') {
     const paired = await prisma.cycleObserver.findUnique({
       where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
-      select: { id: true },
+      select: { id: true, dimensions: true },
     });
     if (!paired) redirect('/dashboard');
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) redirect(`/cycles/${cycle.id}`);
     viewerKind = 'observer';
     observerIds = [user.id];
+    myDimsRaw = paired.dimensions;
   } else if (user.role === 'AUDITOR') {
     const mentees = await prisma.cycleObserver.findMany({
       where: { cycleId: cycle.id, mentorId: user.id },
@@ -91,6 +94,10 @@ export default async function PracticePage({ params }: { params: { id: string } 
   if (viewerKind === 'observer') {
     const items = cycle.checklistVersion.items;
     const stats = computeDimStats(items, cycle.responses);
+    // 負責構面聚焦(與委員評分頁同款):未指定=全構面,不顯示聚焦橫幅
+    const myDims = parseAssignDimensions(myDimsRaw);
+    const assignedLabels = myDims.map((d) => ASSIGN_ASPECT_LABELS[d]);
+    const focusAspects = Array.from(new Set(myDims.map((d) => ASSIGN_TO_ASPECT[d]))) as DeficiencyAspect[];
     const itemContent: Record<string, string> = {};
     const itemLaw: Record<string, { auditBasis: string | null; auditFocus: string | null; expectedEvidence: string | null }> = {};
     for (const i of items) {
@@ -216,6 +223,8 @@ export default async function PracticePage({ params }: { params: { id: string } 
           evidenceByItemNo={evidenceByItemNo}
           reviewNotes={reviewNotesByDim}
           reviewOpen={reviewOpen}
+          assignedLabels={assignedLabels}
+          focusAspects={focusAspects}
           initialScores={Object.fromEntries(myScores.map((s) => [s.dimension, s.score]))}
           initialCounts={Object.fromEntries(
             myScores.map((s) => [

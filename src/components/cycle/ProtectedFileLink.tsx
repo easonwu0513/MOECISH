@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Paperclip, X } from '@/components/icons';
 
 /**
@@ -30,7 +31,13 @@ export function ProtectedFileLink({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // 鎖背景捲動:檢視中頁面不在後方滑動(關閉即還原)
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open]);
   const url = `/api/evidences/${fileId}/download?inline=1`;
   const isPdf = /\.pdf$/i.test(name);
@@ -60,9 +67,11 @@ export function ProtectedFileLink({
       <button type="button" onClick={() => setOpen(true)} className={base} title="僅供線上檢視(禁止下載/外流)">
         {label}
       </button>
-      {open && (
+      {/* Portal 掛 body:跳脫評分頁等深層版面的 stacking context(UAT 批43:檢視器被頂帶/表單標籤
+          蓋住、關閉鈕看不到);z 高於 TopStrip(30)/浮水印(40)、低於 Dialog(90)/Toast(100)。 */}
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex flex-col bg-black/85"
+          className="fixed inset-0 z-[80] flex flex-col bg-black/85"
           role="dialog"
           aria-modal="true"
           aria-label={`檢視 ${name}`}
@@ -101,7 +110,8 @@ export function ProtectedFileLink({
               />
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

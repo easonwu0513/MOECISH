@@ -22,8 +22,6 @@ export default async function OrganizationDetail({ params }: { params: { id: str
   const org = await prisma.organization.findUnique({
     where: { id: params.id },
     include: {
-      // 「已啟用帳號」卡只列啟用中帳號(停用者於使用者管理頁另有分流);避免標頭與內容矛盾(批35 稽核)
-      users: { where: { isActive: true }, orderBy: [{ role: 'asc' }, { createdAt: 'asc' }] },
       invitations: { orderBy: { createdAt: 'desc' } },
       cycles: {
         include: {
@@ -35,6 +33,40 @@ export default async function OrganizationDetail({ params }: { params: { id: str
     },
   });
   if (!org) notFound();
+
+  // 「已啟用帳號」卡:多重身分者(批31)切換現用身分(如切為觀察員)時 User.organizationId 會暫時
+  // 離開本機關,只查 org.users 關聯就漏列(UAT 批43)。改以「現用身分屬本機關 ∪ 持本機關有效授權
+  // (UserRole)」歸戶,並列出各帳號的全部有效身分——觀察員晉升稽核員後與機關管理員並存亦同此涵蓋。
+  // 只列啟用中帳號(停用者於使用者管理頁另有分流);避免標頭與內容矛盾(批35 稽核)。
+  const members = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { organizationId: org.id },
+        { roleGrants: { some: { organizationId: org.id, endedAt: null } } },
+      ],
+    },
+    include: { roleGrants: { where: { endedAt: null } } },
+    orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
+  });
+  // 每帳號的顯示身分:綁本機關的授權(機關管理員)在前,全域身分(稽核員/觀察員/最高管理員)在後;
+  // 他機關的授權不列(與本頁無關)。現用身分若不在授權表(legacy 單一身分帳號)補為隱含身分。
+  const memberIdentities = members.map((u) => {
+    const seen = new Set<string>();
+    const idents: { role: Role; orgBound: boolean }[] = [];
+    const push = (role: string, orgId: string | null) => {
+      if (!(role in ROLE_LABELS)) return; // 防未知角色值(fail-closed,與 listIdentities 同姿態)
+      if (orgId !== null && orgId !== org.id) return; // 他機關授權不列
+      const key = `${role}:${orgId ?? ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      idents.push({ role: role as Role, orgBound: orgId !== null });
+    };
+    push(u.role, u.organizationId ?? null);
+    for (const g of u.roleGrants) push(g.role, g.organizationId ?? null);
+    idents.sort((a, b) => Number(b.orgBound) - Number(a.orgBound));
+    return { user: u, idents };
+  });
 
   const activeVersions = await prisma.checklistVersion.findMany({
     where: { isActive: true },
@@ -83,23 +115,28 @@ export default async function OrganizationDetail({ params }: { params: { id: str
           <div className="px-5 py-3 bg-paper-sunk text-label-sm uppercase tracking-wide text-ink-500 border-b border-rule">
             已啟用帳號
           </div>
-          {org.users.length === 0 ? (
+          {memberIdentities.length === 0 ? (
             <div className="px-5 py-6 text-center text-body-sm text-ink-500">
               尚無啟用中的使用者
             </div>
           ) : (
             <table className="w-full text-body-sm">
               <tbody>
-                {org.users.map((u) => (
+                {memberIdentities.map(({ user: u, idents }) => (
                   <tr key={u.id} className="border-t border-rule">
                     <td className="px-5 py-3">
                       <div className="font-medium text-ink-900">{u.name}</div>
                       <div className="text-caption font-mono text-ink-500">{u.email}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <Chip size="sm" tone={ROLE_TONE[u.role as Role]}>
-                        {ROLE_LABELS[u.role as Role]}
-                      </Chip>
+                      {/* 全部有效身分並列(多重身分者不因現用身分切換而漏列本機關身分) */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {idents.map((it) => (
+                          <Chip key={`${it.role}:${it.orgBound}`} size="sm" tone={ROLE_TONE[it.role]}>
+                            {ROLE_LABELS[it.role]}
+                          </Chip>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-right text-caption text-ink-500">
                       {u.lastLoginAt

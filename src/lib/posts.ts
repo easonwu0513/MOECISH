@@ -11,6 +11,15 @@
  *   已下架 = ARCHIVED(手動)或 PUBLISHED 且已過排定下架時間
  */
 
+import { z } from 'zod';
+
+// datetime-local(無時區)字串;統一以台灣時間 +08:00 解讀(與週期日期一致)。空字串=清除。
+// 建立(POST)與更新(PATCH)共用同一組解析(UAT 批43:原本只有 PATCH 收排程欄,
+// 「新增公告+儲存草稿」把排程默默丟棄,之後按發布就變立即上架)。
+const DT = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, '時間格式須為 YYYY-MM-DDTHH:mm');
+export const postScheduleField = z.union([z.literal(''), DT]).optional();
+export const parsePostScheduleDT = (s: string) => new Date(`${s}:00+08:00`);
+
 type PostLifecycleFields = {
   status: string;
   publishedAt: Date | null;
