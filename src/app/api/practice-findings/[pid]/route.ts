@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { requireRole, AuthError } from '@/lib/rbac';
+import { requireRole, AuthError, assertPracticeUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
@@ -18,6 +18,7 @@ async function loadOwnPractice(pid: string, userId: string) {
   });
   if (!pf) throw new AuthError(404, '練習發現不存在');
   if (pf.observerId !== userId) throw new AuthError(403, '僅能編修自己的練習發現');
+  await assertPracticeUnlocked(pf.cycleId, userId); // 送出鎖定後不可再改/刪(批45)
   if (!canAccess('practice.access', 'OBSERVER', pf.cycle.status)) {
     throw new AuthError(403, '練習於實地稽核階段開放(結案後鎖定)');
   }

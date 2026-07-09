@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertPracticeAccess } from '@/lib/rbac';
+import { assertPracticeAccess, assertPracticeUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
@@ -47,6 +47,7 @@ const CreateBody = z.object({
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, cycle } = await assertPracticeAccess(params.id);
+    if (user.role === 'OBSERVER') await assertPracticeUnlocked(cycle.id, user.id); // 送出鎖定後不可再新增(批45)
     if (user.role !== 'OBSERVER') {
       return NextResponse.json({ error: '僅觀察員本人可撰寫練習發現' }, { status: 403 });
     }

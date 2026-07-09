@@ -16,7 +16,7 @@ export default async function OrganizationsPage() {
     orderBy: { createdAt: 'desc' },
     include: {
       // 「邀請」欄只計待接受邀請(已接受/已撤銷/已過期不算),與使用者管理頁語意一致(批35 稽核)
-      _count: { select: { users: true, cycles: true, invitations: { where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } } } },
+      _count: { select: { cycles: true, invitations: { where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } } } },
       cycles: {
         orderBy: { year: 'desc' },
         take: 1,
@@ -24,6 +24,28 @@ export default async function OrganizationsPage() {
       },
     },
   });
+
+  // 「人員」欄多重身分歸戶(批46):與詳情頁「已啟用帳號」一致——啟用中帳號,現用身分屬本機關
+  // ∪ 持本機關有效授權(UserRole)。_count.users 只數 User.organizationId,切為觀察員/委員後會漏數。
+  const activeUsers = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true, organizationId: true, roleGrants: { where: { endedAt: null }, select: { organizationId: true } } },
+  });
+  const memberCountByOrg = new Map<string, number>();
+  {
+    const setByOrg = new Map<string, Set<string>>();
+    for (const u of activeUsers) {
+      const oids = new Set<string>();
+      if (u.organizationId) oids.add(u.organizationId);
+      for (const g of u.roleGrants) if (g.organizationId) oids.add(g.organizationId);
+      for (const oid of oids) {
+        let s = setByOrg.get(oid);
+        if (!s) { s = new Set(); setByOrg.set(oid, s); }
+        s.add(u.id);
+      }
+    }
+    for (const [oid, s] of setByOrg) memberCountByOrg.set(oid, s.size);
+  }
 
   return (
     <AppShell
@@ -70,7 +92,7 @@ export default async function OrganizationsPage() {
                       {o.shortName && <div className="text-caption text-ink-500">{o.shortName}</div>}
                     </td>
                     <td className="px-4 py-3 font-mono text-body-sm text-ink-500">{o.code}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-ink-700">{o._count.users}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-ink-700">{memberCountByOrg.get(o.id) ?? 0}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-ink-700">{o._count.invitations}</td>
                     <td className="px-4 py-3">
                       {o.cycles[0] ? (

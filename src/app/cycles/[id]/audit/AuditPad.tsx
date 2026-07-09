@@ -137,7 +137,8 @@ export default function AuditPad({
   canEdit: boolean;
   /** 委員已「確認填寫完畢」鎖定 → 唯讀,顯示「解除鎖定」 */
   locked?: boolean;
-  /** 練習模式(批42 觀察員):同款 UI,評分/發現改打 practice-* 端點(獨立表硬隔離),無「確認填寫完畢」鎖定流 */
+  /** 練習模式(批42 觀察員):同款 UI,評分/發現改打 practice-* 端點(獨立表硬隔離)。
+   *  批45:練習亦有「確認填寫完畢/解除鎖定」流(走 practice-lock;鎖定後唯讀,第二階段作委員評分依據)。 */
   practice?: boolean;
   stats: Record<string, DimStat>;
   itemRefs: string[];
@@ -193,6 +194,7 @@ export default function AuditPad({
             cycleId={cycleId}
             canEdit={canEdit}
             reviewOpen={reviewOpen}
+            noun={practice ? '觀察員審閱' : '委員審閱'}
           />
         </aside>
       </div>
@@ -210,6 +212,7 @@ function EvidencePane({
   cycleId,
   canEdit,
   reviewOpen,
+  noun = '委員審閱',
 }: {
   reviewNotes: Record<string, ReviewNoteItem[]>;
   evidenceByItemNo: Record<string, EvidenceFile[]>;
@@ -217,23 +220,25 @@ function EvidencePane({
   cycleId: string;
   canEdit: boolean;
   reviewOpen: boolean;
+  /** 側欄筆記來源階段稱謂(批45):觀察員練習傳「觀察員審閱」,委員預設「委員審閱」 */
+  noun?: string;
 }) {
   const toast = useToast();
   const focusSet = new Set(focusAspects);
   const hasAny = Object.values(reviewNotes).some((v) => v.length > 0);
   return (
-    <section className="rounded-lg border border-rule bg-card xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label="委員審閱筆記">
+    <section className="rounded-lg border border-rule bg-card xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label={`${noun}筆記`}>
       <div className="sticky top-0 z-[1] bg-card border-b border-rule px-5 py-4">
-        <p className="text-title-md text-ink-900">委員審閱筆記</p>
+        <p className="text-title-md text-ink-900">{noun}筆記</p>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-          您於「委員審閱」階段留下的逐題筆記,評分時就地對照,不必切換頁面。
+          您於「{noun}」階段留下的逐題筆記,評分時就地對照,不必切換頁面。
         </p>
       </div>
       {!hasAny ? (
         <p className="px-5 py-12 text-body-sm text-ink-500 text-center leading-relaxed">
-          您在「委員審閱」階段尚未留下逐題筆記。
+          您在「{noun}」階段尚未留下逐題筆記。
           <br />
-          可先於「委員審閱」逐題記下審閱重點,評分時即可在此就地對照。
+          可先於「{noun}」逐題記下審閱重點,評分時即可在此就地對照。
         </p>
       ) : (
         <div className="divide-y divide-rule">
@@ -442,12 +447,15 @@ function ScoreSection({
     if (timer.current) clearTimeout(timer.current);
     if (await save()) toast.success('已暫存', '評分與檢核數量已儲存,可稍後再繼續。');
   }
+  // 送出/鎖定端點與通知對象:練習模式走 practice-lock,通知對象含指派的指導委員(批45)
+  const lockUrl = practice ? `/api/cycles/${cycleId}/practice-lock` : `/api/cycles/${cycleId}/audit/lock`;
+  const notifyTarget = practice ? '工作人員與指派給您的指導委員' : '中心工作人員';
   // 確認填寫完畢 → 先存當前評分,再鎖定(rebuild 後整頁唯讀)
   async function doConfirmDone() {
     if (timer.current) clearTimeout(timer.current);
     setLockBusy(true);
     if (!(await save())) { setLockBusy(false); return; }
-    const res = await fetch(`/api/cycles/${cycleId}/audit/lock`, {
+    const res = await fetch(lockUrl, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ locked: true }),
     });
@@ -459,14 +467,14 @@ function ScoreSection({
   }
   async function unlock() {
     setLockBusy(true);
-    const res = await fetch(`/api/cycles/${cycleId}/audit/lock`, {
+    const res = await fetch(lockUrl, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ locked: false }),
     });
     setLockBusy(false);
     setUnlockConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
-    toast.success('已解除鎖定', '請通知中心工作人員有內容異動,您可再編輯。');
+    toast.success('已解除鎖定', `請通知${notifyTarget}有內容異動,您可再編輯。`);
     router.refresh();
   }
 
@@ -511,10 +519,10 @@ function ScoreSection({
                   分工評分下可僅送出您負責的構面;若確定其餘構面非本次職責,可直接送出。若為漏填,請取消後補齊。
                 </p>
               </div>
-              <p>將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知中心工作人員有內容異動。</p>
+              <p>將鎖定您的評分與發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知{notifyTarget}有內容異動。</p>
             </div>
           ) : (
-            '將鎖定您的評分與稽核發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知中心工作人員有內容異動。'
+            `將鎖定您的評分與發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知${notifyTarget}有內容異動。`
           )
         }
         confirmLabel={confirmProblems.length > 0 ? '仍要送出並鎖定' : '確認並鎖定'}
@@ -528,7 +536,7 @@ function ScoreSection({
         description={
           <div className="flex flex-col gap-3">
             <p>
-              解除鎖定後,請通知中心工作人員您的評分/發現有內容異動。
+              解除鎖定後,請通知{notifyTarget}您的評分/發現有內容異動{practice ? '(此練習為指導委員評分之依據)' : ''}。
               請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。
             </p>
             {/* 前置勾選(UAT 批63):委員須先告知工作人員,勾選後才可按「解除鎖定」 */}
@@ -539,7 +547,7 @@ function ScoreSection({
                 onChange={(e) => setUnlockAck(e.target.checked)}
                 className="mt-0.5 w-4 h-4 rounded focus-ring accent-primary-600"
               />
-              <span>我已告知中心工作人員,將解除鎖定重新修改實地稽核評分與稽核發現。</span>
+              <span>我已告知{notifyTarget},將解除鎖定重新修改{practice ? '練習評分與發現' : '實地稽核評分與稽核發現'}。</span>
             </label>
           </div>
         }
@@ -554,9 +562,7 @@ function ScoreSection({
           <p className="text-body-sm text-ink-500 mt-0.5 leading-relaxed">
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
             {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
-            {practice
-              ? '此為練習評分:僅您本人、您的指導者與中心可見,不會進入彙整工具與正式報告,隨時可修改。'
-              : '確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。'}
+            確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -579,8 +585,8 @@ function ScoreSection({
           {canEdit && (
             <>
               <Button size="sm" variant="tonal" onClick={manualSave} loading={saveState === 'saving'}>暫存</Button>
-              {/* 練習模式無「確認填寫完畢」鎖定流(練習不定稿、不進報告,隨時可改) */}
-              {!practice && <Button
+              {/* 送出並鎖定(批45:練習與委員一致——不能只暫存,要有明確送出點;第二階段作委員評分依據) */}
+              {<Button
                 size="sm"
                 leadingIcon={<Check size={14} />}
                 loading={lockBusy}

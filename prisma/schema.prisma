@@ -311,19 +311,22 @@ model AuditorAssignment {
 // ════════════════════════════════════════════
 
 model CycleObserver {
-  id         String     @id @default(cuid())
-  cycleId    String
-  cycle      AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  observerId String
-  observer   User       @relation("ObserverAssignments", fields: [observerId], references: [id])
+  id               String     @id @default(cuid())
+  cycleId          String
+  cycle            AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  observerId       String
+  observer         User       @relation("ObserverAssignments", fields: [observerId], references: [id])
   // 指導委員(師徒制,需求二-3):必須是本週期 AuditorAssignment 中的正式委員(API 驗證;
   // 委員被抽換前需先改配對)。指導委員可檢視「自己帶的」觀察員練習並回饋。
-  mentorId   String
-  mentor     User       @relation("MentorAssignments", fields: [mentorId], references: [id])
+  mentorId         String
+  mentor           User       @relation("MentorAssignments", fields: [mentorId], references: [id])
   // 觀察員負責構面(比照 AuditorAssignment.dimensions;JSON 陣列 AssignAspect)。
   // 純練習聚焦標籤(練習工作台標示負責構面),不影響任何授權;null/空=未指定(視同全構面)。
-  dimensions String?
-  createdAt  DateTime   @default(now())
+  dimensions       String?
+  // 觀察員練習「確認填寫完畢(送出)」鎖定時間(批45;比照 AuditorAssignment.scoreLockedAt)。
+  // 鎖定後練習評分/發現編輯一律擋下;解除鎖定會提醒觀察員告知工作人員與指導委員。第二階段作委員評分依據。
+  practiceLockedAt DateTime?
+  createdAt        DateTime   @default(now())
 
   @@unique([cycleId, observerId])
   @@index([cycleId, mentorId])

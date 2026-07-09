@@ -14,7 +14,7 @@ import AuditPad, { type MyFinding } from '../audit/AuditPad';
 import PracticePad, { type PracticeItemDTO } from './PracticePad';
 
 /**
- * 稽核發現撰寫練習(批30 師徒制;批42 改版=與委員「實地稽核評分與發現」同款工作台):
+ * 稽核發現撰寫練習(批30 師徒制;批42=與委員「實地稽核評分與發現」同款工作台;批45=加「送出/解除鎖定」流,送出後唯讀):
  * - 觀察員:AuditPad 練習模式——稽核評分 + 稽核發現 + 右側檢核表意見對照,存獨立 Practice* 表
  *   (硬隔離:絕不進彙整工具/正式報告/缺失管考);無「確認填寫完畢」鎖定流。下方另列指導回饋(唯讀)。
  * - 指導者(委員或中心人員):檢視「自己帶的」觀察員練習(評分唯讀表+發現),逐條回饋
@@ -54,16 +54,18 @@ export default async function PracticePage({ params }: { params: { id: string } 
   let mentorObserverIds: string[] = [];
   // 觀察員負責構面(UAT 批43:比照委員的評分頁聚焦標示;純練習標籤,不影響檢視範圍)
   let myDimsRaw: string | null = null;
+  let practiceLocked = false; // 觀察員已「確認填寫完畢(送出)」→ 練習唯讀(批45)
   if (user.role === 'OBSERVER') {
     const paired = await prisma.cycleObserver.findUnique({
       where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
-      select: { id: true, dimensions: true },
+      select: { id: true, dimensions: true, practiceLockedAt: true },
     });
     if (!paired) redirect('/dashboard');
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) redirect(`/cycles/${cycle.id}`);
     viewerKind = 'observer';
     observerIds = [user.id];
     myDimsRaw = paired.dimensions;
+    practiceLocked = paired.practiceLockedAt != null;
   } else if (user.role === 'AUDITOR') {
     const mentees = await prisma.cycleObserver.findMany({
       where: { cycleId: cycle.id, mentorId: user.id },
@@ -88,7 +90,7 @@ export default async function PracticePage({ params }: { params: { id: string } 
   }
 
   const yearROC = cycle.year - 1911;
-  const canEdit = user.role === 'OBSERVER' && canAccess('practice.access', 'OBSERVER', cycle.status);
+  const canEdit = user.role === 'OBSERVER' && canAccess('practice.access', 'OBSERVER', cycle.status) && !practiceLocked;
 
   // ── 觀察員視角:AuditPad 練習模式(與委員評分頁同款組裝;資料改讀/寫 Practice* 表) ──
   if (viewerKind === 'observer') {
@@ -181,7 +183,7 @@ export default async function PracticePage({ params }: { params: { id: string } 
       kind: f.kind as MyFinding['kind'],
       content: f.content,
       checklistRef: f.checklistRef,
-      locked: false,
+      locked: practiceLocked,
     }));
     const withFeedback = myFindings.filter((f) => f.feedbacks.length > 0);
 
@@ -205,14 +207,14 @@ export default async function PracticePage({ params }: { params: { id: string } 
         <header className="mb-5">
           <h1 className="text-headline text-ink-900">稽核發現撰寫練習</h1>
           <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-            {cycle.organization.name} · {yearROC} 年度 ·
-            與委員「實地稽核評分與發現」同款工作台;內容僅您本人、您的指導者與中心可見,不會代入彙整工具、也不會出現在正式稽核報告。
+            {cycle.organization.name} · {yearROC} 年度
           </p>
         </header>
 
         <AuditPad
           cycleId={cycle.id}
           canEdit={canEdit}
+          locked={practiceLocked}
           practice
           stats={stats}
           itemRefs={items.map((i) => i.itemNo)}
@@ -315,10 +317,11 @@ export default async function PracticePage({ params }: { params: { id: string } 
         include: { observer: { select: { id: true, name: true } } },
       })
     : [];
-  const scoresByObserver = new Map<string, { name: string; byDim: Map<string, number | null> }>();
+  type PracticeRow = { score: number | null; c1: number | null; c2: number | null; c3: number | null; c4: number | null };
+  const scoresByObserver = new Map<string, { name: string; byDim: Map<string, PracticeRow> }>();
   for (const s of practiceScores) {
-    const entry = scoresByObserver.get(s.observerId) ?? { name: s.observer.name, byDim: new Map() };
-    entry.byDim.set(s.dimension, s.score);
+    const entry = scoresByObserver.get(s.observerId) ?? { name: s.observer.name, byDim: new Map<string, PracticeRow>() };
+    entry.byDim.set(s.dimension, { score: s.score, c1: s.cntComply, c2: s.cntPartial, c3: s.cntNonComply, c4: s.cntNa });
     scoresByObserver.set(s.observerId, entry);
   }
 
@@ -357,36 +360,49 @@ export default async function PracticePage({ params }: { params: { id: string } 
             <CardTitle>練習評分</CardTitle>
             <Chip size="sm" tone="neutral">唯讀 · 不進正式報告</Chip>
           </div>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-body-sm border-collapse min-w-[40rem]">
-              <thead>
-                <tr className="text-caption text-ink-500">
-                  <th className="text-left font-medium py-1.5 pr-3 border-b border-rule">觀察員</th>
-                  {DIMENSIONS.map((d) => (
-                    <th key={d} className="text-right font-medium py-1.5 px-2 border-b border-rule whitespace-nowrap" title={DIMENSION_LABELS[d]}>
-                      {d}
-                    </th>
-                  ))}
-                  <th className="text-right font-medium py-1.5 pl-2 border-b border-rule">小計</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...scoresByObserver.entries()].map(([obsId, entry]) => {
-                  const total = DIMENSIONS.reduce((a, d) => a + (entry.byDim.get(d) ?? 0), 0);
-                  return (
-                    <tr key={obsId}>
-                      <td className="py-1.5 pr-3 text-ink-900">{entry.name}</td>
-                      {DIMENSIONS.map((d) => (
-                        <td key={d} className="py-1.5 px-2 text-right tabular-nums text-ink-700">
-                          {entry.byDim.get(d) ?? '—'}
-                        </td>
-                      ))}
-                      <td className="py-1.5 pl-2 text-right tabular-nums font-medium text-ink-900">{total}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {/* 批46 圖1:構面用繁中(原顯英文 enum)、每位觀察員一張「構面為列」表,並列評分與委員判定數量四格 */}
+          <div className="mt-3 flex flex-col gap-4">
+            {[...scoresByObserver.entries()].map(([obsId, entry]) => {
+              const total = DIMENSIONS.reduce((a, d) => a + (entry.byDim.get(d)?.score ?? 0), 0);
+              return (
+                <div key={obsId} className="rounded-md border border-rule overflow-hidden">
+                  <div className="px-4 py-2 bg-paper-sunk text-body-sm font-medium text-ink-900 flex items-center justify-between gap-2">
+                    <span>{entry.name}</span>
+                    <span className="text-caption text-ink-500 tabular-nums">小計 {total} 分</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-body-sm border-collapse min-w-[32rem]">
+                      <thead>
+                        <tr className="text-caption text-ink-500">
+                          <th className="text-left font-medium py-1.5 px-4 border-b border-rule">構面</th>
+                          <th className="text-right font-medium py-1.5 px-2 border-b border-rule">評分</th>
+                          <th className="text-right font-medium py-1.5 px-2 border-b border-rule">符合</th>
+                          <th className="text-right font-medium py-1.5 px-2 border-b border-rule">部分符合</th>
+                          <th className="text-right font-medium py-1.5 px-2 border-b border-rule">不符合</th>
+                          <th className="text-right font-medium py-1.5 px-4 border-b border-rule">不適用</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {DIMENSIONS.map((d) => {
+                          const r = entry.byDim.get(d);
+                          const cell = (v: number | null | undefined) => (v ?? '—');
+                          return (
+                            <tr key={d} className="border-b border-rule last:border-b-0">
+                              <td className="py-1.5 px-4 text-ink-900">{DIMENSION_LABELS[d]}</td>
+                              <td className="py-1.5 px-2 text-right tabular-nums font-medium text-ink-900">{cell(r?.score)}</td>
+                              <td className="py-1.5 px-2 text-right tabular-nums text-ink-700">{cell(r?.c1)}</td>
+                              <td className="py-1.5 px-2 text-right tabular-nums text-ink-700">{cell(r?.c2)}</td>
+                              <td className="py-1.5 px-2 text-right tabular-nums text-ink-700">{cell(r?.c3)}</td>
+                              <td className="py-1.5 px-4 text-right tabular-nums text-ink-700">{cell(r?.c4)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

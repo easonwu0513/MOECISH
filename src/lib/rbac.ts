@@ -275,3 +275,17 @@ export async function assertPracticeAccess(cycleId: string) {
   }
   return { user, cycle, viewerKind, observerIds };
 }
+
+/**
+ * 觀察員練習「送出鎖定」後,其練習評分/發現編輯一律擋下(批45;防繞過 UI 直打 API)。
+ * 比照委員 assertAuditorScoreUnlocked;鎖定狀態存 CycleObserver.practiceLockedAt。
+ */
+export async function assertPracticeUnlocked(cycleId: string, observerId: string) {
+  const o = await prisma.cycleObserver.findUnique({
+    where: { cycleId_observerId: { cycleId, observerId } },
+    select: { practiceLockedAt: true },
+  });
+  if (o?.practiceLockedAt) {
+    throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+  }
+}
