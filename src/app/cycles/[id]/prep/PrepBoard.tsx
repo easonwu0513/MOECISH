@@ -165,7 +165,6 @@ export default function PrepBoard({
     cat === 'TECH' ? prepDueTechISO : cat === 'ONSITE' ? prepDueOnsiteISO : null;
 
   // 分類繳交:技術檢測 / 實地稽核 截止日不同,可各自獨立繳交(取代原本整批 canSubmit/draftCount)
-  const orgCats: PrepCategory[] = ['TECH', 'ONSITE'];
   const catState = (cat: PrepCategory) => {
     const items = mechItems.filter((it) => catOf(it) === cat);
     const requiredUnaddressed = items.filter((it) => it.required && !addressedOf(it));
@@ -623,40 +622,6 @@ export default function PrepBoard({
         </div>
       )}
 
-      {/* 機關:分別確定繳交(技術檢測 / 實地稽核 截止日不同,可各自獨立繳交) */}
-      {isOrg && cycleStatus === 'PREPARATION' && mechItems.length > 0 && (
-        <Card padded={false} variant="filled">
-          <div className="p-4 flex flex-col divide-y divide-rule">
-            {orgCats
-              .filter((cat) => mechItems.some((it) => catOf(it) === cat))
-              .map((cat) => {
-                const st = catState(cat);
-                const due = dueOf(cat);
-                return (
-                  <div key={cat} className="flex items-center justify-between gap-4 flex-wrap py-3 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <p className="text-title text-ink-900">
-                        {PREP_CATEGORY_LABELS[cat]}・確定繳交
-                        {due && <span className="ml-2 text-caption text-ink-500">截止 {fmtROC(due)}</span>}
-                      </p>
-                      <p className="mt-0.5 text-body-sm text-ink-500 leading-relaxed">
-                        {st.requiredUnaddressed.length > 0
-                          ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理(請上傳檔案或敘明無相關文件理由)`
-                          : st.draftCount > 0
-                            ? `${st.draftCount} 項已處理、待確定繳交;確定繳交後文件鎖定送交中心審核,需中心退回才能再修改。`
-                            : '本區已全部繳交,等待中心審核。'}
-                      </p>
-                    </div>
-                    <Button size="sm" onClick={() => setSubmitPending(cat)} disabled={!st.canSubmit || busy || busyItemId !== null} leadingIcon={<Check size={15} />}>
-                      確定繳交{st.draftCount > 0 ? `(${st.draftCount})` : ''}
-                    </Button>
-                  </div>
-                );
-              })}
-          </div>
-        </Card>
-      )}
-
       {initialItems.length === 0 ? (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
@@ -695,6 +660,30 @@ export default function PrepBoard({
                       催繳
                     </Button>
                   )}
+                  {/* 機關:確定繳交移到各區標題旁(UAT 批42:原獨立卡片區塊,離項目清單遠不直覺);
+                      技術檢測/實地稽核截止日不同,仍各自獨立繳交,確認框與鎖定說明不變 */}
+                  {isOrg && cycleStatus === 'PREPARATION' && cat !== 'CENTER' && (() => {
+                    const st = catState(cat);
+                    return (
+                      <span className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setSubmitPending(cat)}
+                          disabled={!st.canSubmit || busy || busyItemId !== null}
+                          leadingIcon={<Check size={15} />}
+                        >
+                          確定繳交{st.draftCount > 0 ? `(${st.draftCount})` : ''}
+                        </Button>
+                        <span className="text-caption text-ink-500">
+                          {st.requiredUnaddressed.length > 0
+                            ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理`
+                            : st.draftCount > 0
+                              ? `${st.draftCount} 項待確定繳交`
+                              : '已全部繳交,等待中心審核'}
+                        </span>
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-col gap-3">
                   {groupItems.map((item, i) => renderItem(item, i))}

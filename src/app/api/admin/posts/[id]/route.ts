@@ -43,6 +43,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // 下架時間:明確給值用之(空=清除);否則不動。
     let unpublishAt: Date | null | undefined = undefined;
     if (body.unpublishAt !== undefined) unpublishAt = body.unpublishAt ? parseDT(body.unpublishAt) : null;
+    // 手動下架(狀態轉 ARCHIVED 未帶時間):記錄實際下架時刻,列表「上架/下架時間」才有據可顯
+    // (UAT 批42:下架後時間欄仍只有上架時間)。既有排程時間已過=實際下架時刻,保留不覆寫;
+    // 上架時間在未來(待發布被下架)不寫,避免違反「下架須晚於上架」的順序驗證。
+    const archivingNow = body.status === 'ARCHIVED' && post.status !== 'ARCHIVED';
+    if (unpublishAt === undefined && archivingNow) {
+      const now = new Date();
+      const pubRef = publishedAt !== undefined ? publishedAt : post.publishedAt;
+      const hasPastUnpublish = post.unpublishAt && post.unpublishAt.getTime() <= now.getTime();
+      if (!hasPastUnpublish && (!pubRef || pubRef.getTime() < now.getTime())) unpublishAt = now;
+    }
 
     // 順序驗證(以套用後最終值):下架不可早於或等於上架。
     const finalPub = publishedAt !== undefined ? publishedAt : post.publishedAt;

@@ -117,6 +117,7 @@ export default function AuditPad({
   cycleId,
   canEdit,
   locked = false,
+  practice = false,
   stats,
   itemRefs,
   itemContent = {},
@@ -136,6 +137,8 @@ export default function AuditPad({
   canEdit: boolean;
   /** 委員已「確認填寫完畢」鎖定 → 唯讀,顯示「解除鎖定」 */
   locked?: boolean;
+  /** 練習模式(批42 觀察員):同款 UI,評分/發現改打 practice-* 端點(獨立表硬隔離),無「確認填寫完畢」鎖定流 */
+  practice?: boolean;
   stats: Record<string, DimStat>;
   itemRefs: string[];
   itemContent?: Record<string, string>;
@@ -179,8 +182,8 @@ export default function AuditPad({
           側欄加寬 + 放大字級(頁面已 wide 吃滿寬),對年長委員更好讀。 */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
         <div className="flex flex-col gap-8 min-w-0">
-          <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
-          <FindingSection cycleId={cycleId} canEdit={canEdit} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
+          <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} practice={practice} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
+          <FindingSection cycleId={cycleId} canEdit={canEdit} practice={practice} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
           <EvidencePane
@@ -331,11 +334,12 @@ function EvidencePane({
 // ───────────────── 評分表 ─────────────────────
 
 function ScoreSection({
-  cycleId, canEdit, locked, stats, dimIssues, focusAspects = [], initialScores, initialCounts, unsavedFindingsRef,
+  cycleId, canEdit, locked, practice = false, stats, dimIssues, focusAspects = [], initialScores, initialCounts, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
   locked: boolean;
+  practice?: boolean;
   stats: Record<string, DimStat>;
   dimIssues: Record<string, DimIssue[]>;
   focusAspects?: DeficiencyAspect[];
@@ -407,7 +411,7 @@ function ScoreSection({
         cntNa: cc[dimension]?.c4 ?? null,
       })),
     };
-    const res = await fetch(`/api/cycles/${cycleId}/audit/scores`, {
+    const res = await fetch(practice ? `/api/cycles/${cycleId}/practice-scores` : `/api/cycles/${cycleId}/audit/scores`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -538,7 +542,9 @@ function ScoreSection({
           <p className="text-body-sm text-ink-500 mt-0.5 leading-relaxed">
             九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
             {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
-            確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
+            {practice
+              ? '此為練習評分:僅您本人、您的指導者與中心可見,不會進入彙整工具與正式報告,隨時可修改。'
+              : '確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -561,7 +567,8 @@ function ScoreSection({
           {canEdit && (
             <>
               <Button size="sm" variant="tonal" onClick={manualSave} loading={saveState === 'saving'}>暫存</Button>
-              <Button
+              {/* 練習模式無「確認填寫完畢」鎖定流(練習不定稿、不進報告,隨時可改) */}
+              {!practice && <Button
                 size="sm"
                 leadingIcon={<Check size={14} />}
                 loading={lockBusy}
@@ -588,7 +595,7 @@ function ScoreSection({
                 }}
               >
                 確認填寫完畢
-              </Button>
+              </Button>}
             </>
           )}
           {locked && (
@@ -778,10 +785,11 @@ function ScoreSection({
 type DraftFinding = { aspect: DeficiencyAspect; content: string; checklistRef: string };
 
 function FindingSection({
-  cycleId, canEdit, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
+  cycleId, canEdit, practice = false, itemContent, itemLaw, dimIssues, snippets, focusAspects = [], initialFindings, unsavedFindingsRef,
 }: {
   cycleId: string;
   canEdit: boolean;
+  practice?: boolean;
   itemContent: Record<string, string>;
   itemLaw: Record<string, ItemLaw>;
   dimIssues: Record<string, DimIssue[]>;
@@ -801,6 +809,9 @@ function FindingSection({
   const [drafts, setDrafts] = useState<Partial<Record<FindingKind, DraftFinding>>>({});
   const [busy, setBusy] = useState<string | null>(null); // finding id 或 `new:KIND`
   const [deleting, setDeleting] = useState<MyFinding | null>(null);
+  // 練習模式:發現 CRUD 改打 practice-* 端點(獨立 PracticeFinding 表;請求/回應契約與正式端點相容)
+  const findingsUrl = practice ? `/api/cycles/${cycleId}/practice-findings` : `/api/cycles/${cycleId}/audit/findings`;
+  const findingUrl = (id: string) => (practice ? `/api/practice-findings/${id}` : `/api/audit-findings/${id}`);
   // 法規對照 Dialog:依輸入之對應項次展開該檢核項的稽核依據
   const [lawRef, setLawRef] = useState<string | null>(null);
   // 剪貼簿 Dialog:依當前構面/類型篩選片語,點選插入發現內容(插入於游標所在處)
@@ -887,7 +898,7 @@ function FindingSection({
       return;
     }
     setBusy(`new:${kind}`);
-    const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
+    const res = await fetch(findingsUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -918,7 +929,7 @@ function FindingSection({
       ? '(請補述建議事項:無法規要求但存有資安風險之處及改善建議)'
       : '(請補述具體缺失或不符之處及改善建議)';
     setBusy(`import:${kind}:${itemNo}`);
-    const res = await fetch(`/api/cycles/${cycleId}/audit/findings`, {
+    const res = await fetch(findingsUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -949,7 +960,7 @@ function FindingSection({
     savingRef.current = true;
     setBusy(f.id);
     try {
-      const res = await fetch(`/api/audit-findings/${f.id}`, {
+      const res = await fetch(findingUrl(f.id), {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
@@ -969,7 +980,7 @@ function FindingSection({
 
   async function deleteFinding(f: MyFinding) {
     setBusy(f.id);
-    const res = await fetch(`/api/audit-findings/${f.id}`, { method: 'DELETE' });
+    const res = await fetch(findingUrl(f.id), { method: 'DELETE' });
     setBusy(null);
     setDeleting(null);
     if (!res.ok) {
@@ -1015,7 +1026,7 @@ function FindingSection({
       for (const id of dirtyIds) {
         const f = findingsRef.current.find((x) => x.id === id); // 讀最新狀態,避免覆蓋使用者並行編輯
         if (!f) { editedRef.current.delete(id); continue; }
-        const res = await fetch(`/api/audit-findings/${id}`, {
+        const res = await fetch(findingUrl(id), {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),

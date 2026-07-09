@@ -121,16 +121,16 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   };
 
   // ── 檢核表(機關/中心:prep 子項 childOf,不再獨立分類)/ 委員審閱(委員:獨立活動維持頂層)
-  //    觀察員(批30):同委員審閱動線但「唯讀」——不留審閱意見,作為撰寫練習的素材。──
+  //    觀察員(批30;批42 開放留「觀察員意見」練習,獨立表僅本人/指導者/中心可見)──
   const checklist: ModuleNavItem = isObserver
     ? {
         key: 'checklist',
         title: '檢核表審閱',
-        sub: '逐題檢視機關自評(唯讀)',
+        sub: '逐題檢視機關自評、留觀察員意見',
         href: `${base}/review`,
         status: onsitePast ? '已結束' : auditorReviewActive ? '開放中' : '待開放',
         statusTone: auditorReviewActive ? 'primary' : 'default',
-        caption: '檢視機關填報與佐證,作為撰寫練習素材',
+        caption: '檢視機關填報與佐證,留觀察員意見作為練習素材',
         muted: !auditorReviewActive,
         locked: !auditorCanViewChecklistContent(st) || reviewLocked,
         lockedHint: reviewLocked ? reviewLockHint : '資料齊備後開放檢視',

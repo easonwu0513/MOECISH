@@ -20,6 +20,7 @@ import { SURFACE_INFO } from '@/lib/tone';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import ReviewNote from './ReviewNote';
+import ObserverCommentSection from './ObserverCommentSection';
 import SubmissionBanner from '../checklist/SubmissionBanner';
 
 const complianceTone = COMPLIANCE_TONE;
@@ -91,6 +92,22 @@ export default async function ReviewPage({
     for (const a of authors) authorNameById[a.id] = a.name;
   }
 
+  // 觀察員意見(批42):觀察員本人的逐題練習意見(獨立 PracticeComment 表;比照委員意見操作,
+  // 僅本人/指導者/中心可見)。依 responseId 歸戶供題卡顯示與「觀察員意見」篩選。
+  const practiceByResponse = new Map<string, { id: string; content: string; createdAt: Date }[]>();
+  if (isObserverView) {
+    const myPractice = await prisma.practiceComment.findMany({
+      where: { responseId: { in: cycle.responses.map((r) => r.id) }, observerId: session.user.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, responseId: true, content: true, createdAt: true },
+    });
+    for (const c of myPractice) {
+      const arr = practiceByResponse.get(c.responseId) ?? [];
+      arr.push({ id: c.id, content: c.content, createdAt: c.createdAt });
+      practiceByResponse.set(c.responseId, arr);
+    }
+  }
+
   // 佐證檔案:委員需看附件才能判定符合度(沿用 evidences 下載授權)
   const evidenceList = await prisma.evidence.findMany({
     where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: cycle.responses.map((r) => r.id) } },
@@ -107,8 +124,10 @@ export default async function ReviewPage({
   const total = cycle.checklistVersion.items.length;
   const answered = cycle.responses.filter((r) => r.compliance).length;
   // 委員意見:委員審閱=留存筆記,故以「本委員留過意見的題目」計(不分待補/已補正),供快速回看已寫哪些。
+  // 觀察員視角改計本人的觀察員意見(委員意見對觀察員一律清空)。
   const withComments = cycle.checklistVersion.items.filter((i) => {
     const r = responsesByItem.get(i.id);
+    if (isObserverView) return r ? (practiceByResponse.get(r.id)?.length ?? 0) > 0 : false;
     return (r?.comments ?? []).length > 0;
   }).length;
   // 已補正待複核:機關已對最新一輪意見標記補正,委員應再次檢視(免得自己逐題翻找)
@@ -130,7 +149,10 @@ export default async function ReviewPage({
   const matchFilter = (itemId: string) => {
     const r = responsesByItem.get(itemId);
     if (filter === 'answered') return Boolean(r?.compliance);
-    if (filter === 'comments') return (r?.comments ?? []).length > 0;
+    if (filter === 'comments') {
+      if (isObserverView) return r ? (practiceByResponse.get(r.id)?.length ?? 0) > 0 : false;
+      return (r?.comments ?? []).length > 0;
+    }
     if (filter === 'resolved') {
       const cs = r?.comments ?? [];
       return cs.length > 0 && cs[cs.length - 1].resolvedAt != null;
@@ -174,7 +196,7 @@ export default async function ReviewPage({
         <h1 className="text-headline text-ink-900">{pageTitle}</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
           {isObserverView
-            ? '逐題檢視機關說明與佐證(唯讀),作為您撰寫練習的素材;觀察員不留審閱意見。'
+            ? '逐題檢視機關說明與佐證,可於每題下方留下觀察員意見(練習用;僅您本人、您的指導者與中心可見),供您撰寫練習時對照。'
             : '逐題檢視機關說明與佐證,可於每題下方留下審閱筆記(依需要,不必每題),供您實地稽核時參考。'}
         </p>
         <p className="text-body-sm text-ink-500 mt-1">
@@ -205,7 +227,7 @@ export default async function ReviewPage({
           </FilterChipLink>
           {withComments > 0 && (
             <FilterChipLink href={`/cycles/${cycle.id}/review?filter=comments`} selected={filter === 'comments'}>
-              委員意見 <FilterChipCount selected={filter === 'comments'}>{withComments}</FilterChipCount>
+              {isObserverView ? '觀察員意見' : '委員意見'} <FilterChipCount selected={filter === 'comments'}>{withComments}</FilterChipCount>
             </FilterChipLink>
           )}
           {resolvedPending > 0 && (
@@ -284,6 +306,11 @@ export default async function ReviewPage({
                               委員意見 {(r!.comments).length}
                             </Chip>
                           )}
+                          {isObserverView && r && (practiceByResponse.get(r.id)?.length ?? 0) > 0 && (
+                            <Chip tone="primary" size="sm">
+                              觀察員意見 {practiceByResponse.get(r.id)!.length}
+                            </Chip>
+                          )}
                         </div>
                         {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點 */}
                         {r?.description && (
@@ -354,8 +381,21 @@ export default async function ReviewPage({
                           </div>
                         )}
 
-                        {/* 觀察員唯讀(批30):不留審閱意見(API 亦僅開放委員/中心) */}
-                        {isObserverView ? null : r ? (
+                        {/* 觀察員意見(批42):比照委員意見,存獨立 PracticeComment 表(僅本人/指導者/中心可見) */}
+                        {isObserverView ? (
+                          r ? (
+                            <ObserverCommentSection
+                              responseId={r.id}
+                              comments={(practiceByResponse.get(r.id) ?? []).map((c) => ({
+                                id: c.id,
+                                content: c.content,
+                                timeLabel: fmtROCDateTime(c.createdAt),
+                              }))}
+                            />
+                          ) : (
+                            <p className="mt-2 text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
+                          )
+                        ) : r ? (
                           <div className="mt-3">
                             <CommentForm responseId={r.id} />
                           </div>

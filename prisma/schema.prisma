@@ -65,6 +65,8 @@ model User {
   mentorAssignments    CycleObserver[]        @relation("MentorAssignments")
   practiceFindings     PracticeFinding[]      @relation("PracticeFindings")
   practiceFeedbacks    PracticeFeedback[]     @relation("PracticeFeedbacks")
+  practiceScores       PracticeScore[]        @relation("PracticeScores")
+  practiceComments     PracticeComment[]      @relation("PracticeComments")
   // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
   roleGrants           UserRole[]
 }
@@ -221,6 +223,7 @@ model AuditCycle {
   journeyProgress  JourneyProgress[]
   observers        CycleObserver[]
   practiceFindings PracticeFinding[]
+  practiceScores   PracticeScore[]
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
@@ -352,6 +355,43 @@ model PracticeFeedback {
   mentor            User            @relation("PracticeFeedbacks", fields: [mentorId], references: [id])
   content           String
   createdAt         DateTime        @default(now())
+}
+
+// 練習評分(批42):觀察員練習用附件17評分,獨立表硬隔離——彙整/列印/報告消費端只讀 AuditScore,
+// 本表無任何報告端消費者,結構性保證絕不進正式結果(比照 PracticeFinding)。
+model PracticeScore {
+  id           String     @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  observerId   String
+  observer     User       @relation("PracticeScores", fields: [observerId], references: [id])
+  dimension    String // Dimension(一~九;與 AuditScore 同結構)
+  score        Int?
+  cntComply    Int?
+  cntPartial   Int?
+  cntNonComply Int?
+  cntNa        Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([cycleId, observerId, dimension])
+  @@index([cycleId])
+}
+
+// 觀察員意見(批42):檢核表逐題「練習意見」,獨立表硬隔離——僅觀察員本人/其指導者/中心可見,
+// 機關與委員完全不可見(委員意見走 AuditorComment,機關補正回應等下游僅掛該表,本表無此耦合)。
+model PracticeComment {
+  id         String            @id @default(cuid())
+  responseId String
+  response   ChecklistResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  observerId String
+  observer   User              @relation("PracticeComments", fields: [observerId], references: [id])
+  content    String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([responseId])
+  @@index([observerId])
 }
 
 model CycleStateTransition {
@@ -564,7 +604,8 @@ model ChecklistResponse {
   lastEditedAt    DateTime?
   createdAt       DateTime      @default(now())
 
-  comments AuditorComment[]
+  comments         AuditorComment[]
+  practiceComments PracticeComment[]
 
   @@unique([cycleId, checklistItemId])
 }
