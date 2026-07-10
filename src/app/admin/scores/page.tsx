@@ -38,7 +38,8 @@ export default async function CrossOrgScoresPage({
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'asc' }],
   });
-  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
+  // 年度籤升冪(全部 → 115 → 116…,與跨院週期總覽/稽核週期頁一致)
+  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => a - b);
 
   // 每週期 × 構面:跨委員平均
   const dimAvg = (scores: { dimension: string; score: number | null }[], dim: string): number | null => {

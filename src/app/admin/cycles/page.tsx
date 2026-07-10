@@ -76,7 +76,8 @@ export default async function AdminCyclesPage({
     trailRows.map((r) => [r.relatedCycleId, { count: r._count._all, last: r._max.sentAt }]),
   );
 
-  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
+  // 年度籤升冪(全部 → 115 → 116…,由舊到新如時間軸;列表本身仍最新年在前)
+  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => a - b);
   const yearFilter = searchParams.year ? parseInt(searchParams.year, 10) : null;
   const filtered = yearFilter ? cycles.filter((c) => c.year === yearFilter) : cycles;
   const now = new Date();
@@ -115,7 +116,8 @@ export default async function AdminCyclesPage({
     ? Math.round((withDef.reduce((a, r) => a + r.passed / r.total, 0) / withDef.length) * 100)
     : 0;
 
-  const defaultYear = years[0] ?? new Date().getFullYear();
+  // 批次開立預設年=最大年(顯式取 max,不依賴 years 排序方向)
+  const defaultYear = years.length ? Math.max(...years) : new Date().getFullYear();
   const cycleOptions = cycles.map((c) => ({
     id: c.id,
     label: `${c.year - 1911} 年度 · ${c.organization.name}`,

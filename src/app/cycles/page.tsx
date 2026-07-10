@@ -56,7 +56,8 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
   });
 
   // 年度做成頁籤分類(取代標題上的年度);民國年呈現
-  const years = [...new Set(cycles.map((c) => c.year))].sort((a, b) => b - a);
+  // 年度頁籤升冪(全部 → 115 → 116…,由舊到新如時間軸;列表本身仍最新年在前)
+  const years = [...new Set(cycles.map((c) => c.year))].sort((a, b) => a - b);
   const selYear = searchParams.year && years.includes(Number(searchParams.year)) ? Number(searchParams.year) : null;
   const shown = selYear ? byOnsite.filter((c) => c.year === selYear) : byOnsite;
 
