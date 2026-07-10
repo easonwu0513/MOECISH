@@ -63,9 +63,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ? { disabledAt: null, disabledById: null, disabledByName: null, disableReason: null }
       : {};
 
+    // 角色改為非機關管理員時一併清 organizationId(比照 promote/route:守 schema「role/organizationId=現用身分」不變式,
+    // 避免非機關身分殘留機關歸屬造成醫院頁誤列)
+    const orgClear = body.role && body.role !== 'ORG_ADMIN' ? { organizationId: null } : {};
+
     const updated = await prisma.user.update({
       where: { id: target.id },
-      data: { isActive: body.isActive, role: body.role, ...lifecycle },
+      data: { isActive: body.isActive, role: body.role, ...lifecycle, ...orgClear },
     });
 
     const meta = extractRequestMeta(req);

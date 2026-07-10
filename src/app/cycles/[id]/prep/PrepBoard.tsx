@@ -757,7 +757,7 @@ export default function PrepBoard({
         title="確定繳交稽核前資料"
         description={
           submitPending
-            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交?`
+            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交？`
             : ''
         }
         confirmLabel="確定繳交"

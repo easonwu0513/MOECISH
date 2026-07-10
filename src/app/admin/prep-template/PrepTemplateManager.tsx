@@ -148,7 +148,11 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
     const res = await fetch(`/api/admin/prep-template/${it.id}`, { method: 'DELETE' });
     setBusy(false);
     setDeleting(null);
-    if (!res.ok) { toast.error('刪除失敗'); return; }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.error('刪除失敗', j.error);
+      return;
+    }
     toast.success('已刪除');
     router.refresh();
   }
@@ -418,7 +422,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         description={deleting
           ? `「${deleting.title}」將自 ${editYear - 1911} 年度清單移除,之後套用標準清單不再帶入(不影響已開立週期與歷年留存)。`
             + (deleting.files.length > 0 ? `其 ${deleting.files.length} 個文件範本將一併刪除。` : '')
-            + '確定刪除?'
+            + '確定刪除？'
           : undefined}
         confirmLabel="刪除"
         tone="danger"

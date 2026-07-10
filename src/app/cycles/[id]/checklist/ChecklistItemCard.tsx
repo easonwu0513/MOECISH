@@ -157,7 +157,8 @@ export default function ChecklistItemCard({
       toast.success('已標記為已補正');
       router.refresh();
     } else {
-      toast.error('操作失敗');
+      const j = await res.json().catch(() => ({}));
+      toast.error('操作失敗', j.error);
     }
   }
 

@@ -18,7 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   DEFICIENCY_DELETE: '刪除缺失',
   DEFICIENCY_IMPORT: 'Excel 匯入缺失',
   ACTION_SAVE: '儲存矯正草稿',
-  ACTION_SUBMIT: '提交矯正送審',
+  ACTION_SUBMIT: '送出矯正送審',
   ACTION_PASS: '審核通過',
   ACTION_RETURN: '退回補正',
   AUDITOR_ASSIGN: '指派委員',
@@ -44,6 +44,8 @@ const ACTION_LABELS: Record<string, string> = {
   INVITATION_CREATE: '建立邀請',
   INVITATION_ACCEPT: '接受邀請',
   TRACKING_SEND: '寄送追蹤信',
+  ORG_CREATE: '建立機關',
+  ORG_UPDATE: '編輯機關資料',
 };
 
 const ENTITY_LABELS: Record<string, string> = {

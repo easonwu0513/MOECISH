@@ -678,7 +678,7 @@ export default function ActionForm({
         open={pendingExec !== null}
         onOpenChange={(o) => !o && setPendingExec(null)}
         title="切換執行情形"
-        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」,確定切換?` : undefined}
+        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」,確定切換？` : undefined}
         confirmLabel="確定切換"
         tone="warning"
         onConfirm={() => { if (pendingExec) { touch(); setExecStatus(pendingExec.next); setPendingExec(null); } }}

@@ -111,7 +111,7 @@ export default function VersionActions({
         open={delOpen}
         onOpenChange={(o) => !busy && !o && setDelOpen(false)}
         title="刪除題庫版本"
-        description={`將刪除「${name}」及其全部題目(含法規對照),無法復原。確定刪除?`}
+        description={`將刪除「${name}」及其全部題目(含法規對照),無法復原。確定刪除？`}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={doDelete}

@@ -172,8 +172,8 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
         throw new Error(j.error || '載入失敗');
       }
       setData((await res.json()) as PanelData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '載入失敗');
+    } catch {
+      setError('載入失敗，請檢查網路或稍後再試。');
     } finally {
       setLoading(false);
     }

@@ -74,7 +74,7 @@ export function LawPanel({
       )}
       {expectedEvidence && (
         <div>
-          <p className="text-label text-primary-800 mb-1.5">佐證資料(機關應備文件)</p>
+          <p className="text-label text-primary-800 mb-1.5">應備文件</p>
           <NumberedList text={expectedEvidence} />
         </div>
       )}

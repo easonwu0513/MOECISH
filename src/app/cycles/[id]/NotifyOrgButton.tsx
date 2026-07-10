@@ -64,7 +64,7 @@ export default function NotifyOrgButton({
         description={
           <span className="block leading-relaxed">
             將以 email 通知「{orgName}」的機關管理員:貴機關今年度將接受資通安全稽核,並附上已設定的重要時程(技術檢測日 / 實地稽核日 / 各區資料繳交截止 / 矯正填報截止)。
-            <span className="mt-2 block">將記錄於 Email 紀錄供查核。確定寄送?</span>
+            <span className="mt-2 block">將記錄於 Email 紀錄供查核。確定寄送？</span>
           </span>
         }
         confirmLabel="寄送通知"

@@ -63,6 +63,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...extractRequestMeta(req),
     });
 
+    // 站內通知被晉升者:身分/可見範圍變更(晉升結果不因通知失敗而回滾)
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: target.id,
+          kind: 'observer-promote',
+          title: '已晉升為稽核委員',
+          body: '中心已將您的觀察員身分晉升為稽核委員。您現在可受指派實地稽核週期,並檢視全體委員的稽核發現;先前的練習紀錄仍留存供回顧。',
+          link: '/dashboard',
+        },
+      });
+    } catch (e) {
+      console.error('notify observer promote failed:', e);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

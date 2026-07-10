@@ -139,7 +139,7 @@ export default function AdminDefActions({
         open={delOpen}
         onOpenChange={(o) => !saving && !o && setDelOpen(false)}
         title="刪除缺失"
-        description="將一併刪除其矯正措施紀錄,且無法復原。確定刪除這項缺失?"
+        description="將一併刪除其矯正措施紀錄,且無法復原。確定刪除這項缺失？"
         confirmLabel="刪除"
         tone="danger"
         onConfirm={doDelete}

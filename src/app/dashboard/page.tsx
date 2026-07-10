@@ -231,6 +231,12 @@ export default async function HomePage() {
   const orgsWith = (f: (e: Enriched) => number) =>
     new Set(enriched.filter((e) => f(e) > 0).map((e) => e.c.organizationId)).size;
   const isSuper = user.role === 'SUPER_ADMIN';
+  // 無週期空狀態依角色分流:中心給「建立」引導、機關給「待中心開立」、委員/觀察員給「尚未被指派/配對」
+  const emptyCyclesCopy = isSuper
+    ? EMPTY.noCyclesAdmin
+    : user.role === 'ORG_ADMIN'
+      ? EMPTY.noCycles
+      : EMPTY.noCyclesAssignee;
 
   const greeting = greetingByHour(now.getHours());
   const today = fmtROCWeekday(now); // 民國年+星期(批72:原 toLocaleDateString 顯西曆,與週期頁民國年並存)
@@ -245,7 +251,7 @@ export default async function HomePage() {
         ? `稽核委員 · 受指派 ${cycles.length} 個週期`
         : user.role === 'OBSERVER'
           ? `觀察員 · 受配對 ${cycles.length} 個週期`
-          : `教育部稽核中心 · 監督 ${orgCount} 院`;
+          : `中心 · 監督 ${orgCount} 院`;
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
   const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
@@ -295,8 +301,8 @@ export default async function HomePage() {
           <div className="p-6">
             <EmptyState
               icon={<ClipboardCheck size={28} />}
-              title={isSuper ? EMPTY.noCyclesAdmin.title : EMPTY.noCycles.title}
-              description={isSuper ? EMPTY.noCyclesAdmin.description : EMPTY.noCycles.description}
+              title={emptyCyclesCopy.title}
+              description={emptyCyclesCopy.description}
               action={
                 isSuper ? (
                   <div className="flex gap-2 flex-wrap justify-center">

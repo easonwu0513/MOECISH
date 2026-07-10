@@ -138,7 +138,7 @@ export default function EditCycleDialog({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !saving && !o && setConfirmOpen(false)}
-        title="修改稽核相關日期?"
+        title="修改稽核相關日期？"
         description="您正在修改實地稽核日 / 技術檢測截止 / 實地稽核資料截止,這些會影響受稽機關的資料繳交安排。請先確認已通知受稽機關,再儲存變更(異動會寫入稽核軌跡)。"
         confirmLabel="已通知,確定修改"
         tone="warning"

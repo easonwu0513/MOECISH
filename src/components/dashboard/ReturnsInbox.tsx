@@ -19,7 +19,7 @@ export function ReturnsInbox({ items, showOrg }: { items: ReturnItem[]; showOrg:
           退回待補正 · {items.length} 件
         </p>
         <span className="text-caption text-ink-500">
-          {showOrg ? '以下項目經退回,仍待機關補正後重新提交。' : '以下項目經退回,請依意見補正後重新提交。'}
+          {showOrg ? '以下項目經退回,仍待機關補正後重新送出。' : '以下項目經退回,請依意見補正後重新送出。'}
         </span>
       </div>
       <ul className="divide-y divide-rule">

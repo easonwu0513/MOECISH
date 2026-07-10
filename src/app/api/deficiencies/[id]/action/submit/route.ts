@@ -15,7 +15,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     const { user, deficiency } = await assertDeficiencyAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
-      return NextResponse.json({ error: '僅機關管理員可提交' }, { status: 403 });
+      return NextResponse.json({ error: '僅機關管理員可送出' }, { status: 403 });
     }
     if (deficiency.cycle.status !== 'REMEDIATION') {
       return NextResponse.json({ error: '此週期目前未開放填報' }, { status: 400 });

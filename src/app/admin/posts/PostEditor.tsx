@@ -215,7 +215,11 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
     const res = await fetch(`/api/admin/posts/${post.id}/attachments/${deletingAtt.id}`, { method: 'DELETE' }).catch(() => null);
     setBusy(false);
     setDeletingAtt(null);
-    if (!res || !res.ok) { toast.error('刪除附件失敗', res ? undefined : '連線逾時或網路中斷,請稍後再試'); return; }
+    if (!res || !res.ok) {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      toast.error('刪除附件失敗', res ? (j as { error?: string }).error : '連線逾時或網路中斷,請稍後再試');
+      return;
+    }
     toast.success('已刪除附件');
     router.refresh();
   }
@@ -393,7 +397,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
         open={delOpen}
         onOpenChange={(o) => !busy && setDelOpen(o)}
         title="刪除公告"
-        description="刪除後無法復原(附件將一併刪除)。確定刪除?"
+        description="刪除後無法復原(附件將一併刪除)。確定刪除？"
         confirmLabel="刪除"
         tone="danger"
         onConfirm={remove}

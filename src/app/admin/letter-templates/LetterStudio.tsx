@@ -584,8 +584,8 @@ export default function LetterStudio({
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? '留存失敗');
       toast.success('已留存至系統寄件紀錄', '可於「信件管理 → 系統寄件紀錄」查閱(標示為手動外寄)');
       setLogConfirm(false);
-    } catch (e) {
-      toast.error((e as Error).message || '留存失敗');
+    } catch {
+      toast.error('留存失敗');
     } finally {
       setLogging(false);
     }
@@ -666,7 +666,7 @@ export default function LetterStudio({
       toast.success(kind === 'subject' ? '已複製主旨' : '已複製純文字內文');
       setTimeout(() => setCopied(''), 2000);
     } catch {
-      toast.error('複製失敗');
+      toast.error('複製失敗，請重新整理後再試');
     }
   }
 
@@ -734,8 +734,8 @@ export default function LetterStudio({
       }
       setMode('compose');
       router.refresh();
-    } catch (e) {
-      toast.error((e as Error).message || '儲存失敗');
+    } catch {
+      toast.error('儲存失敗');
     } finally {
       setSaving(false);
     }
@@ -753,8 +753,8 @@ export default function LetterStudio({
       setMode('compose');
       toast.success('已刪除範本');
       router.refresh();
-    } catch (e) {
-      toast.error((e as Error).message || '刪除失敗');
+    } catch {
+      toast.error('刪除失敗');
     } finally {
       setSaving(false);
       setConfirmDelete(false);

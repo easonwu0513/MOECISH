@@ -158,7 +158,7 @@ export default function AssignObserversPanel({
       <ConfirmDialog
         open={pendingRemove !== null}
         onOpenChange={(o) => !o && setPendingRemove(null)}
-        title="移除這位觀察員的配對?"
+        title="移除這位觀察員的配對？"
         description={pendingRemove ? `「${pendingRemove.name}」將失去此週期的存取;其練習紀錄留存,中心仍可檢視。` : undefined}
         confirmLabel="移除"
         tone="danger"

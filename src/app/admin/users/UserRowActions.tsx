@@ -168,7 +168,7 @@ export default function UserRowActions({
           open={toggleOpen}
           onOpenChange={(o) => !saving && setToggleOpen(o)}
           title="啟用帳號"
-          description={`確定重新啟用「${name}」的帳號?`}
+          description={`確定重新啟用「${name}」的帳號？`}
           confirmLabel="啟用"
           tone="primary"
           onConfirm={async () => {
@@ -256,7 +256,7 @@ export default function UserRowActions({
       <ConfirmDialog
         open={promoteOpen}
         onOpenChange={(o) => !promoting && setPromoteOpen(o)}
-        title={`晉升「${name}」為稽核委員?`}
+        title={`晉升「${name}」為稽核委員？`}
         description="觀察員授權將結束(留歷史)、改持稽核委員授權;其實習紀錄(練習發現與指導回饋)完整留存,可於實習紀錄頁回顧。晉升後即可被指派為正式稽核委員。"
         confirmLabel="晉升"
         loading={promoting}

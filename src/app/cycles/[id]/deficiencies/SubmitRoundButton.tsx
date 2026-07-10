@@ -57,7 +57,7 @@ export default function SubmitRoundButton({ cycleId, count }: { cycleId: string;
         open={open}
         onOpenChange={(o) => !busy && setOpen(o)}
         title="送出本輪審核"
-        description={`將把已填寫完整的矯正措施一次送審,並對每位委員寄出一封彙整通知(未填完整者會自動略過並列出)。目前有 ${count} 項為草稿或退回補正中。確定送出?`}
+        description={`將把已填寫完整的矯正措施一次送審,並對每位委員寄出一封彙整通知(未填完整者會自動略過並列出)。目前有 ${count} 項為草稿或退回補正中。確定送出？`}
         confirmLabel="送出審核"
         tone="primary"
         onConfirm={submit}

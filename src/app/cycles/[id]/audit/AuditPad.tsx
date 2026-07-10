@@ -531,7 +531,7 @@ function ScoreSection({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !lockBusy && !o && setConfirmOpen(false)}
-        title={confirmProblems.length > 0 ? '部分構面尚未填寫完整,仍要送出?' : '確認填寫完畢?'}
+        title={confirmProblems.length > 0 ? '部分構面尚未填寫完整,仍要送出？' : '確認填寫完畢？'}
         description={
           confirmProblems.length > 0 ? (
             <div className="flex flex-col gap-3">
@@ -557,7 +557,7 @@ function ScoreSection({
       <ConfirmDialog
         open={unlockConfirmOpen}
         onOpenChange={(o) => !lockBusy && !o && setUnlockConfirmOpen(false)}
-        title="解除鎖定?"
+        title="解除鎖定？"
         description={
           <div className="flex flex-col gap-3">
             <p>
@@ -1148,7 +1148,7 @@ function FindingSection({
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="刪除這條稽核發現?"
+        title="刪除這條稽核發現？"
         description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」將被刪除,無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
@@ -1159,8 +1159,13 @@ function FindingSection({
       <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
         <h2 className="text-title-lg text-ink-900">稽核發現</h2>
       </div>
-      <p className="text-body-sm text-ink-500 mb-4">
-        逐條輸入您的發現;全體委員的發現會自動彙整至報告。
+      <p className="text-body-sm text-ink-500 mb-1">
+        {practice
+          ? '逐條輸入您的練習發現;僅供指導委員與中心檢視回饋,不會進入正式報告。'
+          : '逐條輸入您的發現;全體委員的發現會自動彙整至報告。'}
+      </p>
+      <p className="text-caption text-ink-500 mb-4">
+        發現需按「儲存」,不會自動存檔。
       </p>
 
       {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打。

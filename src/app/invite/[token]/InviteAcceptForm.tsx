@@ -60,7 +60,7 @@ export default function InviteAcceptForm({ token, email }: { token: string; emai
       setTimeout(() => router.push('/login'), 1500);
       return;
     }
-    router.push('/');
+    router.push('/dashboard');
     router.refresh();
   }
 

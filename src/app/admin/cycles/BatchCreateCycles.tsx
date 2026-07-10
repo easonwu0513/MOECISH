@@ -67,7 +67,6 @@ export default function BatchCreateCycles({
   async function submit() {
     if (Number.isNaN(yearNum)) { toast.error('年度格式有誤'); return; }
     if (!versionId) { toast.error('請選擇題庫版本'); return; }
-    if (!dueDate) { toast.error('請設定矯正填報截止日'); return; }
     if (selected.size === 0) { toast.error('請至少勾選一個機關'); return; }
     setSaving(true);
     const res = await fetch('/api/admin/cycles/batch', {
@@ -77,7 +76,7 @@ export default function BatchCreateCycles({
         year: yearNum,
         checklistVersionId: versionId,
         organizationIds: Array.from(selected),
-        dueDate,
+        dueDate: dueDate || null,
         prepDueDate: prepDueDate || null,
         prepDueTech: prepDueTech || null,
         onsiteDate: onsiteDate || null,
@@ -126,7 +125,7 @@ export default function BatchCreateCycles({
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="矯正填報截止(必填)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <TextField label="矯正填報截止(選填)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             <TextField label="資料準備截止 · 實地稽核區(選填)" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
             <TextField label="資料準備截止 · 技術檢測區(選填)" type="date" value={prepDueTech} onChange={(e) => setPrepDueTech(e.target.value)} />
             <TextField label="實地稽核日期(選填,可開立時先訂)" type="date" value={onsiteDate} onChange={(e) => setOnsiteDate(e.target.value)} />

@@ -113,7 +113,7 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !sending && setConfirmOpen(o)}
-        title={`確定寄送追蹤信給 ${selected.size} 個機關?`}
+        title={`確定寄送追蹤信給 ${selected.size} 個機關？`}
         description={`將對下列機關的機關管理員寄出真實郵件(無法收回):${orgs.filter((o) => selected.has(o.id)).map((o) => o.name).join('、')}`}
         confirmLabel="確定寄送"
         loading={sending}

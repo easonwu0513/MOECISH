@@ -1247,7 +1247,7 @@ export function AuditMergeTool({
         open={resetOpen}
         onOpenChange={setResetOpen}
         title="重置所有資料"
-        description="將清除暫存;您手動輸入的封面/文字都會消失,無法復原。(週期模式會恢復為剛進入時的狀態,含委員自動帶入的發現。)確定重置?"
+        description="將清除暫存;您手動輸入的封面/文字都會消失,無法復原。(週期模式會恢復為剛進入時的狀態,含委員自動帶入的發現。)確定重置？"
         confirmLabel="重置"
         tone="danger"
         onConfirm={doReset}
@@ -1261,7 +1261,7 @@ export function AuditMergeTool({
             {forceState?.warnings.map((w) => (
               <span key={w} className="block">• {w}</span>
             ))}
-            <span className="block mt-2">確定要強制{forceState?.action === 'print' ? '列印' : '匯出 Word'}嗎?</span>
+            <span className="block mt-2">確定要強制{forceState?.action === 'print' ? '列印' : '匯出 Word'}嗎？</span>
           </span>
         }
         confirmLabel={forceState?.action === 'print' ? '強制列印' : '強制匯出'}

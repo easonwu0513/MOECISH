@@ -78,10 +78,10 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
         toName: u.name,
         subject: `[MOECISH] 貴機關 ${yearROC} 年度資通安全稽核作業通知`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立,貴機關今年度將接受資通安全稽核。\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立，貴機關今年度將接受資通安全稽核。\n\n` +
           scheduleBlock +
-          `待中心開放「資料準備」後,請登入平台依清單填寫資通安全檢核表並上傳應備文件:\n${link}\n\n` +
+          `待中心開放「資料準備」後，請登入平台依清單填寫資通安全檢核表並上傳應備文件:\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
@@ -241,7 +241,7 @@ export async function notifyAuditorsOnRoundSubmit(opts: {
       subject: `[MOECISH] ${orgName} 已送審 ${list.length} 項矯正措施，敬請審查`,
       body:
         `${salutation}\n\n` +
-        `${cycle.organization.name} 於 ${yearROC} 年度稽核本輪送審以下 ${list.length} 項矯正措施,\n` +
+        `${cycle.organization.name} 於 ${yearROC} 年度稽核本輪送審以下 ${list.length} 項矯正措施，\n` +
         `請登入系統檢視填報內容與佐證並進行審查：\n\n` +
         `${listText}\n\n` +
         `${link}\n\n` +
@@ -305,7 +305,7 @@ export async function notifyOrgOnReturn(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] 矯正措施退回補正（第 ${def.itemNo} 項），敬請依意見重新提交`,
+        subject: `[MOECISH] 矯正措施退回補正（第 ${def.itemNo} 項），敬請依意見重新送出`,
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} ${yearROC} 年度稽核之第 ${def.itemNo} 項矯正措施經委員審查退回（第 ${opts.round} 輪）。\n\n` +
@@ -354,7 +354,7 @@ export async function notifyChecklistSubmitted(opts: {
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 完成 ${yearROC} 年度資通安全檢核表填報並送出，內容已鎖定。\n` +
-          `請登入系統審閱填報內容;待稽核前資料一併確認齊備後，推進週期至「資料齊備」並通知委員審閱：\n\n` +
+          `請登入系統審閱填報內容；待稽核前資料一併確認齊備後，推進週期至「資料齊備」並通知委員審閱：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'checklist-submitted',
@@ -397,7 +397,7 @@ export async function notifyCycleSignedReportSubmitted(opts: {
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 確認繳交 ${yearROC} 年度用印改善報告掃描檔（${opts.fileName}），檔案已鎖定。\n` +
-          `請登入系統確認掃描檔;確認後即可結案：\n\n` +
+          `請登入系統確認掃描檔；確認後即可結案：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'signed-report-submitted',
@@ -481,9 +481,9 @@ export async function notifyReviewWindowRequested(opts: {
         toName: u.name,
         subject: `[MOECISH] 委員待審:請設定 ${orgName} ${yearROC} 年度委員審閱時段`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${opts.auditorName} 委員已可審閱 ${cycle.organization.name} ${yearROC} 年度資料,但本週期尚未設定「委員審閱時段」,委員目前無法檢視。\n` +
-          `請至資料準備頁的「委員審閱時段」設定起訖後,委員即可開始審閱:\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${opts.auditorName} 委員已可審閱 ${cycle.organization.name} ${yearROC} 年度資料，但本週期尚未設定「委員審閱時段」，委員目前無法檢視。\n` +
+          `請至資料準備頁的「委員審閱時段」設定起訖後，委員即可開始審閱:\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'review-window-request',
@@ -858,16 +858,16 @@ export async function notifyCycleTrackReminder(opts: {
     case 'REMEDIATION':
       focus = {
         hint: overdue
-          ? `缺失矯正措施填報已逾期(截止 ${fmtROC(cycle.dueDate)}),請儘速完成矯正措施填報與佐證上傳。`
+          ? `缺失矯正措施填報已逾期（截止 ${fmtROC(cycle.dueDate)}），請儘速完成矯正措施填報與佐證上傳。`
           : '請完成缺失矯正措施填報與佐證上傳。',
         path: '/deficiencies',
       };
       break;
     case 'REPORT_ISSUED':
-      focus = { hint: '稽核報告已產出,後續缺失矯正開放後請儘速辦理。', path: '' };
+      focus = { hint: '稽核報告已產出，後續缺失矯正開放後請儘速辦理。', path: '' };
       break;
     default:
-      focus = { hint: '貴機關本年度稽核作業仍有待辦事項,請登入平台查看後續進度。', path: '' };
+      focus = { hint: '貴機關本年度稽核作業仍有待辦事項，請登入平台查看後續進度。', path: '' };
   }
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}${focus.path}`;
@@ -878,8 +878,8 @@ export async function notifyCycleTrackReminder(opts: {
         toName: u.name,
         subject: `[MOECISH] ${yearROC} 年度資通安全稽核 進度追蹤提醒`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核仍有待辦事項,謹此提醒。\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核仍有待辦事項，謹此提醒。\n\n` +
           `${focus.hint}\n\n` +
           `請登入平台查看並辦理:\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,

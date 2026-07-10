@@ -282,8 +282,8 @@ export default function ChecklistShell({
         title={bulkMode === 'COMPLIANT' ? '未作答全部標為符合' : '未作答全部標為不適用'}
         description={
           bulkMode === 'COMPLIANT'
-            ? `將把 ${total - filled} 題未作答標為「符合」(已作答不覆寫)。注意:應據實填報,沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行?`
-            : `將把 ${total - filled} 題未作答標為「不適用」(已作答不覆寫)。適用於本機關無此項作為者;有作為的請逐題改回符合/部分符合並補充說明。確定執行?`
+            ? `將把 ${total - filled} 題未作答標為「符合」(已作答不覆寫)。注意:應據實填報,沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行？`
+            : `將把 ${total - filled} 題未作答標為「不適用」(已作答不覆寫)。適用於本機關無此項作為者;有作為的請逐題改回符合/部分符合並補充說明。確定執行？`
         }
         confirmLabel={bulkMode === 'COMPLIANT' ? '全部標為符合' : '全部標為不適用'}
         tone="primary"

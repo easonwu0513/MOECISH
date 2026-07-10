@@ -12,6 +12,7 @@ import { fmtROC, fmtROCDateTime, rocYear } from '@/lib/date';
 import InviteDialog from '@/components/admin/InviteDialog';
 import DeleteCycleButton from '@/components/cycle/DeleteCycleButton';
 import CreateCycleButton from './CreateCycleButton';
+import EditOrgDialog from './EditOrgDialog';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 
@@ -95,6 +96,14 @@ export default async function OrganizationDetail({ params }: { params: { id: str
             {' · '}
             建立於 {fmtROC(org.createdAt)}
           </>
+        }
+        actions={
+          <EditOrgDialog
+            orgId={org.id}
+            code={org.code}
+            name={org.name}
+            shortName={org.shortName}
+          />
         }
       />
 

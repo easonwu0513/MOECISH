@@ -117,7 +117,11 @@ export default function JourneyEditor({ data }: { data: EData }) {
     const res = await fetch(`/api/admin/journey/stages/${s.id}`, { method: 'DELETE' });
     setBusy(false);
     setStageDeleting(null);
-    if (!res.ok) { toast.error('刪除失敗'); return; }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.error('刪除失敗', j.error);
+      return;
+    }
     toast.success('已刪除階段');
     router.refresh();
   }
@@ -138,7 +142,12 @@ export default function JourneyEditor({ data }: { data: EData }) {
       method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ orderIndex: idx }),
     });
     setBusy(false);
-    if (!r1.ok || !r2.ok) { toast.error('調整順序失敗'); return; }
+    if (!r1.ok || !r2.ok) {
+      const bad = !r1.ok ? r1 : r2;
+      const j = await bad.json().catch(() => ({}));
+      toast.error('調整順序失敗', j.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -200,7 +209,11 @@ export default function JourneyEditor({ data }: { data: EData }) {
     const res = await fetch(`/api/admin/journey/items/${it.id}`, { method: 'DELETE' });
     setBusy(false);
     setItemDeleting(null);
-    if (!res.ok) { toast.error('刪除失敗'); return; }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      toast.error('刪除失敗', j.error);
+      return;
+    }
     toast.success('已刪除項目');
     router.refresh();
   }

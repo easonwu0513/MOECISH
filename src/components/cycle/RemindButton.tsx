@@ -58,7 +58,7 @@ export default function RemindButton({
         description={
           <span className="block leading-relaxed">
             將以 email 通知「{orgName}」{yearLabel} 年度的機關管理員:本年度稽核仍有待辦事項,並附上依目前階段的辦理焦點與直達連結。
-            <span className="mt-2 block">將記錄於 Email 紀錄與本週期催辦軌跡供查核。同一天重複點擊不會重複寄送。確定寄送?</span>
+            <span className="mt-2 block">將記錄於 Email 紀錄與本週期催辦軌跡供查核。同一天重複點擊不會重複寄送。確定寄送？</span>
           </span>
         }
         confirmLabel="寄送提醒"

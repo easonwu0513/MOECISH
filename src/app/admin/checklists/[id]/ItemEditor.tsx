@@ -113,7 +113,7 @@ export function ItemActions({ item }: { item: ItemData }) {
             placeholder={'1. 應界定核心業務…\n2. …'}
           />
           <Textarea
-            label="佐證資料(機關應備文件,每行一項)"
+            label="應備文件(每行一項)"
             value={expectedEvidence}
             onChange={(e) => setExpectedEvidence(e.target.value)}
             rows={5}

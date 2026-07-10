@@ -150,7 +150,7 @@ export default function ReviewNote({
       <ConfirmDialog
         open={confirmDel}
         onOpenChange={(o) => !o && setConfirmDel(false)}
-        title="刪除這則審閱筆記?"
+        title="刪除這則審閱筆記？"
         description="刪除後無法復原。這僅刪除您自己的筆記。"
         confirmLabel="刪除"
         tone="danger"

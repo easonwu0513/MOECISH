@@ -13,13 +13,13 @@ import { TOAST } from '@/lib/copy';
 /** 退回理由常用片語(點擊附加到意見欄) */
 const RETURN_PHRASES = [
   '佐證文件不足，請補附執行紀錄或畫面截圖',
-  '根因分析未對應缺失內容,請重新檢視',
-  '改善時程過長,請重新評估並說明理由',
+  '根因分析未對應缺失內容，請重新檢視',
+  '改善時程過長，請重新評估並說明理由',
 ];
 
 /** 通過意見常用片語(高頻動作也提供快捷,免手打) */
 const PASS_PHRASES = [
-  '佐證齊備,符合要求',
+  '佐證齊備，符合要求',
   '已改善並留存紀錄',
 ];
 
@@ -175,7 +175,7 @@ export default function ReviewPanel({
         description={
           <div className="mt-2 flex flex-col gap-3">
             <Textarea
-              label="退回理由（必填,至少 5 字）"
+              label="退回理由（必填，至少 5 字）"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}

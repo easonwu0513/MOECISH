@@ -127,7 +127,7 @@ export default function PracticePad({
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="刪除這條練習發現?"
+        title="刪除這條練習發現？"
         description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」與其指導回饋將一併刪除,無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"

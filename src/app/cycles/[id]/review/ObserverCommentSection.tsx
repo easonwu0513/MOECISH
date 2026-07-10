@@ -90,7 +90,7 @@ export default function ObserverCommentSection({
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="刪除這則觀察員意見?"
+        title="刪除這則觀察員意見？"
         description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」刪除後無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"

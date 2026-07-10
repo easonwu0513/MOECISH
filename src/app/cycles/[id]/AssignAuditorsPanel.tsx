@@ -231,7 +231,7 @@ export default function AssignAuditorsPanel({
         title="於實地稽核階段新增委員"
         description={
           pendingAssign
-            ? `實地稽核已在進行中。指派後「${pendingAssign.name}」將立即取得本週期的檢視與審查權限(含機關檢核表與已齊備資料),並可填寫評分與稽核發現。確定要新增這位委員嗎?`
+            ? `實地稽核已在進行中。指派後「${pendingAssign.name}」將立即取得本週期的檢視與審查權限(含機關檢核表與已齊備資料),並可填寫評分與稽核發現。確定要新增這位委員嗎？`
             : undefined
         }
         confirmLabel="確認指派"
@@ -247,7 +247,7 @@ export default function AssignAuditorsPanel({
         title="移除委員指派"
         description={
           pendingRemove
-            ? `移除後「${pendingRemove.name}」將立即失去本週期的檢視與審查權限;其負責構面的指派紀錄將一併刪除(已填寫的評分與稽核發現紀錄保留)。如僅需調整負責構面,直接點選構面即可,不必移除。確定要移除嗎?`
+            ? `移除後「${pendingRemove.name}」將立即失去本週期的檢視與審查權限;其負責構面的指派紀錄將一併刪除(已填寫的評分與稽核發現紀錄保留)。如僅需調整負責構面,直接點選構面即可,不必移除。確定要移除嗎？`
             : undefined
         }
         confirmLabel="移除"

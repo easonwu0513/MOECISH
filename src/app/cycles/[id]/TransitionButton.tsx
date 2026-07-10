@@ -131,7 +131,7 @@ export default function TransitionButton({
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title={warn ? '尚未設定矯正截止日期,仍要推進?' : '確認狀態轉換'}
+        title={warn ? '尚未設定矯正截止日期,仍要推進？' : '確認狀態轉換'}
         description={
           warn ? (
             <div className="mt-2 flex flex-col gap-3">

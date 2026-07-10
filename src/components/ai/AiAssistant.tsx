@@ -7,8 +7,8 @@ import { Sparkles, Send, X } from '@/components/icons';
 type Msg = { role: 'user' | 'assistant'; content: string };
 
 const SUGGESTIONS = [
-  '這個週期我下一步該做什麼?',
-  '機關要繳交哪些稽核前資料?',
+  '這個週期我下一步該做什麼？',
+  '機關要繳交哪些稽核前資料？',
   '幫我把這段稽核發現寫得更精簡:',
 ];
 

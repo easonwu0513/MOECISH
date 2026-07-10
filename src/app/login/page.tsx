@@ -40,10 +40,10 @@ function LoginForm() {
       setLoading(false);
       // 防護基準啟用時 authorize 以 throw 回報特定狀態
       if (res.error.includes('AccountLocked')) {
-        return setErr('帳號已暫時鎖定(連續驗證失敗達上限),請 15 分鐘後再試');
+        return setErr('帳號已暫時鎖定（連續驗證失敗達上限），請 15 分鐘後再試');
       }
       if (res.error.includes('TooManyAttempts')) {
-        return setErr('嘗試次數過多,請稍後再試');
+        return setErr('嘗試次數過多，請稍後再試');
       }
       return setErr('帳號或密碼錯誤，請再試一次');
     }
@@ -97,7 +97,7 @@ function LoginForm() {
 
           <div className="mt-4 text-center">
             <Link href="/forgot-password" className="text-body-sm text-primary-700 hover:underline focus-ring rounded px-1 py-0.5">
-              忘記密碼?
+              忘記密碼？
             </Link>
           </div>
 

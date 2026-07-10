@@ -181,7 +181,7 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title="刪除這則片語?"
+        title="刪除這則片語？"
         description={deleting ? `「${deleting.text.slice(0, 50)}${deleting.text.length > 50 ? '…' : ''}」將被刪除。` : undefined}
         confirmLabel="刪除"
         tone="danger"
