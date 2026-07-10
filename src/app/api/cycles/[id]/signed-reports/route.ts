@@ -4,7 +4,7 @@ import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { notifyCycleSignedReportSubmitted } from '@/lib/notify';
+import { notifyCycleSignedReportSubmitted, orgAdminWhere } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
 const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg'];
@@ -36,6 +36,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '週期已結案,不可再上傳用印掃描檔' }, { status: 409 });
+    }
+    // 用印掃描檔為「矯正執行」收尾產物:須到達 REMEDIATION 階段方可上傳(對齊 access-policy signedReport.upload)
+    if (cycle.status !== 'REMEDIATION') {
+      return NextResponse.json({ error: '用印掃描檔於「矯正執行」階段方可上傳' }, { status: 400 });
     }
     // 一旦機關「確認繳交」(submittedAt)或中心已確認(confirmedAt),檔案即鎖定,不可再上傳新版
     const lockedCount = await prisma.signedReport.count({
@@ -114,6 +118,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
       if (cycle.status === 'CLOSED') {
         return NextResponse.json({ error: '週期已結案,不可再繳交' }, { status: 409 });
+      }
+      if (cycle.status !== 'REMEDIATION') {
+        return NextResponse.json({ error: '用印掃描檔於「矯正執行」階段方可上傳' }, { status: 400 });
       }
       if (report.submittedAt) {
         return NextResponse.json({ error: '此掃描檔已確認繳交,不需重複繳交' }, { status: 409 });
@@ -205,7 +212,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       // 退回不寄信(比照實地稽核退件慣例),僅建立站內通知供機關重新上傳
       try {
         const orgAdmins = await prisma.user.findMany({
-          where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+          where: orgAdminWhere(cycle.organizationId),
           select: { id: true },
         });
         if (orgAdmins.length > 0) {
@@ -229,6 +236,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // action === 'confirm':最高管理員確認(結案前置),須機關已確認繳交
     if (user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: '僅最高管理員可確認' }, { status: 403 });
+    }
+    if (cycle.status !== 'REMEDIATION' && cycle.status !== 'CLOSED') {
+      return NextResponse.json({ error: '尚未進入矯正執行階段,無法確認' }, { status: 400 });
     }
     if (!report.submittedAt) {
       return NextResponse.json({ error: '機關尚未確認繳交,無法確認' }, { status: 409 });

@@ -80,10 +80,11 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     AUDITOR: NONE,
     OBSERVER: NONE,
   },
-  // 上傳用印掃描檔:僅機關,結案後不可(已確認鎖定屬項目狀態,另判)
+  // 上傳用印掃描檔:僅機關,且須到達「矯正執行(REMEDIATION)」階段方可(用印掃描檔為矯正收尾產物);
+  // 結案後不可(已確認鎖定屬項目狀態,另判)。
   'signedReport.upload': {
     SUPER_ADMIN: NONE,
-    ORG_ADMIN: ['DRAFT', 'PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    ORG_ADMIN: ['REMEDIATION'],
     AUDITOR: NONE,
     OBSERVER: NONE,
   },

@@ -38,15 +38,32 @@ export async function PATCH(req: Request, { params }: { params: { pid: string } 
     const body = PatchBody.parse(await req.json());
     const pf = await loadOwnPractice(params.pid, user.id);
 
-    const updated = await prisma.practiceFinding.update({
-      where: { id: pf.id },
-      data: {
-        aspect: body.aspect ?? undefined,
-        kind: body.kind ?? undefined,
-        content: body.content !== undefined ? toFullWidthPunct(body.content) : undefined,
-        checklistRef: body.checklistRef === undefined ? undefined : body.checklistRef || null,
-      },
-    });
+    // 鎖定重查+更新收進同一可序列化交易(TOCTOU 防護,鏡射 practice-scores):
+    // loadOwnPractice 的 assertPracticeUnlocked 為快速失敗,交易內再查一次以對齊 practice-lock 讀寫對。
+    let updated;
+    try {
+      updated = await prisma.$transaction(async (tx) => {
+        const o = await tx.cycleObserver.findUnique({
+          where: { cycleId_observerId: { cycleId: pf.cycleId, observerId: user.id } },
+          select: { practiceLockedAt: true },
+        });
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        return tx.practiceFinding.update({
+          where: { id: pf.id },
+          data: {
+            aspect: body.aspect ?? undefined,
+            kind: body.kind ?? undefined,
+            content: body.content !== undefined ? toFullWidthPunct(body.content) : undefined,
+            checklistRef: body.checklistRef === undefined ? undefined : body.checklistRef || null,
+          },
+        });
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+      }
+      throw e;
+    }
 
     await writeAuditLog({
       actorId: user.id,
@@ -67,7 +84,22 @@ export async function DELETE(req: Request, { params }: { params: { pid: string }
     const user = await requireRole('OBSERVER');
     const pf = await loadOwnPractice(params.pid, user.id);
 
-    await prisma.practiceFinding.delete({ where: { id: pf.id } });
+    // 鎖定重查+刪除收進同一可序列化交易(TOCTOU 防護,鏡射 practice-scores)。
+    try {
+      await prisma.$transaction(async (tx) => {
+        const o = await tx.cycleObserver.findUnique({
+          where: { cycleId_observerId: { cycleId: pf.cycleId, observerId: user.id } },
+          select: { practiceLockedAt: true },
+        });
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        await tx.practiceFinding.delete({ where: { id: pf.id } });
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+      }
+      throw e;
+    }
 
     await writeAuditLog({
       actorId: user.id,

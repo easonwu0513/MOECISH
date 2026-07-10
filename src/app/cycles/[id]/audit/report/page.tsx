@@ -23,6 +23,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/report`);
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
   // 彙整報告為中心(最高管理員)專用的全體委員整合視圖;機關回週期、委員回自己的評分頁。
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
   if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);

@@ -11,6 +11,7 @@
  */
 import { prisma } from '../lib/db';
 import { sendEmail } from '../lib/email';
+import { orgAdminWhere } from '../lib/notify';
 
 const APP_BASE = process.env.NEXTAUTH_URL ?? 'http://localhost:3001';
 
@@ -84,9 +85,12 @@ async function main() {
     }
 
     const recipients = await prisma.user.findMany({
-      where: { organizationId: c.organizationId, role: 'ORG_ADMIN', isActive: true },
+      where: orgAdminWhere(c.organizationId),
     });
-    if (recipients.length === 0) continue;
+    if (recipients.length === 0) {
+      console.log(`[track] skip cycle ${c.id}:無在職機關管理員(含多重身分授權)`);
+      continue;
+    }
 
     const yearROC = c.year - 1911;
     const due = new Date(c.dueDate).toLocaleDateString('zh-TW');

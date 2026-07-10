@@ -383,9 +383,13 @@ function ScoreSection({
   useEffect(() => { scoresRef.current = scores; }, [scores]);
   const countsRef = useRef(counts);
   useEffect(() => { countsRef.current = counts; }, [counts]);
+  // 卸載搶救(批51):標記是否有未存變更 + 評分端點,供 flush 與 save 共用。
+  const dirtyRef = useRef(false);
+  const scoreUrl = practice ? `/api/cycles/${cycleId}/practice-scores` : `/api/cycles/${cycleId}/audit/scores`;
 
   function scheduleSave() {
     setSaveState('dirty');
+    dirtyRef.current = true;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void save(), 900);
   }
@@ -413,12 +417,11 @@ function ScoreSection({
     scheduleSave();
   }
 
-  // 送出全 9 構面的評分 + 委員手填數量(讀 ref 取最新值);後端依「有評分或有數量」決定保留/刪除。
-  async function save(): Promise<boolean> {
-    setSaveState('saving');
+  // 組評分 PUT 的 body(讀 ref 取最新值);save() 與卸載搶救 flush 共用,避免兩處組法漂移。
+  function buildScoreBody() {
     const sc = scoresRef.current;
     const cc = countsRef.current;
-    const body = {
+    return {
       scores: ALL_DIMS.map((dimension) => ({
         dimension,
         score: sc[dimension] ?? null,
@@ -428,10 +431,15 @@ function ScoreSection({
         cntNa: cc[dimension]?.c4 ?? null,
       })),
     };
-    const res = await fetch(practice ? `/api/cycles/${cycleId}/practice-scores` : `/api/cycles/${cycleId}/audit/scores`, {
+  }
+
+  // 送出全 9 構面的評分 + 委員手填數量;後端依「有評分或有數量」決定保留/刪除。
+  async function save(): Promise<boolean> {
+    setSaveState('saving');
+    const res = await fetch(scoreUrl, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildScoreBody()),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '儲存失敗' }));
@@ -440,6 +448,7 @@ function ScoreSection({
       return false;
     }
     setSaveState('saved');
+    dirtyRef.current = false;
     return true;
   }
 
@@ -478,7 +487,23 @@ function ScoreSection({
     router.refresh();
   }
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // 卸載搶救(批51):元件卸載時(切換週期分頁/關頁)若有未存變更,以 keepalive 補送最新評分。
+  // 就地切換分頁不觸發 beforeunload,且下方 timer 會被 cleanup 清掉,否則剛輸入未達 900ms 的評分會靜默消失。
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!canEdit || !dirtyRef.current) return;
+    try {
+      fetch(scoreUrl, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(buildScoreBody()),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* 盡力搶救;失敗不阻斷卸載 */
+    }
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); flushRef.current(); }, []);
 
   const myTotal = Object.values(scores).reduce<number>((a, v) => a + (v ?? 0), 0);
   const filledCount = Object.values(scores).filter((v) => v !== null && v !== undefined).length;
@@ -898,6 +923,8 @@ function FindingSection({
   // 離開保護:編輯中未存的發現(editedRef)或有內容的草稿(draftDirtyRef)→ 關分頁攔截
   const editedRef = useRef<Set<string>>(new Set());
   const draftDirtyRef = useRef(false);
+  // 建立中的草稿 kind:createFinding 進行中→卸載 flush 跳過,避免同一草稿被 createFinding + flush 雙送重複建立(批51 專審 P2)
+  const creatingKindsRef = useRef<Set<FindingKind>>(new Set());
   useEffect(() => {
     draftDirtyRef.current = Object.values(drafts).some(
       (d) => (d?.content?.trim().length ?? 0) > 0 || (d?.checklistRef?.trim().length ?? 0) > 0,
@@ -915,6 +942,44 @@ function FindingSection({
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [canEdit]);
+  // 卸載搶救(批51):就地切換週期分頁/關頁時,盡力補送「編輯中未存的既有發現」與「內容夠長的草稿」。
+  // 就地切換不觸發 beforeunload,故此處以 keepalive 補送;flushRef.current 每次繪製重指以讀到最新 drafts。
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!canEdit) return;
+    // 既有發現:編輯過(editedRef)者以最新內容 PATCH
+    for (const id of editedRef.current) {
+      const f = findingsRef.current.find((x) => x.id === id);
+      if (!f) continue;
+      try {
+        fetch(findingUrl(f.id), {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ aspect: f.aspect, content: toFullWidthPunct(f.content), checklistRef: f.checklistRef }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch { /* 盡力搶救;失敗不阻斷卸載 */ }
+    }
+    // 未新增的草稿:內容 trim 長度 ≥ 5(與 createFinding 同門檻)者 POST 建立,避免剛打的草稿靜默消失
+    for (const [kind, d] of Object.entries(drafts)) {
+      if (!d || d.content.trim().length < 5) continue;
+      if (creatingKindsRef.current.has(kind as FindingKind)) continue; // createFinding 送出中,勿重複建立
+      try {
+        fetch(findingsUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            aspect: d.aspect,
+            kind,
+            content: toFullWidthPunct(d.content.trim()),
+            checklistRef: d.checklistRef.trim() || undefined,
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch { /* 盡力搶救;失敗不阻斷卸載 */ }
+    }
+  };
+  useEffect(() => () => flushRef.current(), []);
 
   function openDraft(kind: FindingKind) {
     // 預設構面取委員受指派的第一個構面(如管理面);未指派則沿用 STRATEGY
@@ -928,6 +993,7 @@ function FindingSection({
       toast.error('內容太短', '稽核發現至少 5 字。');
       return;
     }
+    creatingKindsRef.current.add(kind);
     setBusy(`new:${kind}`);
     const res = await fetch(findingsUrl, {
       method: 'POST',
@@ -951,6 +1017,7 @@ function FindingSection({
       content: created.content, checklistRef: created.checklistRef, locked: false,
     }]);
     setDrafts((d) => { const n = { ...d }; delete n[kind]; return n; });
+    creatingKindsRef.current.delete(kind);
   }
 
   // 從不符合/部分符合題一鍵帶成發現草稿。委員回饋:一律帶入「待改善事項」會造成困擾,

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { missingActionFields } from '@/lib/corrective-action';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import { DEFICIENCY_ASPECT_LABELS, DEFICIENCY_TYPE_LABELS, type DeficiencyAspect, type DeficiencyType } from '@/lib/types';
 import { notifyAuditorsOnRoundSubmit } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -34,8 +35,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const skipped: { itemNo: number; label: string; missing: string[] }[] = [];
     for (const d of defs) {
       if (!d.action) continue;
-      const missing = missingActionFields(d.action);
       const label = `${DEFICIENCY_ASPECT_LABELS[d.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[d.type as DeficiencyType]} 第 ${d.itemNo} 項`;
+      // 缺失描述仍為佔位/空白者不可送審(機關無從據以填報矯正;由中心補述後再送)——與個別送審同閘(批51)
+      if (isInvalidDeficiencyDescription(d.description)) {
+        skipped.push({ itemNo: d.itemNo, label, missing: ['缺失描述尚未補述'] });
+        continue;
+      }
+      const missing = missingActionFields(d.action);
       if (missing.length === 0) toSubmitIds.push(d.id);
       else skipped.push({ itemNo: d.itemNo, label, missing });
     }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { assertPracticeAccess, assertPracticeUnlocked } from '@/lib/rbac';
+import { assertPracticeAccess, assertPracticeUnlocked, AuthError } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { DEFICIENCY_ASPECTS } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
@@ -56,16 +56,34 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const body = CreateBody.parse(await req.json());
 
-    const created = await prisma.practiceFinding.create({
-      data: {
-        cycleId: cycle.id,
-        observerId: user.id,
-        aspect: body.aspect,
-        kind: body.kind,
-        content: toFullWidthPunct(body.content),
-        checklistRef: body.checklistRef || null,
-      },
-    });
+    // 鎖定檢查+寫入收進同一可序列化交易:防「assertPracticeUnlocked 通過→create 前」空檔被 practice-lock
+    // 設下 practiceLockedAt(TOCTOU);與 practice-lock 交易形成讀寫對,衝突方 PG 以 P2034 中止→409
+    // (鏡射 practice-scores;沿用 assertPracticeUnlocked 的既有鎖定錯誤訊息)。
+    let created;
+    try {
+      created = await prisma.$transaction(async (tx) => {
+        const o = await tx.cycleObserver.findUnique({
+          where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
+          select: { practiceLockedAt: true },
+        });
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        return tx.practiceFinding.create({
+          data: {
+            cycleId: cycle.id,
+            observerId: user.id,
+            aspect: body.aspect,
+            kind: body.kind,
+            content: toFullWidthPunct(body.content),
+            checklistRef: body.checklistRef || null,
+          },
+        });
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+      }
+      throw e;
+    }
 
     await writeAuditLog({
       actorId: user.id,

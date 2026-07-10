@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/email';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { appBaseUrl } from '@/lib/baseUrl';
 import { fmtROC } from '@/lib/date';
+import { orgAdminWhere } from '@/lib/notify';
 
 // 催繳整區(category)或逐項(requirementId)擇一
 const Body = z
@@ -63,7 +64,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       select: { name: true },
     });
     const admins = await prisma.user.findMany({
-      where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+      where: orgAdminWhere(cycle.organizationId),
       select: { id: true, name: true, email: true },
     });
     if (admins.length === 0) {

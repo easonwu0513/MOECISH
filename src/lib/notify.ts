@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { sendEmail } from './email';
 import { fmtROC } from './date';
@@ -9,6 +10,23 @@ import {
   type DeficiencyAspect,
   type DeficiencyType,
 } from './types';
+
+/**
+ * 機關管理員(ORG_ADMIN)收件人 where(批51):納「多重身分授權」。
+ * 除「現用身分即為該機關 ORG_ADMIN」者,亦含以 UserRole 授權持該機關 ORG_ADMIN(endedAt=null)者——
+ * 多重身分帳號切換現用身分後(User.organizationId 暫離本機關)仍應收到本機關通知,否則漏收(批31 多重身分之副作用)。
+ * 用於「收件人綁單一週期機關、orgName 取自 cycle」的自動通知;各呼叫端保留自身 select。
+ * (中心手動群發 admin/emails/send 以收件人自身 org 代入 {{orgName}},刻意不套此 helper——見該檔。)
+ */
+export function orgAdminWhere(organizationId: string): Prisma.UserWhereInput {
+  return {
+    isActive: true,
+    OR: [
+      { organizationId, role: 'ORG_ADMIN' },
+      { roleGrants: { some: { organizationId, role: 'ORG_ADMIN', endedAt: null } } },
+    ],
+  };
+}
 
 /**
  * 週期狀態 → 通知機關的訊息內容(僅 org 通知政策為 true 的狀態才有條目)。
@@ -36,7 +54,7 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -91,11 +109,7 @@ export async function notifyCycleOrgAdmins(opts: {
   if (!cycle) throw new Error('稽核週期不存在');
 
   const recipients = await prisma.user.findMany({
-    where: {
-      organizationId: cycle.organizationId,
-      role: 'ORG_ADMIN',
-      isActive: true,
-    },
+    where: orgAdminWhere(cycle.organizationId),
   });
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies`;
@@ -140,12 +154,19 @@ export async function notifyAuditorsOnSubmit(opts: {
   if (!def) return { recipientCount: 0 };
   const cycle = def.cycle;
 
-  const auditors = await prisma.user.findMany({
+  let auditors = await prisma.user.findMany({
     where: {
       id: { in: cycle.assignments.map((a) => a.auditorId) },
       isActive: true,
     },
   });
+  // 個別送審但本週期尚無「在職且受指派」委員(未指派/委員已停用)→ 通知中心(SUPER_ADMIN),
+  // 否則此送審件無人知悉待審(鏡射 notifyAuditorsOnRoundSubmit 的 uncovered→中心)。
+  let toCenter = false;
+  if (auditors.length === 0) {
+    auditors = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+    toCenter = true;
+  }
   if (auditors.length === 0) return { recipientCount: 0 };
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies?status=submitted`;
@@ -159,7 +180,7 @@ export async function notifyAuditorsOnSubmit(opts: {
         toName: u.name,
         subject: `[MOECISH] ${orgName} 已送審矯正措施（第 ${def.itemNo} 項），敬請審查`,
         body:
-          `${u.name} 委員您好，\n\n` +
+          `${u.name}${toCenter ? '' : ' 委員'}您好，\n\n` +
           `${cycle.organization.name} 於 ${yearROC} 年度稽核已送審 1 項矯正措施，\n` +
           `請登入系統檢視填報內容與佐證並進行審查：\n\n` +
           `${link}\n\n` +
@@ -272,7 +293,7 @@ export async function notifyOrgOnReturn(opts: {
   const cycle = def.cycle;
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -654,7 +675,7 @@ export async function notifyChecklistReopened(opts: {
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -691,7 +712,7 @@ export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: st
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -775,7 +796,7 @@ export async function notifyPrepReturned(opts: {
   const cycle = sub.requirement.cycle;
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -820,7 +841,7 @@ export async function notifyCycleTrackReminder(opts: {
   if (!cycle) return { recipientCount: 0, sentCount: 0, skippedCount: 0, remindCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
 
   const yearROC = cycle.year - 1911;
@@ -901,7 +922,7 @@ export async function notifyCycleStatusChange(opts: {
   if (!m) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -921,7 +942,7 @@ export async function notifyCycleStatusChange(opts: {
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
-        dedupeKey: `status-${opts.status}`,
+        dedupeKey: `status-${cycle.id}-${opts.status}`,
         context: { status: opts.status },
       }),
     ),

@@ -15,6 +15,8 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit`);
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
 
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
   // 管理員此頁本只有一句說明+前往彙整報告鈕(零操作),直接導向彙整報告(委員仍進 AuditPad 評分)

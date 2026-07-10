@@ -99,8 +99,9 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
       return (role === 'SUPER_ADMIN' || role === 'ORG_ADMIN') && (cycleStatus === 'REMEDIATION' || cycleStatus === 'CLOSED');
 
     case 'signedReport.upload':
-      // 僅機關上傳(中心只檢視+確認);結案後不可再上傳(已確認鎖定屬項目狀態,由呼叫端另判)
-      return role === 'ORG_ADMIN' && cycleStatus !== 'CLOSED';
+      // 僅機關上傳(中心只檢視+確認);用印掃描檔為「矯正執行(REMEDIATION)」收尾產物,須到達該階段方可上傳
+      // (提前階段上傳=名實不符);結案後不可再上傳(已確認鎖定屬項目狀態,由呼叫端另判)。
+      return role === 'ORG_ADMIN' && atOrAfter(cycleStatus, 'REMEDIATION') && cycleStatus !== 'CLOSED';
 
     case 'auditReport.view':
       // 彙整報告為中心(最高管理員)專用;委員印自己的附件17、機關不涉入、觀察員練習資料結構性不進報告

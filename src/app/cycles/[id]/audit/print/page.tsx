@@ -29,6 +29,8 @@ export default async function Att17PrintPage({
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/print`);
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
   if (user.role === 'ORG_ADMIN' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
 
   const cycle = await prisma.auditCycle.findUnique({

@@ -36,6 +36,8 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
   if (!cycle) notFound();
 
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   // 委員不需列印/匯出改善報告(僅於系統內檢視機關填報的矯正措施)→ 導回週期頁
   if (user.role === 'AUDITOR' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);

@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     const input = Body.parse(await req.json());
     const base = appBaseUrl(req);
 
+    // 群發以「收件人自身機關」代入 {{orgName}},故按主要身分綁機關查(刻意不套 orgAdminWhere:
+    // 多重身分授權帳號的現用主機關可能非所選機關,套用會使 {{orgName}} 錯置。自動逾期催繳由 run-tracking 覆蓋多重身分)。
     const recipients = await prisma.user.findMany({
       where: {
         organizationId: { in: input.organizationIds },

@@ -5,6 +5,7 @@ import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
 import type { ActionStatus } from '@/lib/types';
 import { missingActionFields } from '@/lib/corrective-action';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditorsOnSubmit } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -29,6 +30,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const missing = missingActionFields(action);
     if (missing.length > 0) {
       return NextResponse.json({ error: `尚未填寫：${missing.join('、')}` }, { status: 400 });
+    }
+    // 缺失描述仍為佔位/空白 → 機關無從據以填報矯正,擋送審並提示由中心補述(批51;對齊 submit-round 同閘)
+    if (isInvalidDeficiencyDescription(deficiency.description)) {
+      return NextResponse.json({ error: '此缺失描述尚未補述具體內容,請中心補述後再送審' }, { status: 400 });
     }
 
     const updated = await prisma.correctiveAction.update({
