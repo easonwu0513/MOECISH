@@ -38,7 +38,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     // 階段閘下沉 API 層(縱深防禦):實地稽核(ONSITE 起)才可評分。
     // 原本僅 audit/page.tsx redirect 把關 → 受指派委員於 READY 可繞頁面直打此 API 寫評分(五鏡稽核 P0 破口)。
     if (!auditorCanScore(cycle.status)) {
-      return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可評分' }, { status: 403 });
+      return NextResponse.json({ error: '尚未進入實地稽核階段，暫不可評分' }, { status: 403 });
     }
     await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下(快速失敗;交易內另權威重查)
 
@@ -94,10 +94,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }, { isolationLevel: 'Serializable' });
     } catch (e) {
       if (e instanceof ScoreLockedError) {
-        return NextResponse.json({ error: '您已確認填寫完畢,評分已鎖定;如需修改請先「解除鎖定」。' }, { status: 409 });
+        return NextResponse.json({ error: '您已確認填寫完畢，評分已鎖定；如需修改請先「解除鎖定」。' }, { status: 409 });
       }
       if ((e as { code?: string }).code === 'P2034') {
-        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+        return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
       }
       throw e;
     }

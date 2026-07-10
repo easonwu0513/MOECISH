@@ -19,7 +19,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         where: { targetType: 'PREP_SUBMISSION', targetId: item.submission.id },
       });
       if (fileCount > 0) {
-        return NextResponse.json({ error: '機關已上傳檔案,不可刪除此需求項' }, { status: 400 });
+        return NextResponse.json({ error: '機關已上傳檔案，不可刪除此需求項' }, { status: 400 });
       }
     }
 

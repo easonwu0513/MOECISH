@@ -103,7 +103,7 @@ export async function POST(req: Request) {
           fileCopied++;
         } catch (err) {
           // 實體檔遺失/讀寫失敗:不中斷整批,如實回報(呼叫端提示部分範本未複製)
-          console.error('[prep-template copy] 範本檔複製失敗:', f.storageKey, err);
+          console.error('[prep-template copy] 範本檔複製失敗：', f.storageKey, err);
           fileErrors++;
         }
       }

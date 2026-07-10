@@ -124,8 +124,8 @@ export default async function AdminCyclesPage({
   }));
 
   const behindLede = behindOnly
-    ? '只列逾期或停滯超過 14 天的週期。逾期以實心紅左緣、停滯以琥珀左緣標示,右方「開啟」進入該週期辦理。'
-    : '跨機關進度一覽。逾期與停滯的週期以左緣色條與文字標出,右方「開啟」進入辦理。';
+    ? '只列逾期或停滯超過 14 天的週期。逾期以實心紅左緣、停滯以琥珀左緣標示，右方「開啟」進入該週期辦理。'
+    : '跨機關進度一覽。逾期與停滯的週期以左緣色條與文字標出，右方「開啟」進入辦理。';
 
   return (
     <AppShell
@@ -137,7 +137,7 @@ export default async function AdminCyclesPage({
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">跨院週期總覽</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-xl leading-relaxed">
-            跨機關年度稽核進度總覽:一眼掌握誰在辦、誰落後、矯正完成率。
+            跨機關年度稽核進度總覽：一眼掌握誰在辦、誰落後、矯正完成率。
           </p>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0">
@@ -165,7 +165,7 @@ export default async function AdminCyclesPage({
         <div className="mb-3 text-title text-ink-500">當前態勢</div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Readout label="進行中週期" value={String(activeCount)} sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
-          <Readout label="落後(逾期 / 停滯)" value={String(behindCount)} sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} tone={behindCount > 0 ? 'danger' : undefined} />
+          <Readout label="落後（逾期 / 停滯）" value={String(behindCount)} sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} tone={behindCount > 0 ? 'danger' : undefined} />
           <Readout label="平均矯正完成率" value={`${avgPass}%`} sub={`${withDef.length} 個週期已發布缺失`} tone="success" />
         </div>
       </section>
@@ -177,7 +177,7 @@ export default async function AdminCyclesPage({
           <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
             <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
             <FilterChipLink href={behindHref(true)} selected={behindOnly}>
-              只看落後(逾期/停滯) <FilterChipCount selected={behindOnly}>{behindCount}</FilterChipCount>
+              只看落後（逾期/停滯） <FilterChipCount selected={behindOnly}>{behindCount}</FilterChipCount>
             </FilterChipLink>
           </div>
         </div>
@@ -199,7 +199,7 @@ export default async function AdminCyclesPage({
           <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
             <p className="text-title text-ink-700">{behindOnly ? '目前沒有落後的週期' : '尚無稽核週期'}</p>
             <p className="mt-1.5 text-body-sm text-ink-500">
-              {behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立,或到醫院管理逐家開立。'}
+              {behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立，或到醫院管理逐家開立。'}
             </p>
           </div>
         ) : (

@@ -171,7 +171,7 @@ export default function ActionForm({
   // 不開確認框(原本按了「送出」才由後端 400 報缺欄,得關框回捲找欄再來一次)。
   function requestSubmit() {
     const missing: string[] = [];
-    if (!rootCause.trim()) missing.push('發生原因(根因分析)');
+    if (!rootCause.trim()) missing.push('發生原因（根因分析）');
     if (!Object.values(measures).some((m) => m.on && m.text.trim())) missing.push('至少一項改善措施');
     if (!plannedDate) missing.push('預計完成時程');
     if (!trackingMethod.trim()) missing.push('進度追蹤方式');
@@ -312,12 +312,12 @@ export default function ActionForm({
     clearDirty();
     const t = TOAST.submittedAction();
     if (nextHref && remaining && remaining > 0) {
-      toast.success(t.title, `還有 ${remaining} 筆待處理,已為你開啟下一筆。`);
+      toast.success(t.title, `還有 ${remaining} 筆待處理，已為你開啟下一筆。`);
       router.push(nextHref);
       router.refresh();
     } else if (backHref) {
       // 已是最後一筆 → 回缺失與矯正總覽(不停在最後一張矯正單,讓使用者確知已填完)
-      toast.success(t.title, '已完成所有待處理的矯正單,已回到缺失與矯正總覽。');
+      toast.success(t.title, '已完成所有待處理的矯正單，已回到缺失與矯正總覽。');
       router.push(backHref);
       router.refresh();
     } else {
@@ -603,14 +603,14 @@ export default function ActionForm({
               {editable && (
                 <>
                   <FileUploadButton
-                    label="+ 上傳佐證(可多選)"
+                    label="+ 上傳佐證（可多選）"
                     busy={uploading}
                     onChange={upload}
                     multiple
                     accept={ORG_UPLOAD_ACCEPT}
                   />
                   <p className="mt-1.5 text-caption text-ink-500">
-                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
+                    僅接受 PDF / JPG / PNG（供委員審閱時加浮水印）；Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
                   </p>
                 </>
               )}
@@ -631,14 +631,14 @@ export default function ActionForm({
               )}
               {roundSubmit && (
                 <span className="text-caption text-ink-500">
-                  填寫完成請「儲存草稿」;全部填妥後於缺失列表按「送出本輪審核」一次送出。
+                  填寫完成請「儲存草稿」；全部填妥後於缺失列表按「送出本輪審核」一次送出。
                 </span>
               )}
               {/* 儲存狀態:dirty=琥珀點、saved=綠勾 — 核心安全感訊號要看得見 */}
               {dirty ? (
                 <span className="inline-flex items-center gap-1.5 text-caption text-warning-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-warning-500 shrink-0" aria-hidden />
-                  未儲存(30 秒內自動儲存)
+                  未儲存（30 秒內自動儲存）
                 </span>
               ) : autoSavedAt ? (
                 <span className="inline-flex items-center gap-1.5 text-caption text-success-700">
@@ -655,7 +655,7 @@ export default function ActionForm({
         open={submitOpen}
         onOpenChange={(o) => !saving && setSubmitOpen(o)}
         title="送出審核"
-        description="送出後將鎖定編輯,由稽核委員進行審查。"
+        description="送出後將鎖定編輯，由稽核委員進行審查。"
         confirmLabel="送出"
         tone="primary"
         onConfirm={submit}
@@ -667,7 +667,7 @@ export default function ActionForm({
         open={pendingEv !== null}
         onOpenChange={(o) => !o && setPendingEv(null)}
         title="刪除佐證"
-        description={pendingEv ? `確定刪除佐證「${pendingEv.name}」?刪除後無法復原。` : undefined}
+        description={pendingEv ? `確定刪除佐證「${pendingEv.name}」？刪除後無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (pendingEv) doRemoveEvidence(pendingEv.id, pendingEv.name); }}
@@ -678,7 +678,7 @@ export default function ActionForm({
         open={pendingExec !== null}
         onOpenChange={(o) => !o && setPendingExec(null)}
         title="切換執行情形"
-        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」,確定切換？` : undefined}
+        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」，確定切換？` : undefined}
         confirmLabel="確定切換"
         tone="warning"
         onConfirm={() => { if (pendingExec) { touch(); setExecStatus(pendingExec.next); setPendingExec(null); } }}

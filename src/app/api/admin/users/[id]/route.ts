@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const target = await prisma.user.findUnique({ where: { id: params.id } });
     if (!target) return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
     if (target.id === actor.id) {
-      return NextResponse.json({ error: '不可變更自己的帳號(避免自鎖),請由其他管理員操作' }, { status: 400 });
+      return NextResponse.json({ error: '不可變更自己的帳號（避免自鎖），請由其他管理員操作' }, { status: 400 });
     }
 
     const body = Body.parse(await req.json());
@@ -42,14 +42,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     if (body.role === 'ORG_ADMIN' && !target.organizationId) {
-      return NextResponse.json({ error: '此帳號未隸屬任何機關,不可改為機關管理員' }, { status: 400 });
+      return NextResponse.json({ error: '此帳號未隸屬任何機關，不可改為機關管理員' }, { status: 400 });
     }
 
     // 權責分立:停用帳號必須附理由(留存操作者與時間,供稽核軌跡)
     const disabling = body.isActive === false && target.isActive === true;
     const enabling = body.isActive === true && target.isActive === false;
     if (disabling && !body.reason) {
-      return NextResponse.json({ error: '停用帳號須填寫理由(權責分立要求)' }, { status: 400 });
+      return NextResponse.json({ error: '停用帳號須填寫理由（權責分立要求）' }, { status: 400 });
     }
 
     const lifecycle = disabling

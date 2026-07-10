@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 結案後仍允許送出/解除練習(批49 圖2):練習隔離不影響正式結果;階段閘由 practice.access 統一(現含 CLOSED)。
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
-      return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可送出/解除練習' }, { status: 403 });
+      return NextResponse.json({ error: '尚未進入實地稽核階段，暫不可送出/解除練習' }, { status: 403 });
     }
     const pairing = await prisma.cycleObserver.findUnique({
       where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
@@ -53,14 +53,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           ]);
           const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
           if (!auditorScoringComplete([], myScores, totalByDim)) {
-            throw new LockValidationError('請至少完整填寫一個構面(評分,且判定數量合計等於該構面題數)後,再送出。');
+            throw new LockValidationError('請至少完整填寫一個構面（評分，且判定數量合計等於該構面題數）後，再送出。');
           }
           await tx.cycleObserver.update({ where: { id: pairing.id }, data: { practiceLockedAt: new Date() } });
         }, { isolationLevel: 'Serializable' });
       } catch (e) {
         if (e instanceof LockValidationError) return NextResponse.json({ error: e.message }, { status: 400 });
         if ((e as { code?: string }).code === 'P2034') {
-          return NextResponse.json({ error: '正在同步儲存練習評分,請稍候再按一次「送出」。' }, { status: 409 });
+          return NextResponse.json({ error: '正在同步儲存練習評分，請稍候再按一次「送出」。' }, { status: 409 });
         }
         throw e;
       }

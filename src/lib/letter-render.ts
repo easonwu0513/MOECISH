@@ -53,13 +53,13 @@ export function getTableSpans(grid: string[][]): CellSpan[][] {
     for (let c = 0; c < grid2[r].length; c++) {
       if (spans[r][c].skip) continue;
       let cs = 1;
-      while (c + cs < grid2[r].length && grid2[r][c + cs].trim() === '(合併)') {
+      while (c + cs < grid2[r].length && grid2[r][c + cs].trim() === '（合併）') {
         spans[r][c + cs].skip = true;
         cs++;
       }
       spans[r][c].colSpan = cs;
       let rs = 1;
-      while (r + rs < grid2.length && grid2[r + rs][c].trim() === '(向下合併)') {
+      while (r + rs < grid2.length && grid2[r + rs][c].trim() === '（向下合併）') {
         spans[r + rs][c].skip = true;
         rs++;
       }
@@ -185,7 +185,7 @@ function renderTableToCopyHtml(rawValue: string): string {
       let safeCell = formatted.replace(/\n/g, '<br/>');
       if (!allowEmpty && rIdx > 0 && formatted.replace(/<[^>]*>?/gm, '').trim() === '') {
         safeCell =
-          '<span style="color: #dc2626; background-color: #fee2e2; padding: 2px 6px; border: 1px solid #fca5a5; border-radius: 4px; font-weight: 600;">（請填寫）</span>';
+          '<span style=「color: #dc2626; background-color: #fee2e2; padding: 2px 6px; border: 1px solid #fca5a5; border-radius: 4px; font-weight: 600;」>（請填寫）</span>';
       }
       tbl += `<${tag}${rsAttr}${csAttr} style="border: 1px solid #666666; padding: 8px; text-align: left; vertical-align: top; ${bg}">${safeCell}</${tag}>`;
     });
@@ -230,11 +230,11 @@ export function buildEmailHtml(text: string, formData: FormData): string {
       const variableName = part.slice(2, -2);
       const rawValue = expandedForm[variableName];
       if (isTableVar(variableName)) {
-        if (!rawValue) return `<span style="color:#dc2626">（尚未填寫表格：${variableName}）</span>`;
+        if (!rawValue) return `<span style=「color:#dc2626」>（尚未填寫表格：${variableName}）</span>`;
         try {
           return renderTableToCopyHtml(rawValue);
         } catch {
-          return `<span style="color:#dc2626">（表格解析錯誤）</span>`;
+          return `<span style=「color:#dc2626」>（表格解析錯誤）</span>`;
         }
       }
       // 未填變數用全形（變數名）佔位而非 [變數名]:部分郵件用戶端把 [..] 當合併欄位自動加藍底。
@@ -268,7 +268,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
       const rawValue = formData[variableName];
       if (isTableVar(variableName)) {
         if (!rawValue) {
-          finalHtml += `<div style="margin:0.75rem 0;padding:0.75rem;${UNFILLED}font-weight:500;">（請在左側填寫表格資訊：${variableName}）</div>`;
+          finalHtml += `<div style="margin:0.75rem 0;padding:0.75rem;${UNFILLED}font-weight:500;「>（請在左側填寫表格資訊：${variableName}）</div>`;
           return;
         }
         try {
@@ -302,7 +302,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
                 `<span style="${UNFILLED}font-weight:500;">$1</span>`,
               );
               if (!allowEmpty && rIdx > 0 && formatted.replace(/<[^>]*>?/gm, '').trim() === '') {
-                formatted = `<span style="${UNFILLED}font-weight:500;">（請填寫）</span>`;
+                formatted = `<span style="${UNFILLED}font-weight:500;「>（請填寫）</span>`;
               }
               formatted = formatted.replace(/\n/g, '<br/>');
               const rsAttr = rowSpan > 1 ? ` rowspan="${rowSpan}"` : '';
@@ -315,7 +315,7 @@ export function renderPreviewHtml(text: string, formData: FormData): string {
           tableHtml += '</tbody></table></div>';
           finalHtml += tableHtml;
         } catch {
-          finalHtml += `<span style="color:#dc2626">（表格格式錯誤）</span>`;
+          finalHtml += `<span style=「color:#dc2626」>（表格格式錯誤）</span>`;
         }
       } else {
         const displayValue = rawValue ? formatAutoTexts(rawValue) : `（${variableName}）`;

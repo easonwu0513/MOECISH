@@ -147,7 +147,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
       if (!id) return;
     }
     if (alreadyOff()) {
-      toast.warning('已發布,但已過排定下架時間', '前台目前不會顯示;如需顯示,請於編輯頁調整或清除下架時間。');
+      toast.warning('已發布，但已過排定下架時間', '前台目前不會顯示；如需顯示，請於編輯頁調整或清除下架時間。');
     } else if (scheduledFuture()) {
       toast.success('已排程發布', '將於指定上架時間對外顯示。');
     } else {
@@ -202,7 +202,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
     setUploading(false);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('上傳失敗', (j as { error?: string }).error ?? '連線逾時或網路中斷,請稍後再試');
+      toast.error('上傳失敗', (j as { error?: string }).error ?? '連線逾時或網路中斷，請稍後再試');
       return;
     }
     toast.success('已上傳附件', f.name);
@@ -217,7 +217,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
     setDeletingAtt(null);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('刪除附件失敗', res ? (j as { error?: string }).error : '連線逾時或網路中斷,請稍後再試');
+      toast.error('刪除附件失敗', res ? (j as { error?: string }).error : '連線逾時或網路中斷，請稍後再試');
       return;
     }
     toast.success('已刪除附件');
@@ -247,7 +247,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
     <Card>
       <CardTitle>{isNew ? '新增公告' : '編輯公告'}</CardTitle>
       <CardDescription>
-        內文支援 Markdown:<code className="font-mono"># 標題</code>、<code className="font-mono">**粗體**</code>、<code className="font-mono">- 清單</code>、<code className="font-mono">[連結](https://…)</code>、<code className="font-mono">![圖片](…)</code>(下方上傳後點「插入內文」)
+        內文支援 Markdown:<code className="font-mono"># 標題</code>、<code className="font-mono">**粗體**</code>、<code className="font-mono">- 清單</code>、<code className="font-mono">[連結]（https://…）</code>、<code className="font-mono">！[圖片]（…）</code>（下方上傳後點「插入內文」）
       </CardDescription>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -270,7 +270,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
           </label>
           <label className="inline-flex items-center gap-2 text-body-sm text-ink-900 cursor-pointer h-14">
             <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} className="accent-primary-600" />
-            標記重要(前台紅色橫幅)
+            標記重要（前台紅色橫幅）
           </label>
         </div>
 
@@ -278,18 +278,18 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
         <div className="rounded-lg border border-rule bg-paper-sunk p-4">
           <p className="text-title text-ink-900">排程上下架</p>
           <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-            按「發布」後,系統依此時間窗自動控制前台顯示:上架時間未到=「待發布」、到達=「發布中」、
+            按「發布」後，系統依此時間窗自動控制前台顯示：上架時間未到=「待發布」、到達=「發布中」、
             過下架時間=自動「已下架」。留空=立即上架 / 不自動下架。
           </p>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TextField
-              label="排定上架時間(留空=立即)"
+              label="排定上架時間（留空=立即）"
               type="datetime-local"
               value={publishAt}
               onChange={(e) => setPublishAt(e.target.value)}
             />
             <TextField
-              label="排定下架時間(留空=不自動下架)"
+              label="排定下架時間（留空=不自動下架）"
               type="datetime-local"
               value={unpublishAt}
               onChange={(e) => setUnpublishAt(e.target.value)}
@@ -299,7 +299,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
 
         <Textarea
           ref={contentRef}
-          label="內文(Markdown)"
+          label="內文（Markdown）"
           value={contentMd}
           onChange={(e) => { setContentMd(e.target.value); if (contentErr) setContentErr(null); }}
           rows={14}
@@ -313,7 +313,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
             <div className="min-w-0">
               <p className="text-title text-ink-900">附件與圖片</p>
               <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-                不限檔案格式,單檔 ≤ 20MB。圖片可點「插入內文」嵌入 Markdown 顯示;已嵌入內文的圖片不會重複列在前台附件下載清單,其餘附件會列於公告底部供下載。
+                不限檔案格式，單檔 ≤ 20MB。圖片可點「插入內文」嵌入 Markdown 顯示；已嵌入內文的圖片不會重複列在前台附件下載清單，其餘附件會列於公告底部供下載。
               </p>
             </div>
             {!isNew && (
@@ -321,7 +321,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
             )}
           </div>
           {isNew ? (
-            <p className="mt-3 text-body-sm text-ink-500">先按「儲存草稿」建立公告後,即可上傳附件與圖片。</p>
+            <p className="mt-3 text-body-sm text-ink-500">先按「儲存草稿」建立公告後，即可上傳附件與圖片。</p>
           ) : attachments.length === 0 ? (
             <p className="mt-3 text-body-sm text-ink-500">尚無附件。</p>
           ) : (
@@ -360,7 +360,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
           onOpenChange={setPreviewOpen}
           size="lg"
           title="預覽公告"
-          description="以前台公告頁相同的渲染方式顯示;確認排版無誤後再發布。"
+          description="以前台公告頁相同的渲染方式顯示；確認排版無誤後再發布。"
           footer={<Button variant="tonal" onClick={() => setPreviewOpen(false)}>關閉</Button>}
         >
           <div className="max-h-[60vh] overflow-y-auto pr-1">
@@ -371,9 +371,9 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
               {important && <Chip tone="danger" size="sm">重要</Chip>}
               {pinned && <Chip tone="neutral" size="sm">置頂</Chip>}
             </div>
-            <h2 className="text-headline text-ink-900 leading-snug">{title || '(未輸入標題)'}</h2>
+            <h2 className="text-headline text-ink-900 leading-snug">{title || '（未輸入標題）'}</h2>
             <div className="mt-4 border-t border-rule pt-4">
-              {contentMd.trim() ? <Markdown content={contentMd} /> : <p className="text-body-sm text-ink-500">(內文尚未填寫)</p>}
+              {contentMd.trim() ? <Markdown content={contentMd} /> : <p className="text-body-sm text-ink-500">（內文尚未填寫）</p>}
             </div>
           </div>
         </Dialog>
@@ -397,7 +397,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
         open={delOpen}
         onOpenChange={(o) => !busy && setDelOpen(o)}
         title="刪除公告"
-        description="刪除後無法復原(附件將一併刪除)。確定刪除？"
+        description="刪除後無法復原（附件將一併刪除）。確定刪除？"
         confirmLabel="刪除"
         tone="danger"
         onConfirm={remove}
@@ -408,7 +408,7 @@ export default function PostEditor({ post, attachments = [] }: { post: PostData 
         open={deletingAtt !== null}
         onOpenChange={(o) => !busy && !o && setDeletingAtt(null)}
         title="刪除附件"
-        description={deletingAtt ? `確定刪除附件「${deletingAtt.fileName}」?若內文已插入此圖片,前台將無法顯示(請一併移除該行)。` : undefined}
+        description={deletingAtt ? `確定刪除附件「${deletingAtt.fileName}」？若內文已插入此圖片，前台將無法顯示（請一併移除該行）。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={removeAtt}

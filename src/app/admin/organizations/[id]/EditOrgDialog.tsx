@@ -58,7 +58,7 @@ export default function EditOrgDialog({
         open={open}
         onOpenChange={(v) => !saving && setOpen(v)}
         title="編輯機關資料"
-        description="調整機關全名與簡稱。機關代碼為系統唯一識別,不可於此變更。異動會寫入稽核軌跡。"
+        description="調整機關全名與簡稱。機關代碼為系統唯一識別，不可於此變更。異動會寫入稽核軌跡。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
@@ -69,7 +69,7 @@ export default function EditOrgDialog({
         <div className="flex flex-col gap-4 pt-2">
           <TextField label="機關代碼" value={code} disabled />
           <TextField label="機關全名" value={nameV} onChange={(e) => setNameV(e.target.value)} required />
-          <TextField label="簡稱(選填)" value={shortV} onChange={(e) => setShortV(e.target.value)} />
+          <TextField label="簡稱（選填）" value={shortV} onChange={(e) => setShortV(e.target.value)} />
         </div>
       </Dialog>
     </>

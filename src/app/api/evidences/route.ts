@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     // ——否則觀察員可對機關檢核表/資料準備附加佐證,污染官方紀錄;批30 對抗審查 P2)。
     const actor = await requireUser();
     if (actor.role === 'AUDITOR' || actor.role === 'OBSERVER') {
-      return NextResponse.json({ error: '委員與觀察員為唯讀,不可上傳佐證' }, { status: 403 });
+      return NextResponse.json({ error: '委員與觀察員為唯讀，不可上傳佐證' }, { status: 403 });
     }
 
     const fd = await req.formData();
@@ -60,13 +60,13 @@ export async function POST(req: Request) {
 
     // 檢核表佐證:機關僅「資料準備中」可上傳(開立中尚未開放;送出鎖定後 checklistSubmittedAt 另擋)
     if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'ORG_ADMIN' && !checklistOrgCanEdit(cycle.status)) {
-      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證(開立中尚未開放)' }, { status: 400 });
+      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證（開立中尚未開放）' }, { status: 400 });
     }
 
     // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
     if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
       if (!prepOrgCanEdit(cycle.status)) {
-        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
+        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳（開立中尚未開放、資料準備結束後凍結）' }, { status: 400 });
       }
       const sub = await prisma.prepSubmission.findUnique({
         where: { id: targetId },
@@ -74,10 +74,10 @@ export async function POST(req: Request) {
       });
       // 中心匯入區由中心上傳,機關不可上傳
       if (sub?.requirement?.category === 'CENTER') {
-        return NextResponse.json({ error: '中心匯入區由中心上傳,機關無法上傳此區資料' }, { status: 403 });
+        return NextResponse.json({ error: '中心匯入區由中心上傳，機關無法上傳此區資料' }, { status: 403 });
       }
       if (sub && (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED')) {
-        return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
+        return NextResponse.json({ error: '資料已繳交或已確認齊備，如需修改請洽中心退回' }, { status: 400 });
       }
     }
 
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       // 友善前檢:副檔名與 Content-Type 皆明顯不符 → 直接擋,訊息清楚。
       if (!isOrgUploadAllowed(file.name, mime)) {
         return NextResponse.json(
-          { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
+          { error: '僅接受 PDF / JPG / PNG 檔（供委員審閱時加浮水印）；Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
           { status: 400 },
         );
       }
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
       const realMime = sniffWatermarkableType(buf);
       if (!realMime) {
         return NextResponse.json(
-          { error: '檔案內容不是有效的 PDF / JPG / PNG(可能是改了副檔名的 Word/Excel 等);請以原程式「另存為 PDF」後再上傳。' },
+          { error: '檔案內容不是有效的 PDF / JPG / PNG（可能是改了副檔名的 Word/Excel 等）；請以原程式「另存為 PDF」後再上傳。' },
           { status: 400 },
         );
       }

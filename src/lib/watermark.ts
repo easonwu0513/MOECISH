@@ -23,7 +23,7 @@ async function getFont(): Promise<Buffer | null> {
     fontCache = null;
   }
   if (!fontCache) {
-    console.warn('[watermark] 未設定或讀不到字型(WATERMARK_FONT_PATH),本次不加浮水印');
+    console.warn('[watermark] 未設定或讀不到字型（WATERMARK_FONT_PATH），本次不加浮水印');
   }
   return fontCache;
 }
@@ -47,7 +47,7 @@ export async function applyWatermark(buf: Buffer, mime: string, wm: WatermarkTex
     if (mime === 'application/pdf') return await watermarkPdf(buf, wm, font);
     if (IMAGE_MIMES.has(mime)) return await watermarkImage(buf, mime, wm, font);
   } catch (e) {
-    console.error('[watermark] 套用失敗,保留原檔:', (e as Error).message);
+    console.error('[watermark] 套用失敗，保留原檔：', (e as Error).message);
   }
   return buf;
 }

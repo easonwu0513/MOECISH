@@ -17,8 +17,8 @@ export function PortalFooter() {
             </div>
           </div>
           <p className="mt-4 text-body-sm text-ink-500 max-w-sm leading-relaxed">
-            服務教育部轄下醫療機構之資通安全稽核管考作業,
-            由教育部轄下醫療領域資訊安全推動中心(C.I.S.H)維運。
+            服務教育部轄下醫療機構之資通安全稽核管考作業，
+            由教育部轄下醫療領域資訊安全推動中心（C.I.S.H）維運。
           </p>
         </div>
         <div>
@@ -32,8 +32,8 @@ export function PortalFooter() {
         <div>
           <p className="text-label text-ink-900 mb-4">聯絡資訊</p>
           <ul className="space-y-2.5 text-body-sm text-ink-500">
-            <li>主辦單位:教育部</li>
-            <li>維運:教育部轄下醫療領域資訊安全推動中心</li>
+            <li>主辦單位：教育部</li>
+            <li>維運：教育部轄下醫療領域資訊安全推動中心</li>
             <li>
               <a className="font-mono hover:text-primary-700 transition-colors" href="mailto:moecish@m365.ntu.edu.tw">
                 moecish@m365.ntu.edu.tw
@@ -44,7 +44,7 @@ export function PortalFooter() {
       </div>
       <div className="border-t border-rule/50">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-x-6 gap-y-2 flex-wrap text-caption text-ink-500">
-          <span>© 中華民國 {rocYear} 年　教育部轄下醫療領域資訊安全推動中心(C.I.S.H)</span>
+          <span>© 中華民國 {rocYear} 年　教育部轄下醫療領域資訊安全推動中心（C.I.S.H）</span>
           <nav aria-label="法律與政策" className="flex items-center gap-x-4 gap-y-1 flex-wrap">
             <Link href="/privacy" className="hover:text-primary-700 transition-colors">隱私權政策</Link>
             <Link href="/terms" className="hover:text-primary-700 transition-colors">服務條款</Link>

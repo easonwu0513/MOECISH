@@ -37,7 +37,7 @@ const deliveryMeta: Record<DeliveryKey, { label: string; tone: 'success' | 'neut
   failed:        { label: '寄送失敗',     tone: 'danger' },
   simulated:     { label: '模擬',         tone: 'neutral' },
   skipped:       { label: '已去重',       tone: 'warning' },
-  'dead-letter': { label: '死信(待人工)', tone: 'danger' },
+  'dead-letter': { label: '死信（待人工）', tone: 'danger' },
   manual:        { label: '手動外寄',     tone: 'neutral' }, // 信件範本留存:承辦於外部寄出,平台僅留檔
 };
 
@@ -100,14 +100,14 @@ export default async function EmailLogPage({
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">信件管理</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            手動信件與系統通知的單一入口:「信件範本」產生公文與通知底稿供複製外寄;「系統寄件紀錄」查閱平台自動寄送的通知與追蹤信。
+            手動信件與系統通知的單一入口：「信件範本」產生公文與通知底稿供複製外寄；「系統寄件紀錄」查閱平台自動寄送的通知與追蹤信。
           </p>
         </div>
       </header>
       <MailTabs active="log" />
       <p className="mb-6 -mt-1 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-        寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>(Graph);
-        寄送失敗會自動補寄(每 10 分鐘、最多 3 次),仍失敗即列為「死信」,可在下方逐封人工重寄。
+        寄送追蹤信並查閱全部郵件紀錄。寄信經 <code className="font-mono">moecish@m365.ntu.edu.tw</code>（Graph）；
+        寄送失敗會自動補寄（每 10 分鐘、最多 3 次），仍失敗即列為「死信」，可在下方逐封人工重寄。
       </p>
 
       <ComposeTracking orgs={orgs} />
@@ -174,7 +174,7 @@ export default async function EmailLogPage({
             {kind || status || q ? '沒有符合條件的紀錄' : '尚無郵件紀錄'}
           </p>
           <p className="mt-1.5 text-body-sm text-ink-500">
-            {kind || status || q ? '試試調整篩選條件或搜尋關鍵字。' : '寄出追蹤信或系統通知後,紀錄會列於此。'}
+            {kind || status || q ? '試試調整篩選條件或搜尋關鍵字。' : '寄出追蹤信或系統通知後，紀錄會列於此。'}
           </p>
         </div>
       ) : (

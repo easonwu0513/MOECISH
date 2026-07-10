@@ -163,13 +163,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const stForMod = cycle.status as CycleStatus;
   // 機關在開立中(批36):模組全上鎖但無事可做,補一句統攝說明,避免承辦人以為系統壞了或自己漏設定
   if (user.role === 'ORG_ADMIN' && stForMod === 'DRAFT') {
-    alerts.push({ tone: 'info', title: '本週期尚在中心開立設定中', desc: '您目前無需任何動作;待中心推進至「資料準備中」,系統會通知您開始上傳資料與填報檢核表。' });
+    alerts.push({ tone: 'info', title: '本週期尚在中心開立設定中', desc: '您目前無需任何動作；待中心推進至「資料準備中」，系統會通知您開始上傳資料與填報檢核表。' });
   }
   if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
-    alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目,建議提醒機關。' });
+    alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目，建議提醒機關。' });
   }
   if (user.role === 'SUPER_ADMIN' && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED') && committeeTotal > 0 && committeeScored < committeeTotal) {
-    alerts.push({ tone: 'danger', title: `${committeeTotal - committeeScored} 位委員尚未完成評分`, desc: '影響後續報告產出,建議催辦。' });
+    alerts.push({ tone: 'danger', title: `${committeeTotal - committeeScored} 位委員尚未完成評分`, desc: '影響後續報告產出，建議催辦。' });
   }
   // 委員審閱時段尚未設定:已指派委員但中心未設審閱區間 → 委員被鎖在門外無法檢視機關資料審閱。
   // 於「資料齊備 / 實地稽核」相關階段提醒中心設定(對應委員自救按鈕 R2;此為中心端主動提醒)。
@@ -179,7 +179,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     (stForMod === 'READY' || stForMod === 'ONSITE') &&
     (!cycle.reviewWindowStart || !cycle.reviewWindowEnd)
   ) {
-    alerts.push({ tone: 'warning', title: '委員審閱時段尚未設定', desc: '委員暫無法檢視機關資料審閱;請於「稽核前資料準備」頁設定審閱起訖。' });
+    alerts.push({ tone: 'warning', title: '委員審閱時段尚未設定', desc: '委員暫無法檢視機關資料審閱；請於「稽核前資料準備」頁設定審閱起訖。' });
   }
   if (user.role === 'SUPER_ADMIN' && !cycle.dueDate && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED' || stForMod === 'REMEDIATION')) {
     alerts.push({ tone: 'warning', title: '矯正截止日尚未設定', desc: '發布缺失前請先於「編輯日曆」設定日期。' });
@@ -256,7 +256,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const effectiveNext =
     pendingCustomStage && !suppressCustomHint
       ? {
-          text: `先完成「${pendingCustomStage.title}」清單階段的待辦(清單追蹤,非結案前置關卡)`,
+          text: `先完成「${pendingCustomStage.title}」清單階段的待辦（清單追蹤，非結案前置關卡）`,
           href: `/cycles/${cycle.id}?stage=${pendingCustomStage.key}`,
           cta: '去查看',
         }
@@ -386,7 +386,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
               {cycle.onsiteDate && <> · 實地稽核 {fmtROC(cycle.onsiteDate)}</>}
               {' · '}
               {cycle.dueDate ? <>矯正截止 {fmtROC(cycle.dueDate)}</> : '矯正截止日尚未設定'}
-              {myAssignedLabels.length > 0 && <> · 您負責構面:{myAssignedLabels.join('、')}</>}
+              {myAssignedLabels.length > 0 && <> · 您負責構面：{myAssignedLabels.join('、')}</>}
             </p>
           </div>
           <p className="shrink-0 text-caption text-ink-500 tabular-nums">流程完成度 {donePct}%</p>
@@ -419,11 +419,11 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                     cycleId={cycle.id}
                     target={t}
                     disabled={t === 'READY' && readyBlockers.length > 0}
-                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+                    disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備：${readyBlockers.join('、')}` : undefined}
                     // 推進到「缺失發布/矯正執行」前若未設矯正截止日→確認框軟性提醒(UAT 批68);非阻擋,可確認後續推
                     warn={
                       !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
-                        ? '缺失發布後機關須依此日期填報矯正措施。建議先按「編輯日期」設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                        ? '缺失發布後機關須依此日期填報矯正措施。建議先按「編輯日期」設定矯正截止日；如稍後再設，可確認後繼續推進。'
                         : undefined
                     }
                   />
@@ -433,7 +433,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
             {effectiveNext && (
               <span className="ml-auto flex items-center gap-2">
                 {effectiveNext.text && (
-                  <span className="text-caption text-ink-500 leading-snug">下一步:{effectiveNext.text}</span>
+                  <span className="text-caption text-ink-500 leading-snug">下一步：{effectiveNext.text}</span>
                 )}
                 {effectiveNext.href && effectiveNext.cta && (
                   <Link href={effectiveNext.href}>
@@ -495,7 +495,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   {/* 自訂(清單)階段:明示非流程關卡、無需推進,並併列真實目前階段(兩角色一致以 cycle.status 為準) */}
                   {!viewAllStages && selectedStageKey && !statusKeySet.has(selectedStageKey) && (
                     <p className="mt-0.5 text-caption text-ink-500">
-                      此為清單追蹤階段(非流程關卡),完成待辦即打勾,無需推進週期狀態;
+                      此為清單追蹤階段（非流程關卡），完成待辦即打勾，無需推進週期狀態；
                       目前實際階段為「{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」。
                     </p>
                   )}
@@ -531,7 +531,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                         {stage.stageKey === cycle.status && <Chip tone="primary" size="sm" dot>進行中</Chip>}
                       </div>
                       {stage.items.length === 0 ? (
-                        <p className="text-caption text-ink-500">(此階段無待辦項)</p>
+                        <p className="text-caption text-ink-500">（此階段無待辦項）</p>
                       ) : (
                         <ul className="flex flex-col gap-2">{stage.items.map(renderTodo)}</ul>
                       )}
@@ -592,7 +592,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                     產出制式公文格式檔案。
                     {user.role === 'ORG_ADMIN'
                       ? '「遞交版」為送主管機關之正式檔。'
-                      : '「遞交版」為送主管機關正本;「工作底稿」供稽核方內部審查用。'}
+                      : '「遞交版」為送主管機關正本；「工作底稿」供稽核方內部審查用。'}
                   </CardDescription>
                 </div>
                 <Menu
@@ -601,27 +601,27 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                   size="sm"
                   items={[
                     {
-                      label: total > 0 ? 'Word 改善報告' : 'Word 改善報告(缺失發布後開放)',
+                      label: total > 0 ? 'Word 改善報告' : 'Word 改善報告（缺失發布後開放）',
                       href: `/api/cycles/${cycle.id}/export/remediation-report`,
                       icon: <FileText size={15} />,
                       disabled: total === 0,
                     },
                     {
-                      label: total > 0 ? '列印版(瀏覽器另存 PDF)' : '列印版(缺失發布後開放)',
+                      label: total > 0 ? '列印版（瀏覽器另存 PDF）' : '列印版（缺失發布後開放）',
                       href: `/cycles/${cycle.id}/print`,
                       target: '_blank',
                       icon: <FileText size={15} />,
                       disabled: total === 0,
                     },
                     {
-                      label: checklistSubmitted ? 'Word 檢核表(遞交版)' : 'Word 檢核表(送出後開放)',
+                      label: checklistSubmitted ? 'Word 檢核表（遞交版）' : 'Word 檢核表（送出後開放）',
                       href: `/api/cycles/${cycle.id}/export/checklist?format=docx`,
                       icon: <FileText size={15} />,
                       disabled: !checklistSubmitted,
                     },
                     ...(user.role === 'SUPER_ADMIN'
                       ? [{
-                          label: 'Excel 檢核表(工作底稿)',
+                          label: 'Excel 檢核表（工作底稿）',
                           href: `/api/cycles/${cycle.id}/export/checklist`,
                           icon: <FileText size={15} />,
                         }]

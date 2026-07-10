@@ -30,7 +30,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // 委員一律不可下載機關檢核表:委員之審閱定位為系統內逐題註記(/review),不另提供下載
     // (螢幕浮水印防外流;下載將繞過該保護)。機關下載自家遞交版、中心下載工作底稿。
     if (user.role === 'AUDITOR' || user.role === 'OBSERVER') {
-      return NextResponse.json({ error: '請於系統內逐題檢視(螢幕浮水印保護),不提供檢核表下載' }, { status: 403 });
+      return NextResponse.json({ error: '請於系統內逐題檢視（螢幕浮水印保護），不提供檢核表下載' }, { status: 403 });
     }
     const data = await loadCycle(cycle.id);
     if (!data) return NextResponse.json({ error: '找不到資料或您無權存取' }, { status: 404 });
@@ -109,7 +109,7 @@ async function exportDocx(data: Loaded) {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 200 },
-      children: [new TextRun({ text: `受稽機關:${data.organization.name}`, size: 24 })],
+      children: [new TextRun({ text: `受稽機關：${data.organization.name}`, size: 24 })],
     }),
   ];
 
@@ -154,8 +154,8 @@ async function exportDocx(data: Loaded) {
 
   // 簽名欄(遞交版常見收尾)
   children.push(
-    new Paragraph({ spacing: { before: 400 }, children: [new TextRun({ text: '填表人:', size: 24 })] }),
-    new Paragraph({ spacing: { before: 200 }, children: [new TextRun({ text: '資安長(或機關首長授權代表):', size: 24 })] }),
+    new Paragraph({ spacing: { before: 400 }, children: [new TextRun({ text: '填表人：', size: 24 })] }),
+    new Paragraph({ spacing: { before: 200 }, children: [new TextRun({ text: '資安長（或機關首長授權代表）：', size: 24 })] }),
   );
 
   const doc = new Document({
@@ -166,7 +166,7 @@ async function exportDocx(data: Loaded) {
   });
 
   const buf = await Packer.toBuffer(doc);
-  const filename = `${data.organization.code}_${yearROC}_檢核表.docx`;
+  const filename = `${data.organization.code}_${yearROC}_檢核表。docx`;
   return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
@@ -294,7 +294,7 @@ async function exportXlsx(data: Loaded) {
   }
 
   const buf = await wb.xlsx.writeBuffer();
-  const filename = `${data.organization.code}_${data.year - 1911}_檢核表.xlsx`;
+  const filename = `${data.organization.code}_${data.year - 1911}_檢核表。xlsx`;
   return new NextResponse(Buffer.from(buf), {
     status: 200,
     headers: {

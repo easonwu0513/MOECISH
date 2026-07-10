@@ -174,8 +174,8 @@ export default function AuditPad({
         <div className={`flex items-start gap-2.5 rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-primary-800`}>
           <Check size={16} className="mt-0.5 shrink-0" />
           <span>
-            您本次負責構面:<span className="font-medium">{assignedLabels.join('、')}</span>
-            。評分表已標示您負責的構面;其餘構面如非您職責可略過(未評的不計入您的小計)。
+            您本次負責構面：<span className="font-medium">{assignedLabels.join('、')}</span>
+            。評分表已標示您負責的構面；其餘構面如非您職責可略過（未評的不計入您的小計）。
           </span>
         </div>
       )}
@@ -231,14 +231,14 @@ function EvidencePane({
       <div className="sticky top-0 z-[1] bg-card border-b border-rule px-5 py-4">
         <p className="text-title-md text-ink-900">{noun}筆記</p>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-          您於「{noun}」階段留下的逐題筆記,評分時就地對照,不必切換頁面。
+          您於「{noun}」階段留下的逐題筆記，評分時就地對照，不必切換頁面。
         </p>
       </div>
       {!hasAny ? (
         <p className="px-5 py-12 text-body-sm text-ink-500 text-center leading-relaxed">
           您在「{noun}」階段尚未留下逐題筆記。
           <br />
-          可先於「{noun}」逐題記下審閱重點,評分時即可在此就地對照。
+          可先於「{noun}」逐題記下審閱重點，評分時即可在此就地對照。
         </p>
       ) : (
         <div className="divide-y divide-rule">
@@ -289,7 +289,7 @@ function EvidencePane({
                           {it.orgDesc?.trim() && (
                             <details className="mt-2.5 group">
                               <summary className="cursor-pointer text-caption text-ink-500 hover:text-ink-900 focus-ring rounded-sm select-none">
-                                機關作答說明<span className="group-open:hidden">(展開)</span>
+                                機關作答說明<span className="group-open:hidden">（展開）</span>
                               </summary>
                               <p className="mt-1.5 rounded-md bg-card border border-rule px-3 py-2 text-body-sm text-ink-700 leading-relaxed whitespace-pre-wrap">
                                 {it.orgDesc}
@@ -298,7 +298,7 @@ function EvidencePane({
                           )}
                           {(evidenceByItemNo[it.itemNo]?.length ?? 0) > 0 && (
                             <div className="mt-2.5 flex flex-col gap-1">
-                              <span className="text-caption text-ink-500">機關佐證(僅供線上檢視):</span>
+                              <span className="text-caption text-ink-500">機關佐證（僅供線上檢視）：</span>
                               {evidenceByItemNo[it.itemNo].map((f) => (
                                 <ProtectedFileLink key={f.id} fileId={f.id} name={f.name} sizeKB={f.sizeKB} viewOnly />
                               ))}
@@ -314,7 +314,7 @@ function EvidencePane({
                                 leadingIcon={<Copy size={13} />}
                                 onClick={async () => {
                                   const ok = await copyToClipboard(it.notes.join('\n'));
-                                  if (ok) toast.success('已複製筆記', '可貼到下方發現列,並自選「待改善事項」或「建議事項」。');
+                                  if (ok) toast.success('已複製筆記', '可貼到下方發現列，並自選「待改善事項」或「建議事項」。');
                                   else toast.error('複製失敗', '請手動選取筆記文字複製。');
                                 }}
                               >
@@ -454,7 +454,7 @@ function ScoreSection({
 
   async function manualSave() {
     if (timer.current) clearTimeout(timer.current);
-    if (await save()) toast.success('已暫存', '評分與檢核數量已儲存,可稍後再繼續。');
+    if (await save()) toast.success('已暫存', '評分與檢核數量已儲存，可稍後再繼續。');
   }
   // 送出/鎖定端點與通知對象:練習模式走 practice-lock,通知對象含指派的指導委員(批45)
   const lockUrl = practice ? `/api/cycles/${cycleId}/practice-lock` : `/api/cycles/${cycleId}/audit/lock`;
@@ -471,7 +471,7 @@ function ScoreSection({
     setLockBusy(false);
     setConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('鎖定失敗', j.error); return; }
-    toast.success('已確認填寫完畢', '評分與發現已鎖定;如需修改請按「解除鎖定」。');
+    toast.success('已確認填寫完畢', '評分與發現已鎖定；如需修改請按「解除鎖定」。');
     router.refresh();
   }
   async function unlock() {
@@ -483,7 +483,7 @@ function ScoreSection({
     setLockBusy(false);
     setUnlockConfirmOpen(false);
     if (!res.ok) { const j = await res.json().catch(() => ({})); toast.error('解除鎖定失敗', j.error); return; }
-    toast.success('已解除鎖定', `請通知${notifyTarget}有內容異動,您可再編輯。`);
+    toast.success('已解除鎖定', `請通知${notifyTarget}有內容異動，您可再編輯。`);
     router.refresh();
   }
 
@@ -531,23 +531,23 @@ function ScoreSection({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={(o) => !lockBusy && !o && setConfirmOpen(false)}
-        title={confirmProblems.length > 0 ? '部分構面尚未填寫完整,仍要送出？' : '確認填寫完畢？'}
+        title={confirmProblems.length > 0 ? '部分構面尚未填寫完整，仍要送出？' : '確認填寫完畢？'}
         description={
           confirmProblems.length > 0 ? (
             <div className="flex flex-col gap-3">
               <div className="rounded-md border border-warning-200 bg-warning-50 px-3.5 py-3 text-body-sm text-warning-800">
-                <p className="font-medium">以下構面尚未填寫完整:</p>
+                <p className="font-medium">以下構面尚未填寫完整：</p>
                 <ul className="mt-1 list-disc pl-5 space-y-0.5">
                   {confirmProblems.slice(0, 9).map((p) => <li key={p}>{p}</li>)}
                 </ul>
                 <p className="mt-2 text-caption text-warning-700 leading-relaxed">
-                  分工評分下可僅送出您負責的構面;若確定其餘構面非本次職責,可直接送出。若為漏填,請取消後補齊。
+                  分工評分下可僅送出您負責的構面；若確定其餘構面非本次職責，可直接送出。若為漏填，請取消後補齊。
                 </p>
               </div>
-              <p>將鎖定您的評分與發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知{notifyTarget}有內容異動。</p>
+              <p>將鎖定您的評分與發現，鎖定後無法修改。如需修改須「解除鎖定」，屆時請通知{notifyTarget}有內容異動。</p>
             </div>
           ) : (
-            `將鎖定您的評分與發現,鎖定後無法修改。如需修改須「解除鎖定」,屆時請通知${notifyTarget}有內容異動。`
+            `將鎖定您的評分與發現，鎖定後無法修改。如需修改須「解除鎖定」，屆時請通知${notifyTarget}有內容異動。`
           )
         }
         confirmLabel={confirmProblems.length > 0 ? '仍要送出並鎖定' : '確認並鎖定'}
@@ -561,8 +561,8 @@ function ScoreSection({
         description={
           <div className="flex flex-col gap-3">
             <p>
-              解除鎖定後,請通知{notifyTarget}您的評分/發現有內容異動{practice ? '(此練習為指導委員評分之依據)' : ''}。
-              請僅在確實需要修改時解除;修改完請再次按「確認填寫完畢」。
+              解除鎖定後，請通知{notifyTarget}您的評分/發現有內容異動{practice ? '（此練習為指導委員評分之依據）' : ''}。
+              請僅在確實需要修改時解除；修改完請再次按「確認填寫完畢」。
             </p>
             {/* 前置勾選(UAT 批63):委員須先告知工作人員,勾選後才可按「解除鎖定」 */}
             <label className="flex items-start gap-2 rounded-md border border-rule bg-paper-sunk px-3 py-2.5 text-body-sm text-ink-900 cursor-pointer">
@@ -572,7 +572,7 @@ function ScoreSection({
                 onChange={(e) => setUnlockAck(e.target.checked)}
                 className="mt-0.5 w-4 h-4 rounded focus-ring accent-primary-600"
               />
-              <span>我已告知{notifyTarget},將解除鎖定重新修改{practice ? '練習評分與發現' : '實地稽核評分與稽核發現'}。</span>
+              <span>我已告知{notifyTarget}，將解除鎖定重新修改{practice ? '練習評分與發現' : '實地稽核評分與稽核發現'}。</span>
             </label>
           </div>
         }
@@ -585,9 +585,9 @@ function ScoreSection({
         <div>
           <h2 className="text-title-lg text-ink-900">稽核評分</h2>
           <p className="text-body-sm text-ink-500 mt-0.5 leading-relaxed">
-            九項合計滿分 100;檢核結果數量請由您逐構面填寫(預設空白),機關自評僅列於各構面下方供參。<br />
-            {focusSet.size > 0 && <>可只評您負責的構面(未評的不計入您的小計)。</>}
-            確認填寫完畢時,至少須完整填寫一個構面(評分 + 判定數量合計符題數);其餘動過但未填完的構面會於送出前提示您確認(分工評分不強制全填)。
+            九項合計滿分 100;檢核結果數量請由您逐構面填寫（預設空白），機關自評僅列於各構面下方供參。<br />
+            {focusSet.size > 0 && <>可只評您負責的構面（未評的不計入您的小計）。</>}
+            確認填寫完畢時，至少須完整填寫一個構面（評分 + 判定數量合計符題數）；其餘動過但未填完的構面會於送出前提示您確認（分工評分不強制全填）。
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -618,7 +618,7 @@ function ScoreSection({
                 onClick={() => {
                   // 鎖定前擋下未儲存的稽核發現,避免按「確認填寫完畢」後唯讀導致編輯遺失
                   if (unsavedFindingsRef.current()) {
-                    toast.error('尚有稽核發現未儲存', '請先逐條按「儲存」或取消編輯,再確認填寫完畢。');
+                    toast.error('尚有稽核發現未儲存', '請先逐條按「儲存」或取消編輯，再確認填寫完畢。');
                     return;
                   }
                   const { hardBlock, problems, byDim } = validateCompleteness();
@@ -626,8 +626,8 @@ function ScoreSection({
                   if (hardBlock) {
                     setProblemByDim(byDim);
                     toast.error(
-                      '尚無完整填寫的構面,無法確認填寫完畢',
-                      '請至少完整填寫一個構面(評分 + 判定數量合計符題數)後再送出;已於下方表格標示。',
+                      '尚無完整填寫的構面，無法確認填寫完畢',
+                      '請至少完整填寫一個構面（評分 + 判定數量合計符題數）後再送出；已於下方表格標示。',
                     );
                     return;
                   }
@@ -653,7 +653,7 @@ function ScoreSection({
 
       <details open className="mb-4 rounded-lg border border-rule bg-card overflow-hidden">
         <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
-          五等第評分標準說明(依檢核結果「符合 / 部分符合 / 不符合」數量評定等第與分數;不適用項目不計)
+          五等第評分標準說明（依檢核結果「符合 / 部分符合 / 不符合」數量評定等第與分數；不適用項目不計）
         </summary>
         <div className="px-5 pb-4 overflow-x-auto">
           <table className="w-full text-caption border-collapse min-w-[30rem]">
@@ -677,7 +677,7 @@ function ScoreSection({
             </tbody>
           </table>
           <p className="mt-2.5 text-caption text-ink-500 leading-relaxed">
-            「執行良好」包括:① 優於規定(如驗證範圍涵蓋全機關);② 對檢核項目要求執行完整確實(如資安績效指標完整且高標準);③ 記錄完整(相關執行紀錄如期如實表現)。
+            「執行良好」包括：① 優於規定（如驗證範圍涵蓋全機關）；② 對檢核項目要求執行完整確實（如資安績效指標完整且高標準）；③ 記錄完整（相關執行紀錄如期如實表現）。
           </p>
         </div>
       </details>
@@ -718,7 +718,7 @@ function ScoreSection({
                     <div className="text-body text-ink-900">
                       {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
                       {DIMENSION_LABELS[dim]}
-                      <span className="text-ink-500">({DIMENSION_MAX_SCORE[dim]} 分)</span>
+                      <span className="text-ink-500">({DIMENSION_MAX_SCORE[dim]} 分）</span>
                       {/* 以項目數量評分,於標題標示本構面共幾項,方便委員判定數量 */}
                       {st.total > 0 && <span className="text-ink-500">・共 {st.total} 項</span>}
                     </div>
@@ -744,7 +744,7 @@ function ScoreSection({
                         value={v ?? ''}
                         onChange={(e) => setScore(dim, e.target.value)}
                         disabled={!canEdit}
-                        aria-label={`${DIMENSION_LABELS[dim]} 評分(0-${DIMENSION_MAX_SCORE[dim]})`}
+                        aria-label={`${DIMENSION_LABELS[dim]} 評分（0-${DIMENSION_MAX_SCORE[dim]})`}
                         className="w-12 h-11 border-x border-neutral-400 bg-card px-1 text-body text-center tabular-nums focus-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none disabled:bg-paper-sunk disabled:text-ink-500"
                       />
                       <button
@@ -766,7 +766,7 @@ function ScoreSection({
                 </div>
                 {/* 委員手填檢核結果數量(預設空白);機關自評僅供參考,不自動帶入 */}
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="text-caption text-ink-500">委員判定數量:</span>
+                  <span className="text-caption text-ink-500">委員判定數量：</span>
                   {COUNT_FIELDS.map(({ key, label }) => (
                     <label key={key} className="inline-flex items-center gap-1 text-caption text-ink-500">
                       {label}
@@ -783,7 +783,7 @@ function ScoreSection({
                     </label>
                   ))}
                   <span className="text-caption text-ink-500">
-                    機關自評供參:{st.total} 題(符{st.c1}/部{st.c2}/不{st.c3}/適{st.c4})
+                    機關自評供參：{st.total} 題（符{st.c1}/部{st.c2}/不{st.c3}/適{st.c4})
                   </span>
                   {/* 即時合計回饋:動筆後合計≠題數標紅(唯讀改中性描述);送出被擋的構面常駐標紅到修正為止 */}
                   {(() => {
@@ -797,19 +797,19 @@ function ScoreSection({
                     }
                     // 唯讀(已鎖定/結案)顯示描述句而非命令句——舊資料無法就地修改,紅色命令只會製造兩難
                     return canEdit ? (
-                      <span className="text-caption font-medium text-danger-600 tabular-nums">合計 {sum}/{st.total},須等於題數</span>
+                      <span className="text-caption font-medium text-danger-600 tabular-nums">合計 {sum}/{st.total}，須等於題數</span>
                     ) : (
-                      <span className="text-caption text-ink-500 tabular-nums">合計 {sum}/{st.total},與題數不符</span>
+                      <span className="text-caption text-ink-500 tabular-nums">合計 {sum}/{st.total}，與題數不符</span>
                     );
                   })()}
                 </div>
                 {issues.length > 0 && (
                   <details className="px-5 pb-3">
                     <summary className="cursor-pointer text-caption text-ink-500 hover:underline select-none">
-                      參考—查看審閱意見({issues.length} 項部分符合/不符合)
+                      參考—查看審閱意見（{issues.length} 項部分符合/不符合）
                     </summary>
                     <p className="mt-2 text-caption text-ink-500 leading-relaxed">
-                      以下為實地稽核前之審閱筆記,僅供參考;經現場稽核後可能有異動,委員判定數量請依現場結果填寫,不受此限。
+                      以下為實地稽核前之審閱筆記，僅供參考；經現場稽核後可能有異動，委員判定數量請依現場結果填寫，不受此限。
                     </p>
                     <ul className="mt-2 space-y-1.5">
                       {issues.map((it) => (
@@ -828,7 +828,7 @@ function ScoreSection({
           );
         })}
         <div className="flex items-center justify-end gap-3 px-5 py-3 bg-paper-sunk">
-          <span className="text-body-sm text-ink-500">您的評分小計(已評 {filledCount} 項)</span>
+          <span className="text-body-sm text-ink-500">您的評分小計（已評 {filledCount} 項）</span>
           <span className="text-title-lg text-ink-900 tabular-nums">{filledCount === 0 ? '—' : myTotal}</span>
         </div>
       </div>
@@ -1026,8 +1026,8 @@ function FindingSection({
     // 委員開立待改善/建議事項時只述「缺失/不符或風險之處」,不給改善建議(批44),故佔位文字不含「及改善建議」。
     // 仍保留「(請補述」前綴——批36 convert 佔位閘以 /[(（]請補述/ 偵測未補述者,不可拿掉此前綴。
     const placeholder = kind === 'SUGGEST'
-      ? '(請補述建議事項:無法規要求但存有資安風險之處)'
-      : '(請補述具體缺失或不符之處)';
+      ? '（請補述建議事項：無法規要求但存有資安風險之處）'
+      : '（請補述具體缺失或不符之處）';
     setBusy(`import:${kind}:${itemNo}`);
     const res = await fetch(findingsUrl, {
       method: 'POST',
@@ -1054,7 +1054,7 @@ function FindingSection({
       id: created.id, aspect: created.aspect, kind: created.kind,
       content: created.content, checklistRef: created.checklistRef, locked: false,
     }]);
-    toast.success(`已帶入${FINDING_KIND_LABELS[kind]}(待補述)`, '此發現已建立,請於下方補述具體內容後儲存;未補述前僅為佔位。');
+    toast.success(`已帶入${FINDING_KIND_LABELS[kind]}（待補述）`, '此發現已建立，請於下方補述具體內容後儲存；未補述前僅為佔位。');
   }
 
   async function patchFinding(f: MyFinding) {
@@ -1140,7 +1140,7 @@ function FindingSection({
       setBusy(null);
     }
     if (ok === dirtyIds.length) toast.success('已全部儲存', `共儲存 ${ok} 條發現。`);
-    else toast.error('部分儲存失敗', `已儲存 ${ok}/${dirtyIds.length} 條,請逐條檢查未儲存項目。`);
+    else toast.error('部分儲存失敗', `已儲存 ${ok}/${dirtyIds.length} 條，請逐條檢查未儲存項目。`);
   }
 
   return (
@@ -1149,7 +1149,7 @@ function FindingSection({
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
         title="刪除這條稽核發現？"
-        description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」將被刪除,無法復原。` : undefined}
+        description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」將被刪除，無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (deleting) void deleteFinding(deleting); }}
@@ -1161,11 +1161,11 @@ function FindingSection({
       </div>
       <p className="text-body-sm text-ink-500 mb-1">
         {practice
-          ? '逐條輸入您的練習發現;僅供指導委員與中心檢視回饋,不會進入正式報告。'
-          : '逐條輸入您的發現;全體委員的發現會自動彙整至報告。'}
+          ? '逐條輸入您的練習發現；僅供指導委員與中心檢視回饋，不會進入正式報告。'
+          : '逐條輸入您的發現；全體委員的發現會自動彙整至報告。'}
       </p>
       <p className="text-caption text-ink-500 mb-4">
-        發現需按「儲存」,不會自動存檔。
+        發現需按「儲存」，不會自動存檔。
       </p>
 
       {/* pm-06:從檢核表不符合/部分符合題一鍵帶入發現草稿,免重打。
@@ -1176,10 +1176,10 @@ function FindingSection({
         return (
           <details className="mb-4 rounded-md border border-rule bg-card overflow-hidden">
             <summary className="cursor-pointer select-none px-4 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
-              從檢核表「部分符合/不符合」題帶入發現({issues.length})
+              從檢核表「部分符合/不符合」題帶入發現（{issues.length})
             </summary>
             <p className="px-4 pt-3 text-caption text-ink-500 leading-relaxed">
-              選擇要帶入為「待改善事項」或「建議事項」;帶入後僅含對應項次,請於下方補述內容。
+              選擇要帶入為「待改善事項」或「建議事項」；帶入後僅含對應項次，請於下方補述內容。
             </p>
             <ul className="divide-y divide-rule">
               {issues.map((it) => (
@@ -1322,13 +1322,13 @@ function FindingSection({
                     {/* 即時顯示對應檢核項摘要(填好對應項次即顯示,不必等儲存;支援多項次) */}
                     <RefSummary refStr={draft.checklistRef} itemContent={itemContent} />
                     <Textarea
-                      label="發現內容(可直接從 Word 貼上)"
+                      label="發現內容（可直接從 Word 貼上）"
                       ref={(el) => { taRefs.current.set(`draft:${kind}`, el); }}
                       value={draft.content}
                       onChange={(e) => setDrafts((d) => ({ ...d, [kind]: { ...draft, content: e.target.value } }))}
                       onBlur={(e) => { const v = toFullWidthPunct(e.target.value); if (v !== draft.content) setDrafts((d) => ({ ...d, [kind]: { ...draft, content: v } })); }}
                       rows={3}
-                      placeholder="例:依資通安全管理法第 9 條規定…,惟查…"
+                      placeholder="例：依資通安全管理法第 9 條規定…，惟查…"
                     />
                   </div>
                 )}
@@ -1371,7 +1371,7 @@ function FindingSection({
                       expectedEvidence={itemLaw[r].expectedEvidence}
                     />
                   ) : (
-                    <p className="text-body-sm text-ink-500 py-2">查無項次「{r}」的法規對照資料,請確認項次編號。</p>
+                    <p className="text-body-sm text-ink-500 py-2">查無項次「{r}」的法規對照資料，請確認項次編號。</p>
                   )}
                 </div>
               ))}
@@ -1410,7 +1410,7 @@ function FindingSection({
                   </button>
                 </div>
                 {shown.length === 0 ? (
-                  <p className="text-body-sm text-ink-500 py-2">此構面/類型尚無對應片語;可切換「全部」,或至「發現片語庫」新增/設為通用。</p>
+                  <p className="text-body-sm text-ink-500 py-2">此構面/類型尚無對應片語；可切換「全部」，或至「發現片語庫」新增/設為通用。</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {shown.map((s) => (
@@ -1450,7 +1450,7 @@ function RefChips({ value, onChange, disabled }: { value: string; onChange: (nex
   }
   return (
     <div className="flex flex-col gap-0.5 min-w-[10rem]">
-      <span className="text-caption text-ink-500 px-1">對應項次(選填)</span>
+      <span className="text-caption text-ink-500 px-1">對應項次（選填）</span>
       <div className="flex flex-wrap items-center gap-1 rounded-md border border-neutral-400 bg-card px-2 py-1 min-h-9 [@media(pointer:coarse)]:min-h-11">
         {refs.map((r) => (
           <span key={r} className="inline-flex items-center gap-1 rounded-full bg-paper-sunk px-2 py-0.5 text-caption text-ink-900">
@@ -1493,7 +1493,7 @@ function RefSummary({ refStr, itemContent }: { refStr: string; itemContent: Reco
             對應檢核項【{r}】{itemContent[r]}
           </p>
         ) : (
-          <p key={r} className="text-caption text-warning-700">查無檢核項次「{r}」,請確認編號</p>
+          <p key={r} className="text-caption text-warning-700">查無檢核項次「{r}」，請確認編號</p>
         ),
       )}
     </div>

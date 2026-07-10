@@ -25,13 +25,13 @@ export function LegalShell({
         <div className="mt-4 flex items-start gap-2.5 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-body-sm text-warning-800">
           <span aria-hidden>⚠</span>
           <span>
-            本頁內容為<strong>草案</strong>,正式版本以教育部法務 / 個人資料保護窗口核定者為準;對外正式上線前須完成法務審閱。
+            本頁內容為<strong>草案</strong>，正式版本以教育部法務 / 個人資料保護窗口核定者為準；對外正式上線前須完成法務審閱。
           </span>
         </div>
         <div className="mt-8 space-y-7 leading-relaxed text-body text-ink-900 [&_h2]:text-title-lg [&_h2]:mt-2 [&_h2]:mb-2 [&_p]:text-ink-500 [&_ul]:mt-1 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5 [&_ul]:text-ink-500 [&_a]:text-primary-700 [&_a]:underline">
           {children}
         </div>
-        <p className="mt-10 text-caption text-ink-500">中華民國 {rocYear} 年版(草案)</p>
+        <p className="mt-10 text-caption text-ink-500">中華民國 {rocYear} 年版（草案）</p>
         <Link href="/" className="mt-3 inline-block text-body-sm text-primary-700 hover:underline focus-ring rounded-sm">
           ← 回首頁
         </Link>

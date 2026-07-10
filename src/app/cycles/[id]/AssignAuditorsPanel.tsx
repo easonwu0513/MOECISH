@@ -80,7 +80,7 @@ export default function AssignAuditorsPanel({
         toast.error('指派失敗', j.error);
       }
     } catch {
-      toast.error('指派失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('指派失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -103,7 +103,7 @@ export default function AssignAuditorsPanel({
         toast.error('更新構面失敗', j.error);
       }
     } catch {
-      toast.error('更新構面失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('更新構面失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -126,7 +126,7 @@ export default function AssignAuditorsPanel({
         toast.error('移除失敗', j.error);
       }
     } catch {
-      toast.error('移除失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('移除失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -136,7 +136,7 @@ export default function AssignAuditorsPanel({
     <Card className="mb-6">
       <CardTitle>稽核委員指派</CardTitle>
       <CardDescription>
-        被指派的委員才能檢視並審查本週期(不得審查自己服務之機關)。勾選各委員負責構面,未勾視同全構面。
+        被指派的委員才能檢視並審查本週期（不得審查自己服務之機關）。勾選各委員負責構面，未勾視同全構面。
       </CardDescription>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -165,7 +165,7 @@ export default function AssignAuditorsPanel({
                           type="button"
                           disabled={busy || rowLocked}
                           aria-pressed={on}
-                          title={finalized ? '已定稿,如需調整請先於彙整報告頁退件' : !canAssign ? '名單已凍結' : undefined}
+                          title={finalized ? '已定稿，如需調整請先於彙整報告頁退件' : !canAssign ? '名單已凍結' : undefined}
                           onClick={() => toggleDim(a, asp)}
                           className={cn(
                             'px-2 py-0.5 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
@@ -183,7 +183,7 @@ export default function AssignAuditorsPanel({
                     )}
                   </div>
                   {rowLocked ? (
-                    <span className="ml-auto shrink-0 text-caption text-ink-500" title={finalized ? '如確需移除,請先於彙整報告頁「退件」解除定稿' : undefined}>
+                    <span className="ml-auto shrink-0 text-caption text-ink-500" title={finalized ? '如確需移除，請先於彙整報告頁「退件」解除定稿' : undefined}>
                       {finalized ? '已定稿・不可移除' : ''}
                     </span>
                   ) : (
@@ -219,7 +219,7 @@ export default function AssignAuditorsPanel({
           </div>
         ) : (
           <p className="rounded-md border border-rule bg-paper-sunk px-3 py-2.5 text-body-sm text-ink-500">
-            實地稽核階段已結束,委員名單已凍結,無法再新增或移除指派、亦不可調整構面。如確需調整,請將週期回退至「開立中」後處理(重大操作,請審慎)。
+            實地稽核階段已結束，委員名單已凍結，無法再新增或移除指派、亦不可調整構面。如確需調整，請將週期回退至「開立中」後處理（重大操作，請審慎）。
           </p>
         )}
       </div>
@@ -231,7 +231,7 @@ export default function AssignAuditorsPanel({
         title="於實地稽核階段新增委員"
         description={
           pendingAssign
-            ? `實地稽核已在進行中。指派後「${pendingAssign.name}」將立即取得本週期的檢視與審查權限(含機關檢核表與已齊備資料),並可填寫評分與稽核發現。確定要新增這位委員嗎？`
+            ? `實地稽核已在進行中。指派後「${pendingAssign.name}」將立即取得本週期的檢視與審查權限（含機關檢核表與已齊備資料），並可填寫評分與稽核發現。確定要新增這位委員嗎？`
             : undefined
         }
         confirmLabel="確認指派"
@@ -247,7 +247,7 @@ export default function AssignAuditorsPanel({
         title="移除委員指派"
         description={
           pendingRemove
-            ? `移除後「${pendingRemove.name}」將立即失去本週期的檢視與審查權限;其負責構面的指派紀錄將一併刪除(已填寫的評分與稽核發現紀錄保留)。如僅需調整負責構面,直接點選構面即可,不必移除。確定要移除嗎？`
+            ? `移除後「${pendingRemove.name}」將立即失去本週期的檢視與審查權限；其負責構面的指派紀錄將一併刪除（已填寫的評分與稽核發現紀錄保留）。如僅需調整負責構面，直接點選構面即可，不必移除。確定要移除嗎？`
             : undefined
         }
         confirmLabel="移除"

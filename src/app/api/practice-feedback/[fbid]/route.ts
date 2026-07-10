@@ -18,7 +18,7 @@ async function loadOwnFeedback(fbid: string, userId: string) {
   // 階段閘與回饋 POST 對稱(專審 P2):practice.access 涵蓋 CLOSED 鎖定,
   // 亦擋「週期回退至 ONSITE 前」仍可改刪回饋的不對稱(原僅擋 CLOSED)
   if (!canAccess('practice.access', 'OBSERVER', fb.practiceFinding.cycle.status)) {
-    throw new AuthError(409, '目前非練習開放階段,回饋已鎖定');
+    throw new AuthError(409, '目前非練習開放階段，回饋已鎖定');
   }
   return fb;
 }

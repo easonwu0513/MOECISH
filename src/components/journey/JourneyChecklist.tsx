@@ -225,7 +225,7 @@ export function JourneyChecklist({
                           // 未到該階段:點擊提示「尚未開放」而非跳轉(避免被導回週期頁誤以為功能壞掉)
                           <button
                             type="button"
-                            onClick={() => toast.info('此階段尚未開放', `目前尚未進入「${it.lockedStageTitle}」階段,該功能屆時才會開放。`)}
+                            onClick={() => toast.info('此階段尚未開放', `目前尚未進入「${it.lockedStageTitle}」階段，該功能屆時才會開放。`)}
                             className={rowClass}
                           >
                             {inner}

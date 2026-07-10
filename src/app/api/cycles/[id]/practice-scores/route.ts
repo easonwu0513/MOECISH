@@ -37,7 +37,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: '僅觀察員本人可填寫練習評分' }, { status: 403 });
     }
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
-      return NextResponse.json({ error: '練習於實地稽核階段起開放(結案後仍可續寫)' }, { status: 403 });
+      return NextResponse.json({ error: '練習於實地稽核階段起開放（結案後仍可續寫）' }, { status: 403 });
     }
     await assertPracticeUnlocked(cycle.id, user.id); // 送出鎖定後不可再改(批45;快速失敗,鎖定再確認見下方交易)
 
@@ -89,10 +89,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }, { isolationLevel: 'Serializable' });
     } catch (e) {
       if (e instanceof PracticeLockedError) {
-        return NextResponse.json({ error: '您已送出(確認填寫完畢),練習評分已鎖定;如需修改請先「解除鎖定」。' }, { status: 409 });
+        return NextResponse.json({ error: '您已送出（確認填寫完畢），練習評分已鎖定；如需修改請先「解除鎖定」。' }, { status: 409 });
       }
       if ((e as { code?: string }).code === 'P2034') {
-        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+        return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
       }
       throw e;
     }

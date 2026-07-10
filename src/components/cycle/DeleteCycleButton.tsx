@@ -34,7 +34,7 @@ export default function DeleteCycleButton({
     setOpen(false);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('刪除失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('刪除失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
       return;
     }
     toast.success('已刪除稽核週期', `${orgName} ${yearROC} 年度`);
@@ -51,7 +51,7 @@ export default function DeleteCycleButton({
         open={open}
         onOpenChange={(o) => !busy && setOpen(o)}
         title="刪除稽核週期"
-        description={`將永久刪除「${orgName} ${yearROC} 年度」稽核週期,及其資料需求清單、委員指派與精靈進度等關聯資料。僅供建錯週期時使用,刪除後無法復原。確定要刪除嗎？`}
+        description={`將永久刪除「${orgName} ${yearROC} 年度」稽核週期，及其資料需求清單、委員指派與精靈進度等關聯資料。僅供建錯週期時使用，刪除後無法復原。確定要刪除嗎？`}
         confirmLabel="永久刪除"
         tone="danger"
         onConfirm={doDelete}

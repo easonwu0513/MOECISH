@@ -55,7 +55,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       ...mentors.map((m) => m.auditor),
       ...centerStaff
         .filter((u) => !mentors.some((m) => m.auditor.id === u.id))
-        .map((u) => ({ id: u.id, name: `${u.name}(中心)` })),
+        .map((u) => ({ id: u.id, name: `${u.name}（中心）` })),
     ];
     return NextResponse.json({ items, observers, mentors: mentorPool });
   } catch (e) {
@@ -76,7 +76,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
-      return NextResponse.json({ error: '實地稽核階段已結束,參與名單已凍結,無法再調整觀察員配對' }, { status: 409 });
+      return NextResponse.json({ error: '實地稽核階段已結束，參與名單已凍結，無法再調整觀察員配對' }, { status: 409 });
     }
 
     const observer = await prisma.user.findUnique({
@@ -87,7 +87,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const holdsObserverIdentity =
       observer && (observer.role === 'OBSERVER' || observer.roleGrants.some((g) => g.role === 'OBSERVER'));
     if (!observer || !observer.isActive || !holdsObserverIdentity) {
-      return NextResponse.json({ error: '觀察員不存在或已停用(帳號須具「觀察員」身分)' }, { status: 400 });
+      return NextResponse.json({ error: '觀察員不存在或已停用（帳號須具「觀察員」身分）' }, { status: 400 });
     }
     // 迴避原則(比照委員):觀察員不得觀摩自己服務之機關——含現用身分之機關,
     // 以及多重身分授權(UserRole)中持有該機關「機關管理員」授權者(利益迴避查授權全集,非只現用身分)。
@@ -95,7 +95,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       (g) => g.role === 'ORG_ADMIN' && g.organizationId === cycle.organizationId,
     );
     if ((observer.organizationId && observer.organizationId === cycle.organizationId) || holdsOrgAdminOfCycleOrg) {
-      return NextResponse.json({ error: '觀察員不得觀摩自己服務之機關(迴避原則,含其多重身分所屬機關)' }, { status: 400 });
+      return NextResponse.json({ error: '觀察員不得觀摩自己服務之機關（迴避原則，含其多重身分所屬機關）' }, { status: 400 });
     }
 
     // 指導者=本週期已指派的正式委員,或中心人員(觀察員初期場次由中心帶審)
@@ -121,7 +121,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       select: { auditorId: true },
     });
     if (observerAlsoAuditor) {
-      return NextResponse.json({ error: '該員已是本週期指派委員,不可同時列為觀察員' }, { status: 400 });
+      return NextResponse.json({ error: '該員已是本週期指派委員，不可同時列為觀察員' }, { status: 400 });
     }
     // 對稱防呆(專審 P2,指導池納中心人員後的新邊角):mentor 與 observer 兩集合必不相交——
     // 放寬前 mentor 必為指派委員、observerAlsoAuditor 已保證不相交;放寬後中心人員 fallback 繞過該對稱,
@@ -131,13 +131,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       select: { id: true },
     });
     if (mentorIsObserver) {
-      return NextResponse.json({ error: '該員已是本週期配對觀察員,不可同時擔任指導者' }, { status: 400 });
+      return NextResponse.json({ error: '該員已是本週期配對觀察員，不可同時擔任指導者' }, { status: 400 });
     }
     const observerIsMentor = await prisma.cycleObserver.count({
       where: { cycleId: params.id, mentorId: body.observerId },
     });
     if (observerIsMentor > 0) {
-      return NextResponse.json({ error: '該員已是本週期其他觀察員的指導者,不可再配對為觀察員' }, { status: 400 });
+      return NextResponse.json({ error: '該員已是本週期其他觀察員的指導者，不可再配對為觀察員' }, { status: 400 });
     }
 
     const item = await prisma.cycleObserver.upsert({
@@ -185,7 +185,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
-      return NextResponse.json({ error: '實地稽核階段已結束,參與名單已凍結,無法再調整觀察員構面' }, { status: 409 });
+      return NextResponse.json({ error: '實地稽核階段已結束，參與名單已凍結，無法再調整觀察員構面' }, { status: 409 });
     }
 
     const uniq = Array.from(new Set(body.dimensions));
@@ -225,7 +225,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     });
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
-      return NextResponse.json({ error: '實地稽核階段已結束,參與名單已凍結,無法再移除觀察員配對' }, { status: 409 });
+      return NextResponse.json({ error: '實地稽核階段已結束，參與名單已凍結，無法再移除觀察員配對' }, { status: 409 });
     }
 
     const deleted = await prisma.cycleObserver.deleteMany({
@@ -240,7 +240,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       action: 'OBSERVER_UNASSIGN',
       entityType: 'AuditCycle',
       entityId: params.id,
-      after: { observerId, note: '練習紀錄留存(中心仍可檢視);觀察員即失去此週期存取' },
+      after: { observerId, note: '練習紀錄留存（中心仍可檢視）；觀察員即失去此週期存取' },
       ...extractRequestMeta(req),
     });
 

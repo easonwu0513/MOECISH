@@ -83,7 +83,7 @@ export function NotificationBell() {
       <IconButton
         variant="standard"
         icon={<Bell size={20} />}
-        label={unread > 0 ? `通知(${unread} 則未讀)` : '通知'}
+        label={unread > 0 ? `通知（${unread} 則未讀）` : '通知'}
         onClick={() => setOpen((o) => !o)}
       />
       {unread > 0 && (

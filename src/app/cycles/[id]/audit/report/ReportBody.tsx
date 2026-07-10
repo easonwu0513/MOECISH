@@ -224,7 +224,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
         <thead>
           <tr className="bg-paper-sunk text-label-sm text-ink-500">
             <th className="px-3 py-2.5 text-left font-medium border-b border-rule">構面</th>
-            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">稽核項目(配分)</th>
+            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">稽核項目（配分）</th>
             <th className="px-2 py-2.5 text-center font-medium border-b border-rule">題數</th>
             <th className="px-2 py-2.5 text-center font-medium border-b border-rule">符合</th>
             <th className="px-2 py-2.5 text-center font-medium border-b border-rule">部分</th>
@@ -279,7 +279,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
             }),
           )}
           <tr className="bg-paper-sunk font-medium">
-            <td colSpan={7} className="px-3 py-2.5 text-right">得分(滿分 100)</td>
+            <td colSpan={7} className="px-3 py-2.5 text-right">得分（滿分 100）</td>
             {auditors.map((a) => {
               const t = totalOf(a.id);
               const filled = filledOf(a.id);
@@ -288,7 +288,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               return (
                 <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">
                   {t}
-                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-ink-500">({filled} 構面)</span>}
+                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-ink-500">({filled} 構面）</span>}
                 </td>
               );
             })}
@@ -343,11 +343,11 @@ export function AuditorStateChangeLog({
         let label: string;
         let when: Date | null;
         if (a.scoreLockedAt) {
-          tone = 'locked'; label = '已確認填寫完畢(評分與發現定稿)'; when = a.scoreLockedAt;
+          tone = 'locked'; label = '已確認填寫完畢（評分與發現定稿）'; when = a.scoreLockedAt;
         } else if (latest?.action === 'audit.score.return') {
           tone = 'warning'; label = '已被退件 — 待重新編輯後再次確認'; when = latest.createdAt;
         } else if (latest?.action === 'audit.score.unlock') {
-          tone = 'warning'; label = '已解除鎖定 — 內容可能已異動,請複核'; when = latest.createdAt;
+          tone = 'warning'; label = '已解除鎖定 — 內容可能已異動，請複核'; when = latest.createdAt;
         } else {
           tone = 'neutral'; label = '未確認填寫完畢'; when = latest?.createdAt ?? null;
         }

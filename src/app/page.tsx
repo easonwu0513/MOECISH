@@ -184,7 +184,7 @@ export default async function LandingPage() {
             <EmptyState
               icon={<FileText size={26} />}
               title="尚無資安資訊"
-              description="最新公告與情資將在這裡呈現,敬請期待"
+              description="最新公告與情資將在這裡呈現，敬請期待"
             />
           </div>
         ) : (
@@ -234,7 +234,7 @@ export default async function LandingPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:divide-x sm:divide-rule">
             <Feature icon={<History size={18} />} title="全程稽核軌跡" desc="每一筆操作皆留存不可否認紀錄" />
-            <Feature icon={<ShieldCheck size={18} />} title="角色權限分級" desc="機關資料嚴格隔離,委員迴避原則" />
+            <Feature icon={<ShieldCheck size={18} />} title="角色權限分級" desc="機關資料嚴格隔離，委員迴避原則" />
             <Feature icon={<Paperclip size={18} />} title="佐證完整性驗證" desc="附件以 SHA-256 雜湊確保未遭竄改" />
           </div>
         </div>
@@ -247,10 +247,10 @@ export default async function LandingPage() {
         <div className="relative overflow-hidden rounded-xl px-8 py-14 sm:px-14 text-center bg-cta-surface ring-1 ring-inset ring-white/10">
           <p className="relative text-label text-primary-200 uppercase tracking-[0.08em] mb-4">開始本年度稽核作業</p>
           <h2 className="relative text-headline-lg text-white text-balance tracking-tight">
-            從資料準備到結案追蹤,一個平台完成。
+            從資料準備到結案追蹤，一個平台完成。
           </h2>
           <p className="relative mt-3 text-body text-primary-100/90">
-            {session ? '歡迎回來,繼續您的稽核管考作業。' : '使用機關核發之帳號登入,開始本年度稽核作業。'}
+            {session ? '歡迎回來，繼續您的稽核管考作業。' : '使用機關核發之帳號登入，開始本年度稽核作業。'}
           </p>
           <div className="relative mt-8 flex justify-center gap-3 flex-wrap">
             <Link

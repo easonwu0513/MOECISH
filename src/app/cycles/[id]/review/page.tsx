@@ -190,14 +190,14 @@ export default async function ReviewPage({
       <CycleHubBar
         cycleId={cycle.id}
         label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="逐題審閱後,回工作台查看下一步"
+        nextHint="逐題審閱後，回工作台查看下一步"
       />
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">{pageTitle}</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
           {isObserverView
-            ? '逐題檢視機關說明與佐證,可於每題下方留下觀察員意見(練習用;僅您本人、您的指導者與中心可見),供您撰寫練習時對照。'
-            : '逐題檢視機關說明與佐證,可於每題下方留下審閱筆記(依需要,不必每題),供您實地稽核時參考。'}
+            ? '逐題檢視機關說明與佐證，可於每題下方留下觀察員意見（練習用；僅您本人、您的指導者與中心可見），供您撰寫練習時對照。'
+            : '逐題檢視機關說明與佐證，可於每題下方留下審閱筆記（依需要，不必每題），供您實地稽核時參考。'}
         </p>
         <p className="text-body-sm text-ink-500 mt-1">
           {cycle.organization.name} · {CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
@@ -253,7 +253,7 @@ export default async function ReviewPage({
       {/* 快速跳至構面(委員可直接跳到第一/四/七等構面,不必往下滑很久) */}
       {grouped.length > 1 && (
         <nav className="mb-5 flex items-center gap-1.5 flex-wrap" aria-label="構面快速導覽">
-          <span className="text-caption text-ink-400 mr-0.5">跳至構面:</span>
+          <span className="text-caption text-ink-400 mr-0.5">跳至構面：</span>
           {grouped.map(({ dim, items }) => (
             <a
               key={dim}
@@ -272,7 +272,7 @@ export default async function ReviewPage({
           <EmptyState
             icon={<ClipboardCheck size={28} />}
             title="機關尚未開始填答"
-            description={isObserverView ? "等機關至少完成一題後,即可在此檢視其自評與佐證,作為撰寫練習的素材。" : "等機關至少完成一題後,才能在此留下委員意見。"}
+            description={isObserverView ? "等機關至少完成一題後，即可在此檢視其自評與佐證，作為撰寫練習的素材。" : "等機關至少完成一題後，才能在此留下委員意見。"}
           />
         </Card>
       ) : (
@@ -314,7 +314,7 @@ export default async function ReviewPage({
                         </div>
                         {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點 */}
                         {r?.description && (
-                          <NoteBox prominent label="機關說明(規範內容、執行方式、執行結果)" className="mt-3">
+                          <NoteBox prominent label="機關說明（規範內容、執行方式、執行結果）" className="mt-3">
                             <p className="text-body text-ink-900 leading-relaxed whitespace-pre-wrap">{r.description}</p>
                           </NoteBox>
                         )}
@@ -325,7 +325,7 @@ export default async function ReviewPage({
                         )}
                         {/* 層2 往返對話:機關補正回應以 primary tone 承載 */}
                         {r?.orgRevisionNote && (
-                          <NoteBox tone="primary" label="機關補正回應(針對委員意見)" className="mt-2">
+                          <NoteBox tone="primary" label="機關補正回應（針對委員意見）" className="mt-2">
                             <p className="text-body-sm text-primary-900 leading-relaxed whitespace-pre-wrap">{r.orgRevisionNote}</p>
                           </NoteBox>
                         )}
@@ -350,7 +350,7 @@ export default async function ReviewPage({
                         {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
                           <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
                             <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                              法規對照(稽核依據・稽核重點・應備文件)
+                              法規對照（稽核依據・稽核重點・應備文件）
                             </summary>
                             <div className="px-3 pb-3 pt-1 bg-card">
                               <LawPanel

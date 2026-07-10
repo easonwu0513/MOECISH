@@ -107,7 +107,7 @@ check('AUDITOR@READY 窗口未開始 → 提示尚未開始',
 check('AUDITOR@READY 窗口已結束 → 提示已結束',
   byKey(nav('AUDITOR', 'READY', { auditorReviewState: 'after' }), 'checklist').lockedHint === '委員審閱時段已結束');
 check('AUDITOR@REPORT_ISSUED 窗口關 → 提示改「實地稽核階段已結束」(批69 情境化)',
-  byKey(nav('AUDITOR', 'REPORT_ISSUED', { auditorReviewState: 'after' }), 'prep').lockedHint === '實地稽核階段已結束,非審閱時段');
+  byKey(nav('AUDITOR', 'REPORT_ISSUED', { auditorReviewState: 'after' }), 'prep').lockedHint === '實地稽核階段已結束，非審閱時段');
 check('AUDITOR@READY 窗口 open → 審閱卡進行中+primary+不淡化',
   (() => { const m = byKey(nav('AUDITOR', 'READY'), 'checklist'); return m.status === '進行中' && m.statusTone === 'primary' && !m.muted; })());
 

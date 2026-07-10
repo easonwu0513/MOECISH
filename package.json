@@ -31,7 +31,7 @@
     "seed:test-accounts": "tsx src/scripts/seed-test-accounts.ts",
     "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
     "graph:refresh": "tsx src/scripts/refresh-graph-token.ts",
-    "test:modules": "tsx src/scripts/test-cycle-modules.ts"
+    "lint:punct": "tsx src/scripts/lint-fullwidth-punct.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",

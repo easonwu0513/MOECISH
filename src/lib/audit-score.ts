@@ -34,7 +34,7 @@ export type AssignAspect = (typeof ASSIGN_ASPECTS)[number];
 export const ASSIGN_ASPECT_LABELS: Record<AssignAspect, string> = {
   STRATEGY: '策略面',
   MANAGEMENT: '管理面',
-  MANAGEMENT_OT: '管理面(OT)',
+  MANAGEMENT_OT: '管理面（OT）',
   TECHNICAL: '技術面',
 };
 
@@ -91,8 +91,8 @@ export function gradeOf(dimension: Dimension, score: number): Grade {
 /** 等第說明字串(顯示於評分輸入旁) */
 export function gradeHint(dimension: Dimension): string {
   return DIMENSION_MAX_SCORE[dimension] === 20
-    ? '優(20-17)、良(16-13)、佳(12-9)、可(8)、待改進(7 以下)'
-    : '優(10-9)、良(8-7)、佳(6-5)、可(4)、待改進(3 以下)';
+    ? '優（20-17）、良（16-13）、佳（12-9）、可（8）、待改進（7 以下）'
+    : '優（10-9）、良（8-7）、佳（6-5）、可（4）、待改進（3 以下）';
 }
 
 export const GRADE_TONE: Record<Grade, 'success' | 'sage' | 'primary' | 'warning' | 'danger'> = {
@@ -115,8 +115,8 @@ export const FINDING_KIND_LABELS: Record<FindingKind, string> = {
 
 export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
   COMPLIANCE: '符合且優於法規要求的良好實踐',
-  IMPROVE: '未辦理或未有效執行法規要求事項,需改善',
-  SUGGEST: '無法規要求但存有資安風險,建議改善',
+  IMPROVE: '未辦理或未有效執行法規要求事項，需改善',
+  SUGGEST: '無法規要求但存有資安風險，建議改善',
 };
 
 /**
@@ -262,7 +262,7 @@ export function validateScoreCompleteness(
     if (scores[d] == null && sum === null) continue; // 沒動筆 → 分工下略過
     const issues: string[] = [];
     if (!scoreOk) issues.push('未填評分');
-    if (!countOk) issues.push(sum === null ? `未填判定數量(應合計 ${total})` : `判定數量合計 ${sum},應為 ${total}`);
+    if (!countOk) issues.push(sum === null ? `未填判定數量（應合計 ${total})` : `判定數量合計 ${sum}，應為 ${total}`);
     problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
     byDim[d] = issues.join('、');
   }

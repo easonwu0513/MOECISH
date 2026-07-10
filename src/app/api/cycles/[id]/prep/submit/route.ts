@@ -59,7 +59,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const missing = mechReqs.filter((r) => r.required && !addressed(r)).map((r) => r.title);
     if (missing.length > 0) {
       return NextResponse.json(
-        { error: `尚有必填項目未上傳檔案或敘明無檔理由:${missing.join('、')}` },
+        { error: `尚有必填項目未上傳檔案或敘明無檔理由：${missing.join('、')}` },
         { status: 400 },
       );
     }

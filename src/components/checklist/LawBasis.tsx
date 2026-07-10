@@ -80,7 +80,7 @@ export function LawPanel({
       )}
       {auditBasis && (
         <div>
-          <p className="text-label text-primary-800 mb-1.5">稽核依據(法規條文逐字引錄)</p>
+          <p className="text-label text-primary-800 mb-1.5">稽核依據（法規條文逐字引錄）</p>
           <div className="rounded-md bg-paper-sunk border border-rule/50 p-3.5 max-h-96 overflow-y-auto">
             <LawBasisText text={auditBasis} />
           </div>

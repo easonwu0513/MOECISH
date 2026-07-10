@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   }
   const log = await prisma.emailLog.create({
     data: {
-      toEmail: '(外部寄送)',
+      toEmail: '（外部寄送）',
       toName: hospital || audience || null,
       subject,
       body: bodyText,

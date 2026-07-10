@@ -106,7 +106,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (cycle.status !== 'DRAFT') {
       return NextResponse.json(
-        { error: '僅「開立中」的週期可刪除;已進入資料準備後不可刪(機關可能已有繳交紀錄)' },
+        { error: '僅「開立中」的週期可刪除；已進入資料準備後不可刪（機關可能已有繳交紀錄）' },
         { status: 409 },
       );
     }

@@ -49,8 +49,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (toSubmitIds.length === 0) {
       const msg =
         defs.length === 0
-          ? '目前沒有可送審的項目;請先填寫矯正措施並「儲存草稿」後再統一送出。'
-          : `尚有 ${skipped.length} 項未填寫完整,無可送審項目;請補齊後再送出。`;
+          ? '目前沒有可送審的項目；請先填寫矯正措施並「儲存草稿」後再統一送出。'
+          : `尚有 ${skipped.length} 項未填寫完整，無可送審項目；請補齊後再送出。`;
       return NextResponse.json({ error: msg, submitted: 0, skipped }, { status: 400 });
     }
 

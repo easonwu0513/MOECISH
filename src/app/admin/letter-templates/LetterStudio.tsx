@@ -194,7 +194,7 @@ function TableEditor({ value, onChange }: { value: string; onChange: (v: string)
                 {row.map((cell, cIdx) => {
                   const headerText = grid[0][cIdx] || '';
                   const trimmed = cell.trim();
-                  const isMerge = trimmed === '(合併)' || trimmed === '(向下合併)';
+                  const isMerge = trimmed === '（合併）' || trimmed === '（向下合併）';
                   const isNormal = !isMerge;
                   const isDate = rIdx > 0 && headerText.includes('日期') && isNormal;
                   const isTime = rIdx > 0 && headerText.includes('時間') && isNormal;
@@ -276,7 +276,7 @@ function TableEditor({ value, onChange }: { value: string; onChange: (v: string)
           加一欄
         </Button>
         <span className="text-caption text-ink-400 self-center">
-          合併：填「(合併)」向右併、「(向下合併)」向下併；可直接貼上 Excel 表格
+          合併：填「（合併）」向右併、「（向下合併）」向下併；可直接貼上 Excel 表格
         </span>
       </div>
     </div>
@@ -384,7 +384,7 @@ function EditForm({
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor={fid('category')} className="text-caption text-ink-500 font-medium">分類標籤（逗號分隔）</label>
-          <input id={fid('category')} className={CONTROL} value={draft.category} onChange={(e) => set('category', e.target.value)} placeholder="委員作業, 稽核-準備作業" />
+          <input id={fid('category')} className={CONTROL} value={draft.category} onChange={(e) => set('category', e.target.value)} placeholder="委員作業， 稽核-準備作業" />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor={fid('subGroup')} className="text-caption text-ink-500 font-medium">子分組（選填）</label>
@@ -443,7 +443,7 @@ function EditForm({
 // ─────────────────────────── 主元件 ───────────────────────────
 
 const EMPTY_DRAFT: EditDraft = {
-  title: '', category: '委員作業, 稽核-準備作業', subGroup: '', workflowOrder: '99',
+  title: '', category: '委員作業， 稽核-準備作業', subGroup: '', workflowOrder: '99',
   attachment: '無', audience: '', subject: '', content: '', enabled: true,
 };
 
@@ -582,7 +582,7 @@ export default function LetterStudio({
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? '留存失敗');
-      toast.success('已留存至系統寄件紀錄', '可於「信件管理 → 系統寄件紀錄」查閱(標示為手動外寄)');
+      toast.success('已留存至系統寄件紀錄', '可於「信件管理 → 系統寄件紀錄」查閱（標示為手動外寄）');
       setLogConfirm(false);
     } catch {
       toast.error('留存失敗');
@@ -840,7 +840,7 @@ export default function LetterStudio({
                           <span className={cn('text-body-sm truncate', isSel ? 'text-ink-900 font-medium' : 'text-ink-700')}>
                             {t.title}
                           </span>
-                          {!t.enabled && <span className="text-caption text-ink-400 shrink-0">(停用)</span>}
+                          {!t.enabled && <span className="text-caption text-ink-400 shrink-0">（停用）</span>}
                         </div>
                       </button>
                     );
@@ -1013,7 +1013,7 @@ export default function LetterStudio({
                   <span className="text-caption text-ink-400">主旨</span>
                   <div
                     className="text-body-sm text-ink-900 font-medium mt-0.5 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: renderPreviewHtml(active.subject, formData) || '<span style="color:#9aa4b2">（無主旨）</span>' }}
+                    dangerouslySetInnerHTML={{ __html: renderPreviewHtml(active.subject, formData) || '<span style=「color:#9aa4b2」>（無主旨）</span>' }}
                   />
                 </div>
                 <div
@@ -1047,7 +1047,7 @@ export default function LetterStudio({
         open={confirmCopy !== ''}
         onOpenChange={(v) => { if (!v) setConfirmCopy(''); }}
         title={`尚有 ${unfilled.length} 個欄位未填`}
-        description={`未填:${unfilled.slice(0, 4).join('、')}${unfilled.length > 4 ? '…' : ''}。複製後這些欄位將以（欄位名）佔位顯示,請確認是否先填寫。`}
+        description={`未填：${unfilled.slice(0, 4).join('、')}${unfilled.length > 4 ? '…' : ''}。複製後這些欄位將以（欄位名）佔位顯示，請確認是否先填寫。`}
         confirmLabel="仍要複製"
         onConfirm={() => {
           const k = confirmCopy;
@@ -1061,7 +1061,7 @@ export default function LetterStudio({
         open={logConfirm}
         onOpenChange={setLogConfirm}
         title="留存至系統寄件紀錄"
-        description={`將「${active?.title ?? ''}」的主旨與內文全文留存為一筆手動外寄紀錄(對象:${(formData['受稽醫院'] ?? globals.hospital ?? '').trim() || active?.audience || '未指定'}),供日後於「系統寄件紀錄」查閱。此動作不會寄信;請於實際寄出後再留存。`}
+        description={`將「${active?.title ?? ''}」的主旨與內文全文留存為一筆手動外寄紀錄（對象：${(formData['受稽醫院'] ?? globals.hospital ?? '').trim() || active?.audience || '未指定'}），供日後於「系統寄件紀錄」查閱。此動作不會寄信；請於實際寄出後再留存。`}
         confirmLabel="留存紀錄"
         loading={logging}
         onConfirm={logManualSend}

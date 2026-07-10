@@ -46,7 +46,7 @@ export default function NotifyOrgButton({
   return (
     <>
       {/* 未設實地稽核日前鎖定:時程未確定不開放寄信(避免寄出無時程通知被視為擾民) */}
-      <span title={datesConfirmed ? undefined : '請先於「編輯日期」設定實地稽核日,確定時程後才能通知機關'}>
+      <span title={datesConfirmed ? undefined : '請先於「編輯日期」設定實地稽核日，確定時程後才能通知機關'}>
         <Button
           size="sm"
           variant="text"
@@ -54,7 +54,7 @@ export default function NotifyOrgButton({
           onClick={() => setOpen(true)}
           disabled={!datesConfirmed}
         >
-          通知機關(稽核開立)
+          通知機關（稽核開立）
         </Button>
       </span>
       <ConfirmDialog
@@ -63,7 +63,7 @@ export default function NotifyOrgButton({
         title="通知機關填報人 / 主管"
         description={
           <span className="block leading-relaxed">
-            將以 email 通知「{orgName}」的機關管理員:貴機關今年度將接受資通安全稽核,並附上已設定的重要時程(技術檢測日 / 實地稽核日 / 各區資料繳交截止 / 矯正填報截止)。
+            將以 email 通知「{orgName}」的機關管理員：貴機關今年度將接受資通安全稽核，並附上已設定的重要時程（技術檢測日 / 實地稽核日 / 各區資料繳交截止 / 矯正填報截止）。
             <span className="mt-2 block">將記錄於 Email 紀錄供查核。確定寄送？</span>
           </span>
         }

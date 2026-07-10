@@ -38,7 +38,7 @@ const CreateBody = z.object({
     .string()
     .trim()
     .min(10, '缺失描述至少 10 字')
-    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字(請補述…),請填寫實際缺失內容後再發布'),
+    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字（請補述…），請填寫實際缺失內容後再發布'),
   checklistRef: z.string().optional(),
   itemNo: z.number().int().positive().optional(),
 });

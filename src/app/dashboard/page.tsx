@@ -28,6 +28,7 @@ import { fmtROC, fmtROCWeekday } from '@/lib/date';
 import RemindButton from '@/components/cycle/RemindButton';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
+import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
 import { ReturnsInbox } from '@/components/dashboard/ReturnsInbox';
 import { getOpenReturns } from '@/lib/returns';
 import { ROLE_LABELS, ROLE_TONE, auditorReviewWindowOpen, type CycleStatus } from '@/lib/types';
@@ -142,32 +143,32 @@ export default async function HomePage() {
       const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
       // 開立中:讓機關在主橫幅就看到「今年將被稽核」的作業通知(不只埋在鈴鐺),但屬告知性、暫無需動作
       if (st === 'DRAFT') {
-        todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核(開立中),請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
+        todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核（開立中），請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
       }
       // 退補/退回類不進待辦清單:上方「退回收件匣」已單項級直達(含退補原因),同頁不雙講(大改造A 減法)
       if (st === 'PREPARATION' && e.mechRemaining > 0) {
         todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
       } else if (st === 'PREPARATION' && e.mechDraft > 0) {
-        todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊,請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
+        todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊，請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
       }
       // 檢核表為與資料準備平行的任務(先前不在導引中)→ 獨立提示,未送出即顯示
       if (st === 'PREPARATION' && e.checklistTotal > 0 && !e.checklistSubmitted) {
-        todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資通安全檢核表待填報(${e.checklistAnswered}/${e.checklistTotal} 題)`, href: `${base}/checklist`, cta: '去填報' });
+        todos.push({ key: `${c.id}-cl`, tone: 'primary', title: `資通安全檢核表待填報（${e.checklistAnswered}/${e.checklistTotal} 題）`, href: `${base}/checklist`, cta: '去填報' });
       }
       if (st === 'REMEDIATION') {
         // (退回項由退回收件匣單項級獨任,不再彙總雙講)
-        if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `(截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填' });
-        if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過!請列印改善報告、用印後上傳', href: `${base}#signed-report`, cta: '去上傳' });
+        if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `（截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填' });
+        if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過！請列印改善報告、用印後上傳', href: `${base}#signed-report`, cta: '去上傳' });
       }
     }
 
     if (user.role === 'OBSERVER') {
       // 觀察員待辦(批30):審閱時段內去檢視資料;實地稽核起去撰寫練習(窗口查「觀察員」獨立區間)
       if ((st === 'READY' || st === 'ONSITE') && auditorReviewWindowOpen(c.observerWindowStart, c.observerWindowEnd)) {
-        todos.push({ key: `${c.id}-ob-review`, tone: 'neutral', title: `${org}:觀察員審閱時段開放中,可檢視機關資料熟悉背景`, href: `${base}/review`, cta: '去檢視' });
+        todos.push({ key: `${c.id}-ob-review`, tone: 'neutral', title: `${org}：觀察員審閱時段開放中，可檢視機關資料熟悉背景`, href: `${base}/review`, cta: '去檢視' });
       }
       if (st === 'ONSITE') {
-        todos.push({ key: `${c.id}-ob-practice`, tone: 'primary', title: `${org}:實地稽核中,於「稽核發現撰寫練習」撰寫您的練習發現`, href: `${base}/practice`, cta: '去練習' });
+        todos.push({ key: `${c.id}-ob-practice`, tone: 'primary', title: `${org}：實地稽核中，於「稽核發現撰寫練習」撰寫您的練習發現`, href: `${base}/practice`, cta: '去練習' });
       }
     }
 
@@ -178,7 +179,7 @@ export default async function HomePage() {
       if ((st === 'READY' || st === 'ONSITE') && c.checklistSubmittedAt && e.reviewWindowOpen) {
         todos.push({
           key: `${c.id}-review`, tone: 'neutral',
-          title: `${org}:${st === 'READY' ? '資料齊備,可先逐題檢視機關自評熟悉背景(選填)' : '可逐題檢視機關自評、留審閱註記(選填)'}`,
+          title: `${org}:${st === 'READY' ? '資料齊備，可先逐題檢視機關自評熟悉背景（選填）' : '可逐題檢視機關自評、留審閱註記（選填）'}`,
           href: `${base}/review`, cta: '去檢視',
         });
       }
@@ -189,32 +190,32 @@ export default async function HomePage() {
 
     if (user.role === 'SUPER_ADMIN') {
       if (st === 'DRAFT') {
-        todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${org}:週期開立中,完成設定後開始準備`, href: base, cta: '去設定' });
+        todos.push({ key: `${c.id}-draft`, tone: 'neutral', title: `${org}：週期開立中，完成設定後開始準備`, href: base, cta: '去設定' });
       }
       if (st === 'PREPARATION' && e.prepToConfirm > 0) {
-        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 項資料已繳交,待審核確認`, href: `${base}/prep`, cta: '去審核' });
+        todos.push({ key: `${c.id}-conf`, tone: 'primary', title: `${org}:${e.prepToConfirm} 項資料已繳交，待審核確認`, href: `${base}/prep`, cta: '去審核' });
       }
       if (st === 'PREPARATION' && e.prepAllConfirmed) {
-        todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}:資料全數確認,可安排實地稽核`, href: base, cta: '去安排' });
+        todos.push({ key: `${c.id}-ready`, tone: 'sage', title: `${org}：資料全數確認，可安排實地稽核`, href: base, cta: '去安排' });
       }
       // 委員未評分:實地稽核起就要盯(影響報告產出與發布缺失);連到報告頁看逐委員狀態/退件
       const sc = scoringByCycle.get(c.id);
       if ((st === 'ONSITE' || st === 'REPORT_ISSUED') && sc && sc.scored < sc.total) {
-        todos.push({ key: `${c.id}-score`, tone: 'warning', title: `${org}:${sc.total - sc.scored} 位委員尚未完成評分(${sc.scored}/${sc.total})`, href: `${base}/audit/report`, cta: '去查看' });
+        todos.push({ key: `${c.id}-score`, tone: 'warning', title: `${org}:${sc.total - sc.scored} 位委員尚未完成評分（${sc.scored}/${sc.total})`, href: `${base}/audit/report`, cta: '去查看' });
       }
       if (st === 'ONSITE') {
         // 批33 圖5:實地稽核的「下一步」=至彙整報告頁「已完成年度稽核」(FinishButton 一鍵轉缺失+推狀態+通知機關);
         // 該動作在 /audit/report,非 /deficiencies(ONSITE 尚無可發布的缺失)。
-        todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}:實地稽核中,結束後至彙整報告完成年度稽核`, href: `${base}/audit/report`, cta: '去彙整' });
+        todos.push({ key: `${c.id}-onsite`, tone: 'primary', title: `${org}：實地稽核中，結束後至彙整報告完成年度稽核`, href: `${base}/audit/report`, cta: '去彙整' });
       }
       if (st === 'REPORT_ISSUED') {
         // REPORT_ISSUED 的正確動作=推進至矯正執行(推進時自動通知機關;手動通知鈕僅 REMEDIATION 顯示)
-        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}:缺失已發布,推進至「矯正執行」後機關即可填報(推進時自動通知)`, href: `${base}/settings`, cta: '去推進' });
+        todos.push({ key: `${c.id}-issued`, tone: 'warning', title: `${org}：缺失已發布，推進至「矯正執行」後機關即可填報（推進時自動通知）`, href: `${base}/settings`, cta: '去推進' });
       }
       if (st === 'REMEDIATION') {
-        if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}:矯正填報已逾期${due ? `(截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });
-        if (e.allPassed && e.signedUploaded && !e.signedConfirmed) todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${org}:用印報告已上傳,確認後即可結案`, href: base, cta: '去結案' });
-        else if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-waitsign`, tone: 'sage', title: `${org}:全數通過,待機關上傳用印報告`, href: base, cta: '查看' });
+        if (e.overdue) todos.push({ key: `${c.id}-over`, tone: 'danger', title: `${org}：矯正填報已逾期${due ? `（截止 ${due})` : ''}`, href: `/admin/emails?orgIds=${c.organizationId}`, cta: '寄追蹤信' });
+        if (e.allPassed && e.signedUploaded && !e.signedConfirmed) todos.push({ key: `${c.id}-close`, tone: 'sage', title: `${org}：用印報告已上傳，確認後即可結案`, href: base, cta: '去結案' });
+        else if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-waitsign`, tone: 'sage', title: `${org}：全數通過，待機關上傳用印報告`, href: base, cta: '查看' });
       }
     }
   }
@@ -288,10 +289,15 @@ export default async function HomePage() {
             }
           />
           {cycles.length > 0 && (
-            <PrimaryActionBanner next={topAction} subtext={topSubtext} doneText="目前沒有待辦事項,一切都在進度上。" />
+            <PrimaryActionBanner next={topAction} subtext={topSubtext} doneText="目前沒有待辦事項，一切都在進度上。" />
           )}
         </div>
       </section>
+
+      {/* 委員 / 觀察員首次登入的歡迎引導(角色化文案 + 第一步 CTA;localStorage 記住已關,中心/機關不顯示) */}
+      {(user.role === 'AUDITOR' || user.role === 'OBSERVER') && (
+        <WelcomeOnboarding role={user.role} firstHref={topAction?.href} firstLabel={topAction?.cta} />
+      )}
 
       {/* 退回收件匣:散落各頁的退回待補正收斂於此(機關 / 中心;無退回則不顯示) */}
       <ReturnsInbox items={openReturns} showOrg={isSuper} />
@@ -367,7 +373,7 @@ export default async function HomePage() {
               </ul>
               {todos.length > 8 && (
                 <div className="px-4 py-2.5 border-t border-rule text-caption text-ink-500">
-                  另有 {todos.length - 8} 件較不緊急的待辦,
+                  另有 {todos.length - 8} 件較不緊急的待辦，
                   {isSuper ? '可由下方「跨院週期總覽」逐院處理。' : '可由下方週期卡逐一處理。'}
                 </div>
               )}
@@ -379,7 +385,7 @@ export default async function HomePage() {
             <section className="mb-6 rounded-lg border border-rule bg-card shadow-elev-1 overflow-hidden">
               <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-rule">
                 <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">跨院週期總覽 · {cycles.length} 個週期</p>
-                <span className="text-caption text-ink-500">左色條 = 階段;逾期以紅標示</span>
+                <span className="text-caption text-ink-500">左色條 = 階段；逾期以紅標示</span>
               </div>
               <ul className="divide-y divide-rule">
                 {[...enriched]
@@ -397,7 +403,7 @@ export default async function HomePage() {
                           e.overdue ? 'border-l-danger-600 bg-danger-50' : toneClasses(tone).border,
                         )}
                       >
-                        {e.overdue && <span className="sr-only">已逾期;</span>}
+                        {e.overdue && <span className="sr-only">已逾期；</span>}
                         <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
                           <span className="text-body-sm text-ink-900">{e.c.organization.name}</span>
                           <span className="text-caption text-ink-500"> · {e.c.year - 1911} 年度</span>
@@ -424,7 +430,7 @@ export default async function HomePage() {
                 <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-rule">
                   {overdueCount > 0 ? (
                     <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="inline-flex items-center min-h-11 -my-1 text-caption text-danger-700 hover:underline focus-ring rounded">
-                      ⚠ {overdueCount} 個週期矯正已逾期,一鍵催辦(已預選 {overdueOrgIds.length} 院)→
+                      ⚠ {overdueCount} 個週期矯正已逾期，一鍵催辦（已預選 {overdueOrgIds.length} 院）→
                     </Link>
                   ) : (
                     <span />
@@ -484,7 +490,7 @@ export default async function HomePage() {
                             <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                             <span className="text-caption text-ink-500 tabular-nums">{c.year - 1911} 年度</span>
                           </div>
-                          <p className="mt-1 text-caption text-ink-500">本週期已結案,資料已鎖定。</p>
+                          <p className="mt-1 text-caption text-ink-500">本週期已結案，資料已鎖定。</p>
                         </div>
                       </div>
                     );
@@ -505,7 +511,7 @@ export default async function HomePage() {
                           <Chip tone={tone} size="sm" dot>{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</Chip>
                           <span className="text-caption text-ink-500 tabular-nums">{c.year - 1911} 年度</span>
                           {auditorDims.length > 0 && (
-                            <span className="text-caption text-primary-700">負責構面:{auditorDims.join('、')}</span>
+                            <span className="text-caption text-primary-700">負責構面：{auditorDims.join('、')}</span>
                           )}
                         </div>
                         {next?.text && <p className="mt-1 text-caption text-ink-500 truncate">{next.text}</p>}
@@ -533,7 +539,7 @@ export default async function HomePage() {
               <CardTitle className="text-title-lg">稽核流程指引</CardTitle>
               <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>
               <span className="text-caption text-ink-500">
-                你在每一階段的工作;標亮 = 有週期正在該階段
+                你在每一階段的工作；標亮 = 有週期正在該階段
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-rule mt-3">

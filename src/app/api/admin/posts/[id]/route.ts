@@ -101,7 +101,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       try {
         await deleteFileByKey(a.storageKey);
       } catch (err) {
-        console.error('[posts] 刪除附件實體檔失敗:', (err as Error).message);
+        console.error('[posts] 刪除附件實體檔失敗：', (err as Error).message);
       }
     }
 

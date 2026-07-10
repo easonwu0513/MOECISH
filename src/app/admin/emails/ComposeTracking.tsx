@@ -72,11 +72,11 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
     const j = await res.json();
     if (Array.isArray(j.skippedOrgs) && j.skippedOrgs.length > 0) {
       toast.warning(
-        `已寄 ${j.sent} 封;${j.skippedOrgs.length} 家未寄達`,
-        `下列機關無啟用中的機關管理員,未寄出:${j.skippedOrgs.join('、')}。請補建帳號或改以其他方式通知。`,
+        `已寄 ${j.sent} 封；${j.skippedOrgs.length} 家未寄達`,
+        `下列機關無啟用中的機關管理員，未寄出：${j.skippedOrgs.join('、')}。請補建帳號或改以其他方式通知。`,
       );
     } else {
-      toast.success('已寄送追蹤信', `共 ${j.sent} 封,紀錄如下方列表。`);
+      toast.success('已寄送追蹤信', `共 ${j.sent} 封，紀錄如下方列表。`);
     }
     setSelected(new Set());
     router.refresh();
@@ -86,12 +86,12 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
     <Card className="mb-8" variant="elevated">
       <CardTitle>寄送追蹤信</CardTitle>
       <CardDescription>
-        群發給所選機關的機關管理員;內文支援變數 <code className="font-mono">{'{{orgName}}'}</code>、<code className="font-mono">{'{{loginUrl}}'}</code>。
+        群發給所選機關的機關管理員；內文支援變數 <code className="font-mono">{'{{orgName}}'}</code>、<code className="font-mono">{'{{loginUrl}}'}</code>。
       </CardDescription>
 
       <div className="mt-4 flex flex-col gap-4">
         <div>
-          <p className="text-label text-ink-900 mb-2">收件機關({selected.size} 已選)</p>
+          <p className="text-label text-ink-900 mb-2">收件機關（{selected.size} 已選）</p>
           <div className="flex flex-wrap gap-2">
             {orgs.map((o) => (
               <FilterChipButton key={o.id} selected={selected.has(o.id)} onClick={() => toggle(o.id)}>
@@ -106,7 +106,7 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
 
         <div>
           <Button onClick={requestSend} loading={sending} leadingIcon={<Send size={16} />}>
-            寄送({selected.size} 個機關)
+            寄送（{selected.size} 個機關）
           </Button>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function ComposeTracking({ orgs }: { orgs: Org[] }) {
         open={confirmOpen}
         onOpenChange={(o) => !sending && setConfirmOpen(o)}
         title={`確定寄送追蹤信給 ${selected.size} 個機關？`}
-        description={`將對下列機關的機關管理員寄出真實郵件(無法收回):${orgs.filter((o) => selected.has(o.id)).map((o) => o.name).join('、')}`}
+        description={`將對下列機關的機關管理員寄出真實郵件（無法收回）：${orgs.filter((o) => selected.has(o.id)).map((o) => o.name).join('、')}`}
         confirmLabel="確定寄送"
         loading={sending}
         onConfirm={send}

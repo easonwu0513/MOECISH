@@ -114,7 +114,7 @@ export default async function CrossOrgScoresPage({
       <header className="mb-9 pb-5 border-b border-rule">
         <h1 className="text-headline-lg text-ink-900 tracking-tight">跨院評分比較</h1>
         <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-          各機關九大構面之委員平均評分(跨委員平均);每格附<strong className="font-medium text-ink-700">等第</strong>文字(色塊為輔),點欄位標題可排序,供中心橫向比較與聚焦輔導。
+          各機關九大構面之委員平均評分（跨委員平均）；每格附<strong className="font-medium text-ink-700">等第</strong>文字（色塊為輔），點欄位標題可排序，供中心橫向比較與聚焦輔導。
         </p>
       </header>
 
@@ -134,8 +134,8 @@ export default async function CrossOrgScoresPage({
           <p className="text-title text-ink-700">{yearFilter ? EMPTY.noResults.title : '尚無評分資料'}</p>
           <p className="mx-auto mt-1.5 max-w-md text-body-sm text-ink-500">
             {yearFilter
-              ? '此年度尚無已完成評分的稽核週期;試試其他年度或查看全部。'
-              : '待委員於實地稽核完成評分後,此處即可橫向比較各院構面得分。'}
+              ? '此年度尚無已完成評分的稽核週期；試試其他年度或查看全部。'
+              : '待委員於實地稽核完成評分後，此處即可橫向比較各院構面得分。'}
           </p>
           {yearFilter && (
             <div className="mt-4"><Button href="/admin/scores" variant="tonal" size="sm">全部年度</Button></div>
@@ -155,7 +155,7 @@ export default async function CrossOrgScoresPage({
             {weakestCol >= 0 && (
               <span className="ml-auto inline-flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-full ring-2 ring-inset ring-danger-400 bg-danger-50" aria-hidden />
-                全院最弱構面:{DIMENSION_NUM[DIMENSION_ORDER[weakestCol] as Dimension]}（{DIMENSION_LABELS[DIMENSION_ORDER[weakestCol] as Dimension]}）
+                全院最弱構面：{DIMENSION_NUM[DIMENSION_ORDER[weakestCol] as Dimension]}（{DIMENSION_LABELS[DIMENSION_ORDER[weakestCol] as Dimension]}）
               </span>
             )}
           </div>
@@ -254,8 +254,8 @@ export default async function CrossOrgScoresPage({
       )}
 
       <p className="mt-4 text-caption text-ink-500">
-        註:此為螢幕比較工具;正式分數以各委員附件17 評分表為準。「九」為評核項(AuditScore.dimension),與缺失之三構面(策略/管理/技術)不同軸。
-        帶 * 之總分為「已評構面小計」(尚有構面未評分,九構面全評後即為正式總分)。
+        註：此為螢幕比較工具；正式分數以各委員附件17 評分表為準。「九」為評核項（AuditScore.dimension），與缺失之三構面（策略/管理/技術）不同軸。
+        帶 * 之總分為「已評構面小計」（尚有構面未評分，九構面全評後即為正式總分）。
       </p>
       <Link href="/admin/cycles" className="mt-2 inline-block text-caption text-primary-700 hover:underline">← 回跨院週期總覽</Link>
     </AppShell>

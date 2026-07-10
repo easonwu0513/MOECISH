@@ -93,7 +93,7 @@ export default function UserRowActions({
       return;
     }
     setPromoteOpen(false);
-    toast.success('已晉升為稽核委員', `${name} 的實習紀錄完整留存;可開始指派稽核週期。`);
+    toast.success('已晉升為稽核委員', `${name} 的實習紀錄完整留存；可開始指派稽核週期。`);
     router.refresh();
   }
 
@@ -135,7 +135,7 @@ export default function UserRowActions({
           open={toggleOpen}
           onOpenChange={(o) => !saving && setToggleOpen(o)}
           title="停用帳號"
-          description={`停用後「${name}」將無法登入系統;歷史紀錄保留。權責分立要求須填寫停用理由,並留存操作者與時間。`}
+          description={`停用後「${name}」將無法登入系統；歷史紀錄保留。權責分立要求須填寫停用理由，並留存操作者與時間。`}
           footer={
             <>
               <Button variant="text" onClick={() => setToggleOpen(false)} disabled={saving}>取消</Button>
@@ -155,7 +155,7 @@ export default function UserRowActions({
         >
           <Textarea
             label="停用理由"
-            placeholder="例:人員離職、職務調整、帳號疑似遭冒用…"
+            placeholder="例：人員離職、職務調整、帳號疑似遭冒用…"
             value={reason}
             onChange={(e) => { setReason(e.target.value); if (reasonErr) setReasonErr(undefined); }}
             errorText={reasonErr}
@@ -182,7 +182,7 @@ export default function UserRowActions({
         open={roleOpen}
         onOpenChange={(v) => !saving && setRoleOpen(v)}
         title="變更角色"
-        description={`調整「${name}」的系統角色;權限立即生效。`}
+        description={`調整「${name}」的系統角色；權限立即生效。`}
         footer={
           <>
             <Button variant="text" onClick={() => setRoleOpen(false)} disabled={saving}>取消</Button>
@@ -206,7 +206,7 @@ export default function UserRowActions({
           </Select>
           {!hasOrganization && (
             <p className="mt-1.5 text-caption text-ink-500">
-              此帳號未隸屬機關,不可改為機關管理員。
+              此帳號未隸屬機關，不可改為機關管理員。
             </p>
           )}
         </div>
@@ -218,8 +218,8 @@ export default function UserRowActions({
         title={`重設「${name}」的密碼`}
         description={
           resetDelivered
-            ? '已寄出密碼重設連結至該使用者 Email(24 小時內有效)。如未收到,可複製下方連結另行轉交。'
-            : 'Email 未實際寄出(未設定寄信服務);請複製下方連結,以其他管道轉交該使用者(24 小時內有效)。'
+            ? '已寄出密碼重設連結至該使用者 Email（24 小時內有效）。如未收到，可複製下方連結另行轉交。'
+            : 'Email 未實際寄出（未設定寄信服務）；請複製下方連結，以其他管道轉交該使用者（24 小時內有效）。'
         }
         footer={<Button onClick={() => setResetOpen(false)}>關閉</Button>}
       >
@@ -242,7 +242,7 @@ export default function UserRowActions({
               複製
             </Button>
           </div>
-          <p className="text-caption text-ink-500">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
+          <p className="text-caption text-ink-500">此連結單次使用、24 小時內有效；使用者設定新密碼後即失效。</p>
         </div>
       </Dialog>
       <IdentityGrantsDialog
@@ -257,7 +257,7 @@ export default function UserRowActions({
         open={promoteOpen}
         onOpenChange={(o) => !promoting && setPromoteOpen(o)}
         title={`晉升「${name}」為稽核委員？`}
-        description="觀察員授權將結束(留歷史)、改持稽核委員授權;其實習紀錄(練習發現與指導回饋)完整留存,可於實習紀錄頁回顧。晉升後即可被指派為正式稽核委員。"
+        description="觀察員授權將結束（留歷史）、改持稽核委員授權；其實習紀錄（練習發現與指導回饋）完整留存，可於實習紀錄頁回顧。晉升後即可被指派為正式稽核委員。"
         confirmLabel="晉升"
         loading={promoting}
         onConfirm={() => void promote()}

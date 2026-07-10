@@ -25,7 +25,7 @@ export default async function AccountPage() {
     >
       <header className="mb-6">
         <h1 className="text-headline text-ink-900">個人資料</h1>
-        <p className="mt-1 text-body-sm text-ink-500">您的帳號資訊;如需變更密碼請點下方按鈕。</p>
+        <p className="mt-1 text-body-sm text-ink-500">您的帳號資訊；如需變更密碼請點下方按鈕。</p>
       </header>
 
       <Card className="max-w-lg" variant="outlined">
@@ -54,7 +54,7 @@ export default async function AccountPage() {
           <Button href="/account/password" variant="tonal" size="sm">變更密碼</Button>
           {practiceCount > 0 && (
             <Button href={`/users/${user.id}/practice-history`} variant="text" size="sm">
-              實習紀錄({practiceCount} 條練習)
+              實習紀錄（{practiceCount} 條練習）
             </Button>
           )}
         </div>

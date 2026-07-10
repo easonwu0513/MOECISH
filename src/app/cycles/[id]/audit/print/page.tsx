@@ -101,7 +101,7 @@ export default async function Att17PrintPage({
   );
 }
 
-const FONT = "'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif";
+const FONT = "'Times New Roman'， '標楷體'， 'KaiU'， 'DFKai-SB'， serif";
 const B = '1px solid #000';
 
 type SheetCounts = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
@@ -139,7 +139,7 @@ function Att17Sheet({
         實地稽核評分表
       </div>
       <div style={{ fontSize: '12pt', marginBottom: '8pt' }}>
-        受稽機關:{orgName}　　年度:{yearROC} 年度
+        受稽機關：{orgName}　　年度：{yearROC} 年度
       </div>
 
       {/* 稽核評分(整表不跨頁:break-inside avoid + 緊縮列高,塞於同一頁) */}
@@ -175,7 +175,7 @@ function Att17Sheet({
                   )}
                   <td style={td}>
                     {/* DIMENSION_LABELS 已含「一、」前綴 */}
-                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
+                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分）：
                     <div style={{ fontSize: '8.5pt', lineHeight: 1.2 }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>
@@ -192,7 +192,7 @@ function Att17Sheet({
           )}
           <tr>
             <td style={{ ...td, textAlign: 'right', fontWeight: 'bold' }} colSpan={7}>
-              得　　分(滿分100分)
+              得　　分（滿分100分）
             </td>
             <td style={{ ...td, textAlign: 'center', fontWeight: 'bold', fontSize: '12pt' }}>
               {scored ? total : ''}
@@ -234,11 +234,11 @@ function Att17Sheet({
       </table>
 
       <div style={{ fontSize: '12pt', marginTop: '18pt', lineHeight: 2 }}>
-        <div>稽核日期:{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
-        <div>受稽機關:{orgName}</div>
+        <div>稽核日期：{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
+        <div>受稽機關：{orgName}</div>
         {/* 服務機關／職稱欄移除:部分委員不願公布(依使用者回饋) */}
         <div style={{ marginTop: '14pt' }}>
-          <span>委員簽名:{auditorName ? `${auditorName}　` : ''}________________</span>
+          <span>委員簽名：{auditorName ? `${auditorName}　` : ''}________________</span>
         </div>
       </div>
     </div>

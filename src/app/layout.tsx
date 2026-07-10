@@ -28,7 +28,7 @@ const noto = Noto_Sans_TC({
 export const metadata: Metadata = {
   title: 'MOECISH · 資通安全稽核管考平台',
   description:
-    '教育部轄下醫療領域資訊安全推動中心 — 醫療機構資通安全稽核管考平台:稽核前資料準備、檢核表線上填報、實地稽核數位化、缺失矯正管考,全流程一站完成。',
+    '教育部轄下醫療領域資訊安全推動中心 — 醫療機構資通安全稽核管考平台：稽核前資料準備、檢核表線上填報、實地稽核數位化、缺失矯正管考，全流程一站完成。',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

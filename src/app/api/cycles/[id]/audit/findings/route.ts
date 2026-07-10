@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 階段閘下沉 API 層(縱深防禦):實地稽核(ONSITE 起)才可記錄稽核發現(封 READY 繞頁面直打之破口)。
     if (!auditorCanScore(cycle.status)) {
-      return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可記錄稽核發現' }, { status: 403 });
+      return NextResponse.json({ error: '尚未進入實地稽核階段，暫不可記錄稽核發現' }, { status: 403 });
     }
     await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下
 

@@ -26,7 +26,7 @@ async function loadOwnComment(cid: string, userId: string) {
     throw new AuthError(403, '資料準備階段尚未開放審閱留言');
   }
   if (!reviewWindowOpenForRole('OBSERVER', cycle)) {
-    throw new AuthError(403, '目前不在觀察員審閱時段內,暫不開放編修');
+    throw new AuthError(403, '目前不在觀察員審閱時段內，暫不開放編修');
   }
   return c;
 }

@@ -20,7 +20,7 @@ async function loadOwnPractice(pid: string, userId: string) {
   if (pf.observerId !== userId) throw new AuthError(403, '僅能編修自己的練習發現');
   await assertPracticeUnlocked(pf.cycleId, userId); // 送出鎖定後不可再改/刪(批45)
   if (!canAccess('practice.access', 'OBSERVER', pf.cycle.status)) {
-    throw new AuthError(403, '練習於實地稽核階段起開放(結案後仍可續寫)');
+    throw new AuthError(403, '練習於實地稽核階段起開放（結案後仍可續寫）');
   }
   return pf;
 }
@@ -47,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: { pid: string } 
           where: { cycleId_observerId: { cycleId: pf.cycleId, observerId: user.id } },
           select: { practiceLockedAt: true },
         });
-        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出（確認填寫完畢），如需修改請先解除鎖定');
         return tx.practiceFinding.update({
           where: { id: pf.id },
           data: {
@@ -60,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { pid: string } 
       }, { isolationLevel: 'Serializable' });
     } catch (e) {
       if ((e as { code?: string }).code === 'P2034') {
-        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+        return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
       }
       throw e;
     }
@@ -91,12 +91,12 @@ export async function DELETE(req: Request, { params }: { params: { pid: string }
           where: { cycleId_observerId: { cycleId: pf.cycleId, observerId: user.id } },
           select: { practiceLockedAt: true },
         });
-        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出（確認填寫完畢），如需修改請先解除鎖定');
         await tx.practiceFinding.delete({ where: { id: pf.id } });
       }, { isolationLevel: 'Serializable' });
     } catch (e) {
       if ((e as { code?: string }).code === 'P2034') {
-        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+        return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
       }
       throw e;
     }

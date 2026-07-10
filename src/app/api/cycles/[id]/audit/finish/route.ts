@@ -45,7 +45,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     //      前端 FinishButton 亦先跳窗要求設定;此為後端縱深防禦,避免繞過。
     if (!cycle.dueDate) {
       return NextResponse.json(
-        { error: '尚未設定矯正截止日,無法完成年度稽核;請先於週期首頁「編輯日期」設定矯正截止日。' },
+        { error: '尚未設定矯正截止日，無法完成年度稽核；請先於週期首頁「編輯日期」設定矯正截止日。' },
         { status: 400 },
       );
     }
@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const existingDeficiencies = await prisma.deficiency.count({ where: { cycleId: cycle.id } });
     if (pendingFindings === 0 && existingDeficiencies === 0) {
       return NextResponse.json(
-        { error: '沒有任何缺失可發布:請先請委員於「實地稽核」輸入待改善事項與建議事項' },
+        { error: '沒有任何缺失可發布：請先請委員於「實地稽核」輸入待改善事項與建議事項' },
         { status: 400 },
       );
     }
@@ -74,7 +74,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           data: {
             status: to,
             stateTransitions: {
-              create: { fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核(一鍵連動)' },
+              create: { fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核（一鍵連動）' },
             },
           },
         });
@@ -93,7 +93,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       });
       notified = r.recipientCount;
     } catch (e) {
-      console.error('[audit.finish] 通知失敗:', e);
+      console.error('[audit.finish] 通知失敗：', e);
     }
 
     await writeAuditLog({

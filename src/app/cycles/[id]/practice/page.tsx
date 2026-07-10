@@ -202,7 +202,7 @@ export default async function PracticePage({ params }: { params: { id: string } 
         <CycleHubBar
           cycleId={cycle.id}
           label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-          nextHint="練習撰寫後,可於檢核表審閱對照素材"
+          nextHint="練習撰寫後，可於檢核表審閱對照素材"
         />
         <header className="mb-5">
           <h1 className="text-headline text-ink-900">稽核發現撰寫練習</h1>
@@ -342,14 +342,14 @@ export default async function PracticePage({ params }: { params: { id: string } 
       <CycleHubBar
         cycleId={cycle.id}
         label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="回饋後,回工作台查看下一步"
+        nextHint="回饋後，回工作台查看下一步"
       />
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">指導觀察員</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
           {viewerKind === 'mentor'
-            ? '檢視您指導的觀察員練習(評分與發現),逐條給予回饋;練習內容不進入正式報告。'
-            : '中心監督:全部觀察員的練習評分、發現與指導回饋;練習內容不進入正式報告。'}
+            ? '檢視您指導的觀察員練習（評分與發現），逐條給予回饋；練習內容不進入正式報告。'
+            : '中心監督：全部觀察員的練習評分、發現與指導回饋；練習內容不進入正式報告。'}
         </p>
       </header>
 
@@ -411,7 +411,7 @@ export default async function PracticePage({ params }: { params: { id: string } 
       {practiceComments.length > 0 && (
         <Card className="mb-6">
           <div className="flex items-center gap-2 flex-wrap">
-            <CardTitle>觀察員意見(檢核表審閱)</CardTitle>
+            <CardTitle>觀察員意見（檢核表審閱）</CardTitle>
             <Chip size="sm" tone="neutral">唯讀 · 僅本人/指導者/中心可見</Chip>
           </div>
           <ul className="mt-3 flex flex-col divide-y divide-rule">

@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthLayout
       title="忘記密碼"
-      subtitle="輸入您的帳號 Email,我們將寄送密碼重設連結(1 小時內有效)。"
+      subtitle="輸入您的帳號 Email,我們將寄送密碼重設連結（1 小時內有效）。"
       back={{ href: '/login', label: '返回登入' }}
     >
           {done ? (
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
                 <CheckCircle size={26} />
               </span>
               <p className="text-body text-ink-900">
-                若該 Email 對應到有效帳號,我們已寄出密碼重設連結。請至信箱查收(可能需稍候並檢查垃圾信件匣)。
+                若該 Email 對應到有效帳號，我們已寄出密碼重設連結。請至信箱查收（可能需稍候並檢查垃圾信件匣）。
               </p>
               <Link href="/login">
                 <Button variant="tonal">返回登入</Button>
@@ -58,7 +58,7 @@ export default function ForgotPasswordPage() {
                 autoFocus
                 autoComplete="email"
               />
-              <Alert tone="neutral">為保護帳號安全,無論該 Email 是否存在,系統都會顯示相同結果。</Alert>
+              <Alert tone="neutral">為保護帳號安全，無論該 Email 是否存在，系統都會顯示相同結果。</Alert>
               <Button type="submit" loading={loading} disabled={!email} fullWidth size="lg">
                 寄送重設連結
               </Button>

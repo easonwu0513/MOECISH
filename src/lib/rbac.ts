@@ -50,7 +50,7 @@ export async function assertCycleAccess(cycleId: string, opts?: { allowClosed?: 
       // 開立中(DRAFT)委員尚不可存取(中心仍在調整委員名單);PREPARATION 起才開放。
       // 中心指派/抽換委員不經此閘(assignments API 為 SUPER_ADMIN-only、無階段限制)。
       if (!canSee(cycle.status)) {
-        throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放委員存取');
+        throw new AuthError(403, '此稽核週期尚在開立中，待中心開始資料準備後才開放委員存取');
       }
       break;
     }
@@ -63,7 +63,7 @@ export async function assertCycleAccess(cycleId: string, opts?: { allowClosed?: 
       });
       if (!paired) throw new AuthError(403, '您未被配對至此稽核週期');
       if (!canSee(cycle.status)) {
-        throw new AuthError(403, '此稽核週期尚在開立中,待中心開始資料準備後才開放存取');
+        throw new AuthError(403, '此稽核週期尚在開立中，待中心開始資料準備後才開放存取');
       }
       break;
     }
@@ -88,7 +88,7 @@ export async function assertAuditorScoreUnlocked(cycleId: string, auditorId: str
     select: { scoreLockedAt: true },
   });
   if (a?.scoreLockedAt) {
-    throw new AuthError(409, '已確認填寫完畢,如需修改請先解除鎖定');
+    throw new AuthError(409, '已確認填寫完畢，如需修改請先解除鎖定');
   }
 }
 
@@ -194,7 +194,7 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
     !windowExemptForScoring &&
     !reviewWindowOpenForRole(user.role, cycle)
   ) {
-    throw new AuthError(403, '目前不在審閱時間區間內,暫不開放檢視機關資料');
+    throw new AuthError(403, '目前不在審閱時間區間內，暫不開放檢視機關資料');
   }
 
   // 資料準備佐證:委員/觀察員僅能存取中心已確認齊備之機關區、或中心匯入區已有檔者(API 層強制,非僅畫面過濾)
@@ -225,7 +225,7 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
       select: { requirement: { select: { category: true } } },
     });
     if (sub?.requirement.category === 'CENTER') {
-      throw new AuthError(403, '中心匯入區資料僅供委員審閱,機關無法存取');
+      throw new AuthError(403, '中心匯入區資料僅供委員審閱，機關無法存取');
     }
   }
 
@@ -294,6 +294,6 @@ export async function assertPracticeUnlocked(cycleId: string, observerId: string
     select: { practiceLockedAt: true },
   });
   if (o?.practiceLockedAt) {
-    throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+    throw new AuthError(409, '已送出（確認填寫完畢），如需修改請先解除鎖定');
   }
 }

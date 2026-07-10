@@ -66,9 +66,9 @@ export default async function AuditReportPage({ params }: { params: { id: string
       : unfinalizedAuditors > 0
         ? `尚有 ${unfinalizedAuditors} 位委員評分表未定稿或已退件`
         : incompleteFinalized
-          ? `委員「${incompleteFinalized.auditor.name}」已定稿但尚未完成任何構面評分,請對其退件補齊`
+          ? `委員「${incompleteFinalized.auditor.name}」已定稿但尚未完成任何構面評分，請對其退件補齊`
           : placeholderFindings > 0
-            ? `${placeholderFindings} 條帶入的發現仍為「請補述…」佔位文字,請洽該委員補述(或退件),避免佔位語成為正式缺失`
+            ? `${placeholderFindings} 條帶入的發現仍為「請補述…」佔位文字，請洽該委員補述（或退件），避免佔位語成為正式缺失`
             : null;
   // 委員定稿/解鎖事件(系統內同步通知中心,避免漏看 email)
   const stateChanges = await loadAuditorStateChanges(data.assignments.map((a) => a.id));
@@ -95,14 +95,14 @@ export default async function AuditReportPage({ params }: { params: { id: string
           </Link>
           <h1 className="text-headline text-ink-900">實地稽核彙整報告</h1>
           <p className="text-body-sm text-ink-500 mt-1">
-            {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式,列印版供受稽單位簽名
+            {data.organization.name} · {data.year - 1911} 年度 · 版式對齊彙整工具 Word 格式，列印版供受稽單位簽名
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isAdmin && (
             <Link href={`/admin/tools/audit-merge?cycleId=${data.id}`}>
               <Button variant="tonal" size="sm" leadingIcon={<Settings size={15} />}>
-                報告設定(啟動彙整工具)
+                報告設定（啟動彙整工具）
               </Button>
             </Link>
           )}
@@ -127,8 +127,8 @@ export default async function AuditReportPage({ params }: { params: { id: string
       <Card className="mb-6">
         <CardTitle>評分總覽</CardTitle>
         <CardDescription>
-          各委員九項評分與平均(僅供管考檢視;附件17 評分表由您於下方逐一列印,交付委員紙本簽名)。
-          下表「符合/部分/不符/不適」為機關自評數量供參;各委員實地判定之檢核數量請見各自附件17 評分表。
+          各委員九項評分與平均（僅供管考檢視；附件17 評分表由您於下方逐一列印，交付委員紙本簽名）。
+          下表「符合/部分/不符/不適」為機關自評數量供參；各委員實地判定之檢核數量請見各自附件17 評分表。
         </CardDescription>
         {/* 委員填報進度(軟性看板:管理員一眼知誰填完,不上鎖) */}
         {data.assignments.length > 0 && (
@@ -160,7 +160,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
         {isAdmin && data.assignments.length > 0 && (
           <div className="mt-4 pt-4 border-t border-rule">
             <p className="text-label-sm font-medium text-ink-500 mb-2">
-              各委員評分表(附件17):列印後交付委員紙本簽名。{canAssignAuditors(status as CycleStatus) ? '已定稿者可「退件」解除鎖定供其重新編輯。' : '實地稽核階段已結束,評分已凍結,不可再退件。'}
+              各委員評分表（附件17）：列印後交付委員紙本簽名。{canAssignAuditors(status as CycleStatus) ? '已定稿者可「退件」解除鎖定供其重新編輯。' : '實地稽核階段已結束，評分已凍結，不可再退件。'}
             </p>
             <div className="flex flex-wrap gap-2">
               {data.assignments.map((a) => (
@@ -195,7 +195,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
       <Card className="mb-6">
         <CardTitle>委員填寫狀態</CardTitle>
         <CardDescription>
-          各委員目前的填寫狀態與最近動作時間;「已解除鎖定 / 已被退件」代表該委員內容可能已修改,請複核。
+          各委員目前的填寫狀態與最近動作時間；「已解除鎖定 / 已被退件」代表該委員內容可能已修改，請複核。
         </CardDescription>
         <div className="mt-4">
           <AuditorStateChangeLog assignments={data.assignments} events={stateChanges} />
@@ -207,7 +207,7 @@ export default async function AuditReportPage({ params }: { params: { id: string
         <div className="px-6 py-4 border-b border-rule">
           <CardTitle>報告預覽</CardTitle>
           <CardDescription>
-            全體委員發現即時彙整;封面與基本資訊請按「報告設定」於彙整工具中編輯後存回系統
+            全體委員發現即時彙整；封面與基本資訊請按「報告設定」於彙整工具中編輯後存回系統
           </CardDescription>
         </div>
         <div className="px-8 py-6 bg-card">

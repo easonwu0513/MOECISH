@@ -44,8 +44,8 @@ export default function FinishButton({
     const j = await res.json();
     toast.success(
       '年度稽核已完成',
-      `已建立 ${j.converted} 項缺失(共 ${j.totalDeficiencies} 項),週期進入「矯正執行中」` +
-        (j.notified > 0 ? `,並已通知 ${j.notified} 位機關管理員填報。` : '。'),
+      `已建立 ${j.converted} 項缺失（共 ${j.totalDeficiencies} 項），週期進入「矯正執行中」` +
+        (j.notified > 0 ? `，並已通知 ${j.notified} 位機關管理員填報。` : '。'),
     );
     router.push(`/cycles/${cycleId}/deficiencies`);
     router.refresh();
@@ -54,10 +54,10 @@ export default function FinishButton({
   if (blockReason) {
     return (
       <span className="inline-flex flex-col items-end gap-0.5">
-        <Button size="sm" leadingIcon={<CheckCircle size={15} />} disabled title={`${blockReason},尚無法完成年度稽核`}>
+        <Button size="sm" leadingIcon={<CheckCircle size={15} />} disabled title={`${blockReason}，尚無法完成年度稽核`}>
           已完成年度稽核
         </Button>
-        <span className="text-caption text-ink-500 text-right max-w-[16rem]">{blockReason},尚無法完成</span>
+        <span className="text-caption text-ink-500 text-right max-w-[16rem]">{blockReason}，尚無法完成</span>
       </span>
     );
   }
@@ -76,8 +76,8 @@ export default function FinishButton({
         onOpenChange={(o) => !busy && setOpen(o)}
         title="完成年度稽核"
         description={
-          `將自動執行三件事:① 把全體委員的待改善與建議事項(共 ${pendingCount} 條尚未轉入)建立為完整稽核缺失表;` +
-          `② 週期狀態推進至「矯正執行中」;③ 寄通知請機關管理員開始填報矯正措施。` +
+          `將自動執行三件事：① 把全體委員的待改善與建議事項（共 ${pendingCount} 條尚未轉入）建立為完整稽核缺失表；` +
+          `② 週期狀態推進至「矯正執行中」；③ 寄通知請機關管理員開始填報矯正措施。` +
           `法遵符合情形不會轉為缺失。確定執行？`
         }
         confirmLabel="確認完成稽核"
@@ -90,7 +90,7 @@ export default function FinishButton({
         open={needDateOpen}
         onOpenChange={setNeedDateOpen}
         title="尚未設定矯正截止日"
-        description="「已完成年度稽核」會將週期推進至「矯正執行中」,機關須依「矯正截止日」填報矯正措施。請先於週期首頁「編輯日期」設定矯正截止日,再完成年度稽核。"
+        description="「已完成年度稽核」會將週期推進至「矯正執行中」，機關須依「矯正截止日」填報矯正措施。請先於週期首頁「編輯日期」設定矯正截止日，再完成年度稽核。"
         confirmLabel="前往設定日期"
         tone="primary"
         onConfirm={() => {

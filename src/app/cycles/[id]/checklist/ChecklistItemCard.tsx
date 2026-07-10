@@ -203,7 +203,7 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="機關說明(規範內容、執行方式、執行結果)"
+            label="機關說明（規範內容、執行方式、執行結果）"
             value={description}
             onChange={(e) => { setTextDirty(true); setDescription(e.target.value); scheduleSave(e.target.value, recordDocs); }}
             onBlur={autoSaveOnBlur}
@@ -212,13 +212,13 @@ export default function ChecklistItemCard({
             placeholder="例：依據本院『資訊安全政策 v3』第 5.2 條，每季進行一次審查…"
           />
           <Textarea
-            label="紀錄文件(如規範、紀錄、公文等)"
+            label="紀錄文件（如規範、紀錄、公文等）"
             value={recordDocs}
             onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); scheduleSave(description, e.target.value); }}
             onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={2}
-            placeholder={item.expectedEvidence ? `參考應備文件:${item.expectedEvidence.split('\n')[0]}…` : '例:資訊安全管理程序書、內部稽核報告…'}
+            placeholder={item.expectedEvidence ? `參考應備文件：${item.expectedEvidence.split('\n')[0]}…` : '例：資訊安全管理程序書、內部稽核報告…'}
           />
           {canEdit && (
             <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ export default function ChecklistItemCard({
                 <CommentForm responseId={response.id} />
               </div>
             ) : (
-              <p className="text-caption text-ink-500">(機關尚未作答,暫無法留言)</p>
+              <p className="text-caption text-ink-500">（機關尚未作答，暫無法留言）</p>
             ))}
         </div>
       ),
@@ -372,7 +372,7 @@ export default function ChecklistItemCard({
           {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
             <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
               <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                法規對照(稽核依據・稽核重點・應備文件)
+                法規對照（稽核依據・稽核重點・應備文件）
               </summary>
               <div className="px-3 pb-3 pt-1 bg-card">
                 <LawPanel

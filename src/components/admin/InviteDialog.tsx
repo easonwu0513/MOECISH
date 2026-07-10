@@ -16,10 +16,10 @@ import type { Role } from '@/lib/types';
  * 選「機關管理員」時出現必填的所屬醫院下拉;API 本就統一(role↔機關一致性由後端驗證)。
  */
 const ROLE_OPTIONS: { value: Role; label: string; hint: string }[] = [
-  { value: 'AUDITOR', label: '稽核委員', hint: '外聘委員,不隸屬任何機關' },
-  { value: 'OBSERVER', label: '觀察員', hint: '學習與練習定位,獨立審閱窗口,不隸屬任何機關(批30)' },
-  { value: 'ORG_ADMIN', label: '機關管理員', hint: '受稽醫院的承辦人,須指定所屬醫院' },
-  { value: 'SUPER_ADMIN', label: '最高管理員', hint: '中心人員,具全部權限' },
+  { value: 'AUDITOR', label: '稽核委員', hint: '外聘委員，不隸屬任何機關' },
+  { value: 'OBSERVER', label: '觀察員', hint: '學習與練習定位，獨立審閱窗口，不隸屬任何機關（批30）' },
+  { value: 'ORG_ADMIN', label: '機關管理員', hint: '受稽醫院的承辦人，須指定所屬醫院' },
+  { value: 'SUPER_ADMIN', label: '最高管理員', hint: '中心人員，具全部權限' },
 ];
 
 export default function InviteDialog({
@@ -80,7 +80,7 @@ export default function InviteDialog({
     if (j.delivered !== false) {
       toast.success('邀請已建立', `系統已寄送邀請信給 ${email}`);
     } else {
-      toast.warning('邀請已建立(Email 未寄出)', '寄信服務尚未設定,請複製下方連結直接轉交對方');
+      toast.warning('邀請已建立（Email 未寄出）', '寄信服務尚未設定，請複製下方連結直接轉交對方');
     }
     router.refresh();
   }
@@ -114,8 +114,8 @@ export default function InviteDialog({
         description={link
           ? (delivered
               ? '邀請信已寄出。你也可以複製以下連結直接傳給對方。'
-              : '邀請已建立,但 Email 尚未實際寄出(寄信服務未設定)。請複製以下連結直接傳給對方。')
-          : '輸入對方 email、姓名與角色;機關管理員需指定所屬醫院。系統將建立一次性連結並寄送邀請(14 天內有效)。'}
+              : '邀請已建立，但 Email 尚未實際寄出（寄信服務未設定）。請複製以下連結直接傳給對方。')
+          : '輸入對方 email、姓名與角色；機關管理員需指定所屬醫院。系統將建立一次性連結並寄送邀請（14 天內有效）。'}
         footer={link ? (
           <Button variant="text" onClick={() => { setOpen(false); reset(); }}>關閉</Button>
         ) : (
@@ -129,10 +129,10 @@ export default function InviteDialog({
           <div className="pt-2">
             <div className={`flex items-center gap-2 mb-3 ${delivered ? 'text-success-700' : 'text-warning-700'}`}>
               <CheckCircle size={18} />
-              <span className="text-body font-medium">{delivered ? '邀請信已寄出' : '邀請已建立(Email 未寄出,請複製連結轉交)'}</span>
+              <span className="text-body font-medium">{delivered ? '邀請信已寄出' : '邀請已建立（Email 未寄出，請複製連結轉交）'}</span>
             </div>
             <div className="rounded-md bg-paper-sunk border border-rule/60 p-3 mb-3">
-              <p className="text-caption text-ink-500 mb-1">邀請連結(14 天內有效)</p>
+              <p className="text-caption text-ink-500 mb-1">邀請連結（14 天內有效）</p>
               <p className="text-body-sm font-mono break-all text-ink-900">{link}</p>
             </div>
             <Button variant="tonal" onClick={copyLink} leadingIcon={<Paperclip size={14} />}>

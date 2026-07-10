@@ -29,16 +29,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         toName: user.name,
         subject: '[MOECISH] 管理員已為您產生密碼重設連結',
         body:
-          `${user.name} 您好,\n\n` +
-          '系統管理員已為您產生密碼重設連結。請於 24 小時內點擊以下連結設定新密碼:\n\n' +
+          `${user.name} 您好，\n\n` +
+          '系統管理員已為您產生密碼重設連結。請於 24 小時內點擊以下連結設定新密碼：\n\n' +
           `${link}\n\n` +
-          '若您並未提出此需求,請洽系統管理員。\n\n' +
+          '若您並未提出此需求，請洽系統管理員。\n\n' +
           '— MOECISH 資通安全稽核管考平台',
         kind: 'password-reset',
       });
       delivered = log.status === 'sent';
     } catch (e) {
-      console.error('[admin reset] 寄信失敗:', (e as Error).message);
+      console.error('[admin reset] 寄信失敗：', (e as Error).message);
     }
 
     await writeAuditLog({

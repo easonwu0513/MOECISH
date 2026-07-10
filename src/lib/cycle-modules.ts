@@ -88,7 +88,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const reviewLocked = (isAuditor || isObserver) && reviewState !== 'open';
   const windowNoun = isObserver ? '觀察員審閱時段' : '委員審閱時段';
   const reviewLockHint = onsiteStageEnded(st)
-    ? '實地稽核階段已結束,非審閱時段'
+    ? '實地稽核階段已結束，非審閱時段'
     : reviewState === 'before' ? `${windowNoun}尚未開始`
     : reviewState === 'after' ? `${windowNoun}已結束`
     : `中心尚未設定${windowNoun}`;
@@ -130,7 +130,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
         href: `${base}/review`,
         status: onsitePast ? '已結束' : auditorReviewActive ? '開放中' : '待開放',
         statusTone: auditorReviewActive ? 'primary' : 'default',
-        caption: '檢視機關填報與佐證,留觀察員意見作為練習素材',
+        caption: '檢視機關填報與佐證，留觀察員意見作為練習素材',
         muted: !auditorReviewActive,
         locked: !auditorCanViewChecklistContent(st) || reviewLocked,
         lockedHint: reviewLocked ? reviewLockHint : '資料齊備後開放檢視',
@@ -216,7 +216,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const rpt = i.report ?? { submitted: false, confirmed: false };
   const report: ModuleNavItem = {
     key: 'report',
-    title: '改善報告(用印)',
+    title: '改善報告（用印）',
     sub: '列印、用印後上傳',
     href: `${base}#signed-report`,
     status: rpt.confirmed ? '已確認' : rpt.submitted ? '已繳交' : modActive.report ? '待上傳' : '—',
@@ -234,11 +234,11 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const practice: ModuleNavItem = {
     key: 'practice',
     title: '稽核發現撰寫練習',
-    sub: '練習撰寫發現,指導委員回饋',
+    sub: '練習撰寫發現，指導委員回饋',
     href: `${base}/practice`,
     status: st === 'CLOSED' ? '已結案' : onsitePast ? '可回顧' : st === 'ONSITE' ? '進行中' : '尚未開始',
     statusTone: st === 'ONSITE' ? 'primary' : 'default',
-    caption: '內容僅指導委員與中心可見,不進入正式報告',
+    caption: '內容僅指導委員與中心可見，不進入正式報告',
     muted: !modActive.audit,
     locked: !practiceStageOpen,
     lockedHint: '實地稽核階段開始後開放練習',
@@ -250,7 +250,7 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     href: `${base}/practice`,
     status: `${i.mentorObservers ?? 0} 位`,
     statusTone: st === 'ONSITE' ? 'primary' : 'default',
-    caption: '檢視您指導的觀察員練習,逐條給予回饋',
+    caption: '檢視您指導的觀察員練習，逐條給予回饋',
     muted: !modActive.audit,
     locked: !practiceStageOpen,
     lockedHint: '實地稽核階段開始後開放',

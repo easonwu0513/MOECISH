@@ -79,7 +79,7 @@ export default async function UsersPage() {
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">使用者管理</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            全系統帳號與邀請的單一入口:邀請 → 待接受(過期可重寄)→ 啟用 → 停用,同一張表管到底。
+            全系統帳號與邀請的單一入口：邀請 → 待接受（過期可重寄）→ 啟用 → 停用，同一張表管到底。
           </p>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0">

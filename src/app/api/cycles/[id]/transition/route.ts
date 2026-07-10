@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 回退必須附理由(記入狀態轉換紀錄與稽核軌跡)
     if (rollback && (body.reason?.trim().length ?? 0) < 5) {
-      return NextResponse.json({ error: '回退狀態必須填寫理由(至少 5 個字)' }, { status: 400 });
+      return NextResponse.json({ error: '回退狀態必須填寫理由（至少 5 個字）' }, { status: 400 });
     }
 
     // 實地稽核 → 缺失發布(REPORT_ISSUED)前置:全體委員評分表須定稿。
@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       // 矯正截止日須先設定(機關依此填報;與 audit/finish 一致的閘,兩路徑不被繞過;批48 圖8)
       if (!cycle.dueDate) {
         return NextResponse.json(
-          { error: '尚未設定矯正截止日,無法進入矯正執行;請先於週期首頁「編輯日期」設定矯正截止日。' },
+          { error: '尚未設定矯正截止日，無法進入矯正執行；請先於週期首頁「編輯日期」設定矯正截止日。' },
           { status: 400 },
         );
       }
@@ -64,7 +64,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const notReady = reqs.filter((r) => r.submission?.status !== 'CONFIRMED');
       if (notReady.length > 0) {
         return NextResponse.json(
-          { error: `尚有 ${notReady.length} 份必要資料未確認齊備,無法進入下一階段;請於「稽核前資料準備」逐項確認。` },
+          { error: `尚有 ${notReady.length} 份必要資料未確認齊備，無法進入下一階段；請於「稽核前資料準備」逐項確認。` },
           { status: 400 },
         );
       }
@@ -72,7 +72,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       // (原僅檢查資料準備項 → 附件 20/20 但檢核表未填也能推進,UAT 批61 圖3 補上)
       if (!cycle.checklistSubmittedAt) {
         return NextResponse.json(
-          { error: '機關尚未完成並送出「資通安全檢核表」,無法進入資料齊備;請待機關完成填報送出後再推進。' },
+          { error: '機關尚未完成並送出「資通安全檢核表」，無法進入資料齊備；請待機關完成填報送出後再推進。' },
           { status: 400 },
         );
       }
@@ -82,7 +82,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         return NextResponse.json(
           {
             error:
-              '尚未設定「委員審閱時段」,無法進入資料齊備(此階段即開放委員審閱)。請先於「稽核前資料準備」頁設定審閱起訖日期後再推進。',
+              '尚未設定「委員審閱時段」，無法進入資料齊備（此階段即開放委員審閱）。請先於「稽核前資料準備」頁設定審閱起訖日期後再推進。',
           },
           { status: 400 },
         );
@@ -129,7 +129,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return true;
     });
     if (!won) {
-      return NextResponse.json({ error: '週期狀態已被其他操作變更,請重新整理後再試。' }, { status: 409 });
+      return NextResponse.json({ error: '週期狀態已被其他操作變更，請重新整理後再試。' }, { status: 409 });
     }
 
     // 轉入「資料準備」時自動套用標準需求清單(冪等;中心仍可增刪),
@@ -138,7 +138,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       try {
         await ensureStandardPrepItems(cycle.id, cycle.year);
       } catch (e) {
-        console.error('[transition] 自動套用標準資料準備清單失敗:', (e as Error).message);
+        console.error('[transition] 自動套用標準資料準備清單失敗：', (e as Error).message);
       }
     }
 
@@ -147,7 +147,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       try {
         await notifyCycleStatusChange({ cycleId: cycle.id, status: to, appBaseUrl: appBaseUrl(req) });
       } catch (e) {
-        console.error('[transition] 通知機關失敗:', (e as Error).message);
+        console.error('[transition] 通知機關失敗：', (e as Error).message);
       }
     }
 
@@ -158,7 +158,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       try {
         await notifyCommitteeReview({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
       } catch (e) {
-        console.error('[transition] 通知委員審閱失敗:', (e as Error).message);
+        console.error('[transition] 通知委員審閱失敗：', (e as Error).message);
       }
     }
 

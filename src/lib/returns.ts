@@ -112,7 +112,7 @@ export async function getOpenReturns(opts: {
       cycleId: c.id,
       yearROC: c.year - 1911,
       orgName: c.organization.name,
-      title: `應備文件:${s.requirement.title}`,
+      title: `應備文件：${s.requirement.title}`,
       reason: s.reviewNote,
       returnedAt: s.reviewedAt,
       // 直達單項卡(#prep-item;大改造A 顆粒補齊——原只到頁級,承辦得自己找是哪一件)
@@ -201,7 +201,7 @@ export async function getOpenReturns(opts: {
           yearROC: g.cycle.year - 1911,
           orgName: g.cycle.organization.name,
           title: RETURN_KIND_LABEL['signed-report'],
-          reason: '用印改善報告掃描檔已退回,請重新上傳正確版本後再次「確認繳交」。',
+          reason: '用印改善報告掃描檔已退回，請重新上傳正確版本後再次「確認繳交」。',
           returnedAt: when,
           href: `/cycles/${g.cycle.id}#signed-report`,
         });

@@ -39,13 +39,13 @@ export default function ConvertButton({
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        轉入缺失管考({pendingCount})
+        轉入缺失管考（{pendingCount})
       </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={(o) => !busy && setOpen(o)}
         title="轉入缺失管考"
-        description={`將把 ${pendingCount} 條待改善與建議事項建立為本週期缺失(項次自動接續編號;法遵符合情形不轉)。已轉入的發現將鎖定、無法再編輯。確定執行？`}
+        description={`將把 ${pendingCount} 條待改善與建議事項建立為本週期缺失（項次自動接續編號；法遵符合情形不轉）。已轉入的發現將鎖定、無法再編輯。確定執行？`}
         confirmLabel="確認轉入"
         tone="primary"
         onConfirm={convert}

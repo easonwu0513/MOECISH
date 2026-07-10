@@ -49,17 +49,17 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
       <PrintTrigger />
       <div className="print-report mx-auto max-w-[210mm] bg-card text-slate-900 p-10 print:p-0 print:max-w-none">
         <style>{`
-          /* 公文字體:與彙整工具報告同一套(標楷體 + Times New Roman),
+          /* 公文字體：與彙整工具報告同一套（標楷體 + Times New Roman），
              同一份正式報告不能一邊標楷一邊黑體 */
-          .print-report {
-            font-family: 'Times New Roman', '標楷體', 'BiauKai', 'DFKai-SB', serif;
+          。print-report {
+            font-family: 'Times New Roman'， '標楷體'， 'BiauKai'， 'DFKai-SB'， serif;
           }
           @media print {
             @page { size: A4; margin: 2.54cm; }
-            body { background: white !important; }
-            .no-print { display: none !important; }
+            body { background: white ！important; }
+            。no-print { display: none ！important; }
             h2 { page-break-after: avoid; }
-            .def-block { page-break-inside: avoid; }
+            。def-block { page-break-inside: avoid; }
           }
         `}</style>
 

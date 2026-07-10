@@ -14,9 +14,9 @@ import { ROLE_LABELS, ROLE_TONE, type Role } from '@/lib/types';
 import { cn } from '@/lib/cn';
 
 const FACETS: { key: keyof (typeof TONE)['primary']; label: string; desc: string }[] = [
-  { key: 'soft', label: 'soft', desc: '淺底徽章／膠囊(Chip soft、狀態徽章)' },
-  { key: 'solid', label: 'solid', desc: '實心填色徽章 600+白字(Chip filled、Segmented 選中)' },
-  { key: 'fill', label: 'fill', desc: '純填色(無文字)600(進度／堆疊／時間軸節點)' },
+  { key: 'soft', label: 'soft', desc: '淺底徽章／膠囊（Chip soft、狀態徽章）' },
+  { key: 'solid', label: 'solid', desc: '實心填色徽章 600+白字（Chip filled、Segmented 選中）' },
+  { key: 'fill', label: 'fill', desc: '純填色（無文字）600（進度／堆疊／時間軸節點）' },
   { key: 'outlined', label: 'outlined', desc: '描邊 700+border-300' },
   { key: 'text', label: 'text', desc: '純語意文字色 700' },
   { key: 'dot', label: 'dot', desc: '小圓點／細強調條 500' },
@@ -46,7 +46,7 @@ export default function DesignGallery() {
       <Section
         id="tone"
         title="Tone 單一來源 · lib/tone"
-        sub="所有元件的 tone→class 一律取自此。六面向(soft／solid／fill／outlined／text／dot),六色調(neutral／primary／sage／success／warning／danger)。實心一律 600、文字 700、點 500——批72 統一深淺基準。"
+        sub="所有元件的 tone→class 一律取自此。六面向（soft／solid／fill／outlined／text／dot），六色調（neutral／primary／sage／success／warning／danger）。實心一律 600、文字 700、點 500——批72 統一深淺基準。"
       >
         <Card padded={false} className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -95,7 +95,7 @@ export default function DesignGallery() {
       <Section
         id="role"
         title="角色色 · 由 ROLE_TONE 單一來源衍生"
-        sub="北極星②:角色是一級資訊架構。TopStrip 頂帶、頭像底、身分 Chip 全部由 ROLE_TONE 派生,三處必一致——批72 修 TopStrip 硬編 primary 與 UserMenu 第二份配色。"
+        sub="北極星②：角色是一級資訊架構。TopStrip 頂帶、頭像底、身分 Chip 全部由 ROLE_TONE 派生，三處必一致——批72 修 TopStrip 硬編 primary 與 UserMenu 第二份配色。"
       >
         <div className="grid gap-3 sm:grid-cols-3">
           {ROLES.map((r) => (
@@ -117,7 +117,7 @@ export default function DesignGallery() {
       </Section>
 
       {/* ── Chip:三變體 × 六色 ── */}
-      <Section id="chip" title="Chip · 取自 TONE.soft／.outlined／.solid／.dot" sub="批72:Chip 移除本地四份手抄對照表,全部改讀 lib/tone。">
+      <Section id="chip" title="Chip · 取自 TONE.soft／。outlined／。solid／。dot" sub="批72:Chip 移除本地四份手抄對照表，全部改讀 lib/tone。">
         <div className="flex flex-col gap-4">
           {(['soft', 'outlined', 'filled'] as const).map((v) => (
             <div key={v}>
@@ -133,7 +133,7 @@ export default function DesignGallery() {
       </Section>
 
       {/* ── Alert ── */}
-      <Section id="alert" title="Alert · 語意提示橫幅" sub="Tone 型別取自 lib/tone 單一來源;收斂全站手刻 callout。">
+      <Section id="alert" title="Alert · 語意提示橫幅" sub="Tone 型別取自 lib/tone 單一來源；收斂全站手刻 callout。">
         <div className="flex flex-col gap-2.5">
           {(['primary', 'success', 'warning', 'danger'] as Tone[]).map((t) => (
             <Alert key={t} tone={t} title={`${t} 提示`}>此為 {t} 語意橫幅範例——同一 tone 全站唯一配方。</Alert>
@@ -142,7 +142,7 @@ export default function DesignGallery() {
       </Section>
 
       {/* ── 資料視覺化:ProgressBar / Ring / StackedBar ── */}
-      <Section id="dataviz" title="資料視覺化 · fill 面向統一 600" sub="ProgressBar／ProgressRing／StackedBar 的填色一律取 lib/tone 的 fill／stroke(批72:success／warning／danger 由 500 統一為 600)。ProgressBar 補選填 label→aria-label。">
+      <Section id="dataviz" title="資料視覺化 · fill 面向統一 600" sub="ProgressBar／ProgressRing／StackedBar 的填色一律取 lib/tone 的 fill／stroke（批72:success／warning／danger 由 500 統一為 600）。ProgressBar 補選填 label→aria-label。">
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="flex flex-col gap-3">
             <CardTitle>ProgressBar</CardTitle>
@@ -159,7 +159,7 @@ export default function DesignGallery() {
             <ProgressRing value={40} label="2/5" sublabel="待補" tone="warning" />
           </Card>
           <Card className="md:col-span-2 flex flex-col gap-3">
-            <CardTitle>StackedBar(組成一眼讀出)</CardTitle>
+            <CardTitle>StackedBar（組成一眼讀出）</CardTitle>
             <StackedBar
               segments={[
                 { value: 14, tone: 'success', label: '符合' },
@@ -174,7 +174,7 @@ export default function DesignGallery() {
       </Section>
 
       {/* ── Segmented(互動)+ Timeline ── */}
-      <Section id="interactive" title="Segmented(互動)· Timeline" sub="Segmented 選中態語意色取 TONE.solid;方向鍵 roving tabindex。Timeline 節點 fill 600 + 光暈環。">
+      <Section id="interactive" title="Segmented（互動）· Timeline" sub="Segmented 選中態語意色取 TONE.solid;方向鍵 roving tabindex。Timeline 節點 fill 600 + 光暈環。">
         <div className="grid gap-4 md:grid-cols-2 items-start">
           <Card className="flex flex-col gap-3">
             <CardTitle>Segmented</CardTitle>
@@ -188,7 +188,7 @@ export default function DesignGallery() {
                 { value: 'c', label: '待補正', tone: 'warning' },
               ]}
             />
-            <p className="text-caption text-ink-500">選中:<span className="font-mono text-ink-900">{seg}</span></p>
+            <p className="text-caption text-ink-500">選中：<span className="font-mono text-ink-900">{seg}</span></p>
           </Card>
           <Card>
             <CardTitle>Timeline</CardTitle>

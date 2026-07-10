@@ -18,7 +18,7 @@ export const RETENTION_YEARS: Record<RetentionCategory, number> = {
 };
 
 export const RETENTION_CATEGORY_LABELS: Record<RetentionCategory, string> = {
-  AUDIT_RECORDS: '稽核紀錄(缺失/矯正/軌跡/週期)',
+  AUDIT_RECORDS: '稽核紀錄（缺失/矯正/軌跡/週期）',
   EVIDENCE: '佐證附件與簽核報告',
   TRANSIENT: '通知信等暫時性紀錄',
   ACCOUNT: '邀請等帳號殘留資料',

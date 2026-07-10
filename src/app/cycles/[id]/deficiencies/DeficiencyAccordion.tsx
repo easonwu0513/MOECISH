@@ -267,7 +267,7 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
               href={`/cycles/${cycleId}/deficiencies/${deficiencyId}`}
               className="inline-flex items-center gap-1 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded-sm"
             >
-              開啟完整詳情(來源檢核項・歷年同類・審閱指派)
+              開啟完整詳情（來源檢核項・歷年同類・審閱指派）
               <ChevronRight size={15} aria-hidden />
             </Link>
           </div>

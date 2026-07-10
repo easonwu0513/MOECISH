@@ -22,7 +22,7 @@ export default function ResendButton({ logId }: { logId: string }) {
     const j = await res.json();
     if (j.delivery === 'sent') toast.success('已重寄成功');
     else if (j.delivery === 'failed') toast.error('重寄仍失敗', '請檢查收件地址或 Graph 連線後再試。');
-    else toast.success('已重寄(模擬模式記錄)');
+    else toast.success('已重寄（模擬模式記錄）');
     router.refresh();
   }
 

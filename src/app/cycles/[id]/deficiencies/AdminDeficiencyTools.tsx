@@ -204,7 +204,7 @@ export default function AdminDeficiencyTools({
             />
             <Upload size={16} />
             <span className="text-body-sm">
-              {pickedFile ? pickedFile.name : '選擇 .xlsx 檔案'}
+              {pickedFile ? pickedFile.name : '選擇 。xlsx 檔案'}
             </span>
           </label>
 

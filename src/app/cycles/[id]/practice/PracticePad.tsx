@@ -128,7 +128,7 @@ export default function PracticePad({
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
         title="刪除這條練習發現？"
-        description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」與其指導回饋將一併刪除,無法復原。` : undefined}
+        description={deleting ? `「${deleting.content.slice(0, 60)}${deleting.content.length > 60 ? '…' : ''}」與其指導回饋將一併刪除，無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         loading={busy === deleting?.id}
@@ -140,7 +140,7 @@ export default function PracticePad({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <CardTitle>新增練習發現</CardTitle>
-              <CardDescription>選擇類型與構面,對應檢核項次選填;內容照正式發現的寫法練習。</CardDescription>
+              <CardDescription>選擇類型與構面，對應檢核項次選填；內容照正式發現的寫法練習。</CardDescription>
             </div>
             {!draftOpen && (
               <Button size="sm" variant="tonal" leadingIcon={<Plus size={14} />} onClick={() => setDraftOpen(true)}>
@@ -162,7 +162,7 @@ export default function PracticePad({
                   ))}
                 </Select>
                 <TextField
-                  label="對應檢核項次(選填)"
+                  label="對應檢核項次（選填）"
                   value={dRef}
                   onChange={(e) => setDRef(e.target.value)}
                   placeholder="如 7.4"
@@ -174,7 +174,7 @@ export default function PracticePad({
                 value={dContent}
                 onChange={(e) => setDContent(e.target.value)}
                 rows={4}
-                placeholder="練習撰寫發現內容(具體缺失或不符之處、依據與改善建議)…"
+                placeholder="練習撰寫發現內容（具體缺失或不符之處、依據與改善建議）…"
               />
               <div className="flex gap-2">
                 <Button size="sm" loading={busy === 'add'} onClick={addFinding}>新增此條</Button>
@@ -188,7 +188,7 @@ export default function PracticePad({
       {initialItems.length === 0 ? (
         <Card>
           <p className="py-6 text-center text-body-sm text-ink-500">
-            {viewerKind === 'observer' ? '尚無練習發現;按「開始撰寫」新增第一條。' : '該觀察員尚未撰寫練習發現。'}
+            {viewerKind === 'observer' ? '尚無練習發現；按「開始撰寫」新增第一條。' : '該觀察員尚未撰寫練習發現。'}
           </p>
         </Card>
       ) : (
@@ -374,7 +374,7 @@ function PracticeRow({
                 value={fbText}
                 onChange={(e) => setFbText(e.target.value)}
                 rows={2}
-                placeholder="給這條練習的回饋(寫法、依據、改善建議的具體性…)"
+                placeholder="給這條練習的回饋（寫法、依據、改善建議的具體性…）"
               />
               <div>
                 <Button size="sm" variant="tonal" loading={fbBusy} onClick={sendFeedback} disabled={!fbText.trim()}>

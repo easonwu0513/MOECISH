@@ -64,7 +64,7 @@ export function ProtectedFileLink({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={base} title="僅供線上檢視(禁止下載/外流)">
+      <button type="button" onClick={() => setOpen(true)} className={base} title="僅供線上檢視（禁止下載/外流）">
         {label}
       </button>
       {/* Portal 掛 body:跳脫評分頁等深層版面的 stacking context(UAT 批43:檢視器被頂帶/表單標籤
@@ -79,7 +79,7 @@ export function ProtectedFileLink({
           onDragStart={(e) => e.preventDefault()}
         >
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-white shrink-0">
-            <span className="text-body-sm truncate min-w-0">{name} · 僅供線上檢視,禁止下載與外流</span>
+            <span className="text-body-sm truncate min-w-0">{name} · 僅供線上檢視，禁止下載與外流</span>
             <button
               type="button"
               onClick={() => setOpen(false)}

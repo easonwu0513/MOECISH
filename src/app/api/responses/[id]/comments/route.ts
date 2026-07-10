@@ -35,7 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 審閱時間區間閘(UAT 批67):不在窗口內(或未設)→ 委員不可審閱留言
     if (user.role === 'AUDITOR' && !auditorReviewWindowOpen(response.cycle.reviewWindowStart, response.cycle.reviewWindowEnd)) {
-      return NextResponse.json({ error: '目前不在委員審閱時間區間內,暫不開放審閱' }, { status: 403 });
+      return NextResponse.json({ error: '目前不在委員審閱時間區間內，暫不開放審閱' }, { status: 403 });
     }
 
     const nextRound = (response.comments[0]?.round ?? 0) + 1;

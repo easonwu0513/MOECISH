@@ -79,14 +79,14 @@ export function AppShell({
           {
             id: 'act-remind',
             group: '動作',
-            label: '寄追蹤信給機關(本週期)',
+            label: '寄追蹤信給機關（本週期）',
             icon: <Megaphone size={16} />,
             keywords: '催辦 追蹤 提醒 remind',
             action: () =>
               setConfirm({
                 title: '寄送進度追蹤提醒',
                 description:
-                  '將以 email 通知本週期的機關管理員仍有待辦事項,並記錄於催辦軌跡。同一天重複點擊不會重複寄送。',
+                  '將以 email 通知本週期的機關管理員仍有待辦事項，並記錄於催辦軌跡。同一天重複點擊不會重複寄送。',
                 confirmLabel: '寄送提醒',
                 run: async () => { if (cycleId) await remind(cycleId); },
               }),

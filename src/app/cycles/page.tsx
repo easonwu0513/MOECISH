@@ -137,7 +137,7 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                         {c.dueDate ? `矯正截止 ${fmtROC(c.dueDate)}` : '尚未設定矯正截止日期'}
                       </p>
                       {auditorDims.length > 0 && (
-                        <p className="text-caption text-primary-700 mt-1">負責構面:{auditorDims.join('、')}</p>
+                        <p className="text-caption text-primary-700 mt-1">負責構面：{auditorDims.join('、')}</p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -165,7 +165,7 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                     <p className="text-caption text-ink-500">尚未發布缺失</p>
                   )}
                   {lockedForAuditor && (
-                    <p className="mt-2 text-caption text-ink-500">本週期已結案,資料已鎖定,委員無法再進入檢視。</p>
+                    <p className="mt-2 text-caption text-ink-500">本週期已結案，資料已鎖定，委員無法再進入檢視。</p>
                   )}
                 </Card>
             );

@@ -29,7 +29,7 @@ export default async function ChecklistVersionsPage() {
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">檢核表題庫管理</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            管理各年度檢核表版本與題目內容(含法規對照);年度換版用「複製為新版」再編修,歷史週期不受影響。
+            管理各年度檢核表版本與題目內容（含法規對照）；年度換版用「複製為新版」再編修，歷史週期不受影響。
           </p>
         </div>
       </header>
@@ -38,7 +38,7 @@ export default async function ChecklistVersionsPage() {
         <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
           <p className="text-title text-ink-700">尚無題庫版本</p>
           <p className="mt-1.5 text-body-sm text-ink-500">
-            請先以匯入腳本建立基準版本(npm run checklist:import-gov)。
+            請先以匯入腳本建立基準版本（npm run checklist:import-gov）。
           </p>
         </div>
       ) : (

@@ -58,7 +58,7 @@ export async function sendEmail(input: SendEmailInput) {
   // 系統信一律附「請勿直接回信」footer(避免委員/機關直接回覆系統信箱)。
   // 只加到對外送信與 EmailLog/.txt 紀錄;站內通知摘要仍取原始 input.body(notificationSummary),footer 不會污染鈴鐺。
   const FOOTER =
-    '\n\n──────────\n此封信為系統自動寄發,請勿直接回信。如有疑問請登入平台,或洽教育部轄下醫療領域資訊安全推動中心。';
+    '\n\n──────────\n此封信為系統自動寄發，請勿直接回信。如有疑問請登入平台，或洽教育部轄下醫療領域資訊安全推動中心。';
   // 冪等:body 若已含 footer(如後台重寄讀 EmailLog.body 再進 sendEmail)不重複附加,避免雙重 footer。
   const outboundBody = input.body.includes('此封信為系統自動寄發') ? input.body : `${input.body}${FOOTER}`;
 
@@ -116,7 +116,7 @@ export async function sendEmail(input: SendEmailInput) {
     } catch (e) {
       delivery = 'failed';
       deliveryError = (e as Error).message;
-      console.error('[email] Graph 寄送失敗:', deliveryError);
+      console.error('[email] Graph 寄送失敗：', deliveryError);
     }
   }
 
@@ -176,7 +176,7 @@ export async function sendEmail(input: SendEmailInput) {
       });
     }
   } catch (e) {
-    console.warn('[email] 站內通知建立失敗:', (e as Error).message);
+    console.warn('[email] 站內通知建立失敗：', (e as Error).message);
   }
 
   return log;

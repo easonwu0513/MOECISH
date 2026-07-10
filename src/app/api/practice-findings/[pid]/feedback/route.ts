@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: { pid: string } }
     // 階段閘與練習撰寫對稱(ONSITE..REMEDIATION;CLOSED 鎖定)——避免週期回退至 ONSITE 前仍可回饋
     // (批30 對抗審查 P2:原僅擋 CLOSED,回退後 pre-ONSITE 仍可寫)。
     if (!canAccess('practice.access', 'OBSERVER', pf.cycle.status)) {
-      return NextResponse.json({ error: '目前非練習開放階段,回饋已鎖定' }, { status: 409 });
+      return NextResponse.json({ error: '目前非練習開放階段，回饋已鎖定' }, { status: 409 });
     }
 
     const pairing = await prisma.cycleObserver.findUnique({

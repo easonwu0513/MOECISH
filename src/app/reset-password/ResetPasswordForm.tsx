@@ -30,12 +30,12 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: '重設失敗' }));
         setLoading(false);
-        return setErr(j.error ?? '重設失敗,請稍後再試');
+        return setErr(j.error ?? '重設失敗，請稍後再試');
       }
       setDone(true);
     } catch {
       setLoading(false);
-      setErr('連線逾時或網路中斷,請稍後再試');
+      setErr('連線逾時或網路中斷，請稍後再試');
     }
   }
 
@@ -45,7 +45,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success-50 text-success-700">
           <CheckCircle size={26} />
         </span>
-        <p className="text-body text-ink-900">密碼已重設完成,請以新密碼登入。</p>
+        <p className="text-body text-ink-900">密碼已重設完成，請以新密碼登入。</p>
         <Link href="/login">
           <Button variant="filled">前往登入</Button>
         </Link>
@@ -56,7 +56,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
       <TextField
-        label="新密碼(至少 8 字元)"
+        label="新密碼（至少 8 字元）"
         type={show ? 'text' : 'password'}
         value={pw}
         onChange={(e) => setPw(e.target.value)}

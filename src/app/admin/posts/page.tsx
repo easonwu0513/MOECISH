@@ -62,7 +62,7 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: {
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">公告管理</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            發布於前台的資安資訊;僅「發布中」狀態會對外顯示(排程未上架=待發布、過下架時間=已下架)。
+            發布於前台的資安資訊；僅「發布中」狀態會對外顯示（排程未上架=待發布、過下架時間=已下架）。
           </p>
         </div>
         <div className="flex gap-2 flex-wrap shrink-0">

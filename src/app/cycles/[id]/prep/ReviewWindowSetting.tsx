@@ -41,7 +41,7 @@ export function ReviewWindowSetting({
     }
     // 一端有一端空:提醒需兩端皆填才會開放(沒設區間就不開放)
     if ((start && !end) || (!start && end)) {
-      toast.error('請設定完整區間', `開始與截止都要填,${roleNoun}才會在此時段內開放檢視。`);
+      toast.error('請設定完整區間', `開始與截止都要填，${roleNoun}才會在此時段內開放檢視。`);
       return;
     }
     setBusy(true);
@@ -57,12 +57,12 @@ export function ReviewWindowSetting({
     setBusy(false);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('儲存失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('儲存失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
       return;
     }
     toast.success(
       `已儲存${roleNoun}審閱時間區間`,
-      start && end ? `${roleNoun}將於此時段內可檢視資料準備與檢核表審閱。` : `已清除;${roleNoun}目前無法檢視(未設區間即不開放)。`,
+      start && end ? `${roleNoun}將於此時段內可檢視資料準備與檢核表審閱。` : `已清除；${roleNoun}目前無法檢視（未設區間即不開放）。`,
     );
     router.refresh();
   }
@@ -74,8 +74,8 @@ export function ReviewWindowSetting({
         <div className="min-w-0 flex-1">
           <p className="text-body-sm font-medium text-ink-900">{roleNoun}審閱時間區間</p>
           <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-            設定{roleNoun}可檢視「資料準備」與「資通安全檢核表審閱」的開放時段;
-            {isSet ? '未到不可看、超過不可看。' : <span className="text-warning-700 font-medium">目前未設定,{roleNoun}無法檢視機關資料——請設定開始與截止日期。</span>}
+            設定{roleNoun}可檢視「資料準備」與「資通安全檢核表審閱」的開放時段；
+            {isSet ? '未到不可看、超過不可看。' : <span className="text-warning-700 font-medium">目前未設定，{roleNoun}無法檢視機關資料——請設定開始與截止日期。</span>}
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <TextField label="開放開始" type="date" value={start} onChange={(e) => setStart(e.target.value)} />

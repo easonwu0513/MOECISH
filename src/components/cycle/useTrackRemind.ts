@@ -22,7 +22,7 @@ export function useTrackRemind() {
     }
     const j = await res.json();
     if (j.sentCount === 0 && j.skippedCount > 0) {
-      toast.info('今日已提醒過', `${j.skippedCount} 位機關管理員今日已收到提醒,未重複寄送`);
+      toast.info('今日已提醒過', `${j.skippedCount} 位機關管理員今日已收到提醒，未重複寄送`);
     } else {
       const extra = j.skippedCount > 0 ? ` · ${j.skippedCount} 位今日已提醒過` : '';
       toast.success('已寄送追蹤提醒', `已通知 ${j.sentCount} 位機關管理員${extra} · 本週期累計催辦 ${j.remindCount} 封`);

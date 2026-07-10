@@ -14,7 +14,7 @@ const PatchBody = z.object({
     .string()
     .trim()
     .min(10)
-    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字(請補述…),請填寫實際缺失內容')
+    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字（請補述…），請填寫實際缺失內容')
     .optional(),
   checklistRef: z.string().nullable().optional(),
 });

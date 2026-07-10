@@ -26,7 +26,7 @@ export default function RequestReviewWindowButton({ cycleId }: { cycleId: string
     const j = await res.json();
     setDone(true);
     if (j.recipientCount > 0) {
-      toast.success('已通知中心', '已請中心盡快設定審閱時段;設定後即可開始審閱。');
+      toast.success('已通知中心', '已請中心盡快設定審閱時段；設定後即可開始審閱。');
     } else {
       toast.info('目前無可通知的中心人員', '請稍後再試或直接聯繫中心。');
     }

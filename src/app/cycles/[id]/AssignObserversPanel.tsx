@@ -67,7 +67,7 @@ export default function AssignObserversPanel({
       if (res.ok) {
         setPickObserver('');
         setPickMentor('');
-        toast.success('已配對觀察員', '該觀察員可於觀察員審閱時段檢視資料,並於實地稽核起進行撰寫練習。');
+        toast.success('已配對觀察員', '該觀察員可於觀察員審閱時段檢視資料，並於實地稽核起進行撰寫練習。');
         await load();
         router.refresh();
       } else {
@@ -75,7 +75,7 @@ export default function AssignObserversPanel({
         toast.error('配對失敗', j.error);
       }
     } catch {
-      toast.error('配對失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('配對失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -98,7 +98,7 @@ export default function AssignObserversPanel({
         toast.error('更換失敗', j.error);
       }
     } catch {
-      toast.error('更換失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('更換失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -122,7 +122,7 @@ export default function AssignObserversPanel({
         toast.error('更新構面失敗', j.error);
       }
     } catch {
-      toast.error('更新構面失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('更新構面失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -136,7 +136,7 @@ export default function AssignObserversPanel({
       });
       setPendingRemove(null);
       if (res.ok) {
-        toast.success('已移除配對', '練習紀錄留存(中心仍可檢視);該觀察員即失去此週期存取。');
+        toast.success('已移除配對', '練習紀錄留存（中心仍可檢視）；該觀察員即失去此週期存取。');
         await load();
         router.refresh();
       } else {
@@ -144,7 +144,7 @@ export default function AssignObserversPanel({
         toast.error('移除失敗', j.error);
       }
     } catch {
-      toast.error('移除失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('移除失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -159,17 +159,17 @@ export default function AssignObserversPanel({
         open={pendingRemove !== null}
         onOpenChange={(o) => !o && setPendingRemove(null)}
         title="移除這位觀察員的配對？"
-        description={pendingRemove ? `「${pendingRemove.name}」將失去此週期的存取;其練習紀錄留存,中心仍可檢視。` : undefined}
+        description={pendingRemove ? `「${pendingRemove.name}」將失去此週期的存取；其練習紀錄留存，中心仍可檢視。` : undefined}
         confirmLabel="移除"
         tone="danger"
         loading={busy}
         onConfirm={() => { if (pendingRemove) void remove(pendingRemove.id); }}
       />
-      <CardTitle>觀察員配對(師徒制)</CardTitle>
+      <CardTitle>觀察員配對（師徒制）</CardTitle>
       <CardDescription>
-        為觀察員指派本場次的指導者(本週期已指派之稽核委員,或中心人員——初期場次多由中心帶審)。
-        觀察員以獨立審閱時段檢視資料、於「稽核發現撰寫練習」練習撰寫;練習內容僅指導者與中心可見,不進入正式報告。
-        可勾選各觀察員練習聚焦之構面(未勾視同全構面),僅供練習標示,不影響檢視範圍。
+        為觀察員指派本場次的指導者（本週期已指派之稽核委員，或中心人員——初期場次多由中心帶審）。
+        觀察員以獨立審閱時段檢視資料、於「稽核發現撰寫練習」練習撰寫；練習內容僅指導者與中心可見，不進入正式報告。
+        可勾選各觀察員練習聚焦之構面（未勾視同全構面），僅供練習標示，不影響檢視範圍。
       </CardDescription>
 
       {pairings.length > 0 && (
@@ -250,7 +250,7 @@ export default function AssignObserversPanel({
             disabled={busy || available.length === 0}
             onChange={(e) => setPickObserver(e.target.value)}
           >
-            <option value="">{available.length === 0 ? '(無可配對的觀察員)' : '選擇觀察員…'}</option>
+            <option value="">{available.length === 0 ? '（無可配對的觀察員）' : '選擇觀察員…'}</option>
             {available.map((o) => (
               <option key={o.id} value={o.id}>{o.name}{o.email ? `(${o.email})` : ''}</option>
             ))}
@@ -261,7 +261,7 @@ export default function AssignObserversPanel({
             disabled={busy || mentors.length === 0}
             onChange={(e) => setPickMentor(e.target.value)}
           >
-            <option value="">{mentors.length === 0 ? '(無可選指導者)' : '選擇指導委員或中心人員…'}</option>
+            <option value="">{mentors.length === 0 ? '（無可選指導者）' : '選擇指導委員或中心人員…'}</option>
             {mentors.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
@@ -271,7 +271,7 @@ export default function AssignObserversPanel({
           </Button>
         </div>
       ) : (
-        <p className="mt-3 text-caption text-ink-500">實地稽核階段已結束,參與名單已凍結。</p>
+        <p className="mt-3 text-caption text-ink-500">實地稽核階段已結束，參與名單已凍結。</p>
       )}
     </Card>
   );

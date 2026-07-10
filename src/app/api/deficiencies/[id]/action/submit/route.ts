@@ -33,7 +33,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 缺失描述仍為佔位/空白 → 機關無從據以填報矯正,擋送審並提示由中心補述(批51;對齊 submit-round 同閘)
     if (isInvalidDeficiencyDescription(deficiency.description)) {
-      return NextResponse.json({ error: '此缺失描述尚未補述具體內容,請中心補述後再送審' }, { status: 400 });
+      return NextResponse.json({ error: '此缺失描述尚未補述具體內容，請中心補述後再送審' }, { status: 400 });
     }
 
     const updated = await prisma.correctiveAction.update({

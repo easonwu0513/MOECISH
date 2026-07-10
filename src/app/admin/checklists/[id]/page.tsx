@@ -56,7 +56,7 @@ export default async function ChecklistVersionDetailPage({ params }: { params: {
             {version.year - 1911} 年度 · 共 {version.items.length} 題 ·
             法規對照已建 <span className="tabular-nums font-medium text-ink-900">{withLaw}</span> 題
             {withLaw < version.items.length && (
-              <span className="text-warning-700">(尚有 {version.items.length - withLaw} 題待補,點「編輯」填入)</span>
+              <span className="text-warning-700">（尚有 {version.items.length - withLaw} 題待補，點「編輯」填入）</span>
             )}
             {version._count.cycles > 0 && <> · {version._count.cycles} 個週期使用中</>}
           </p>

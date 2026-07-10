@@ -5,10 +5,10 @@ export type StdPrepItem = { title: string; description: string; category: string
 /** 內建預設清單(全域模板為空時的後備;含三區:技術檢測 / 實地稽核 / 中心匯入)。 */
 export const STANDARD_PREP_ITEMS: StdPrepItem[] = [
   // 實地稽核(機關上傳之文件)
-  { title: '資通安全實地稽核檢核表', description: '依當年度教育部公告版本填妥之檢核表(Excel/ODT)', category: 'ONSITE' },
+  { title: '資通安全實地稽核檢核表', description: '依當年度教育部公告版本填妥之檢核表（Excel/ODT）', category: 'ONSITE' },
   { title: '資通安全維護計畫', description: '最新核定版本', category: 'ONSITE' },
   { title: '資通安全維護計畫實施情形', description: '上年度實施情形報告', category: 'ONSITE' },
-  { title: 'ISMS 驗證證書', description: 'CNS 27001 / ISO 27001 證書影本(含 TAF 認證標誌)', category: 'ONSITE' },
+  { title: 'ISMS 驗證證書', description: 'CNS 27001 / ISO 27001 證書影本（含 TAF 認證標誌）', category: 'ONSITE' },
   { title: '資訊資產清冊', description: '含核心資通系統標示與防護需求分級', category: 'ONSITE' },
   { title: '上年度稽核改善報告', description: '若為首次受稽免附', category: 'ONSITE' },
   // 技術檢測(機關上傳,常與實地稽核不同繳交期限)

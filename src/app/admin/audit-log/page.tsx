@@ -36,7 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   PREP_SUBMIT: '機關確定繳交資料',
   PREP_CONFIRM: '確認資料齊備',
   PREP_RETURN: '退回補正',
-  PREP_INSUFFICIENT: '退回補正(舊)',
+  PREP_INSUFFICIENT: '退回補正（舊）',
   AUDITOR_COMMENT_CREATE: '委員意見',
   AUDITOR_COMMENT_RESOLVE: '意見補正',
   CHECKLIST_REVIEW_DONE: '委員完成檢核表意見',
@@ -114,7 +114,7 @@ export default async function AuditLogPage({
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">稽核軌跡</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            所有寫入操作之不可否認紀錄;{truncated ? '結果超過 200 筆,僅顯示最近 200 筆——請以日期區間或操作者縮小範圍後再查。' : '顯示最近 200 筆。'}
+            所有寫入操作之不可否認紀錄；{truncated ? '結果超過 200 筆，僅顯示最近 200 筆——請以日期區間或操作者縮小範圍後再查。' : '顯示最近 200 筆。'}
           </p>
         </div>
       </header>
@@ -158,7 +158,7 @@ export default async function AuditLogPage({
           {entity || actorId || from || to ? (
             <>
               <p className="text-title text-ink-700">{EMPTY.noResults.title}</p>
-              <p className="mt-1.5 text-body-sm text-ink-500">此條件區間查無操作紀錄;請調整或清除篩選後再試。</p>
+              <p className="mt-1.5 text-body-sm text-ink-500">此條件區間查無操作紀錄；請調整或清除篩選後再試。</p>
               <div className="mt-4"><Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button></div>
             </>
           ) : (

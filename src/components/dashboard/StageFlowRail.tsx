@@ -165,8 +165,8 @@ export function StageFlowRail({
             {stageHref && (
               <Link
                 href={stageHref(n.key)}
-                aria-label={`查看「${n.title}」清單階段的待完成事項(此為清單追蹤階段,非流程關卡,無需推進)`}
-                title="清單追蹤階段(非流程關卡);點擊查看待辦,無需推進"
+                aria-label={`查看「${n.title}」清單階段的待完成事項（此為清單追蹤階段，非流程關卡，無需推進）`}
+                title="清單追蹤階段（非流程關卡）；點擊查看待辦，無需推進"
                 className="absolute inset-0 z-20 rounded-lg hover:bg-primary-500/[0.06] focus-ring"
               />
             )}

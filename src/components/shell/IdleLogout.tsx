@@ -75,7 +75,7 @@ export default function IdleLogout() {
       onOpenChange={(o) => { if (!o) continueUsing(); }}
       size="sm"
       title="閒置提醒"
-      description="因閒置即將登出,將於 60 秒後自動登出。"
+      description="因閒置即將登出，將於 60 秒後自動登出。"
       footer={<Button onClick={continueUsing}>繼續使用</Button>}
     />
   );

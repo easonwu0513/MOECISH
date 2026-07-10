@@ -19,7 +19,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
             <div className="flex flex-col gap-4">
               <Alert tone="danger" icon={<AlertCircle size={18} />}>
                 {check.reason === 'expired'
-                  ? '此重設連結已過期(逾有效期限)。'
+                  ? '此重設連結已過期（逾有效期限）。'
                   : check.reason === 'used'
                     ? '此重設連結已被使用。'
                     : '此重設連結無效。'}

@@ -240,13 +240,13 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           {!isReviewer && templateFiles.length > 0 && (
             <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg ${SURFACE_INFO} px-4 py-3.5`}>
               <div className="min-w-0">
-                <p className="text-body-sm font-medium text-ink-900">文件範本({templateFiles.length} 檔)</p>
+                <p className="text-body-sm font-medium text-ink-900">文件範本（{templateFiles.length} 檔）</p>
                 <p className="mt-0.5 text-caption text-ink-500 leading-relaxed">
-                  中心提供之應備文件範本(Word/Excel 等);請下載依式填寫,完成後轉存 PDF 再上傳對應項目。
+                  中心提供之應備文件範本（Word/Excel 等）；請下載依式填寫，完成後轉存 PDF 再上傳對應項目。
                 </p>
               </div>
               <a href={`/api/cycles/${cycle.id}/prep/templates`} className="shrink-0">
-                <Button size="sm" variant="tonal" leadingIcon={<Download size={15} />}>整包下載(zip)</Button>
+                <Button size="sm" variant="tonal" leadingIcon={<Download size={15} />}>整包下載（zip）</Button>
               </a>
             </div>
           )}
@@ -259,7 +259,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               </span>
               <div className="min-w-0">
                 <p className="text-title text-success-700">資料全數確認齊備</p>
-                <p className="mt-0.5 text-caption text-ink-500">{total} 項應備資料皆已由中心確認完成;請回工作台查看下一步。</p>
+                <p className="mt-0.5 text-caption text-ink-500">{total} 項應備資料皆已由中心確認完成；請回工作台查看下一步。</p>
               </div>
             </div>
           )}
@@ -282,7 +282,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
           )}
           {isReviewer && !reviewLocked && total > 0 && (
             <p className="mb-4 text-caption text-ink-500">
-              僅顯示已開放委員檢視之資料(目前 {confirmed} / {total} 項已確認齊備)。
+              僅顯示已開放委員檢視之資料（目前 {confirmed} / {total} 項已確認齊備）。
             </p>
           )}
 
@@ -291,7 +291,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             <ReviewWindowLockNotice state={reviewState} start={isObserver ? cycle.observerWindowStart : cycle.reviewWindowStart} end={isObserver ? cycle.observerWindowEnd : cycle.reviewWindowEnd} stageEnded={onsiteStageEnded(cycle.status)} cycleId={cycle.id} roleNoun={isObserver ? '觀察員' : '委員'} />
           ) : isReviewer && visibleRequirements.length === 0 ? (
             <div className="rounded-lg border border-rule bg-paper-sunk p-8 text-center text-body-sm text-ink-500">
-              目前暫無可檢視項目。待週期進入「資料齊備」階段後,中心已確認齊備之資料才會對委員開放於此。
+              目前暫無可檢視項目。待週期進入「資料齊備」階段後，中心已確認齊備之資料才會對委員開放於此。
             </div>
           ) : (
             <PrepBoard

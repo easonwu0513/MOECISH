@@ -116,9 +116,9 @@ export default async function DeficiencyDetailPage({
   const historyNodes: TimelineNode[] = priorDeficiencies.map((h) => {
     const st = (h.action?.status ?? 'PENDING') as ActionStatus;
     const measures = [
-      h.action?.measureStrategy && `策略面:${h.action.measureStrategy}`,
-      h.action?.measureManagement && `管理面:${h.action.measureManagement}`,
-      h.action?.measureTechnical && `技術面:${h.action.measureTechnical}`,
+      h.action?.measureStrategy && `策略面：${h.action.measureStrategy}`,
+      h.action?.measureManagement && `管理面：${h.action.measureManagement}`,
+      h.action?.measureTechnical && `技術面：${h.action.measureTechnical}`,
     ].filter(Boolean) as string[];
     return {
       id: h.deficiencyId,
@@ -144,10 +144,10 @@ export default async function DeficiencyDetailPage({
         h.action?.rootCause || measures.length ? (
           <div className="space-y-1.5">
             {h.action?.rootCause && (
-              <p className="leading-relaxed"><span className="text-ink-500">當年根因:</span>{h.action.rootCause}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年根因：</span>{h.action.rootCause}</p>
             )}
             {measures.length > 0 && (
-              <p className="leading-relaxed"><span className="text-ink-500">當年矯正:</span>{measures.join('；')}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年矯正：</span>{measures.join('；')}</p>
             )}
           </div>
         ) : (
@@ -206,9 +206,9 @@ export default async function DeficiencyDetailPage({
   const orgReadonlyReason =
     user.role === 'ORG_ADMIN' && !canFill && status !== 'PASSED'
       ? cycle.status !== 'REMEDIATION'
-        ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」,尚未開放矯正填報;待中心開放後即可編輯。`
+        ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」，尚未開放矯正填報；待中心開放後即可編輯。`
         : status === 'SUBMITTED'
-        ? '本項已送出審核,委員審查期間暫不可編輯;若被退回將重新開放。'
+        ? '本項已送出審核，委員審查期間暫不可編輯；若被退回將重新開放。'
         : null
       : null;
 
@@ -278,7 +278,7 @@ export default async function DeficiencyDetailPage({
           <p className="mt-3 text-body-sm text-ink-900 leading-relaxed">{sourceItem.content}</p>
           {sourceResponse?.compliance && (
             <p className="mt-2 text-caption text-ink-500 leading-relaxed">
-              機關當初填報:
+              機關當初填報：
               <span className="font-medium text-ink-900">
                 {COMPLIANCE_LABELS[sourceResponse.compliance as ComplianceLevel] ?? sourceResponse.compliance}
               </span>
@@ -301,9 +301,9 @@ export default async function DeficiencyDetailPage({
             </span>
           </CardTitle>
           <p className="mt-2 mb-4 text-caption text-ink-500 leading-relaxed">
-            本機關於往年(近 3 年)曾在
+            本機關於往年（近 3 年）曾在
             {deficiency.checklistRef ? <> 同一檢核項 <span className="font-mono">{deficiency.checklistRef}</span></> : <> 同一構面</>}
-            發生過下列缺失,供根因分析與矯正措施參考。重複出現代表問題未根治,請從源頭改善。
+            發生過下列缺失，供根因分析與矯正措施參考。重複出現代表問題未根治，請從源頭改善。
           </p>
           <Timeline nodes={historyNodes} />
         </Card>
@@ -317,7 +317,7 @@ export default async function DeficiencyDetailPage({
               <AlertTriangle size={18} />
             </span>
             <div className="min-w-0">
-              <p className="text-title text-danger-700">委員退回意見(第 {latestReturn.round} 輪)</p>
+              <p className="text-title text-danger-700">委員退回意見（第 {latestReturn.round} 輪）</p>
               <p className="mt-1.5 text-body-sm text-danger-700/90 leading-relaxed whitespace-pre-wrap">
                 {latestReturn.comment}
               </p>
@@ -344,7 +344,7 @@ export default async function DeficiencyDetailPage({
         <div className="mb-6 rounded-lg border border-rule bg-card px-5 py-4">
           <p className="text-title-md text-ink-900 mb-1">審閱委員</p>
           <p className="text-body-sm text-ink-500 mb-3">
-            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
+            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立；審核（通過/退回）由指派的審閱委員或中心進行。
           </p>
           <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
         </div>

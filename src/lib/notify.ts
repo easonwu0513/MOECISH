@@ -61,14 +61,14 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
   const yearROC = cycle.year - 1911;
   const scheduleLines = [
-    cycle.techCheckDate && `・技術檢測日:${fmtROC(cycle.techCheckDate)}`,
-    cycle.onsiteDate && `・實地稽核日:${fmtROC(cycle.onsiteDate)}`,
-    cycle.prepDueTech && `・技術檢測資料繳交截止:${fmtROC(cycle.prepDueTech)}`,
-    cycle.prepDueDate && `・實地稽核資料繳交截止:${fmtROC(cycle.prepDueDate)}`,
-    cycle.dueDate && `・矯正填報截止:${fmtROC(cycle.dueDate)}`,
+    cycle.techCheckDate && `・技術檢測日：${fmtROC(cycle.techCheckDate)}`,
+    cycle.onsiteDate && `・實地稽核日：${fmtROC(cycle.onsiteDate)}`,
+    cycle.prepDueTech && `・技術檢測資料繳交截止：${fmtROC(cycle.prepDueTech)}`,
+    cycle.prepDueDate && `・實地稽核資料繳交截止：${fmtROC(cycle.prepDueDate)}`,
+    cycle.dueDate && `・矯正填報截止：${fmtROC(cycle.dueDate)}`,
   ].filter(Boolean) as string[];
   const scheduleBlock = scheduleLines.length
-    ? `重要時程如下:\n${scheduleLines.join('\n')}\n\n`
+    ? `重要時程如下：\n${scheduleLines.join('\n')}\n\n`
     : '相關時程確定後將另行通知。\n\n';
 
   const results = await Promise.all(
@@ -81,7 +81,7 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立，貴機關今年度將接受資通安全稽核。\n\n` +
           scheduleBlock +
-          `待中心開放「資料準備」後，請登入平台依清單填寫資通安全檢核表並上傳應備文件:\n${link}\n\n` +
+          `待中心開放「資料準備」後，請登入平台依清單填寫資通安全檢核表並上傳應備文件：\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
@@ -479,11 +479,11 @@ export async function notifyReviewWindowRequested(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] 委員待審:請設定 ${orgName} ${yearROC} 年度委員審閱時段`,
+        subject: `[MOECISH] 委員待審：請設定 ${orgName} ${yearROC} 年度委員審閱時段`,
         body:
           `${u.name} 您好，\n\n` +
           `${opts.auditorName} 委員已可審閱 ${cycle.organization.name} ${yearROC} 年度資料，但本週期尚未設定「委員審閱時段」，委員目前無法檢視。\n` +
-          `請至資料準備頁的「委員審閱時段」設定起訖後，委員即可開始審閱:\n\n` +
+          `請至資料準備頁的「委員審閱時段」設定起訖後，委員即可開始審閱：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'review-window-request',
@@ -881,7 +881,7 @@ export async function notifyCycleTrackReminder(opts: {
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核仍有待辦事項，謹此提醒。\n\n` +
           `${focus.hint}\n\n` +
-          `請登入平台查看並辦理:\n${link}\n\n` +
+          `請登入平台查看並辦理：\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'track-remind',
         relatedCycleId: cycle.id,

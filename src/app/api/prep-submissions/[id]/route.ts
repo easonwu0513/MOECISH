@@ -46,13 +46,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: '僅機關管理員可更新' }, { status: 403 });
     }
     if (sub.requirement.category === 'CENTER') {
-      return NextResponse.json({ error: '中心匯入區由中心管理,機關無法操作' }, { status: 403 });
+      return NextResponse.json({ error: '中心匯入區由中心管理，機關無法操作' }, { status: 403 });
     }
     if (!prepOrgCanEdit(cycle.status)) {
-      return NextResponse.json({ error: '需於「資料準備中」階段才能修改(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
+      return NextResponse.json({ error: '需於「資料準備中」階段才能修改（開立中尚未開放、資料準備結束後凍結）' }, { status: 400 });
     }
     if (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED') {
-      return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
+      return NextResponse.json({ error: '資料已繳交或已確認齊備，如需修改請洽中心退回' }, { status: 400 });
     }
     const body = OrgBody.parse(await req.json());
 
@@ -109,7 +109,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       // 中心匯入區:中心「開放委員檢視 / 收回」。CENTER 無機關繳交流程,由中心直接釋出(CONFIRMED)或收回(EMPTY);
       // 釋出前(EMPTY)委員不得檢視/下載(見 auditorCanSeePrep)。釋出須至少有一個檔。
       if (cycle.status === 'CLOSED') {
-        return NextResponse.json({ error: '週期已結案,不可變更中心匯入開放狀態' }, { status: 400 });
+        return NextResponse.json({ error: '週期已結案，不可變更中心匯入開放狀態' }, { status: 400 });
       }
       const cbody = z.object({ status: z.enum(['CONFIRMED', 'EMPTY']) }).parse(await req.json());
       if (cbody.status === 'CONFIRMED') {
@@ -117,7 +117,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           where: { targetType: 'PREP_SUBMISSION', targetId: sub.id },
         });
         if (fileCount === 0) {
-          return NextResponse.json({ error: '尚未上傳檔案,無法開放委員檢視' }, { status: 400 });
+          return NextResponse.json({ error: '尚未上傳檔案，無法開放委員檢視' }, { status: 400 });
         }
       }
       const released = await prisma.prepSubmission.update({
@@ -134,11 +134,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ item: released });
     }
     if (cycle.status !== 'PREPARATION') {
-      return NextResponse.json({ error: '此週期已離開資料準備階段,不可審核資料準備' }, { status: 400 });
+      return NextResponse.json({ error: '此週期已離開資料準備階段，不可審核資料準備' }, { status: 400 });
     }
     const body = ReviewBody.parse(await req.json());
     if (!prepReviewable(sub.status)) {
-      return NextResponse.json({ error: '機關尚未確定繳交此項,無法審核' }, { status: 400 });
+      return NextResponse.json({ error: '機關尚未確定繳交此項，無法審核' }, { status: 400 });
     }
     if (body.status === 'CONFIRMED' && sub.status !== 'SUBMITTED') {
       return NextResponse.json({ error: '僅可確認機關已繳交之項目' }, { status: 400 });

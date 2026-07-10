@@ -36,7 +36,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
           return NextResponse.json({ error: '無權刪除其他機關之佐證' }, { status: 403 });
         }
         if (cycle.status !== 'REMEDIATION' || !actionEditable(action.status as ActionStatus)) {
-          return NextResponse.json({ error: '此項目已送審或已通過,佐證不可刪除' }, { status: 400 });
+          return NextResponse.json({ error: '此項目已送審或已通過，佐證不可刪除' }, { status: 400 });
         }
       } else if (e.targetType === 'PREP_SUBMISSION') {
         const sub = await prisma.prepSubmission.findUnique({
@@ -49,14 +49,14 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
           return NextResponse.json({ error: '無權刪除其他機關之文件' }, { status: 403 });
         }
         if (sub.requirement.category === 'CENTER') {
-          return NextResponse.json({ error: '中心匯入區由中心管理,機關無法刪除' }, { status: 403 });
+          return NextResponse.json({ error: '中心匯入區由中心管理，機關無法刪除' }, { status: 403 });
         }
         if (
           sub.status === 'CONFIRMED' ||
           sub.status === 'SUBMITTED' ||
           !(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION')
         ) {
-          return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段,文件不可刪除' }, { status: 400 });
+          return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段，文件不可刪除' }, { status: 400 });
         }
       } else {
         return NextResponse.json({ error: '此類型佐證不可刪除' }, { status: 400 });

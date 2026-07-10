@@ -35,7 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅機關管理員可上傳用印掃描檔' }, { status: 403 });
     }
     if (cycle.status === 'CLOSED') {
-      return NextResponse.json({ error: '週期已結案,不可再上傳用印掃描檔' }, { status: 409 });
+      return NextResponse.json({ error: '週期已結案，不可再上傳用印掃描檔' }, { status: 409 });
     }
     // 用印掃描檔為「矯正執行」收尾產物:須到達 REMEDIATION 階段方可上傳(對齊 access-policy signedReport.upload)
     if (cycle.status !== 'REMEDIATION') {
@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (lockedCount > 0) {
       return NextResponse.json(
-        { error: '用印掃描檔已確認繳交,不可再上傳;如需更換請聯繫中心退回' },
+        { error: '用印掃描檔已確認繳交，不可再上傳；如需更換請聯繫中心退回' },
         { status: 409 },
       );
     }
@@ -104,7 +104,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const url = new URL(req.url);
     const reportId = url.searchParams.get('reportId') ?? '';
     const action = url.searchParams.get('action') ?? 'confirm';
-    if (!reportId) return NextResponse.json({ error: '請求參數不完整,請重新整理後再試' }, { status: 400 });
+    if (!reportId) return NextResponse.json({ error: '請求參數不完整，請重新整理後再試' }, { status: 400 });
 
     // 只操作本週期下的掃描檔,避免跨週期竄改
     const report = await prisma.signedReport.findUnique({ where: { id: reportId } });
@@ -117,13 +117,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         return NextResponse.json({ error: '僅機關管理員可確認繳交' }, { status: 403 });
       }
       if (cycle.status === 'CLOSED') {
-        return NextResponse.json({ error: '週期已結案,不可再繳交' }, { status: 409 });
+        return NextResponse.json({ error: '週期已結案，不可再繳交' }, { status: 409 });
       }
       if (cycle.status !== 'REMEDIATION') {
         return NextResponse.json({ error: '用印掃描檔於「矯正執行」階段方可上傳' }, { status: 400 });
       }
       if (report.submittedAt) {
-        return NextResponse.json({ error: '此掃描檔已確認繳交,不需重複繳交' }, { status: 409 });
+        return NextResponse.json({ error: '此掃描檔已確認繳交，不需重複繳交' }, { status: 409 });
       }
       // 一份週期只留一個正式繳交版本。用可序列化交易讓「檢查其他鎖定版本 + 標記繳交」原子化,
       // 避免兩份草稿同時繳交造成雙鎖定版本(count-then-update race)。
@@ -150,13 +150,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       } catch (e) {
         // 兩筆繳交同時競爭時其中一筆會序列化失敗(P2034)→ 轉為 409 請重試
         if ((e as { code?: string }).code === 'P2034') {
-          return NextResponse.json({ error: '系統忙碌,請稍後再試' }, { status: 409 });
+          return NextResponse.json({ error: '系統忙碌，請稍後再試' }, { status: 409 });
         }
         throw e;
       }
       if (outcome.conflict) {
         return NextResponse.json(
-          { error: '已有繳交版本,不可重複繳交;如需更換請聯繫中心退回' },
+          { error: '已有繳交版本，不可重複繳交；如需更換請聯繫中心退回' },
           { status: 409 },
         );
       }
@@ -189,10 +189,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         return NextResponse.json({ error: '僅最高管理員可退回用印掃描檔' }, { status: 403 });
       }
       if (cycle.status === 'CLOSED') {
-        return NextResponse.json({ error: '週期已結案,不可退回' }, { status: 409 });
+        return NextResponse.json({ error: '週期已結案，不可退回' }, { status: 409 });
       }
       if (!report.submittedAt && !report.confirmedAt) {
-        return NextResponse.json({ error: '此掃描檔尚未繳交,無須退回' }, { status: 409 });
+        return NextResponse.json({ error: '此掃描檔尚未繳交，無須退回' }, { status: 409 });
       }
       const item = await prisma.signedReport.update({
         where: { id: reportId },
@@ -221,7 +221,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
               userId: u.id,
               kind: 'signed-report-returned',
               title: '用印掃描檔已退回',
-              body: '您上傳的用印改善報告掃描檔已被中心退回,請重新上傳正確版本後再次按「確認繳交」。',
+              body: '您上傳的用印改善報告掃描檔已被中心退回，請重新上傳正確版本後再次按「確認繳交」。',
               link: `/cycles/${cycle.id}#signed-report`,
             })),
           });
@@ -238,10 +238,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: '僅最高管理員可確認' }, { status: 403 });
     }
     if (cycle.status !== 'REMEDIATION' && cycle.status !== 'CLOSED') {
-      return NextResponse.json({ error: '尚未進入矯正執行階段,無法確認' }, { status: 400 });
+      return NextResponse.json({ error: '尚未進入矯正執行階段，無法確認' }, { status: 400 });
     }
     if (!report.submittedAt) {
-      return NextResponse.json({ error: '機關尚未確認繳交,無法確認' }, { status: 409 });
+      return NextResponse.json({ error: '機關尚未確認繳交，無法確認' }, { status: 409 });
     }
 
     const item = await prisma.signedReport.update({

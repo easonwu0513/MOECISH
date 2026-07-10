@@ -39,12 +39,12 @@ export async function POST(req: Request) {
         const c = cycleMap.get(cid);
         if (!c) { skipped.push({ cycleId: cid, reason: '週期不存在' }); continue; }
         if (auditor.organizationId && auditor.organizationId === c.organizationId) {
-          skipped.push({ cycleId: cid, reason: '迴避:委員服務於該機關' });
+          skipped.push({ cycleId: cid, reason: '迴避：委員服務於該機關' });
           continue;
         }
         // 實地稽核結束後(缺失發布中起)委員名單凍結:不得再新增指派(與單筆 assignments POST 共用 canAssignAuditors)
         if (!canAssignAuditors(c.status as CycleStatus)) {
-          skipped.push({ cycleId: cid, reason: '實地稽核已結束,名單已凍結' });
+          skipped.push({ cycleId: cid, reason: '實地稽核已結束，名單已凍結' });
           continue;
         }
         const existing = await tx.auditorAssignment.findUnique({

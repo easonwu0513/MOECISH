@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 去重:同 (role, organizationId) 已有有效授權或即為現用身分 → 不重複建
     const identities = await listIdentities(params.id);
     if (identities.some((i) => i.role === body.role && i.organizationId === (orgId ?? null))) {
-      return NextResponse.json({ error: '此身分已存在(有效授權或現用身分)' }, { status: 409 });
+      return NextResponse.json({ error: '此身分已存在（有效授權或現用身分）' }, { status: 409 });
     }
 
     // 首次授予時把「現用身分」補進授權表:讓切換選單完整呈現(隱含→顯式),歷史也可追。
@@ -116,7 +116,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       });
       if (others.length === 0) {
         return NextResponse.json(
-          { error: '這是該帳號唯一的身分,不可收回;如需停止使用請改「停用帳號」' },
+          { error: '這是該帳號唯一的身分，不可收回；如需停止使用請改「停用帳號」' },
           { status: 409 },
         );
       }

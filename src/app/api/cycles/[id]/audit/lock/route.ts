@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 階段閘下沉 API 層(縱深防禦):實地稽核(ONSITE 起)才可鎖定/解鎖評分(封 READY 繞頁面直打)。
     if (!auditorCanScore(cycle.status)) {
-      return NextResponse.json({ error: '尚未進入實地稽核階段,暫不可鎖定/解除評分' }, { status: 403 });
+      return NextResponse.json({ error: '尚未進入實地稽核階段，暫不可鎖定/解除評分' }, { status: 403 });
     }
     const assignment = await prisma.auditorAssignment.findUnique({
       where: { cycleId_auditorId: { cycleId: cycle.id, auditorId: user.id } },
@@ -60,7 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           ]);
           const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
           if (!auditorScoringComplete([], myScores, totalByDim)) {
-            throw new LockValidationError('請至少完整填寫一個構面(評分,且委員判定數量合計等於該構面題數)後,再確認填寫完畢。');
+            throw new LockValidationError('請至少完整填寫一個構面（評分，且委員判定數量合計等於該構面題數）後，再確認填寫完畢。');
           }
           await tx.auditorAssignment.update({
             where: { id: assignment.id },
@@ -73,7 +73,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         }
         // 可序列化衝突(同時有評分寫入)→ 請重試,避免鎖入未驗證資料
         if ((e as { code?: string }).code === 'P2034') {
-          return NextResponse.json({ error: '正在同步儲存評分,請稍候再按一次「確認填寫完畢」。' }, { status: 409 });
+          return NextResponse.json({ error: '正在同步儲存評分，請稍候再按一次「確認填寫完畢」。' }, { status: 409 });
         }
         throw e;
       }
@@ -101,7 +101,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         : await notifyAuditScoreUnlocked({ cycleId: cycle.id, auditorName: user.name, appBaseUrl: appBaseUrl(req) });
       notified = r.recipientCount;
     } catch (e) {
-      console.error('[audit.lock] 通知失敗:', e);
+      console.error('[audit.lock] 通知失敗：', e);
     }
 
     return NextResponse.json({ ok: true, locked, notified });

@@ -60,7 +60,7 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
  * 管理員手動新增的項目綁定其中一鍵,即可由系統自動打勾(回應 UAT:「手動新增的項目如何讓系統辨別完成」)。
  */
 export const AUTO_KEY_OPTIONS: { key: string; label: string }[] = [
-  { key: 'always', label: '建立週期即完成(常駐)' },
+  { key: 'always', label: '建立週期即完成（常駐）' },
   { key: 'dates_set', label: '已設定文件繳交期限與稽核日期' },
   { key: 'prep_list_set', label: '已掛上資料準備需求清單' },
   { key: 'auditors_assigned', label: '已指派至少一位稽核委員' },
@@ -75,8 +75,8 @@ export const AUTO_KEY_OPTIONS: { key: string; label: string }[] = [
   { key: 'prep_confirmed', label: '機關區資料全部確認齊備' },
   { key: 'onsite_scheduled', label: '已設定實地稽核日期' },
   { key: 'deficiencies_published', label: '已發布至少一項缺失' },
-  { key: 'remediation_submitted', label: '矯正措施全部送審(無待填無退回)' },
-  { key: 'remediation_reviewed', label: '矯正審查已開始(有通過或退回)' },
+  { key: 'remediation_submitted', label: '矯正措施全部送審（無待填無退回）' },
+  { key: 'remediation_reviewed', label: '矯正審查已開始（有通過或退回）' },
   { key: 'signed_uploaded', label: '用印掃描檔已上傳' },
   { key: 'signed_confirmed', label: '用印掃描檔已經中心確認' },
 ];
@@ -90,10 +90,10 @@ export const HREF_OPTIONS: { value: string; label: string }[] = [
   { value: '/audit', label: '實地稽核評分與發現' },
   { value: '/audit/report', label: '彙整報告' },
   { value: '/deficiencies', label: '缺失與矯正管考' },
-  { value: '/settings#assign-auditors', label: '委員指派(進階設定)' },
-  { value: '/settings#assign-observers', label: '觀察員配對(進階設定)' },
-  { value: '#setup', label: '日期設定(頁內)' },
-  { value: '#signed-report', label: '用印報告(頁內)' },
+  { value: '/settings#assign-auditors', label: '委員指派（進階設定）' },
+  { value: '/settings#assign-observers', label: '觀察員配對（進階設定）' },
+  { value: '#setup', label: '日期設定（頁內）' },
+  { value: '#signed-report', label: '用印報告（頁內）' },
 ];
 
 /**

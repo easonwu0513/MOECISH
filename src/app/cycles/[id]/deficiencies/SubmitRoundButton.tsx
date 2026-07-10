@@ -36,12 +36,12 @@ export default function SubmitRoundButton({ cycleId, count }: { cycleId: string;
       const names = skipped.slice(0, 3).map((s) => s.label).join('、');
       toast.success(
         '本輪已送出審核',
-        `已送審 ${j.submitted} 項;另有 ${skipped.length} 項未填完整而略過(${names}${skipped.length > 3 ? '…' : ''}),請補齊後再送出。`,
+        `已送審 ${j.submitted} 項；另有 ${skipped.length} 項未填完整而略過（${names}${skipped.length > 3 ? '…' : ''}），請補齊後再送出。`,
       );
     } else {
       toast.success(
         '本輪已送出審核',
-        `已送審 ${j.submitted} 項,並以「每位委員一封」彙整信通知 ${j.notified ?? 0} 位委員。`,
+        `已送審 ${j.submitted} 項，並以「每位委員一封」彙整信通知 ${j.notified ?? 0} 位委員。`,
       );
     }
     router.refresh();
@@ -57,7 +57,7 @@ export default function SubmitRoundButton({ cycleId, count }: { cycleId: string;
         open={open}
         onOpenChange={(o) => !busy && setOpen(o)}
         title="送出本輪審核"
-        description={`將把已填寫完整的矯正措施一次送審,並對每位委員寄出一封彙整通知(未填完整者會自動略過並列出)。目前有 ${count} 項為草稿或退回補正中。確定送出？`}
+        description={`將把已填寫完整的矯正措施一次送審，並對每位委員寄出一封彙整通知（未填完整者會自動略過並列出）。目前有 ${count} 項為草稿或退回補正中。確定送出？`}
         confirmLabel="送出審核"
         tone="primary"
         onConfirm={submit}

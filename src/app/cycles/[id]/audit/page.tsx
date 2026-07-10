@@ -167,7 +167,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       <CycleHubBar
         cycleId={cycle.id}
         label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="評分與發現定稿後,回工作台查看下一步"
+        nextHint="評分與發現定稿後，回工作台查看下一步"
       />
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -176,11 +176,11 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
             {cycle.organization.name} · {cycle.year - 1911} 年度 ·{' '}
             {user.role === 'AUDITOR'
               ? canEdit
-                ? '填寫您個人的評分、檢核結果數量與稽核發現;機關自評僅供參考'
+                ? '填寫您個人的評分、檢核結果數量與稽核發現；機關自評僅供參考'
                 : locked
-                  ? '您已確認填寫完畢、目前鎖定中;如需修改請按「解除鎖定」'
-                  : '已結案,唯讀'
-              : '管理員檢視(評分與發現由各委員填寫)'}
+                  ? '您已確認填寫完畢、目前鎖定中；如需修改請按「解除鎖定」'
+                  : '已結案，唯讀'
+              : '管理員檢視（評分與發現由各委員填寫）'}
           </p>
         </div>
         {/* 附件17 評分表改由最高管理員於「彙整報告」頁逐委員列印、交付紙本簽名;委員頁不再自印 */}
@@ -214,7 +214,7 @@ export default async function AuditPadPage({ params }: { params: { id: string } 
       ) : (
         <div className="rounded-md border border-rule bg-card px-5 py-5">
           <p className="text-body-sm text-ink-500 leading-relaxed">
-            評分與發現由受指派之稽核委員登入填寫;請用右上角「彙整報告」即時檢視全體委員的整合結果、列印,
+            評分與發現由受指派之稽核委員登入填寫；請用右上角「彙整報告」即時檢視全體委員的整合結果、列印，
             並一鍵將待改善事項與建議事項轉入缺失管考。
           </p>
         </div>

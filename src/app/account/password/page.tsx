@@ -19,7 +19,7 @@ export default async function PasswordPage() {
         <h1 className="text-headline text-ink-900">變更密碼</h1>
         <p className="mt-1 text-body-sm text-ink-500">
           {BASELINE.enabled
-            ? `密碼至少 ${BASELINE.pwMinLength} 字元,含大寫、小寫、數字、特殊符號其中三類;不可與最近三次使用過的密碼相同;效期 ${BASELINE.pwMaxAgeDays} 天。`
+            ? `密碼至少 ${BASELINE.pwMinLength} 字元，含大寫、小寫、數字、特殊符號其中三類；不可與最近三次使用過的密碼相同；效期 ${BASELINE.pwMaxAgeDays} 天。`
             : '建議使用 12 字元以上、混合大小寫字母與數字的密碼。'}
         </p>
       </header>

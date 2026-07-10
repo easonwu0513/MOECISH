@@ -40,7 +40,7 @@ export default function TransitionButton({
 
   async function run() {
     if (rollback && reason.trim().length < 5) {
-      toast.error('請填寫回退理由', '至少 5 個字,將記入稽核軌跡');
+      toast.error('請填寫回退理由', '至少 5 個字，將記入稽核軌跡');
       return;
     }
     setLoading(true);
@@ -62,7 +62,7 @@ export default function TransitionButton({
     router.refresh();
     // 進入資料齊備:轉換 API 已自動寄信並於站內通知受指派委員開始審閱(委員此時起可檢視機關資料)
     if (!rollback && target === 'READY') {
-      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員,委員現在起可檢視機關檢核表與已齊備之資料');
+      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員，委員現在起可檢視機關檢核表與已齊備之資料');
     }
   }
 
@@ -85,15 +85,15 @@ export default function TransitionButton({
           description={
             <div className="mt-2 flex flex-col gap-3">
               <p className="text-body-sm text-ink-500">
-                將狀態回退至「{CYCLE_STATUS_LABELS[target]}」。回退不會刪除任何已填資料,
+                將狀態回退至「{CYCLE_STATUS_LABELS[target]}」。回退不會刪除任何已填資料，
                 但機關與委員看到的階段會跟著改變。理由將記入稽核軌跡。
               </p>
               <Textarea
-                label="回退理由(必填,至少 5 字)"
+                label="回退理由（必填，至少 5 字）"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="例:誤按推進,實地稽核尚未完成"
+                placeholder="例：誤按推進，實地稽核尚未完成"
               />
             </div>
           }
@@ -131,7 +131,7 @@ export default function TransitionButton({
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title={warn ? '尚未設定矯正截止日期,仍要推進？' : '確認狀態轉換'}
+        title={warn ? '尚未設定矯正截止日期，仍要推進？' : '確認狀態轉換'}
         description={
           warn ? (
             <div className="mt-2 flex flex-col gap-3">

@@ -30,8 +30,8 @@ export default async function PasswordExpiryNotice() {
       <AlertTriangle size={20} className="text-warning-700 shrink-0" />
       <div className="flex-1 min-w-0 text-body-sm text-warning-700">
         {user.mustChangePassword
-          ? '您的密碼需要變更(初始密碼或管理員要求),請立即更新。'
-          : `您的密碼已超過 ${BASELINE.pwMaxAgeDays} 天效期,依資通系統防護基準請儘速變更。`}
+          ? '您的密碼需要變更（初始密碼或管理員要求），請立即更新。'
+          : `您的密碼已超過 ${BASELINE.pwMaxAgeDays} 天效期，依資通系統防護基準請儘速變更。`}
       </div>
       <Link
         href="/account/password"

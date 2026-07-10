@@ -148,14 +148,14 @@ export default async function ChecklistPage({ params }: { params: { id: string }
       <CycleHubBar
         cycleId={cycle.id}
         label={`${cycle.year - 1911} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="填報送出後,於工作台確認進度與下一步"
+        nextHint="填報送出後，於工作台確認進度與下一步"
       />
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">資通安全檢核表填報</h1>
         <p className="text-body-sm text-ink-500 mt-1">
           {cycle.organization.name} · {cycle.checklistVersion.name} · 共 {cycle.checklistVersion.items.length} 題 ·{' '}
           {canEdit
-            ? '填寫中(每題可展開「法規對照」查看稽核依據與應備文件)'
+            ? '填寫中（每題可展開「法規對照」查看稽核依據與應備文件）'
             : submitted
               ? '已送出鎖定'
               : '目前狀態為唯讀'}
@@ -164,7 +164,7 @@ export default async function ChecklistPage({ params }: { params: { id: string }
 
       {orgPhaseNotOpen && (
         <div className="mb-5 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500 leading-relaxed">
-          此階段(開立中)尚未開放檢核表填報。待中心將週期推進至「資料準備中」後,即可逐題填寫符合度、說明並上傳佐證。目前僅供檢視。
+          此階段（開立中）尚未開放檢核表填報。待中心將週期推進至「資料準備中」後，即可逐題填寫符合度、說明並上傳佐證。目前僅供檢視。
         </div>
       )}
 

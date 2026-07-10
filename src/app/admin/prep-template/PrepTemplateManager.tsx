@@ -81,20 +81,20 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
     setCopying(null);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('複製失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('複製失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
       return;
     }
     const r = (await res.json()) as { copied: number; skippedTitles: string[]; fileCopied: number; fileErrors: number };
     const detail = [
       r.fileCopied > 0 ? `含 ${r.fileCopied} 個文件範本` : null,
       r.skippedTitles.length > 0 ? `${r.skippedTitles.length} 項因目標年度已有同名而跳過` : null,
-      r.fileErrors > 0 ? `${r.fileErrors} 個範本檔複製失敗(來源檔遺失),請於目標年度清單補上傳` : null,
+      r.fileErrors > 0 ? `${r.fileErrors} 個範本檔複製失敗（來源檔遺失），請於目標年度清單補上傳` : null,
     ].filter(Boolean).join(';') || undefined;
     if (r.copied === 0 && r.skippedTitles.length > 0) {
-      toast.info('未複製任何項目', `${targetYear - 1911} 年度已有同名項目:${r.skippedTitles.slice(0, 3).join('、')}${r.skippedTitles.length > 3 ? '…' : ''}`);
+      toast.info('未複製任何項目', `${targetYear - 1911} 年度已有同名項目：${r.skippedTitles.slice(0, 3).join('、')}${r.skippedTitles.length > 3 ? '…' : ''}`);
     } else if (r.fileErrors > 0) {
       // 有範本檔複製失敗:用 warning(role=alert)而非綠色成功,失敗訊息不埋在成功 toast 裡
-      toast.warning(`已複製 ${r.copied} 項,但部分範本檔失敗`, detail);
+      toast.warning(`已複製 ${r.copied} 項，但部分範本檔失敗`, detail);
     } else {
       toast.success(`已複製 ${r.copied} 項至 ${targetYear - 1911} 年度`, detail);
     }
@@ -174,7 +174,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
     setUploadingItemId(null);
     if (!res || !res.ok) {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('上傳失敗', (j as { error?: string }).error ?? '連線逾時或網路中斷,請稍後再試');
+      toast.error('上傳失敗', (j as { error?: string }).error ?? '連線逾時或網路中斷，請稍後再試');
       return;
     }
     toast.success('已上傳範本', f.name);
@@ -187,7 +187,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
     const res = await fetch(`/api/admin/prep-template/${deletingFile.itemId}/files/${deletingFile.file.id}`, { method: 'DELETE' }).catch(() => null);
     setBusy(false);
     setDeletingFile(null);
-    if (!res || !res.ok) { toast.error('刪除範本失敗', res ? undefined : '連線逾時或網路中斷,請稍後再試'); return; }
+    if (!res || !res.ok) { toast.error('刪除範本失敗', res ? undefined : '連線逾時或網路中斷，請稍後再試'); return; }
     toast.success('已刪除範本');
     router.refresh();
   }
@@ -203,8 +203,8 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               value={String(editYear)}
               onChange={(v) => setEditYear(Number(v))}
               options={[
-                { value: String(thisYear), label: `${thisYear - 1911} 年度(本年度)${resolveEditYear(thisYear).length}` },
-                { value: String(nextYear), label: `${nextYear - 1911} 年度(預備)${resolveEditYear(nextYear).length}` },
+                { value: String(thisYear), label: `${thisYear - 1911} 年度（本年度）${resolveEditYear(thisYear).length}` },
+                { value: String(nextYear), label: `${nextYear - 1911} 年度（預備）${resolveEditYear(nextYear).length}` },
               ]}
             />
           </div>
@@ -240,14 +240,14 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               disabled={copying !== null || histItems.length === 0}
               onClick={() => copyToYear(histItems.map((i) => i.id), thisYear, 'all')}
             >
-              一鍵複製 {histYear - 1911} 年度清單至今年({histItems.length})
+              一鍵複製 {histYear - 1911} 年度清單至今年（{histItems.length})
             </Button>
           </div>
           {/* 歷年=唯讀留存紀錄:改今年不會動到這裡;沿用舊範本用「複製至今年」 */}
           <div className={`rounded-md ${SURFACE_INFO} px-4 py-3 text-body-sm text-ink-500 leading-relaxed`}>
-            <span className="font-medium text-primary-800">歷年清單為留存紀錄(唯讀)</span>
-            ——保存近五年各年度的清單與文件範本,僅供檢閱與下載,不可編輯或刪除。
-            每年度的清單請以「複製至今年」代入後,於本年度清單小幅修正;修改今年不會動到歷年紀錄。
+            <span className="font-medium text-primary-800">歷年清單為留存紀錄（唯讀）</span>
+            ——保存近五年各年度的清單與文件範本，僅供檢閱與下載，不可編輯或刪除。
+            每年度的清單請以「複製至今年」代入後，於本年度清單小幅修正；修改今年不會動到歷年紀錄。
           </div>
         </>
       )}
@@ -260,10 +260,10 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               title={isHistory ? `${histYear - 1911} 年度沒有留存清單` : `${editYear - 1911} 年度清單尚為空`}
               description={
                 isHistory
-                  ? '該年度沒有留存的清單項目(年度化留存自建立年度項起累積)。歷年清單為唯讀;要新增項目請返回本年度。'
+                  ? '該年度沒有留存的清單項目（年度化留存自建立年度項起累積）。歷年清單為唯讀；要新增項目請返回本年度。'
                   : prevOfEdit.length > 0
-                    ? '每年清單通常先代入前一年度再小幅修正;按下方按鈕一鍵帶入(含文件範本),或逐項新增。'
-                    : '新增項目後,各週期「套用標準清單」會帶入該年度清單;清單為空時帶入系統內建預設。'
+                    ? '每年清單通常先代入前一年度再小幅修正；按下方按鈕一鍵帶入（含文件範本），或逐項新增。'
+                    : '新增項目後，各週期「套用標準清單」會帶入該年度清單；清單為空時帶入系統內建預設。'
               }
             />
             {!isHistory && prevOfEdit.length > 0 && (
@@ -274,7 +274,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
                   disabled={copying !== null}
                   onClick={() => copyToYear(prevOfEdit.map((i) => i.id), editYear, 'seed-prev')}
                 >
-                  代入 {editYear - 1 - 1911} 年度清單({prevOfEdit.length} 項,含文件範本)
+                  代入 {editYear - 1 - 1911} 年度清單（{prevOfEdit.length} 項，含文件範本）
                 </Button>
               </div>
             )}
@@ -328,7 +328,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
                               <div>
                                 <FileUploadButton
                                   size="sm"
-                                  label={it.files.length ? '+ 再上傳範本' : '+ 上傳文件範本(Word/Excel 等)'}
+                                  label={it.files.length ? '+ 再上傳範本' : '+ 上傳文件範本（Word/Excel 等）'}
                                   busy={uploadingItemId === it.id}
                                   onChange={(e) => uploadTemplate(it, e)}
                                   accept={TEMPLATE_UPLOAD_ACCEPT}
@@ -368,8 +368,8 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
       <Dialog
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
-        title={editing ? '編輯標準清單項目' : `新增標準清單項目(${editYear - 1911} 年度)`}
-        description={`分區決定此項落在哪一繳交區(中心匯入由中心上傳);項目屬 ${editYear - 1911} 年度清單,不影響歷年留存紀錄。`}
+        title={editing ? '編輯標準清單項目' : `新增標準清單項目（${editYear - 1911} 年度）`}
+        description={`分區決定此項落在哪一繳交區（中心匯入由中心上傳）；項目屬 ${editYear - 1911} 年度清單，不影響歷年留存紀錄。`}
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
@@ -390,8 +390,8 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               ]}
             />
           </div>
-          <TextField label="項目名稱" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:資通安全維護計畫" />
-          <Textarea label="說明(選填)" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} placeholder="例:最新核定版本" />
+          <TextField label="項目名稱" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例：資通安全維護計畫" />
+          <Textarea label="說明（選填）" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} placeholder="例：最新核定版本" />
           <label className="flex items-center gap-2 text-body-sm text-ink-900">
             <input
               type="checkbox"
@@ -399,7 +399,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
               onChange={(e) => setForm((f) => ({ ...f, required: e.target.checked }))}
               className="w-4 h-4 rounded focus-ring accent-primary-600"
             />
-            必填(機關須上傳或敘明;取消則為選附)
+            必填（機關須上傳或敘明；取消則為選附）
           </label>
         </div>
       </Dialog>
@@ -408,7 +408,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         open={deletingFile !== null}
         onOpenChange={(o) => !busy && !o && setDeletingFile(null)}
         title="刪除文件範本"
-        description={deletingFile ? `確定刪除範本檔「${deletingFile.file.originalName}」?機關端將無法再下載此範本(已下載者不受影響)。` : undefined}
+        description={deletingFile ? `確定刪除範本檔「${deletingFile.file.originalName}」？機關端將無法再下載此範本（已下載者不受影響）。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={removeTemplateFile}
@@ -420,7 +420,7 @@ export default function PrepTemplateManager({ initialItems }: { initialItems: It
         onOpenChange={(o) => !busy && !o && setDeleting(null)}
         title="刪除標準清單項目"
         description={deleting
-          ? `「${deleting.title}」將自 ${editYear - 1911} 年度清單移除,之後套用標準清單不再帶入(不影響已開立週期與歷年留存)。`
+          ? `「${deleting.title}」將自 ${editYear - 1911} 年度清單移除，之後套用標準清單不再帶入（不影響已開立週期與歷年留存）。`
             + (deleting.files.length > 0 ? `其 ${deleting.files.length} 個文件範本將一併刪除。` : '')
             + '確定刪除？'
           : undefined}

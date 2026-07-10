@@ -120,7 +120,7 @@ export default function SnippetManager({ initial }: { initial: FindingSnippetDTO
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             rows={3}
-            placeholder="例:依資通安全管理法施行細則第 9 條規定…,惟查…,建議…"
+            placeholder="例：依資通安全管理法施行細則第 9 條規定…，惟查…，建議…"
           />
         </div>
         <div className="mt-3 flex justify-end">

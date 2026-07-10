@@ -21,12 +21,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (cycle.status === 'DRAFT') {
       return NextResponse.json(
-        { error: '週期尚未正式通知機關,請先於週期頁「通知機關」後再催辦' },
+        { error: '週期尚未正式通知機關，請先於週期頁「通知機關」後再催辦' },
         { status: 400 },
       );
     }
     if (cycle.status === 'CLOSED') {
-      return NextResponse.json({ error: '週期已結案,無需催辦' }, { status: 400 });
+      return NextResponse.json({ error: '週期已結案，無需催辦' }, { status: 400 });
     }
 
     const result = await notifyCycleTrackReminder({

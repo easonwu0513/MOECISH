@@ -26,7 +26,7 @@ export default function VersionActions({
   const [toggleOpen, setToggleOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
-  const [newName, setNewName] = useState(`${name}(複本)`);
+  const [newName, setNewName] = useState(`${name}（複本）`);
   const [newYear, setNewYear] = useState(String(year + 1));
   const [busy, setBusy] = useState(false);
 
@@ -81,7 +81,7 @@ export default function VersionActions({
       return;
     }
     const j = await res.json();
-    toast.success('已建立新版本', `複製 ${j.copied} 個項目;新版本預設為停用,編修完成後再啟用。`);
+    toast.success('已建立新版本', `複製 ${j.copied} 個項目；新版本預設為停用，編修完成後再啟用。`);
     setCopyOpen(false);
     router.refresh();
   }
@@ -111,7 +111,7 @@ export default function VersionActions({
         open={delOpen}
         onOpenChange={(o) => !busy && !o && setDelOpen(false)}
         title="刪除題庫版本"
-        description={`將刪除「${name}」及其全部題目(含法規對照),無法復原。確定刪除？`}
+        description={`將刪除「${name}」及其全部題目（含法規對照），無法復原。確定刪除？`}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={doDelete}
@@ -124,7 +124,7 @@ export default function VersionActions({
         title={isActive ? '停用題庫版本' : '啟用題庫版本'}
         description={
           isActive
-            ? '停用後開立新週期時將不可選用此版本;既有週期不受影響。'
+            ? '停用後開立新週期時將不可選用此版本；既有週期不受影響。'
             : '啟用後開立新週期時即可選用此版本。'
         }
         confirmLabel={isActive ? '停用' : '啟用'}
@@ -137,7 +137,7 @@ export default function VersionActions({
         open={copyOpen}
         onOpenChange={(v) => !busy && setCopyOpen(v)}
         title="複製為新版本"
-        description="複製全部項目(含法規對照)為新版本;歷史週期仍綁定原版本,互不影響。"
+        description="複製全部項目（含法規對照）為新版本；歷史週期仍綁定原版本，互不影響。"
         footer={
           <>
             <Button variant="text" onClick={() => setCopyOpen(false)} disabled={busy}>取消</Button>
@@ -147,7 +147,7 @@ export default function VersionActions({
       >
         <div className="flex flex-col gap-4 pt-2">
           <TextField label="新版本名稱" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <TextField label="年度(西元)" value={newYear} onChange={(e) => setNewYear(e.target.value)} />
+          <TextField label="年度（西元）" value={newYear} onChange={(e) => setNewYear(e.target.value)} />
         </div>
       </Dialog>
     </>

@@ -62,7 +62,7 @@ export default function CreateCycleButton({
         open={open}
         onOpenChange={(v) => !saving && setOpen(v)}
         title="建立稽核週期"
-        description={`為 ${orgName} 建立一份年度稽核週期(狀態為開立中)。各項日期(文件繳交期限、實地稽核日、矯正填報截止)請於週期頁「編輯日期」設定;日期確認後,再於週期頁按「通知機關」正式通知填報人 / 主管。`}
+        description={`為 ${orgName} 建立一份年度稽核週期（狀態為開立中）。各項日期（文件繳交期限、實地稽核日、矯正填報截止）請於週期頁「編輯日期」設定；日期確認後，再於週期頁按「通知機關」正式通知填報人 / 主管。`}
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
@@ -85,7 +85,7 @@ export default function CreateCycleButton({
             onChange={(e) => setYear(e.target.value)}
           />
           <p className="text-caption text-ink-500 leading-relaxed">
-            建立後請至週期頁設定各項日期,確認時程後再按「通知機關」正式通知填報人 / 主管。
+            建立後請至週期頁設定各項日期，確認時程後再按「通知機關」正式通知填報人 / 主管。
           </p>
         </div>
       </Dialog>

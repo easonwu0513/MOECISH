@@ -149,7 +149,7 @@ export const FindingItem = memo(function FindingItem({
             }, 0);
           }}
           className="text-[10px] bg-surface-container text-on-surface-variant hover:bg-primary-100 hover:text-primary-700 py-0.5 rounded font-bold transition-colors shadow-sm border border-outline-variant mt-0.5"
-          title="快速插入 OT- (快捷鍵：在編號框內按鍵盤 'o')"
+          title="快速插入 OT- （快捷鍵：在編號框內按鍵盤 'o'）"
         >
           + OT-
         </button>
@@ -175,7 +175,7 @@ export const FindingItem = memo(function FindingItem({
       <textarea
         id={`textarea-${item.id}`}
         className="input-elegant flex-1 min-w-0 min-h-[90px] resize-y"
-        placeholder="請貼入委員的稽核發現內容... (若涉及系統類別可於結尾加註（IT、OT類）)"
+        placeholder="請貼入委員的稽核發現內容... （若涉及系統類別可於結尾加註（IT、OT類））"
         value={item.text}
         onChange={handleChangeText}
         onCompositionEnd={handleCompositionEndText}

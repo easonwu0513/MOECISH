@@ -51,7 +51,7 @@ export default async function LetterTemplatesPage() {
       <header className="mb-5 pb-5 border-b border-rule">
         <h1 className="text-headline-lg text-ink-900 tracking-tight">信件管理</h1>
         <p className="mt-2.5 text-body-sm text-ink-500 max-w-3xl leading-relaxed">
-          手動信件與系統通知的單一入口:「信件範本」產生公文與通知底稿供複製外寄;「系統寄件紀錄」查閱平台自動寄送的通知與追蹤信。
+          手動信件與系統通知的單一入口：「信件範本」產生公文與通知底稿供複製外寄；「系統寄件紀錄」查閱平台自動寄送的通知與追蹤信。
         </p>
       </header>
       <MailTabs active="letters" />

@@ -19,13 +19,13 @@ export async function auditorsFinalized(cycleId: string): Promise<{ ok: boolean;
     select: { auditorId: true, scoreLockedAt: true, dimensions: true, auditor: { select: { name: true } } },
   });
   if (assignments.length === 0) {
-    return { ok: false, error: '尚未指派稽核委員,無法完成年度稽核' };
+    return { ok: false, error: '尚未指派稽核委員，無法完成年度稽核' };
   }
   const unfinalized = assignments.filter((a) => !a.scoreLockedAt).length;
   if (unfinalized > 0) {
     return {
       ok: false,
-      error: `尚有 ${unfinalized} 位委員的評分表未定稿或已被退件,請待全體委員確認填寫完畢(定稿)後再發布缺失/完成稽核`,
+      error: `尚有 ${unfinalized} 位委員的評分表未定稿或已被退件，請待全體委員確認填寫完畢（定稿）後再發布缺失/完成稽核`,
     };
   }
   // ② 依責任構面重新驗算評分完整性(每構面題數以該檢核表版本為準,與 lock 閘同語彙)。
@@ -50,7 +50,7 @@ export async function auditorsFinalized(cycleId: string): Promise<{ ok: boolean;
     if (!auditorScoringComplete([], mine, totalByDim)) {
       return {
         ok: false,
-        error: `委員「${a.auditor.name}」已定稿但尚未完成任何構面評分,請於「彙整報告」對其「退件」、待補齊評分並重新定稿後再完成稽核`,
+        error: `委員「${a.auditor.name}」已定稿但尚未完成任何構面評分，請於「彙整報告」對其「退件」、待補齊評分並重新定稿後再完成稽核`,
       };
     }
   }

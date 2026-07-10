@@ -133,7 +133,7 @@ export default function UsersDirectory({
       {shownInvites.length > 0 && (
         <div className="overflow-hidden rounded-md border border-rule bg-card">
           <div className="px-5 py-3 bg-paper-sunk text-ink-700 text-label-sm uppercase tracking-wide border-b border-rule-strong">
-            邀請({shownInvites.length})
+            邀請（{shownInvites.length})
           </div>
           <TableScroll>
             <Table>
@@ -210,7 +210,7 @@ export default function UsersDirectory({
                             key={`${it.role}:${it.orgName ?? ''}:${i}`}
                             size="sm"
                             tone={ROLE_TONE[it.role]}
-                            title={`已授身分(可切換)${it.orgName ? ` · ${it.orgName}` : ''}`}
+                            title={`已授身分（可切換）${it.orgName ? ` · ${it.orgName}` : ''}`}
                           >
                             {ROLE_LABELS[it.role]}
                           </Chip>
@@ -269,7 +269,7 @@ export default function UsersDirectory({
           <EmptyState
             icon={<Users size={28} />}
             title="沒有符合條件的人員"
-            description="調整上方篩選或搜尋條件;或用右上角「邀請人員」建立邀請。"
+            description="調整上方篩選或搜尋條件；或用右上角「邀請人員」建立邀請。"
           />
         </div>
       )}

@@ -116,7 +116,7 @@ export default function ChecklistShell({
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('填報已送出', '已通知中心審核;內容已鎖定,如需修改請洽中心退回。');
+    toast.success('填報已送出', '已通知中心審核；內容已鎖定，如需修改請洽中心退回。');
     router.refresh();
   }
 
@@ -137,7 +137,7 @@ export default function ChecklistShell({
     }
     const j = await res.json();
     const label = mode === 'COMPLIANT' ? '符合' : '不適用';
-    toast.success('已批次標記', `${j.updated} 題標為「${label}」;請逐題確認並調整例外。`);
+    toast.success('已批次標記', `${j.updated} 題標為「${label}」；請逐題確認並調整例外。`);
     router.refresh();
   }
 
@@ -270,7 +270,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定,鎖定後如需再修改,請通知中心工作人員,由中心退回重填。提醒:委員審閱意見不會回到本檢核表;正式回饋以實地稽核後開立之「待改善事項/建議事項」為準。`}
+        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定，鎖定後如需再修改，請通知中心工作人員，由中心退回重填。提醒：委員審閱意見不會回到本檢核表；正式回饋以實地稽核後開立之「待改善事項/建議事項」為準。`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}
@@ -282,8 +282,8 @@ export default function ChecklistShell({
         title={bulkMode === 'COMPLIANT' ? '未作答全部標為符合' : '未作答全部標為不適用'}
         description={
           bulkMode === 'COMPLIANT'
-            ? `將把 ${total - filled} 題未作答標為「符合」(已作答不覆寫)。注意:應據實填報,沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行？`
-            : `將把 ${total - filled} 題未作答標為「不適用」(已作答不覆寫)。適用於本機關無此項作為者;有作為的請逐題改回符合/部分符合並補充說明。確定執行？`
+            ? `將把 ${total - filled} 題未作答標為「符合」（已作答不覆寫）。注意：應據實填報，沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行？`
+            : `將把 ${total - filled} 題未作答標為「不適用」（已作答不覆寫）。適用於本機關無此項作為者；有作為的請逐題改回符合/部分符合並補充說明。確定執行？`
         }
         confirmLabel={bulkMode === 'COMPLIANT' ? '全部標為符合' : '全部標為不適用'}
         tone="primary"
@@ -450,8 +450,8 @@ export default function ChecklistShell({
             <p className="text-title-md text-ink-900 tabular-nums">已完成 {filled} / {total} 題</p>
             <p className="text-body-sm text-ink-500 mt-0.5">
               {filled < total
-                ? `尚餘 ${total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。`
-                : '全部題目已作答,可送出給稽核委員審閱。送出後將鎖定,需中心退回才能修改。'}
+                ? `尚餘 ${total - filled} 題未作答，沒有的項目請選「不適用」後即可送出。`
+                : '全部題目已作答，可送出給稽核委員審閱。送出後將鎖定，需中心退回才能修改。'}
             </p>
           </div>
           {filled < total ? (

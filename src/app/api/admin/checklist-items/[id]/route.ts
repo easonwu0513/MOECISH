@@ -61,7 +61,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!item) return NextResponse.json({ error: '項目不存在' }, { status: 404 });
     if (item._count.responses > 0) {
       return NextResponse.json(
-        { error: `已有 ${item._count.responses} 筆機關作答,不可刪除;若要停用請改用年度換版` },
+        { error: `已有 ${item._count.responses} 筆機關作答，不可刪除；若要停用請改用年度換版` },
         { status: 400 },
       );
     }
@@ -71,7 +71,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     });
     if (inUse > 0) {
       return NextResponse.json(
-        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用,不可刪除題目;若要停用請改用年度換版。` },
+        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用，不可刪除題目；若要停用請改用年度換版。` },
         { status: 400 },
       );
     }

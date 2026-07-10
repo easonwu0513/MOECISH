@@ -6,7 +6,7 @@ export type FindingSnippetDTO = { id: string; aspect: string; kind: string; text
 
 /** 構面選項(含「通用」= 空字串,任何構面皆列出)。 */
 export const SNIPPET_ASPECTS: { value: string; label: string }[] = [
-  { value: '', label: '通用(所有構面)' },
+  { value: '', label: '通用（所有構面）' },
   ...(['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as DeficiencyAspect[]).map((a) => ({
     value: a,
     label: DEFICIENCY_ASPECT_LABELS[a],
@@ -15,7 +15,7 @@ export const SNIPPET_ASPECTS: { value: string; label: string }[] = [
 
 /** 類型選項(含「通用」= 空字串,任何類型皆列出)。 */
 export const SNIPPET_KINDS: { value: string; label: string }[] = [
-  { value: '', label: '通用(所有類型)' },
+  { value: '', label: '通用（所有類型）' },
   ...(['COMPLIANCE', 'IMPROVE', 'SUGGEST'] as FindingKind[]).map((k) => ({
     value: k,
     label: FINDING_KIND_LABELS[k],

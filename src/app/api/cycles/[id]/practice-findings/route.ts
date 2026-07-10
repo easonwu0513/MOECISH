@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅觀察員本人可撰寫練習發現' }, { status: 403 });
     }
     if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
-      return NextResponse.json({ error: '練習於實地稽核階段起開放(結案後仍可續寫)' }, { status: 403 });
+      return NextResponse.json({ error: '練習於實地稽核階段起開放（結案後仍可續寫）' }, { status: 403 });
     }
     const body = CreateBody.parse(await req.json());
 
@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           where: { cycleId_observerId: { cycleId: cycle.id, observerId: user.id } },
           select: { practiceLockedAt: true },
         });
-        if (o?.practiceLockedAt) throw new AuthError(409, '已送出(確認填寫完畢),如需修改請先解除鎖定');
+        if (o?.practiceLockedAt) throw new AuthError(409, '已送出（確認填寫完畢），如需修改請先解除鎖定');
         return tx.practiceFinding.create({
           data: {
             cycleId: cycle.id,
@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       }, { isolationLevel: 'Serializable' });
     } catch (e) {
       if ((e as { code?: string }).code === 'P2034') {
-        return NextResponse.json({ error: '儲存衝突,請稍候重試。' }, { status: 409 });
+        return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
       }
       throw e;
     }

@@ -39,13 +39,13 @@ export default function ReviewerAssign({
   }
 
   if (authors.length === 0) {
-    return <p className="text-body-sm text-ink-500">此缺失查無對應的開立委員,無法指派審閱委員。</p>;
+    return <p className="text-body-sm text-ink-500">此缺失查無對應的開立委員，無法指派審閱委員。</p>;
   }
 
   return (
     <div className="flex items-end gap-2 flex-wrap">
       <div className="w-60 max-w-full">
-        <Select label="審閱委員(參與此次稽核的委員)" value={pick} onChange={(e) => setPick(e.target.value)}>
+        <Select label="審閱委員（參與此次稽核的委員）" value={pick} onChange={(e) => setPick(e.target.value)}>
           <option value="">未指派</option>
           {authors.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>

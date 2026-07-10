@@ -100,7 +100,7 @@ export default function IdentityGrantsDialog({
       open={open}
       onOpenChange={(o) => !busy && onOpenChange(o)}
       title={`身分授權 — ${name}`}
-      description="此帳號可持有多重身分(使用者於右上選單切換);收回留歷史、唯一身分不可收回。"
+      description="此帳號可持有多重身分（使用者於右上選單切換）；收回留歷史、唯一身分不可收回。"
       footer={<Button variant="text" onClick={() => onOpenChange(false)} disabled={busy}>關閉</Button>}
     >
       <div className="flex flex-col gap-4">

@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 網頁/腳本與壓縮檔等(下載端一律 attachment + nosniff,此為縱深防禦第一層)
     if (!isTemplateUploadAllowed(file.name)) {
       return NextResponse.json(
-        { error: '僅接受 Word(.doc/.docx)、Excel(.xls/.xlsx)、ODF(.odt/.ods)、PDF、CSV、JPG、PNG 格式的範本檔;不接受巨集啟用檔(.docm/.xlsm)與壓縮檔。' },
+        { error: '僅接受 Word（。doc/。docx）、Excel（。xls/。xlsx）、ODF（。odt/。ods）、PDF、CSV、JPG、PNG 格式的範本檔；不接受巨集啟用檔（。docm/。xlsm）與壓縮檔。' },
         { status: 400 },
       );
     }

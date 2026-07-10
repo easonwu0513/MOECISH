@@ -9,7 +9,7 @@ type Msg = { role: 'user' | 'assistant'; content: string };
 const SUGGESTIONS = [
   '這個週期我下一步該做什麼？',
   '機關要繳交哪些稽核前資料？',
-  '幫我把這段稽核發現寫得更精簡:',
+  '幫我把這段稽核發現寫得更精簡：',
 ];
 
 /**
@@ -78,9 +78,9 @@ export function AiAssistant() {
         acc += dec.decode(value, { stream: true });
         setLast(acc);
       }
-      if (!acc.trim()) setLast('(沒有回覆內容)');
+      if (!acc.trim()) setLast('（沒有回覆內容）');
     } catch {
-      setLast('⚠️ 連線中斷,請再試一次');
+      setLast('⚠️ 連線中斷，請再試一次');
     } finally {
       setBusy(false);
     }
@@ -100,9 +100,9 @@ export function AiAssistant() {
               >
                 <X size={11} aria-hidden />
               </button>
-              <span className="font-medium">👋 嗨,我是 AI 小幫手</span>
+              <span className="font-medium">👋 嗨，我是 AI 小幫手</span>
               <br />
-              平台操作、各角色下一步,或幫你草擬文字,都可以問我!
+              平台操作、各角色下一步，或幫你草擬文字，都可以問我！
             </div>
           )}
           {/* 啟動鈕縮為 44px 圓形圖示(UAT:原含字 pill 太占畫面);44px 維持觸控目標下限 */}
@@ -129,7 +129,7 @@ export function AiAssistant() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-title-md text-ink-900 leading-tight">MOECISH AI 小幫手</p>
-              <p className="text-label-sm text-ink-500">AI 輔助草稿,內容請自行核對</p>
+              <p className="text-label-sm text-ink-500">AI 輔助草稿，內容請自行核對</p>
             </div>
             <button
               type="button"
@@ -144,7 +144,7 @@ export function AiAssistant() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
             {messages.length === 0 ? (
               <div className="text-body-sm text-ink-500">
-                <p>嗨!我可以說明平台操作、各角色的下一步,或協助摘要/草擬文字。試試:</p>
+                <p>嗨！我可以說明平台操作、各角色的下一步，或協助摘要/草擬文字。試試：</p>
                 <div className="mt-3 flex flex-col gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button
@@ -192,7 +192,7 @@ export function AiAssistant() {
                 }
               }}
               rows={1}
-              placeholder="輸入您的問題…(Enter 送出)"
+              placeholder="輸入您的問題…（Enter 送出）"
               className="flex-1 resize-none max-h-28 rounded-md border border-neutral-400 hover:border-neutral-500 bg-card px-3 py-2 text-body-sm text-ink-900 focus-ring"
             />
             <button

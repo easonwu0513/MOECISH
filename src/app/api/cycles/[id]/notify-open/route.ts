@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (!cycle.onsiteDate) {
       return NextResponse.json(
-        { error: '尚未設定實地稽核日,請先於「編輯日期」確定時程後再通知機關' },
+        { error: '尚未設定實地稽核日，請先於「編輯日期」確定時程後再通知機關' },
         { status: 400 },
       );
     }

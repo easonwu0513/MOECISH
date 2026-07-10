@@ -67,7 +67,7 @@ export default async function PracticeHistoryPage({ params }: { params: { id: st
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">實習紀錄{isSelf ? '' : ` — ${person.name}`}</h1>
         <p className="text-body-sm text-ink-500 mt-1 leading-relaxed">
-          觀察員時期的練習發現與指導委員回饋(唯讀留存);目前身分:{ROLE_LABELS[person.role as Role] ?? person.role}。
+          觀察員時期的練習發現與指導委員回饋（唯讀留存）；目前身分：{ROLE_LABELS[person.role as Role] ?? person.role}。
           練習內容從未、也不會進入任何正式稽核報告。
         </p>
       </header>
@@ -78,7 +78,7 @@ export default async function PracticeHistoryPage({ params }: { params: { id: st
             <EmptyState
               icon={<ClipboardCheck size={28} />}
               title="尚無實習紀錄"
-              description="於稽核週期被配對為觀察員並撰寫練習後,紀錄會留存於此。"
+              description="於稽核週期被配對為觀察員並撰寫練習後，紀錄會留存於此。"
             />
           </div>
         </Card>

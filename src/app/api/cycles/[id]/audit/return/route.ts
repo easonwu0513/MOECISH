@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 不可再退件(如確需修正,須將週期回退至實地稽核後處理,屬重大操作)。CLOSED 亦涵蓋於此。
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
       return NextResponse.json(
-        { error: '實地稽核階段已結束,委員評分已定稿凍結,不可退件。如確需修正,請先將週期回退至「實地稽核」後處理(重大操作,請審慎)' },
+        { error: '實地稽核階段已結束，委員評分已定稿凍結，不可退件。如確需修正，請先將週期回退至「實地稽核」後處理（重大操作，請審慎）' },
         { status: 409 },
       );
     }
@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '該委員未被指派此稽核週期' }, { status: 404 });
     }
     if (!assignment.scoreLockedAt) {
-      return NextResponse.json({ error: '該委員尚未確認填寫完畢,無需退件' }, { status: 409 });
+      return NextResponse.json({ error: '該委員尚未確認填寫完畢，無需退件' }, { status: 409 });
     }
 
     await prisma.auditorAssignment.update({
@@ -70,7 +70,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const r = await notifyAuditScoreReturned({ cycleId: cycle.id, auditorId, reason, appBaseUrl: appBaseUrl(req) });
       notified = r.recipientCount;
     } catch (e) {
-      console.error('[audit.return] 通知失敗:', e);
+      console.error('[audit.return] 通知失敗：', e);
     }
 
     return NextResponse.json({ ok: true, notified });

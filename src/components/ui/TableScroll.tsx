@@ -27,7 +27,7 @@ export function TableScroll({
       style={maxHeight ? { maxHeight } : undefined}
       tabIndex={0}
       role="region"
-      aria-label="資料表格(可捲動)"
+      aria-label="資料表格（可捲動）"
     >
       <div style={{ minWidth }}>{children}</div>
     </div>

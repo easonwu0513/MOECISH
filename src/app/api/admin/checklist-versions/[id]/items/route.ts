@@ -7,7 +7,7 @@ import { dimensionFromItemNo } from '@/lib/dimension';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 const Body = z.object({
-  itemNo: z.string().regex(/^\d+\.\d+$/, '項次格式須為「構面.序號」,例 4.3'),
+  itemNo: z.string().regex(/^\d+\.\d+$/, '項次格式須為「構面。序號」，例 4.3'),
   content: z.string().min(5),
   auditBasis: z.string().nullable().optional(),
   auditFocus: z.string().nullable().optional(),
@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
     if (inUse > 0) {
       return NextResponse.json(
-        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用,不可再新增題目;請以年度換版調整題庫。` },
+        { error: `此版本已有 ${inUse} 個進行中的稽核週期使用，不可再新增題目；請以年度換版調整題庫。` },
         { status: 400 },
       );
     }
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     try {
       dimension = dimensionFromItemNo(body.itemNo);
     } catch {
-      return NextResponse.json({ error: '項次主號超出構面範圍(1-9)' }, { status: 400 });
+      return NextResponse.json({ error: '項次主號超出構面範圍（1-9）' }, { status: 400 });
     }
 
     // 依項次數值排序計算 orderIndex(插入後重排)

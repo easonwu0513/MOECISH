@@ -52,7 +52,7 @@ export default async function AdminJourneyPage() {
         <div className="min-w-0">
           <h1 className="text-headline-lg text-ink-900 tracking-tight">引導式精靈範本</h1>
           <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
-            維護兩種精靈的階段與項目:「中心年度計畫執行」(跨院年度 SOP) 與「週期各階段」(每家醫院、分角色)。此處修改即時套用到精靈;已勾選的進度不受影響。
+            維護兩種精靈的階段與項目：「中心年度計畫執行」（跨院年度 SOP） 與「週期各階段」（每家醫院、分角色）。此處修改即時套用到精靈；已勾選的進度不受影響。
           </p>
         </div>
       </header>

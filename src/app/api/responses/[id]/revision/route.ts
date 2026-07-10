@@ -26,10 +26,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '不可存取他機關資料' }, { status: 403 });
     }
     if (resp.cycle.status === 'CLOSED') {
-      return NextResponse.json({ error: '週期已結案,不可再填補正回應' }, { status: 409 });
+      return NextResponse.json({ error: '週期已結案，不可再填補正回應' }, { status: 409 });
     }
     if (resp._count.comments === 0) {
-      return NextResponse.json({ error: '本題尚無委員意見,無需補正回應' }, { status: 400 });
+      return NextResponse.json({ error: '本題尚無委員意見，無需補正回應' }, { status: 400 });
     }
 
     const body = Body.parse(await req.json());

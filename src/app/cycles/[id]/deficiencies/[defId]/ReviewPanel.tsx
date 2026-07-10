@@ -65,7 +65,7 @@ export default function ReviewPanel({
   async function decide() {
     if (!open) return;
     if (open === 'RETURN' && comment.trim().length < 5) {
-      toast.error('退回理由太短', '請具體說明需補正之處(至少 5 個字),機關才知道怎麼改');
+      toast.error('退回理由太短', '請具體說明需補正之處（至少 5 個字），機關才知道怎麼改');
       return;
     }
     setSaving(true);
@@ -81,7 +81,7 @@ export default function ReviewPanel({
       return;
     }
     const t = open === 'PASS' ? TOAST.passedAction() : TOAST.returnedAction();
-    const more = remaining && remaining > 0 ? `還有 ${remaining} 筆待審,已為你開啟下一筆。` : undefined;
+    const more = remaining && remaining > 0 ? `還有 ${remaining} 筆待審，已為你開啟下一筆。` : undefined;
     toast.success(t.title, more ?? t.description);
     setOpen(null);
     setComment('');
@@ -105,7 +105,7 @@ export default function ReviewPanel({
           <CardTitle>委員審查（第 {round} 輪）</CardTitle>
           <CardDescription>
             {locked
-              ? '審查權責屬指派委員。最高管理員此功能預設鎖定,僅於特殊情況(如協助操作)才解鎖代為審查。'
+              ? '審查權責屬指派委員。最高管理員此功能預設鎖定，僅於特殊情況（如協助操作）才解鎖代為審查。'
               : '檢視下方機關填報內容與佐證後，決定本項矯正措施是否通過。'}
             {!locked && remaining != null && remaining > 0 && (
               <span className="text-primary-700">本週期還有 {remaining} 筆待審。</span>

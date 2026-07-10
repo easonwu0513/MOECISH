@@ -42,7 +42,7 @@ export default function JourneyTodoToggle({
     if (!res || !res.ok) {
       setChecked(!next); // 失敗回復
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('更新失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('更新失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
       return;
     }
     router.refresh();

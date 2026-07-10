@@ -30,7 +30,7 @@ async function loadOwnEditableComment(
     return { error: NextResponse.json({ error: '僅能修改自己的審閱筆記' }, { status: 403 }) };
   }
   if (comment.resolvedAt || comment.response.orgRevisionNote) {
-    return { error: NextResponse.json({ error: '機關已回應此筆記,不可再修改或刪除' }, { status: 409 }) };
+    return { error: NextResponse.json({ error: '機關已回應此筆記，不可再修改或刪除' }, { status: 409 }) };
   }
   // 委員身分需通過與新增留言相同的三道閘(中心/最高管理員不受此限,與 POST 一致)
   if (userRole === 'AUDITOR') {
@@ -42,7 +42,7 @@ async function loadOwnEditableComment(
       return { error: NextResponse.json({ error: '資料準備階段尚未開放委員審閱' }, { status: 403 }) };
     }
     if (!auditorReviewWindowOpen(cycle.reviewWindowStart, cycle.reviewWindowEnd)) {
-      return { error: NextResponse.json({ error: '目前不在委員審閱時間區間內,暫不開放審閱' }, { status: 403 }) };
+      return { error: NextResponse.json({ error: '目前不在委員審閱時間區間內，暫不開放審閱' }, { status: 403 }) };
     }
   }
   return { comment };

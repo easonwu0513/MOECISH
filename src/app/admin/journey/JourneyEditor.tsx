@@ -27,7 +27,7 @@ const kindOf = (it: EItem): CheckKind => (it.autoKey ? 'AUTO' : it.informational
 const KIND_OPTS = [
   { value: 'AUTO', label: '系統自動判定' },
   { value: 'MANUAL', label: '必做・手動勾選' },
-  { value: 'INFO', label: '純提醒(不勾選)' },
+  { value: 'INFO', label: '純提醒（不勾選）' },
 ];
 type EStage = {
   id: string; stageKey: string; title: string; summary: string | null;
@@ -315,23 +315,23 @@ export default function JourneyEditor({ data }: { data: EData }) {
         }
       >
         <div className="flex flex-col gap-4 pt-2">
-          <TextField label="階段名稱" value={stageForm.title} onChange={(e) => setStageForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:委員共識會議" />
-          <TextField label="階段代碼" value={stageForm.stageKey} onChange={(e) => setStageForm((f) => ({ ...f, stageKey: e.target.value }))} placeholder={scope === 'CYCLE' ? '週期狀態,如 ONSITE' : '如 P2_CONSENSUS'} />
+          <TextField label="階段名稱" value={stageForm.title} onChange={(e) => setStageForm((f) => ({ ...f, title: e.target.value }))} placeholder="例：委員共識會議" />
+          <TextField label="階段代碼" value={stageForm.stageKey} onChange={(e) => setStageForm((f) => ({ ...f, stageKey: e.target.value }))} placeholder={scope === 'CYCLE' ? '週期狀態，如 ONSITE' : '如 P2_CONSENSUS'} />
           {scope === 'CYCLE' && (
             <p className="-mt-2 text-caption text-ink-500 leading-relaxed">
-              填對應週期狀態(DRAFT / PREPARATION / READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED)可在週期頁自動展開目前階段;也可自訂任意代碼(自訂階段照常顯示於「查看全部」,但不會自動對應目前階段)。
+              填對應週期狀態（DRAFT / PREPARATION / READY / ONSITE / REPORT_ISSUED / REMEDIATION / CLOSED）可在週期頁自動展開目前階段；也可自訂任意代碼（自訂階段照常顯示於「查看全部」，但不會自動對應目前階段）。
             </p>
           )}
-          <Textarea label="階段說明(選填)" value={stageForm.summary} onChange={(e) => setStageForm((f) => ({ ...f, summary: e.target.value }))} rows={2} />
+          <Textarea label="階段說明（選填）" value={stageForm.summary} onChange={(e) => setStageForm((f) => ({ ...f, summary: e.target.value }))} rows={2} />
           {/* 開始/截止日期:僅中心年度計畫執行(PROGRAMME)使用;週期各階段時程由週期本身的日期欄位管理 */}
           {scope === 'PROGRAMME' && (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <TextField label="開始日期(選填)" type="date" value={stageForm.startDate} onChange={(e) => setStageForm((f) => ({ ...f, startDate: e.target.value }))} />
-                <TextField label="截止日期(選填)" type="date" value={stageForm.dueDate} onChange={(e) => setStageForm((f) => ({ ...f, dueDate: e.target.value }))} />
+                <TextField label="開始日期（選填）" type="date" value={stageForm.startDate} onChange={(e) => setStageForm((f) => ({ ...f, startDate: e.target.value }))} />
+                <TextField label="截止日期（選填）" type="date" value={stageForm.dueDate} onChange={(e) => setStageForm((f) => ({ ...f, dueDate: e.target.value }))} />
               </div>
               <p className="-mt-2 text-caption text-ink-500 leading-relaxed">
-                標示此階段「何時開始做、何時之前要完成」;會顯示於精靈範本與「中心年度計畫執行精靈」頁。
+                標示此階段「何時開始做、何時之前要完成」；會顯示於精靈範本與「中心年度計畫執行精靈」頁。
               </p>
             </>
           )}
@@ -351,8 +351,8 @@ export default function JourneyEditor({ data }: { data: EData }) {
         }
       >
         <div className="flex flex-col gap-4 pt-2">
-          <TextField label="項目內容" value={itemForm.title} onChange={(e) => setItemForm((f) => ({ ...f, title: e.target.value }))} placeholder="例:寄送委員邀請函" />
-          <Textarea label="提示 / 文件位置(選填)" value={itemForm.hint} onChange={(e) => setItemForm((f) => ({ ...f, hint: e.target.value }))} rows={2} />
+          <TextField label="項目內容" value={itemForm.title} onChange={(e) => setItemForm((f) => ({ ...f, title: e.target.value }))} placeholder="例：寄送委員邀請函" />
+          <Textarea label="提示 / 文件位置（選填）" value={itemForm.hint} onChange={(e) => setItemForm((f) => ({ ...f, hint: e.target.value }))} rows={2} />
           {scope === 'CYCLE' && (
             <div>
               <p className="text-caption font-medium text-ink-500 mb-1.5">負責角色</p>
@@ -370,10 +370,10 @@ export default function JourneyEditor({ data }: { data: EData }) {
             />
             <p className="mt-1.5 text-caption text-ink-500 leading-relaxed">
               {itemForm.kind === 'AUTO'
-                ? '由系統依週期實況自動打勾(選擇下方訊號)。'
+                ? '由系統依週期實況自動打勾（選擇下方訊號）。'
                 : itemForm.kind === 'MANUAL'
-                  ? '需人工確認完成後手動打勾;計入進度。'
-                  : '僅提醒用途:不顯示勾選框、不計入進度。'}
+                  ? '需人工確認完成後手動打勾；計入進度。'
+                  : '僅提醒用途：不顯示勾選框、不計入進度。'}
             </p>
           </div>
           {scope === 'CYCLE' && itemForm.kind === 'AUTO' && (
@@ -386,7 +386,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
           )}
           {scope === 'CYCLE' && (
             <Select label="快捷跳轉" value={itemForm.href} onChange={(e) => setItemForm((f) => ({ ...f, href: e.target.value }))}>
-              <option value={HREF_AUTO}>系統自動推導(依訊號/標題)</option>
+              <option value={HREF_AUTO}>系統自動推導（依訊號/標題）</option>
               {HREF_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
@@ -399,7 +399,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
         open={stageDeleting !== null}
         onOpenChange={(o) => !busy && !o && setStageDeleting(null)}
         title="刪除階段"
-        description={stageDeleting ? `確定刪除階段「${stageDeleting.title}」?其下所有項目與已勾選進度將一併刪除。` : undefined}
+        description={stageDeleting ? `確定刪除階段「${stageDeleting.title}」？其下所有項目與已勾選進度將一併刪除。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (stageDeleting) removeStage(stageDeleting); }}
@@ -409,7 +409,7 @@ export default function JourneyEditor({ data }: { data: EData }) {
         open={itemDeleting !== null}
         onOpenChange={(o) => !busy && !o && setItemDeleting(null)}
         title="刪除項目"
-        description={itemDeleting ? `確定刪除「${itemDeleting.title}」?已勾選進度將一併刪除。` : undefined}
+        description={itemDeleting ? `確定刪除「${itemDeleting.title}」？已勾選進度將一併刪除。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (itemDeleting) removeItem(itemDeleting); }}

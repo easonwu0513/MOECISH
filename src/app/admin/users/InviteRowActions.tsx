@@ -22,7 +22,7 @@ export default function InviteRowActions({ inviteId, email, canRevoke = true }: 
       toast.error('重寄失敗', j.error);
       return;
     }
-    toast.success('邀請信已重寄', `${email};效期重新展延 14 天`);
+    toast.success('邀請信已重寄', `${email}；效期重新展延 14 天`);
     router.refresh();
   }
 
@@ -56,7 +56,7 @@ export default function InviteRowActions({ inviteId, email, canRevoke = true }: 
         open={revokeOpen}
         onOpenChange={(o) => !busy && setRevokeOpen(o)}
         title="撤銷邀請"
-        description={`撤銷後「${email}」的邀請連結立即失效;之後可重新建立邀請。`}
+        description={`撤銷後「${email}」的邀請連結立即失效；之後可重新建立邀請。`}
         confirmLabel="撤銷"
         tone="danger"
         onConfirm={revoke}

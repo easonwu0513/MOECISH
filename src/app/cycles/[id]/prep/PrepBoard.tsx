@@ -88,7 +88,7 @@ export default function PrepBoard({
       notifyRemindResult(j, '催繳');
     } else {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('催繳失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
     }
   }
 
@@ -98,11 +98,11 @@ export default function PrepBoard({
     const skipped = j.skipped ?? 0;
     const failed = j.failed ?? 0;
     if (sent > 0) {
-      toast.success(`已寄出${verb}通知`, `已通知 ${sent} 位機關管理員${skipped > 0 ? `(${skipped} 位 24 小時內已通知過,未重複寄送)` : ''}`);
+      toast.success(`已寄出${verb}通知`, `已通知 ${sent} 位機關管理員${skipped > 0 ? `(${skipped} 位 24 小時內已通知過，未重複寄送）` : ''}`);
     } else if (skipped > 0) {
-      toast.info(`24 小時內已${verb}過`, '為避免重複轟炸機關,系統未再寄送;如需再次通知請隔日再試,或於「通知 Email」頁手動寄送。');
+      toast.info(`24 小時內已${verb}過`, '為避免重複轟炸機關，系統未再寄送；如需再次通知請隔日再試，或於「通知 Email」頁手動寄送。');
     } else if (failed > 0) {
-      toast.error(`${verb}通知寄送失敗`, '請稍後再試,或於「通知 Email」頁確認寄信狀態。');
+      toast.error(`${verb}通知寄送失敗`, '請稍後再試，或於「通知 Email」頁確認寄信狀態。');
     } else {
       toast.success(`已送出${verb}`);
     }
@@ -122,7 +122,7 @@ export default function PrepBoard({
       notifyRemindResult(j, '催補');
     } else {
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('催補失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('催補失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
     }
   }
 
@@ -189,7 +189,7 @@ export default function PrepBoard({
         toast.error('套用失敗', j.error);
       }
     } catch {
-      toast.error('套用失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('套用失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -214,7 +214,7 @@ export default function PrepBoard({
         toast.error('新增失敗', j.error);
       }
     } catch {
-      toast.error('新增失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('新增失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -230,7 +230,7 @@ export default function PrepBoard({
         toast.error('刪除失敗', j.error);
       }
     } catch {
-      toast.error('刪除失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('刪除失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -269,7 +269,7 @@ export default function PrepBoard({
             body: JSON.stringify({}),
           });
           if (!r2.ok) {
-            toast.error('檔案已上傳,但狀態更新失敗', '請重新整理頁面;若狀態仍未變,請再上傳一次或聯繫中心');
+            toast.error('檔案已上傳，但狀態更新失敗', '請重新整理頁面；若狀態仍未變，請再上傳一次或聯繫中心');
           } else {
             toast.success('已上傳', files.length > 1 ? `共 ${ok}/${files.length} 個檔案` : files[0].name);
           }
@@ -279,7 +279,7 @@ export default function PrepBoard({
         router.refresh();
       }
     } catch {
-      toast.error('上傳失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('上傳失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusyItemId(null);
       e.target.value = '';
@@ -303,7 +303,7 @@ export default function PrepBoard({
         toast.error('儲存失敗', j.error);
       }
     } catch {
-      toast.error('儲存失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('儲存失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusyItemId(null);
     }
@@ -326,7 +326,7 @@ export default function PrepBoard({
         toast.error('繳交失敗', j.error);
       }
     } catch {
-      toast.error('繳交失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('繳交失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -345,7 +345,7 @@ export default function PrepBoard({
         toast.error('刪除失敗', j.error);
       }
     } catch {
-      toast.error('刪除失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('刪除失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusy(false);
     }
@@ -368,7 +368,7 @@ export default function PrepBoard({
         toast.error('操作失敗', j.error);
       }
     } catch {
-      toast.error('操作失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('操作失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusyItemId(null);
     }
@@ -384,14 +384,14 @@ export default function PrepBoard({
         body: JSON.stringify({ status: release ? 'CONFIRMED' : 'EMPTY' }),
       });
       if (res.ok) {
-        toast.success(release ? (centerReleaseEffective ? '已開放委員檢視' : '已標記開放(資料齊備階段後對委員生效)') : '已收回(暫不開放委員)');
+        toast.success(release ? (centerReleaseEffective ? '已開放委員檢視' : '已標記開放（資料齊備階段後對委員生效）') : '已收回（暫不開放委員）');
         router.refresh();
       } else {
         const j = await res.json().catch(() => ({ error: '失敗' }));
         toast.error('操作失敗', j.error);
       }
     } catch {
-      toast.error('操作失敗', '連線逾時或網路中斷,請稍後再試');
+      toast.error('操作失敗', '連線逾時或網路中斷，請稍後再試');
     } finally {
       setBusyItemId(null);
     }
@@ -424,7 +424,7 @@ export default function PrepBoard({
                     size="sm"
                     dot
                   >
-                    {status === 'CONFIRMED' ? (centerReleaseEffective ? '已開放委員檢視' : '已開放,資料齊備後生效') : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
+                    {status === 'CONFIRMED' ? (centerReleaseEffective ? '已開放委員檢視' : '已開放，資料齊備後生效') : files.length > 0 ? '已匯入待開放' : '中心待匯入'}
                   </Chip>
                 ) : (
                   <Chip tone={phaseNotOpen && status === 'EMPTY' ? 'neutral' : statusTone(status)} size="sm" dot>
@@ -440,7 +440,7 @@ export default function PrepBoard({
                 <div className="mt-2 rounded-md border border-danger-200 bg-danger-50 px-3.5 py-2.5">
                   <p className="flex items-center gap-1.5 text-body-sm font-medium text-danger-700">
                     <AlertCircle size={15} className="shrink-0" />
-                    中心退回意見(補正重點)
+                    中心退回意見（補正重點）
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-body-sm text-ink-900 leading-relaxed">{sub.reviewNote}</p>
                   <p className="mt-1 text-caption text-danger-700">請依上述意見補正後重新繳交。</p>
@@ -448,7 +448,7 @@ export default function PrepBoard({
               )}
               {!isCenter && status === 'SUBMITTED' && (
                 <p className="mt-2 text-caption text-ink-500">
-                  已繳交{sub?.submittedAt ? `(${fmtROCDateTime(sub.submittedAt)})` : ''},等待中心審核;如需修改請洽中心退回。
+                  已繳交{sub?.submittedAt ? `(${fmtROCDateTime(sub.submittedAt)})` : ''}，等待中心審核；如需修改請洽中心退回。
                 </p>
               )}
 
@@ -460,7 +460,7 @@ export default function PrepBoard({
                     value={reasonText}
                     onChange={(e) => setReasonText(e.target.value)}
                     rows={2}
-                    placeholder="例:無相關文件說明(本機關無委外服務,故無委外管理相關文件…)"
+                    placeholder="例：無相關文件說明（本機關無委外服務，故無委外管理相關文件…）"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" loading={busyItemId === sub.id} onClick={() => saveReason(sub.id, reasonText)}>儲存說明</Button>
@@ -470,7 +470,7 @@ export default function PrepBoard({
               ) : !isCenter && sub?.noFileReason ? (
                 <div className="mt-2 flex items-start gap-2 rounded-sm bg-paper-sunk text-ink-500 px-3 py-2 text-body-sm">
                   <FileText size={16} className="mt-0.5 shrink-0" />
-                  <span className="flex-1">其他說明:{sub.noFileReason}</span>
+                  <span className="flex-1">其他說明：{sub.noFileReason}</span>
                   {orgItemEditable && (
                     <button
                       type="button"
@@ -515,7 +515,7 @@ export default function PrepBoard({
                   <>
                     <FileUploadButton
                       size="sm"
-                      label="上傳檔案(可多選)"
+                      label="上傳檔案（可多選）"
                       busy={busyItemId === sub.id}
                       onChange={(e) => upload(sub, e)}
                       multiple
@@ -526,7 +526,7 @@ export default function PrepBoard({
                         其他說明
                       </Button>
                     )}
-                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG(上傳後自動加機關浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG（上傳後自動加機關浮水印）；Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
 
@@ -541,14 +541,14 @@ export default function PrepBoard({
                       multiple
                       accept={ORG_UPLOAD_ACCEPT}
                     />
-                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG(上傳後自動加浮水印供委員審閱);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
+                    <span className="text-caption text-ink-500">僅接受 PDF / JPG / PNG（上傳後自動加浮水印供委員審閱）；Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB</span>
                   </>
                 )}
                 {/* 中心匯入區:開放委員檢視 / 收回(釋出前委員看不到、載不到) */}
                 {isCenter && isAdmin && adminCanImport && sub && files.length > 0 && (
                   status === 'CONFIRMED' ? (
                     <Button size="sm" variant="text" onClick={() => releaseCenter(sub.id, false)} loading={busyItemId === sub.id}>
-                      收回(暫不開放委員)
+                      收回（暫不開放委員）
                     </Button>
                   ) : (
                     <Button size="sm" variant="tonal" leadingIcon={<Check size={14} />} onClick={() => releaseCenter(sub.id, true)} loading={busyItemId === sub.id}>
@@ -558,7 +558,7 @@ export default function PrepBoard({
                 )}
                 {isCenter && !adminCanImport && files.length === 0 && (
                   <span className="text-caption text-ink-500">
-                    {isAdmin ? '週期已結案,無法再匯入' : '由中心匯入,尚未上傳'}
+                    {isAdmin ? '週期已結案，無法再匯入' : '由中心匯入，尚未上傳'}
                   </span>
                 )}
 
@@ -576,7 +576,7 @@ export default function PrepBoard({
                 )}
                 {!isCenter && adminCanReview && sub && (status === 'EMPTY' || status === 'UPLOADED' || status === 'INSUFFICIENT') && (
                   <span className="text-caption text-ink-500">
-                    {status === 'INSUFFICIENT' ? '已退回,待機關補正後重新繳交' : status === 'UPLOADED' ? '機關編輯中,尚未確定繳交' : '機關尚未上傳或敘明'}
+                    {status === 'INSUFFICIENT' ? '已退回，待機關補正後重新繳交' : status === 'UPLOADED' ? '機關編輯中，尚未確定繳交' : '機關尚未上傳或敘明'}
                   </span>
                 )}
 
@@ -605,13 +605,13 @@ export default function PrepBoard({
       {phaseNotOpen && isOrg && (
         <div className="flex items-start gap-2 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500 leading-relaxed">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
-          <span>此階段(開立中)尚未開放資料準備。待中心將週期推進至「資料準備中」後,即可上傳文件或敘明無相關文件並「確定繳交」。目前各項僅供檢視。</span>
+          <span>此階段（開立中）尚未開放資料準備。待中心將週期推進至「資料準備中」後，即可上傳文件或敘明無相關文件並「確定繳交」。目前各項僅供檢視。</span>
         </div>
       )}
       {phaseNotOpen && isAdmin && (
         <div className="flex items-start gap-2 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500 leading-relaxed">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-primary-600" />
-          <span>此階段(開立中)資料準備尚未對機關開放。您可先設定需求清單、匯入中心資料;待推進至「資料準備中」後,機關才能上傳並繳交、您才能逐項審核確認齊備。</span>
+          <span>此階段（開立中）資料準備尚未對機關開放。您可先設定需求清單、匯入中心資料；待推進至「資料準備中」後，機關才能上傳並繳交、您才能逐項審核確認齊備。</span>
         </div>
       )}
 
@@ -628,7 +628,7 @@ export default function PrepBoard({
             <EmptyState
               icon={<FileText size={28} />}
               title="尚未設定資料準備需求"
-              description={isAdmin ? '點「套用標準清單」快速建立,或逐項新增(可選技術檢測 / 實地稽核 / 中心匯入)。' : '等最高管理員設定需求清單後,這裡會顯示待上傳項目。'}
+              description={isAdmin ? '點「套用標準清單」快速建立，或逐項新增（可選技術檢測 / 實地稽核 / 中心匯入）。' : '等最高管理員設定需求清單後，這裡會顯示待上傳項目。'}
             />
           </div>
         </Card>
@@ -645,7 +645,7 @@ export default function PrepBoard({
                   <h2 className="text-title-md text-ink-900">{PREP_CATEGORY_LABELS[cat]}</h2>
                   <Chip tone="neutral" size="sm">{groupItems.length}</Chip>
                   {cat === 'CENTER' ? (
-                    <span className="text-caption text-ink-500">由中心上傳匯入,供委員審閱(無機關繳交)</span>
+                    <span className="text-caption text-ink-500">由中心上傳匯入，供委員審閱（無機關繳交）</span>
                   ) : due ? (
                     <span className="text-caption text-ink-500">繳交截止 {fmtROC(due)}</span>
                   ) : null}
@@ -679,7 +679,7 @@ export default function PrepBoard({
                             ? `尚有 ${st.requiredUnaddressed.length} 項必填未處理`
                             : st.draftCount > 0
                               ? `${st.draftCount} 項待確定繳交`
-                              : '已全部繳交,等待中心審核'}
+                              : '已全部繳交，等待中心審核'}
                         </span>
                       </span>
                     );
@@ -699,7 +699,7 @@ export default function PrepBoard({
         open={addOpen}
         onOpenChange={(v) => !busy && setAddOpen(v)}
         title="新增資料需求項"
-        description="設定機關需上傳之技術檢測 / 實地稽核文件,或由中心匯入之資料。"
+        description="設定機關需上傳之技術檢測 / 實地稽核文件，或由中心匯入之資料。"
         footer={
           <>
             <Button variant="text" onClick={() => setAddOpen(false)} disabled={busy}>取消</Button>
@@ -720,8 +720,8 @@ export default function PrepBoard({
               ]}
             />
           </div>
-          <TextField label="需求名稱" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例:資通安全維護計畫" />
-          <Textarea label="說明(選填)" value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="例:最新核定版本" />
+          <TextField label="需求名稱" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例：資通安全維護計畫" />
+          <Textarea label="說明（選填）" value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} placeholder="例：最新核定版本" />
         </div>
       </Dialog>
 
@@ -733,11 +733,11 @@ export default function PrepBoard({
         description={
           <div className="mt-2">
             <Textarea
-              label="退回說明(必填)"
+              label="退回說明（必填）"
               value={returnNote}
               onChange={(e) => setReturnNote(e.target.value)}
               rows={3}
-              placeholder="例:缺 ISMS 證書附件,請補上傳含 TAF 標誌之版本…"
+              placeholder="例：缺 ISMS 證書附件，請補上傳含 TAF 標誌之版本…"
             />
           </div>
         }
@@ -757,7 +757,7 @@ export default function PrepBoard({
         title="確定繳交稽核前資料"
         description={
           submitPending
-            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定,無法再撤回或刪改,需中心退回才能修改。確定繳交？`
+            ? `將把「${PREP_CATEGORY_LABELS[submitPending]}」區 ${catState(submitPending).draftCount} 項資料送交中心審核。繳交後該些項目的檔案會鎖定，無法再撤回或刪改，需中心退回才能修改。確定繳交？`
             : ''
         }
         confirmLabel="確定繳交"
@@ -770,7 +770,7 @@ export default function PrepBoard({
         open={pendingFile !== null}
         onOpenChange={(o) => !busy && !o && setPendingFile(null)}
         title="刪除檔案"
-        description={pendingFile ? `確定刪除「${pendingFile.name}」?刪除後無法復原。` : undefined}
+        description={pendingFile ? `確定刪除「${pendingFile.name}」？刪除後無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (pendingFile) doRemoveFile(pendingFile.id, pendingFile.name); }}
@@ -782,7 +782,7 @@ export default function PrepBoard({
         open={deletingItem !== null}
         onOpenChange={(o) => !busy && !o && setDeletingItem(null)}
         title="刪除需求項"
-        description={deletingItem ? `確定刪除需求項「${deletingItem.title}」?此操作無法復原。` : undefined}
+        description={deletingItem ? `確定刪除需求項「${deletingItem.title}」？此操作無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (deletingItem) { removeItem(deletingItem.id); setDeletingItem(null); } }}

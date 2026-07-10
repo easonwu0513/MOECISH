@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     for (const orgId of body.organizationIds) {
       const org = await prisma.organization.findUnique({ where: { id: orgId } });
-      if (!org) { skipped.push(`(不存在的機關 ${orgId})`); continue; }
+      if (!org) { skipped.push(`（不存在的機關 ${orgId})`); continue; }
 
       const dup = await prisma.auditCycle.findUnique({
         where: { organizationId_year: { organizationId: orgId, year: body.year } },

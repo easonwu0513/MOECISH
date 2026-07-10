@@ -36,7 +36,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     // 觀察員獨立審閱窗口(批30):不在窗口內(或未設)→ 不可留意見
     if (!reviewWindowOpenForRole('OBSERVER', response.cycle)) {
-      return NextResponse.json({ error: '目前不在觀察員審閱時段內,暫不開放留言' }, { status: 403 });
+      return NextResponse.json({ error: '目前不在觀察員審閱時段內，暫不開放留言' }, { status: 403 });
     }
 
     const created = await prisma.practiceComment.create({

@@ -57,7 +57,7 @@ export async function convertFindingsToDeficiencies(
       .map((f) => `${nameOf.get(f.auditorId) ?? '委員'}${f.checklistRef ? `【${f.checklistRef}】` : ''}`)
       .join('、');
     throw new PlaceholderFindingsError(
-      `${placeholders.length} 條帶入的發現尚未補述內容(仍為「請補述…」佔位文字),不可轉為正式缺失:${list}${placeholders.length > 8 ? '…' : ''}。請洽該委員補述或退件處理。`,
+      `${placeholders.length} 條帶入的發現尚未補述內容（仍為「請補述…」佔位文字），不可轉為正式缺失：${list}${placeholders.length > 8 ? '…' : ''}。請洽該委員補述或退件處理。`,
     );
   }
 

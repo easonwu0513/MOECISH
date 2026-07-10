@@ -63,18 +63,18 @@ export default async function CycleSettingsPage({ params }: { params: { id: stri
       <CycleHubBar
         cycleId={cycle.id}
         label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="設定完成後,回工作台查看下一步"
+        nextHint="設定完成後，回工作台查看下一步"
       />
       <header className="mb-5">
         <h1 className="text-headline text-ink-900">進階設定</h1>
         <p className="mt-1 text-body-sm text-ink-500">
-          編輯週期日期、控制稽核階段、指派委員與配對觀察員;矯正通知、狀態回退與刪除週期。
+          編輯週期日期、控制稽核階段、指派委員與配對觀察員；矯正通知、狀態回退與刪除週期。
         </p>
       </header>
 
       <Card className="mb-4">
         <CardTitle>週期日期與階段</CardTitle>
-        <CardDescription>編輯週期日期、控制稽核階段;矯正通知、狀態回退與刪除</CardDescription>
+        <CardDescription>編輯週期日期、控制稽核階段；矯正通知、狀態回退與刪除</CardDescription>
 
         {/* 日期 */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -96,7 +96,7 @@ export default async function CycleSettingsPage({ params }: { params: { id: stri
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-body-sm text-ink-500 w-20 shrink-0">稽核階段</span>
           <Chip tone={cycleStatusTone(cycle.status as CycleStatus)} size="sm" dot>
-            目前:{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
+            目前：{CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}
           </Chip>
           {cycle.status !== 'CLOSED' && transitions.map((t) => (
             <TransitionButton
@@ -104,10 +104,10 @@ export default async function CycleSettingsPage({ params }: { params: { id: stri
               cycleId={cycle.id}
               target={t}
               disabled={t === 'READY' && readyBlockers.length > 0}
-              disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備:${readyBlockers.join('、')}` : undefined}
+              disabledHint={t === 'READY' && readyBlockers.length > 0 ? `尚未齊備：${readyBlockers.join('、')}` : undefined}
               warn={
                 !cycle.dueDate && (t === 'REPORT_ISSUED' || t === 'REMEDIATION')
-                  ? '缺失發布後機關須依此日期填報矯正措施。建議先設定矯正截止日;如稍後再設,可確認後繼續推進。'
+                  ? '缺失發布後機關須依此日期填報矯正措施。建議先設定矯正截止日；如稍後再設，可確認後繼續推進。'
                   : undefined
               }
             />

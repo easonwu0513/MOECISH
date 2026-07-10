@@ -31,9 +31,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const orgReadonlyReason =
       user.role === 'ORG_ADMIN' && !canFill && status !== 'PASSED'
         ? cycle.status !== 'REMEDIATION'
-          ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」,尚未開放矯正填報;待中心開放後即可編輯。`
+          ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」，尚未開放矯正填報；待中心開放後即可編輯。`
           : status === 'SUBMITTED'
-            ? '本項已送出審核,委員審查期間暫不可編輯;若被退回將重新開放。'
+            ? '本項已送出審核，委員審查期間暫不可編輯；若被退回將重新開放。'
             : null
         : null;
 

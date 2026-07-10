@@ -54,7 +54,7 @@ const totals = { CORE_BUSINESS: { total: 5 }, POLICY_ORG: { total: 3 } };
 // 判定數量合計 ≠ 題數 → problem「合計 X,應為 Y」
 {
   const r = validateScoreCompleteness({ CORE_BUSINESS: 8 }, { CORE_BUSINESS: { c1: 2, c2: 0, c3: 0, c4: 0 } }, totals);
-  check('合計不符 → problem 合計2應為5', r.byDim.CORE_BUSINESS?.includes('合計 2,應為 5') === true);
+  check('合計不符 → problem 合計2應為5', r.byDim.CORE_BUSINESS?.includes('合計 2，應為 5') === true);
 }
 
 // 有一完整構面時,另一「完全沒動筆」的構面(POLICY_ORG)不列 problem(分工評分)

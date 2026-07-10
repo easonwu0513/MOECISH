@@ -112,7 +112,7 @@ export default async function DeficienciesPage({
       <CycleHubBar
         cycleId={cycle.id}
         label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="填報送審後,於工作台追蹤審查進度"
+        nextHint="填報送審後，於工作台追蹤審查進度"
       />
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
@@ -128,7 +128,7 @@ export default async function DeficienciesPage({
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           {canReview && reviewable.length > 0 && firstReviewable && (
             <Link href={`/cycles/${cycle.id}/deficiencies/${firstReviewable.id}`}>
-              <Button variant="filled" size="sm">開始連續審查({reviewable.length})</Button>
+              <Button variant="filled" size="sm">開始連續審查（{reviewable.length})</Button>
             </Link>
           )}
           {user.role === 'ORG_ADMIN' && cycle.status === 'REMEDIATION' && (
@@ -171,7 +171,7 @@ export default async function DeficienciesPage({
                 user.role === 'SUPER_ADMIN'
                   ? '使用右上角「新增缺失」逐筆建立，或「Excel 匯入」一次帶入教育部範本。'
                   : user.role === 'AUDITOR'
-                    ? '目前沒有指派給您審閱的缺失;其他委員負責審閱的缺失不會顯示於此。'
+                    ? '目前沒有指派給您審閱的缺失；其他委員負責審閱的缺失不會顯示於此。'
                     : EMPTY.noDeficiencies.description
               }
             />
