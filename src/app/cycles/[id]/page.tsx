@@ -766,7 +766,8 @@ function StatusTile({
     <Card interactive={!locked} className={`h-full ${muted || locked ? 'bg-paper-sunk' : ''}`}>
       <div className="flex items-center gap-2.5">
         <TileIcon className={iconBg}>{icon}</TileIcon>
-        <p className="min-w-0 flex-1 text-body-sm font-medium text-ink-900 leading-tight">{title}</p>
+        {/* 卡標題=卡片主角,放大到比下方狀態值(text-title-md 16px)更大,建立清楚層級(批61) */}
+        <p className="min-w-0 flex-1 text-title-lg text-ink-900 leading-tight">{title}</p>
         {!locked && <ChevronRight size={16} className="shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" />}
       </div>
       {locked ? (
