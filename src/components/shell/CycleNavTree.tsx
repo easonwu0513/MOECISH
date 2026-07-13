@@ -183,7 +183,10 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
     onClose?.();
   }
 
-  // 年度分組升冪(老→新,與全站年度選擇器〔篩選籤/頁籤〕一致;各年內週期仍最新在前)
+  // 年度分組降冪(新→舊,批62):當前/最新年度置頂,免年度一多把「正在跑的那年」往下擠;各年內週期仍最新在前。
+  // 選擇器與工作清單分工:年度篩選籤〔水平、不被擠〕維持升冪;側欄樹與清單卡片〔垂直工作清單〕新到舊。
+  // 附帶修正:下方 yi===0 預設展開的是首列年度——降冪後首列=最新年度,才與「最新年度預設展開」意圖一致
+  //(批55 改升冪後 yi===0 變成最舊年度被誤展開)。
   const years = useMemo(() => {
     if (!cycles) return [];
     const map = new Map<number, NavCycle[]>();
@@ -192,7 +195,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
       list.push(c);
       map.set(c.year, list);
     }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+    return [...map.entries()].sort((a, b) => b[0] - a[0]);
   }, [cycles]);
 
   const rootOpen = expanded.has('root');

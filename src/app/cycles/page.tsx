@@ -47,12 +47,14 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
 
-  // 卡片依「實地稽核日期」排序(近期優先、未設定者最後),方便中心/委員依時程掃讀
+  // 卡片排序(批62):①年度新到舊——當前/最新年度置頂,免年度一多把「正在跑的那年」往下擠
+  //(原以實地稽核日期為主排序會讓舊年度〔日期較早〕反而在上,與「當前工作優先」相反);
+  // ②同年內仍依實地稽核日期近期優先(未設定者最後),保留依時程掃讀。
   const byOnsite = [...cycles].sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
     const ta = a.onsiteDate ? a.onsiteDate.getTime() : Number.POSITIVE_INFINITY;
     const tb = b.onsiteDate ? b.onsiteDate.getTime() : Number.POSITIVE_INFINITY;
-    if (ta !== tb) return ta - tb;
-    return b.year - a.year || b.createdAt.getTime() - a.createdAt.getTime();
+    return ta - tb || b.createdAt.getTime() - a.createdAt.getTime();
   });
 
   // 年度做成頁籤分類(取代標題上的年度);民國年呈現
