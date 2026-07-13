@@ -58,6 +58,14 @@ function insideRegExpCtor(node: ts.Node): boolean {
   return false;
 }
 
+/** 字串內含 HTML 標記(標籤/屬性)——其中的半形引號 " 是屬性定界符,轉全形「」會破壞 style/HTML。
+ *  批60 教訓:letter-render 的 `<span style="color:#dc2626">（請填寫）</span>` 因含中文被 toFullWidthPunct
+ *  把 style=" → style=「、"> → 」>,渲染破圖;tsc 不抓,只 build/執行期現形。比照 insideRegExpCtor,整段跳過。
+ *  比對「標籤 <x…>/</x>」「屬性 =\"」「屬性收尾 \">」三種 HTML 訊號,顯示用純中文(含「」引號)不會誤中。 */
+function looksLikeHtml(inner: string): boolean {
+  return /<\/?[a-zA-Z][^>]*>|=["']|["']\s*>/.test(inner);
+}
+
 function editsForFile(file: string): { src: string; edits: Edit[] } {
   const src = readFileSync(file, 'utf8');
   const sf = ts.createSourceFile(
@@ -74,7 +82,7 @@ function editsForFile(file: string): { src: string; edits: Edit[] } {
       const inner = raw.slice(a.pre, raw.length - a.suf);
       // 只查含中文的內文;非中文(import 路徑/className/URL)一律跳過,免誤報。
       // RegExp 建構式引數(pattern 字串)一律跳過——其括號/標點是 regex 語法。
-      if (HAS_CJK.test(inner) && !insideRegExpCtor(node)) {
+      if (HAS_CJK.test(inner) && !insideRegExpCtor(node) && !looksLikeHtml(inner)) {
         const fixedInner = toFullWidthPunct(inner);
         if (fixedInner !== inner) {
           const replacement = raw.slice(0, a.pre) + fixedInner + raw.slice(raw.length - a.suf);

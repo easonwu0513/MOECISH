@@ -1013,7 +1013,7 @@ export default function LetterStudio({
                   <span className="text-caption text-ink-400">主旨</span>
                   <div
                     className="text-body-sm text-ink-900 font-medium mt-0.5 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: renderPreviewHtml(active.subject, formData) || '<span style=「color:#9aa4b2」>（無主旨）</span>' }}
+                    dangerouslySetInnerHTML={{ __html: renderPreviewHtml(active.subject, formData) || '<span style="color:#9aa4b2">（無主旨）</span>' }}
                   />
                 </div>
                 <div
