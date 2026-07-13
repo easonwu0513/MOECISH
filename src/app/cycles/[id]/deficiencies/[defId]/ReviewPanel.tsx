@@ -7,7 +7,7 @@ import { Card, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
-import { Shield, ShieldCheck } from '@/components/icons';
+import { Shield, ShieldCheck, AlertTriangle } from '@/components/icons';
 import { TOAST } from '@/lib/copy';
 
 /** 退回理由常用片語(點擊附加到意見欄) */
@@ -31,6 +31,7 @@ export default function ReviewPanel({
   backHref,
   onMutated,
   adminLock,
+  descInvalid,
 }: {
   deficiencyId: string;
   round: number;
@@ -42,6 +43,9 @@ export default function ReviewPanel({
   onMutated?: () => void;
   /** 最高管理員代委員審查:預設鎖定,需明確解鎖才顯示退回/通過(批48 圖3);委員本人不傳=不鎖 */
   adminLock?: boolean;
+  /** 缺失內容仍為佔位文字/空白(server 端 isInvalidDeficiencyDescription 判定;批58):停用「審核通過」。
+   *  後端 review route 亦擋 PASS——此處讓委員一眼看出「為何不能通過」,不再開彈窗按了才 400。 */
+  descInvalid?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -131,10 +135,24 @@ export default function ReviewPanel({
               </Button>
             )}
             <Button variant="tonal" onClick={() => openDialog('RETURN')}>退回補正</Button>
-            <Button onClick={() => openDialog('PASS')}>審核通過</Button>
+            <Button
+              onClick={() => openDialog('PASS')}
+              disabled={descInvalid}
+              title={descInvalid ? '缺失內容仍為佔位文字或空白，須由中心補述後才能通過' : undefined}
+            >
+              審核通過
+            </Button>
           </div>
         )}
       </div>
+
+      {/* 缺失內容為佔位/空白:停用通過並說明(批58)。內容須由中心補述;如有誤可先退回補正。 */}
+      {!locked && descInvalid && (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-warning-200 bg-warning-50 px-3.5 py-2.5 text-body-sm text-warning-700">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>此缺失內容仍為佔位文字或空白，須由中心補述實際缺失內容後，才能審核通過。</span>
+        </div>
+      )}
 
       <ConfirmDialog
         open={open === 'PASS'}

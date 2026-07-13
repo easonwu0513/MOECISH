@@ -19,6 +19,7 @@ import {
   type Role,
 } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
+import { missingActionFields } from '@/lib/corrective-action';
 import { EMPTY } from '@/lib/copy';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
@@ -52,7 +53,25 @@ export default async function DeficienciesPage({
       organization: true,
       assignments: true,
       deficiencies: {
-        include: { action: { select: { status: true, round: true } } },
+        include: {
+          action: {
+            select: {
+              status: true,
+              round: true,
+              // 完整性檢核(missingActionFields)所需欄位:按鈕「可送」計數與每列「尚缺」提示共用
+              rootCause: true,
+              measureStrategy: true,
+              measureManagement: true,
+              measureTechnical: true,
+              plannedDate: true,
+              trackingMethod: true,
+              execStatus: true,
+              actualDate: true,
+              extendedDate: true,
+              delayReason: true,
+            },
+          },
+        },
         orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
       },
     },
@@ -82,12 +101,13 @@ export default async function DeficienciesPage({
   const reviewable = myDeficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
   const firstReviewable = reviewable[0];
   const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
-  // 機關「一輪統一送審」候選數(批50):草稿/退回補正中(可送);僅機關於矯正執行中顯示送出鈕。
+  // 機關「一輪統一送審」候選數(批57):草稿/退回補正中「且必填欄位皆已完整」才計入——
+  // 送審 API 本就只送完整項,按鈕數字對齊「真正可送」數,機關不再誤以為草稿全部都會送出。
   const submittableCount =
     user.role === 'ORG_ADMIN'
       ? myDeficiencies.filter((d) => {
           const s = (d.action?.status ?? 'PENDING') as ActionStatus;
-          return s === 'DRAFT' || s === 'RETURNED';
+          return (s === 'DRAFT' || s === 'RETURNED') && !!d.action && missingActionFields(d.action).length === 0;
         }).length
       : 0;
 
@@ -192,8 +212,8 @@ export default async function DeficienciesPage({
           <div className="flex flex-col gap-4">
           {aspects.map((aspect) => {
             const inAspect = filtered.filter((d) => d.aspect === aspect);
-            // 機關管理員:三構面永遠顯示(即使無缺失)且預設收合,填報時再展開(批48 圖7);
-            // 委員/中心:僅顯示有缺失的構面且預設展開(維持批47 逐筆快速檢視)。
+            // 機關管理員:三構面永遠顯示(即使無缺失),但預設展開(批57 改;原批48 圖7 預設收合易讓機關以為沒缺失);
+            // 委員/中心:僅顯示有缺失的構面。所有角色一律預設展開,收合鈕仍可手動收合。
             const isOrgAdmin = user.role === 'ORG_ADMIN';
             if (inAspect.length === 0 && !isOrgAdmin) return null;
             const types: DeficiencyType[] = ['IMPROVE', 'SUGGEST'];
@@ -205,7 +225,6 @@ export default async function DeficienciesPage({
                 title={`${DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－${DEFICIENCY_ASPECT_LABELS[aspect]}`}
                 improveN={improveN}
                 suggestN={suggestN}
-                defaultCollapsed={isOrgAdmin}
               >
                 <div className="flex flex-col gap-6">
                   {types.map((type) => {
@@ -217,18 +236,27 @@ export default async function DeficienciesPage({
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
                         <div className="flex flex-col gap-2.5">
-                          {items.map((d) => (
-                            <DeficiencyRow
-                              key={d.id}
-                              cycleId={cycle.id}
-                              id={d.id}
-                              itemNo={d.itemNo}
-                              description={d.description}
-                              checklistRef={d.checklistRef}
-                              status={(d.action?.status ?? 'PENDING') as ActionStatus}
-                              round={d.action?.round ?? 1}
-                            />
-                          ))}
+                          {items.map((d) => {
+                            const st = (d.action?.status ?? 'PENDING') as ActionStatus;
+                            // 機關矯正執行中:草稿/退回且未填完整的列標「尚缺 X」,讓機關看得出哪項不會被送出(委員/中心不需)
+                            const missing =
+                              user.role === 'ORG_ADMIN' && !!d.action && (st === 'DRAFT' || st === 'RETURNED')
+                                ? missingActionFields(d.action)
+                                : [];
+                            return (
+                              <DeficiencyRow
+                                key={d.id}
+                                cycleId={cycle.id}
+                                id={d.id}
+                                itemNo={d.itemNo}
+                                description={d.description}
+                                checklistRef={d.checklistRef}
+                                status={st}
+                                round={d.action?.round ?? 1}
+                                missingFields={missing.length > 0 ? missing : undefined}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
                     );

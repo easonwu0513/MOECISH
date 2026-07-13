@@ -11,12 +11,15 @@ export function PrimaryActionBanner({
   eyebrow = '建議的下一步',
   subtext,
   doneText = '目前沒有待辦事項，一切都在進度上。',
+  overdue = false,
   className = '',
 }: {
   next: NextAction;
   eyebrow?: string;
   subtext?: string;
   doneText?: string;
+  /** 逾期(批57):整卡染紅示警(機關矯正逾期);非逾期維持輕盈淺藍。CTA/標題保留。 */
+  overdue?: boolean;
   className?: string;
 }) {
   if (!next) {
@@ -29,9 +32,11 @@ export function PrimaryActionBanner({
     );
   }
   const hasCta = !!(next.href && next.cta);
+  const shell = overdue ? 'border-danger-200 bg-danger-50' : 'border-primary-100 bg-primary-50/70';
+  const eyebrowColor = overdue ? 'text-danger-700' : 'text-primary-700';
   return (
-    <section className={`rounded-lg border border-primary-100 bg-primary-50/70 px-5 py-4 sm:px-6 sm:py-5 ${className}`}>
-      <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-primary-700 mb-1.5">{eyebrow}</p>
+    <section className={`rounded-lg border ${shell} px-5 py-4 sm:px-6 sm:py-5 ${className}`}>
+      <p className={`text-label-sm font-medium uppercase tracking-[0.08em] ${eyebrowColor} mb-1.5`}>{overdue ? '逾期・請儘速處理' : eyebrow}</p>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0 flex-1">
           <h2 className="text-title-lg text-ink-900 leading-snug">{next.text}</h2>

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import type { ActionStatus, CycleStatus } from '@/lib/types';
 
 /**
@@ -49,6 +50,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const latestReturn = [...(action?.reviews ?? [])].reverse().find((r) => r.decision === 'RETURN');
 
+    // 審閱委員指派選項(批57):僅中心 SUPER_ADMIN 需要;帶回本週期參與(受指派)委員供下拉選擇。
+    // 指派動作由 reviewer route 自帶 requireRole('SUPER_ADMIN') 授權,此處僅供 UI 呈現。
+    const assignableReviewers =
+      user.role === 'SUPER_ADMIN'
+        ? await prisma.user.findMany({
+            where: { id: { in: cycle.assignments.map((a) => a.auditorId) } },
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' },
+          })
+        : [];
+
     return NextResponse.json({
       type: deficiency.type,
       description: deficiency.description,
@@ -56,6 +68,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       status,
       canFill,
       canReview,
+      // 缺失內容仍為佔位/空白:委員不可審核通過(批58,對齊 review route 後端閘與詳情頁)
+      descInvalid: isInvalidDeficiencyDescription(deficiency.description),
+      isSuperAdmin: user.role === 'SUPER_ADMIN',
+      // 僅中心需要(供 ReviewerAssign 的 current);對機關/委員收斂為 null,避免跨缺失關聯同一審閱委員(批58)。
+      reviewerAuditorId: user.role === 'SUPER_ADMIN' ? deficiency.reviewerAuditorId : null,
+      assignableReviewers,
       // 最高管理員代審:前端 ReviewPanel 預設鎖定,需解鎖才顯示退回/通過(批48 圖3)
       reviewerIsAdmin: user.role === 'SUPER_ADMIN',
       viewOnly: user.role === 'AUDITOR',

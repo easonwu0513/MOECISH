@@ -22,6 +22,7 @@ import {
 } from '@/lib/types';
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { findRepeatDeficiencies } from '@/lib/deficiency-history';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
 import ReviewerAssign from './ReviewerAssign';
@@ -64,6 +65,8 @@ export default async function DeficiencyDetailPage({
 
   const action = deficiency.action;
   const status = (action?.status ?? 'PENDING') as ActionStatus;
+  // 缺失內容仍為佔位文字/空白:委員不可審核通過(批58,對齊 review route 後端閘)。
+  const descInvalid = isInvalidDeficiencyDescription(deficiency.description);
   const yearROC = cycle.year - 1911;
 
   const reviewerIds = Array.from(new Set((action?.reviews ?? []).map((r) => r.auditorId)));
@@ -188,15 +191,34 @@ export default async function DeficiencyDetailPage({
   const nextDef = after ?? matching[0] ?? null;
   const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
 
-  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點)。
-  // 委員只在「指派給本人審閱」的缺失間移動——否則箭頭會指向他人審閱之缺失,點了被上方 redirect 彈回=死連結、
-  // 且洩漏他人缺失存在/ID(UAT 批66 reviewer 隔離一致化,對齊上方 matching 的過濾基準)。
-  const navPool = user.role === 'AUDITOR'
-    ? siblings.filter((d) => d.reviewerAuditorId === user.id)
-    : siblings;
+  // 上一筆/下一筆稽核缺失導覽(免回列表逐筆點)。
+  // ・委員:只在「指派給本人審閱」的缺失間移動——否則箭頭指向他人審閱之缺失,點了被上方 redirect 彈回=死連結、
+  //   且洩漏他人缺失存在/ID(UAT 批66 reviewer 隔離,對齊上方 matching 的過濾基準)。
+  // ・機關:限「同一工作分類」(待填 / 退回 / 已送審 / 已通過,對齊清單頁篩選)——退回補正時在待補正之間移動,
+  //   不跳到不相干的已通過缺失(UAT 批58)。
+  // ・中心:全部缺失(綜覽)。
+  const orgNavBucket = (s: ActionStatus): string =>
+    s === 'PENDING' || s === 'DRAFT' ? 'todo' : s === 'RETURNED' ? 'returned' : s === 'SUBMITTED' ? 'submitted' : 'passed';
+  const navPool =
+    user.role === 'AUDITOR'
+      ? siblings.filter((d) => d.reviewerAuditorId === user.id)
+      : user.role === 'ORG_ADMIN'
+      ? siblings.filter((d) => orgNavBucket((d.action?.status ?? 'PENDING') as ActionStatus) === orgNavBucket(status))
+      : siblings;
   const navIdx = navPool.findIndex((d) => d.id === deficiency.id);
   const prevDefNav = navIdx > 0 ? navPool[navIdx - 1] : null;
   const nextDefNav = navIdx >= 0 && navIdx < navPool.length - 1 ? navPool[navIdx + 1] : null;
+  // 機關端導覽標籤反映當前工作分類,讓「上/下一筆」語意明確(不再像跳到隨機順序的缺失)
+  const navLabel =
+    user.role === 'ORG_ADMIN'
+      ? orgNavBucket(status) === 'returned'
+        ? '待補正'
+        : orgNavBucket(status) === 'todo'
+        ? '待填報'
+        : orgNavBucket(status) === 'submitted'
+        ? '已送審'
+        : '已通過'
+      : '缺失';
   const remaining = matching.length;
 
   // 最新一輪退回意見(機關視角置頂提示)
@@ -359,6 +381,7 @@ export default async function DeficiencyDetailPage({
           remaining={remaining}
           backHref={`/cycles/${cycle.id}/deficiencies`}
           adminLock={user.role === 'SUPER_ADMIN'}
+          descInvalid={descInvalid}
         />
       )}
 
@@ -412,7 +435,7 @@ export default async function DeficiencyDetailPage({
               className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
               <ChevronLeft size={17} aria-hidden />
-              上一筆缺失
+              上一筆{navLabel}
             </Link>
           ) : (
             <span />
@@ -428,7 +451,7 @@ export default async function DeficiencyDetailPage({
               href={`/cycles/${cycle.id}/deficiencies/${nextDefNav.id}`}
               className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
-              下一筆缺失
+              下一筆{navLabel}
               <ChevronRight size={17} aria-hidden />
             </Link>
           ) : (

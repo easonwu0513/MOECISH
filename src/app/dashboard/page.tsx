@@ -40,6 +40,8 @@ type Todo = {
   title: string;
   href: string;
   cta: string;
+  /** 逾期(批57):列與「建議的下一步」卡以紅底示警;逾期判定用 facts.overdue,不自造 */
+  overdue?: boolean;
 };
 
 const TONE_ORDER: Record<Todo['tone'], number> = { danger: 0, warning: 1, primary: 2, sage: 3, neutral: 4 };
@@ -157,7 +159,7 @@ export default async function HomePage() {
       }
       if (st === 'REMEDIATION') {
         // (退回項由退回收件匣單項級獨任,不再彙總雙講)
-        if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `（截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填' });
+        if (e.toFill > 0) todos.push({ key: `${c.id}-fill`, tone: e.overdue ? 'danger' : 'primary', title: `${e.toFill} 項矯正措施待填報${due ? `（截止 ${due})` : ''}`, href: `${base}/deficiencies?status=todo`, cta: '繼續填', overdue: e.overdue });
         if (e.allPassed && !e.signedUploaded) todos.push({ key: `${c.id}-sign`, tone: 'sage', title: '全數通過！請列印改善報告、用印後上傳', href: `${base}#signed-report`, cta: '去上傳' });
       }
     }
@@ -289,7 +291,7 @@ export default async function HomePage() {
             }
           />
           {cycles.length > 0 && (
-            <PrimaryActionBanner next={topAction} subtext={topSubtext} doneText="目前沒有待辦事項，一切都在進度上。" />
+            <PrimaryActionBanner next={topAction} subtext={topSubtext} overdue={Boolean(topTodo?.overdue)} doneText="目前沒有待辦事項，一切都在進度上。" />
           )}
         </div>
       </section>
@@ -350,7 +352,11 @@ export default async function HomePage() {
                     <li key={t.key}>
                       <Link
                         href={t.href}
-                        className="group flex items-center gap-3 px-4 py-3 hover:bg-paper-sunk transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]"
+                        className={cn(
+                          'group flex items-center gap-3 px-4 py-3 hover:bg-paper-sunk transition-colors focus-ring sm:grid sm:grid-cols-[8px_8.5rem_minmax(0,1fr)_auto]',
+                          // 逾期待辦列(批57):紅左緣+紅底,與缺失列語彙一致
+                          t.overdue && 'border-l-2 border-l-danger-600 bg-danger-50',
+                        )}
                       >
                         <span className={cn('w-2 h-2 rounded-full shrink-0', toneClasses(t.tone).dot)} aria-hidden />
                         <span className="sm:hidden min-w-0 flex-1 text-body-sm text-ink-900">{t.title}</span>
@@ -425,6 +431,8 @@ export default async function HomePage() {
                   const next = nextActionForRole(user.role, e);
                   const tone = cycleStatusTone(c.status as CycleStatus);
                   const border = toneClasses(tone).border;
+                  // 機關逾期(批57):整卡紅底+紅左緣示警(逾期判定用 facts.overdue,不自造)
+                  const isOverdueCard = user.role === 'ORG_ADMIN' && e.overdue;
                   const auditorDims = user.role === 'AUDITOR'
                     ? parseAssignDimensions(c.assignments?.[0]?.dimensions).map((d) => ASSIGN_ASPECT_LABELS[d])
                     : [];
@@ -456,9 +464,11 @@ export default async function HomePage() {
                       key={c.id}
                       href={`/cycles/${c.id}`}
                       className={cn(
-                        // 邊框透明度與上方鎖定卡齊平(批78:同類卡片 /60 vs 全實心漂移收斂)
-                        'flex items-center gap-3 rounded-lg border border-rule border-l-4 bg-card px-4 py-3.5 hover:bg-paper-sunk transition-colors focus-ring',
-                        border,
+                        'flex items-center gap-3 rounded-lg border border-rule border-l-4 px-4 py-3.5 transition-colors focus-ring',
+                        // 逾期→紅底紅左緣;否則邊框透明度與上方鎖定卡齊平(批78:同類卡片 /60 vs 全實心漂移收斂)
+                        isOverdueCard
+                          ? 'border-l-danger-600 bg-danger-50 hover:bg-danger-100'
+                          : cn('bg-card hover:bg-paper-sunk', border),
                       )}
                     >
                       <div className="min-w-0 flex-1">

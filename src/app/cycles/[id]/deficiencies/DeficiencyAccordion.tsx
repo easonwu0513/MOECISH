@@ -13,6 +13,7 @@ import { actionStatusTone } from '@/lib/state-machine';
 import { toneClasses } from '@/lib/stage';
 import ActionForm, { type ActionData } from './[defId]/ActionForm';
 import ReviewPanel from './[defId]/ReviewPanel';
+import ReviewerAssign from './[defId]/ReviewerAssign';
 
 /**
  * 缺失就地展開(批47):點缺失列不再換頁,直接在該列下方展開矯正措施填報/審查,
@@ -30,9 +31,9 @@ export function DeficiencyAccordionProvider({ children }: { children: React.Reac
 }
 
 /**
- * 構面分組可收合 section(批48 圖7):策略/管理/技術三面各為一個可展開收合區塊。
- * 機關管理員填報時預設收合(defaultCollapsed),點標頭才展開該面逐筆填報;
- * 委員/中心預設展開(維持批47 逐筆快速檢視)。
+ * 構面分組可收合 section:策略/管理/技術三面各為一個可展開收合區塊,點標頭可手動收合。
+ * 批57 起所有角色一律預設展開(原批48 圖7 對機關預設收合易讓其誤以為沒缺失);
+ * defaultCollapsed prop 保留供向後相容,缺失清單頁已不再傳入。
  */
 export function DeficiencyAspectSection({
   title,
@@ -86,12 +87,18 @@ type PanelData = {
   status: ActionStatus;
   canFill: boolean;
   canReview: boolean;
+  /** 缺失內容仍為佔位/空白:委員不可審核通過(批58) */
+  descInvalid: boolean;
   reviewerIsAdmin: boolean;
   viewOnly: boolean;
   orgReadonlyReason: string | null;
   round: number;
   latestReturnComment: string | null;
   action: ActionData | null;
+  // 審閱委員指派(僅中心 SUPER_ADMIN;批57):就地面板亦可指派,免每筆開完整詳情頁
+  isSuperAdmin: boolean;
+  reviewerAuditorId: string | null;
+  assignableReviewers: { id: string; name: string }[];
 };
 
 export function DeficiencyRow({
@@ -102,6 +109,7 @@ export function DeficiencyRow({
   checklistRef,
   status,
   round,
+  missingFields,
 }: {
   cycleId: string;
   id: string;
@@ -110,6 +118,8 @@ export function DeficiencyRow({
   checklistRef: string | null;
   status: ActionStatus;
   round: number;
+  /** 機關視角:未填完整時尚缺的欄位清單(有值即在列上標「未填完整・尚缺 X」);批57 */
+  missingFields?: string[];
 }) {
   const { openId, setOpenId } = useContext(AccordionCtx);
   const open = openId === id;
@@ -141,6 +151,12 @@ export function DeficiencyRow({
               )}
               {round > 1 && <span className="text-caption text-ink-500">第 {round} 輪</span>}
             </div>
+            {/* 機關視角:未填完整提示(批57)——按鈕送出只送完整項,此列標出尚缺欄位 */}
+            {missingFields && missingFields.length > 0 && (
+              <p className="mt-1 text-caption text-danger-700">
+                未填完整・尚缺：{missingFields.join('、')}
+              </p>
+            )}
           </div>
           <Chip tone={actionStatusTone(status)} size="sm" dot>
             {ACTION_STATUS_LABELS[status]}
@@ -213,6 +229,20 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
             </p>
           </div>
 
+          {/* 審閱委員指派(僅中心 SUPER_ADMIN;批57):就地面板即可指派/改指派,免每筆點進完整詳情頁。
+              後端 reviewer route 自帶 requireRole('SUPER_ADMIN'),前端僅呈現;存檔後重抓面板反映最新指派。 */}
+          {data.isSuperAdmin && (
+            <div className="rounded-md border border-rule bg-card px-3.5 py-3">
+              <p className="text-label text-ink-500 mb-2">審閱委員</p>
+              <ReviewerAssign
+                deficiencyId={deficiencyId}
+                authors={data.assignableReviewers}
+                current={data.reviewerAuditorId}
+                onSaved={load}
+              />
+            </div>
+          )}
+
           {/* 退回補正:最新退回意見置頂 */}
           {data.status === 'RETURNED' && data.latestReturnComment && (
             <div className="rounded-md border border-danger-200 bg-danger-50 p-3.5">
@@ -247,6 +277,7 @@ function DeficiencyPanel({ cycleId, deficiencyId }: { cycleId: string; deficienc
               round={data.action.round}
               onMutated={load}
               adminLock={data.reviewerIsAdmin}
+              descInvalid={data.descInvalid}
             />
           )}
 

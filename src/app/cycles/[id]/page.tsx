@@ -185,7 +185,13 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     alerts.push({ tone: 'warning', title: '矯正截止日尚未設定', desc: '發布缺失前請先於「編輯日曆」設定日期。' });
   }
   if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'REMEDIATION' && !facts.allPassed && cycle.dueDate) {
-    if (facts.overdue) alerts.push({ tone: 'danger', title: `矯正已逾期 ${Math.abs(daysToDue)} 天`, desc: '請儘速完成或督促機關改善。' });
+    // 批57:逾期提醒依角色分述——機關端是「自己要完成填報」,對機關講「督促機關改善」語意錯位。
+    if (facts.overdue)
+      alerts.push({
+        tone: 'danger',
+        title: `矯正已逾期 ${Math.abs(daysToDue)} 天`,
+        desc: user.role === 'ORG_ADMIN' ? '請儘速完成矯正措施填報與佐證上傳。' : '請儘速完成或督促機關改善。',
+      });
     else if (daysToDue <= 14) alerts.push({ tone: 'warning', title: `距矯正截止剩 ${daysToDue} 天`, desc: '請留意改善進度。' });
   }
   const shownAlerts = alerts.slice(0, 3);

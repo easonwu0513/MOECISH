@@ -11,10 +11,13 @@ export default function ReviewerAssign({
   deficiencyId,
   authors,
   current,
+  onSaved,
 }: {
   deficiencyId: string;
   authors: { id: string; name: string }[];
   current: string | null;
+  /** 存檔成功後的額外回呼(就地面板用來重抓面板資料;詳情頁不傳,靠 router.refresh) */
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -36,6 +39,7 @@ export default function ReviewerAssign({
     }
     toast.success('已更新審閱委員');
     router.refresh();
+    onSaved?.();
   }
 
   if (authors.length === 0) {

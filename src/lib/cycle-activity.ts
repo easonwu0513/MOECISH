@@ -27,6 +27,8 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   DEFICIENCY_CREATE: '新增了缺失',
   DEFICIENCY_IMPORT: '匯入了缺失',
   ACTION_SUBMIT: '送出了矯正措施',
+  ACTION_PASS: '審核通過了矯正措施',
+  ACTION_RETURN: '退回了矯正措施補正',
   SIGNED_REPORT_UPLOAD: '上傳了用印掃描檔',
   SIGNED_REPORT_SUBMIT: '確認繳交用印掃描檔',
   SIGNED_REPORT_CONFIRM: '確認了用印掃描檔',
