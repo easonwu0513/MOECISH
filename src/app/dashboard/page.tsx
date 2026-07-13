@@ -25,9 +25,9 @@ import { parseAssignDimensions, ASSIGN_ASPECT_LABELS } from '@/lib/audit-score';
 import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, fmtMD } from '@/lib/process-guide';
 import { cn } from '@/lib/cn';
 import { fmtROC, fmtROCWeekday } from '@/lib/date';
-import RemindButton from '@/components/cycle/RemindButton';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
+import { CrossOrgOverview } from '@/components/dashboard/CrossOrgOverview';
 import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
 import { ReturnsInbox } from '@/components/dashboard/ReturnsInbox';
 import { getOpenReturns } from '@/lib/returns';
@@ -380,67 +380,23 @@ export default async function HomePage() {
             </section>
           )}
 
-          {/* SUPER_ADMIN 跨院健康度矩陣(③ 資料視覺化:一眼看出哪家落後 + 待中心動作) */}
+          {/* SUPER_ADMIN 跨院週期總覽:年度頁籤分類(client 過濾),年份多也不變一長條 */}
           {isSuper && (
-            <section className="mb-6 rounded-lg border border-rule bg-card shadow-elev-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 border-b border-rule">
-                <p className="text-label-sm font-medium uppercase tracking-[0.08em] text-ink-500">跨院週期總覽 · {cycles.length} 個週期</p>
-                <span className="text-caption text-ink-500">左色條 = 階段；逾期以紅標示</span>
-              </div>
-              <ul className="divide-y divide-rule">
-                {[...enriched]
-                  .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.step - b.step)
-                  .slice(0, 8)
-                  .map((e) => {
-                    const tone = cycleStatusTone(e.status);
-                    return (
-                      <li
-                        key={e.c.id}
-                        className={cn(
-                          // 逾期=最高語意優先級→最高視覺權重(批78 P0):實心 danger-600 左框 + 實心 danger-50 底,
-                          // 取代原 border=階段色+bg-danger-50/50 弱訊號。左色條 hover 4→6px=克制招牌微互動。
-                          'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-4 px-4 py-3 transition-[border-left-width] duration-200 ease-standard hover:border-l-[6px]',
-                          e.overdue ? 'border-l-danger-600 bg-danger-50' : toneClasses(tone).border,
-                        )}
-                      >
-                        {e.overdue && <span className="sr-only">已逾期；</span>}
-                        <Link href={`/cycles/${e.c.id}`} className="min-w-0 flex-1 hover:underline focus-ring rounded" title={e.c.organization.name}>
-                          <span className="text-body-sm text-ink-900">{e.c.organization.name}</span>
-                          <span className="text-caption text-ink-500"> · {e.c.year - 1911} 年度</span>
-                        </Link>
-                        {e.overdue && <Chip tone="danger" size="sm" variant="filled">逾期</Chip>}
-                        <Chip tone={tone} size="sm">{CYCLE_STATUS_LABELS[e.status]}</Chip>
-                        {/* 減法(審計#5):矩陣退為純狀態總覽——動作 CTA 由上方「今日待辦」獨任。
-                            例外=逾期列就地「一鍵催辦」(大改造C):寄標準追蹤提醒不離頁,含催辦軌跡;
-                            客製/群發追蹤信仍走 Email 頁(今日待辦逾期列引導),兩工具深度不同不重複。 */}
-                        {e.overdue && (
-                          <RemindButton
-                            cycleId={e.c.id}
-                            orgName={e.c.organization.name}
-                            yearLabel={String(e.c.year - 1911)}
-                            lastLabel={remindMap.get(e.c.id)?.last ? fmtROC(remindMap.get(e.c.id)!.last!) : null}
-                            remindCount={remindMap.get(e.c.id)?.count ?? 0}
-                          />
-                        )}
-                      </li>
-                    );
-                  })}
-              </ul>
-              {(overdueCount > 0 || enriched.length > 8) && (
-                <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-t border-rule">
-                  {overdueCount > 0 ? (
-                    <Link href={`/admin/emails?orgIds=${overdueOrgIds.join(',')}`} className="inline-flex items-center min-h-11 -my-1 text-caption text-danger-700 hover:underline focus-ring rounded">
-                      ⚠ {overdueCount} 個週期矯正已逾期，一鍵催辦（已預選 {overdueOrgIds.length} 院）→
-                    </Link>
-                  ) : (
-                    <span />
-                  )}
-                  {enriched.length > 8 && (
-                    <Link href="/admin/cycles" className="inline-flex items-center min-h-11 -my-1 text-caption text-primary-700 hover:underline focus-ring rounded">查看全部 {enriched.length} 個週期 →</Link>
-                  )}
-                </div>
-              )}
-            </section>
+            <CrossOrgOverview
+              rows={enriched.map((e) => ({
+                id: e.c.id,
+                orgName: e.c.organization.name,
+                year: e.c.year,
+                yearROC: e.c.year - 1911,
+                overdue: e.overdue,
+                step: e.step,
+                status: e.status,
+                remindLast: remindMap.get(e.c.id)?.last ? fmtROC(remindMap.get(e.c.id)!.last!) : null,
+                remindCount: remindMap.get(e.c.id)?.count ?? 0,
+              }))}
+              overdueOrgIds={overdueOrgIds}
+              overdueCount={overdueCount}
+            />
           )}
 
           {isSuper && (
