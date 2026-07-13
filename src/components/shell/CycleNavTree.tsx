@@ -183,7 +183,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
     onClose?.();
   }
 
-  // 年度分組(遞減)
+  // 年度分組升冪(老→新,與全站年度選擇器〔篩選籤/頁籤〕一致;各年內週期仍最新在前)
   const years = useMemo(() => {
     if (!cycles) return [];
     const map = new Map<number, NavCycle[]>();
@@ -192,7 +192,7 @@ export function CycleNavTree({ role, userKey, onClose }: { role: Role; userKey: 
       list.push(c);
       map.set(c.year, list);
     }
-    return [...map.entries()].sort((a, b) => b[0] - a[0]);
+    return [...map.entries()].sort((a, b) => a[0] - b[0]);
   }, [cycles]);
 
   const rootOpen = expanded.has('root');
