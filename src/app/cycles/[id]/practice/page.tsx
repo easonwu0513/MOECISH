@@ -6,7 +6,7 @@ import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { canAccess } from '@/lib/access-policy';
-import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT } from '@/lib/audit-score';
+import { computeDimStats, parseAssignDimensions, ASSIGN_ASPECT_LABELS, ASSIGN_TO_ASPECT, DIMENSION_MAX_SCORE } from '@/lib/audit-score';
 import { DIMENSIONS, reviewWindowStateForRole, type DeficiencyAspect } from '@/lib/types';
 import { DIMENSION_LABELS } from '@/lib/dimension';
 import { fmtROCDateTime } from '@/lib/date';
@@ -304,7 +304,8 @@ export default async function PracticePage({ params }: { params: { id: string } 
         where: { observerId: { in: observerIds }, response: { cycleId: cycle.id } },
         include: {
           observer: { select: { id: true, name: true } },
-          response: { select: { checklistItem: { select: { itemNo: true } } } },
+          // content:題目內容——與意見對照需要(UAT 批59:只有項次無法對照題目)
+          response: { select: { checklistItem: { select: { itemNo: true, content: true } } } },
         },
         orderBy: { createdAt: 'asc' },
       })
@@ -326,6 +327,11 @@ export default async function PracticePage({ params }: { params: { id: string } 
   }
 
   const itemRefs = cycle.checklistVersion?.items.map((i) => i.itemNo) ?? [];
+  // 各構面題數(供練習評分表在構面名稱後顯示「滿分／題數」脈絡,讓評分規模一目了然)
+  const itemCountByDim: Record<string, number> = {};
+  for (const i of cycle.checklistVersion?.items ?? []) {
+    itemCountByDim[i.dimension] = (itemCountByDim[i.dimension] ?? 0) + 1;
+  }
   const canFeedback = mentorObserverIds.length > 0 && cycle.status !== 'CLOSED';
 
   return (
@@ -388,7 +394,12 @@ export default async function PracticePage({ params }: { params: { id: string } 
                           const cell = (v: number | null | undefined) => (v ?? '—');
                           return (
                             <tr key={d} className="border-b border-rule last:border-b-0">
-                              <td className="py-1.5 px-4 text-ink-900">{DIMENSION_LABELS[d]}</td>
+                              <td className="py-1.5 px-4 text-ink-900">
+                                {DIMENSION_LABELS[d]}
+                                <span className="ml-1.5 text-caption text-ink-500 tabular-nums whitespace-nowrap">
+                                  滿分 {DIMENSION_MAX_SCORE[d]}・共 {itemCountByDim[d] ?? 0} 項
+                                </span>
+                              </td>
                               <td className="py-1.5 px-2 text-right tabular-nums font-medium text-ink-900">{cell(r?.score)}</td>
                               <td className="py-1.5 px-2 text-right tabular-nums text-ink-700">{cell(r?.c1)}</td>
                               <td className="py-1.5 px-2 text-right tabular-nums text-ink-700">{cell(r?.c2)}</td>
@@ -416,12 +427,17 @@ export default async function PracticePage({ params }: { params: { id: string } 
           </div>
           <ul className="mt-3 flex flex-col divide-y divide-rule">
             {practiceComments.map((c) => (
-              <li key={c.id} className="py-2.5 first:pt-0 last:pb-0">
-                <p className="text-body-sm text-ink-900 leading-relaxed whitespace-pre-wrap">
+              <li key={c.id} className="py-3 first:pt-0 last:pb-0">
+                {/* 項次 + 題目內容:讓題目與意見對照(批59) */}
+                <p className="text-body-sm text-ink-900 leading-relaxed">
                   <span className="mr-1.5 font-mono text-caption text-ink-500">{c.response.checklistItem.itemNo}</span>
+                  {c.response.checklistItem.content}
+                </p>
+                {/* 觀察員意見:顯示於項次與題目下方,不並列於項次旁(批59) */}
+                <p className="mt-1.5 pl-3 border-l-2 border-rule text-body-sm text-ink-700 leading-relaxed whitespace-pre-wrap">
                   {c.content}
                 </p>
-                <p className="mt-0.5 text-caption text-ink-500">{c.observer.name} · {fmtROCDateTime(c.createdAt)}</p>
+                <p className="mt-1 text-caption text-ink-500">{c.observer.name} · {fmtROCDateTime(c.createdAt)}</p>
               </li>
             ))}
           </ul>
