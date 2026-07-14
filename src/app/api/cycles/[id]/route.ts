@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyObserversOnReviewOpen } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 const DateStr = z
   .string()
@@ -83,6 +85,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       after: { dueDate: updated.dueDate, prepDueDate: updated.prepDueDate, onsiteDate: updated.onsiteDate },
       ...meta,
     });
+
+    // 觀察員審閱窗口設定/變更後(批66 M2):若週期已 ≥ 資料齊備(READY),補通知本週期「已配對」觀察員。
+    // (READY 轉換當下觀察員窗口可能尚未設,故此後才設定/變更時 READY 通知已過 → 於此補發;DRAFT/PREPARATION
+    //  尚未開放審閱,交由日後 READY 轉換通知。)notify 函式的 dedupeKey 含窗口值,防重複轟炸。失敗不影響存檔。
+    const observerWindowTouched =
+      body.observerWindowStart !== undefined || body.observerWindowEnd !== undefined;
+    if (observerWindowTouched && updated.status !== 'DRAFT' && updated.status !== 'PREPARATION') {
+      try {
+        await notifyObserversOnReviewOpen({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
+      } catch (e) {
+        console.error('[cycles PATCH] 通知觀察員審閱窗口失敗：', (e as Error).message);
+      }
+    }
 
     return NextResponse.json({ item: updated });
   } catch (e) {

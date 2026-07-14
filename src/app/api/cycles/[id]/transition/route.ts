@@ -8,7 +8,7 @@ import type { CycleStatus, Role } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ensureStandardPrepItems } from '@/lib/prep-standard';
 import { auditorsFinalized } from '@/lib/audit-finalize';
-import { notifyCycleStatusChange, notifyCommitteeReview } from '@/lib/notify';
+import { notifyCycleStatusChange, notifyCommitteeReview, notifyObserversOnReviewOpen } from '@/lib/notify';
 import { cycleTransitionNotify } from '@/lib/notify-policy';
 import { appBaseUrl } from '@/lib/baseUrl';
 
@@ -29,6 +29,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 回退必須附理由(記入狀態轉換紀錄與稽核軌跡)
     if (rollback && (body.reason?.trim().length ?? 0) < 5) {
       return NextResponse.json({ error: '回退狀態必須填寫理由（至少 5 個字）' }, { status: 400 });
+    }
+
+    // 推進至「資料準備(PREPARATION)」或「資料齊備(READY)」前置(批67 P1):週期四個關鍵日期須先設定
+    // (技術檢測日/實地稽核日/技術檢測資料截止/實地稽核資料截止),否則機關無繳交依據、委員無時程可循。
+    // 矯正填報截止(dueDate)不在此閘(於進入 REMEDIATION 時另閘);rollback 不受此限。
+    if (forward && (to === 'PREPARATION' || to === 'READY')) {
+      const missing: string[] = [];
+      if (!cycle.techCheckDate) missing.push('技術檢測日');
+      if (!cycle.onsiteDate) missing.push('實地稽核日');
+      if (!cycle.prepDueTech) missing.push('技術檢測資料繳交截止');
+      if (!cycle.prepDueDate) missing.push('實地稽核資料繳交截止');
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { error: `尚未設定週期日期：${missing.join('、')}；請先於進階設定「編輯日期」設定後再推進。` },
+          { status: 400 },
+        );
+      }
     }
 
     // 實地稽核 → 缺失發布(REPORT_ISSUED)前置:全體委員評分表須定稿。
@@ -159,6 +176,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await notifyCommitteeReview({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
       } catch (e) {
         console.error('[transition] 通知委員審閱失敗：', (e as Error).message);
+      }
+    }
+
+    // 進入「資料齊備」時,一併通知本週期「已配對」觀察員可於觀察員審閱時段檢視機關資料(師徒制;email + 站內)。
+    // 時機由 notify-policy SoT 決定(observer=true 的狀態);僅通知本週期配對觀察員,失敗不影響轉換本身。
+    if (forward && cycleTransitionNotify(to).observer) {
+      try {
+        await notifyObserversOnReviewOpen({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
+      } catch (e) {
+        console.error('[transition] 通知觀察員審閱失敗：', (e as Error).message);
       }
     }
 

@@ -12,6 +12,11 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   JOURNEY_ITEM_DONE: '完成了引導清單項目',
   JOURNEY_ITEM_UNDONE: '取消勾選引導清單項目',
   PREP_SUBMIT: '繳交了稽核前資料',
+  // 機關協作互見(批66 M5):上傳/刪除佐證、送出/退回檢核表(逐題儲存、autosave 等高頻雜訊不列入)
+  EVIDENCE_UPLOAD: '上傳了佐證文件',
+  EVIDENCE_DELETE: '刪除了佐證文件',
+  'checklist.submit': '送出了資通安全檢核表',
+  'checklist.reopen': '退回了檢核表重填',
   CYCLE_UPDATE: '更新了週期設定',
   CYCLE_NOTIFY_ORG_ADMINS: '通知機關填報矯正',
   CYCLE_NOTIFY_OPENED: '通知機關稽核作業開立',
@@ -62,6 +67,25 @@ export async function getCycleActivities(input: {
     select: { id: true },
   })).map((p) => p.id);
 
+  // 佐證(Evidence)以 (targetType,targetId) 尋址、無 cycleId 欄,故用 cycleId 自查本週期相關佐證 id 集合
+  // (檢核表作答 / 資料準備繳交 / 矯正措施 / 週期本身),收進函式內部——呼叫端零改動(不新增參數)。
+  const [checklistResponseIds, prepSubmissionIds] = await Promise.all([
+    prisma.checklistResponse.findMany({ where: { cycleId: input.cycleId }, select: { id: true } }),
+    prisma.prepSubmission.findMany({ where: { requirement: { cycleId: input.cycleId } }, select: { id: true } }),
+  ]);
+  const evidenceTargets: { targetType: string; ids: string[] }[] = [
+    { targetType: 'AUDIT_CYCLE', ids: [input.cycleId] },
+    { targetType: 'CHECKLIST_RESPONSE', ids: checklistResponseIds.map((r) => r.id) },
+    { targetType: 'PREP_SUBMISSION', ids: prepSubmissionIds.map((s) => s.id) },
+    { targetType: 'CORRECTIVE_ACTION', ids: input.actionIds },
+  ].filter((t) => t.ids.length > 0);
+  const evidenceIds = (
+    await prisma.evidence.findMany({
+      where: { OR: evidenceTargets.map((t) => ({ targetType: t.targetType, targetId: { in: t.ids } })) },
+      select: { id: true },
+    })
+  ).map((e) => e.id);
+
   const rawLogs = await prisma.auditLog.findMany({
     where: {
       OR: [
@@ -71,6 +95,7 @@ export async function getCycleActivities(input: {
         { entityType: 'CorrectiveAction', entityId: { in: input.actionIds } },
         { entityType: 'SignedReport', entityId: { in: input.signedReportIds } },
         { entityType: 'JourneyProgress', entityId: { in: journeyProgressIds } },
+        { entityType: 'Evidence', entityId: { in: evidenceIds } },
       ],
     },
     orderBy: { createdAt: 'desc' },

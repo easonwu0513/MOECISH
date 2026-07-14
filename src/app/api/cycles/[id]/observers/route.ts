@@ -6,6 +6,8 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { canAssignAuditors } from '@/lib/stage';
 import { ASSIGN_ASPECTS } from '@/lib/audit-score';
+import { notifyObserverOnPaired } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 import type { CycleStatus } from '@/lib/types';
 
 /**
@@ -158,6 +160,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       after: { observerId: body.observerId, mentorId: body.mentorId },
       ...extractRequestMeta(req),
     });
+
+    // 通知該觀察員已受配對(email + 站內);寄信失敗不影響配對(非阻擋)。
+    notifyObserverOnPaired({
+      cycleId: params.id,
+      observerId: body.observerId,
+      mentorId: body.mentorId,
+      appBaseUrl: appBaseUrl(req),
+    }).catch((e) => console.error('[observers] 通知觀察員配對失敗：', (e as Error).message));
 
     return NextResponse.json({ item });
   } catch (e) {

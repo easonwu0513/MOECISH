@@ -451,6 +451,104 @@ export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl:
 }
 
 /**
+ * 觀察員受配對為某週期觀察員(批66 M2)→ 通知該觀察員(email + 站內)。
+ * 由 observers POST 配對成功後呼叫(寄信失敗不影響配對,呼叫端 try/catch)。
+ * 僅通知被配對的該名觀察員本人(CycleObserver.observerId 直指 user,不涉他人);
+ * 同一週期對同一觀察員 24h 去重(改指導委員等重複 upsert 不重複轟炸)。
+ */
+export async function notifyObserverOnPaired(opts: {
+  cycleId: string;
+  observerId: string;
+  mentorId: string;
+  appBaseUrl: string;
+}) {
+  const [cycle, observer, mentor] = await Promise.all([
+    prisma.auditCycle.findUnique({ where: { id: opts.cycleId }, include: { organization: true } }),
+    prisma.user.findUnique({
+      where: { id: opts.observerId },
+      select: { id: true, name: true, email: true, isActive: true },
+    }),
+    prisma.user.findUnique({ where: { id: opts.mentorId }, select: { name: true } }),
+  ]);
+  if (!cycle || !observer || !observer.isActive) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+  const mentorName = mentor?.name ?? '（待中心指派）';
+
+  await sendEmail({
+    to: observer.email,
+    toName: observer.name,
+    subject: `[MOECISH] 您已受配對為 ${orgName} ${yearROC} 年度稽核之觀察員`,
+    body:
+      `${observer.name} 您好，\n\n` +
+      `您已受配對為 ${cycle.organization.name} ${yearROC} 年度資通安全稽核之觀察員（指導委員：${mentorName}）。\n` +
+      `待資料齊備後，您可於觀察員審閱時段內檢視機關資料、熟悉稽核背景，並於練習工作台進行評分練習：\n\n` +
+      `${link}\n\n` +
+      `— MOECISH 資通安全稽核管考平台`,
+    kind: 'observer-paired',
+    relatedCycleId: cycle.id,
+    // 同一週期對同一觀察員 24h 內只寄一次(改指導委員等重複 upsert 不重複轟炸)
+    dedupeKey: `observer-paired-${cycle.id}-${observer.id}`,
+    context: { observerId: observer.id, mentorId: opts.mentorId },
+  });
+  return { recipientCount: 1 };
+}
+
+/**
+ * 資料齊備(READY)或事後設定/變更觀察員審閱窗口(批66 M2)→ 通知本週期「已配對」觀察員
+ * 可於觀察員審閱時段檢視機關資料熟悉背景(email + 站內)。比照委員 notifyCommitteeReview。
+ * 政策=僅通知本週期配對觀察員(CycleObserver.observerId 直指 user),絕不外洩他週期/他機關。
+ * dedupeKey 含窗口值:同一(週期,窗口)只寄一次(轉換重試/重複存檔不轟炸);窗口真正變更則以新鍵再通知一次。
+ */
+export async function notifyObserversOnReviewOpen(opts: { cycleId: string; appBaseUrl: string }) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const paired = await prisma.cycleObserver.findMany({
+    where: { cycleId: opts.cycleId },
+    include: { observer: { select: { id: true, name: true, email: true, isActive: true } } },
+  });
+  const recipients = paired.filter((p) => p.observer.isActive);
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+  const windowText =
+    cycle.observerWindowStart && cycle.observerWindowEnd
+      ? `${fmtROC(cycle.observerWindowStart)}－${fmtROC(cycle.observerWindowEnd)}`
+      : '待中心設定';
+  // 窗口值入去重鍵:窗口未變 → 24h 內不重寄;窗口變更 → 新鍵再通知一次(既不漏真正變更,也不重複轟炸)
+  const wKey = `${cycle.observerWindowStart?.toISOString() ?? 'none'}_${cycle.observerWindowEnd?.toISOString() ?? 'none'}`;
+
+  await Promise.all(
+    recipients.map((p) =>
+      sendEmail({
+        to: p.observer.email,
+        toName: p.observer.name,
+        subject: `[MOECISH] ${orgName} ${yearROC} 年度資料已齊備，請於觀察員審閱時段檢視`,
+        body:
+          `${p.observer.name} 您好，\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核資料已確認齊備。\n` +
+          `請於觀察員審閱時段內檢視機關資料、熟悉稽核背景（審閱時段：${windowText}）：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'observer-review-open',
+        relatedCycleId: cycle.id,
+        dedupeKey: `observer-review-open-${cycle.id}-${wKey}`,
+        context: { observerId: p.observer.id },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/**
  * 委員求援:週期已進入可審閱階段,但中心尚未設定「委員審閱時段」(reviewWindowStart/End 為 null),
  * 委員因而全被鎖在門外且無自救 → 一鍵通知最高管理員(中心)盡快設定。email + 站內鈴鐺,24h 去重。
  */

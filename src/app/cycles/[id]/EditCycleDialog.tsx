@@ -97,25 +97,25 @@ export default function EditCycleDialog({
       >
         <div className="flex flex-col gap-4 pt-2">
           <TextField
-            label="技術檢測日（選填）"
+            label="技術檢測日（必填，推進階段前須設定）"
             type="date"
             value={techDate}
             onChange={(e) => setTechDate(e.target.value)}
           />
           <TextField
-            label="實地稽核日（選填）"
+            label="實地稽核日（必填，推進階段前須設定）"
             type="date"
             value={onsite}
             onChange={(e) => setOnsite(e.target.value)}
           />
           <TextField
-            label="技術檢測資料截止（選填）"
+            label="技術檢測資料截止（必填，推進階段前須設定）"
             type="date"
             value={prepTech}
             onChange={(e) => setPrepTech(e.target.value)}
           />
           <TextField
-            label="實地稽核資料截止（選填）"
+            label="實地稽核資料截止（必填，推進階段前須設定）"
             type="date"
             value={prepDue}
             onChange={(e) => setPrepDue(e.target.value)}
