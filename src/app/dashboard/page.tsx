@@ -143,15 +143,22 @@ export default async function HomePage() {
       // 機關只計自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區(CENTER);與下方準備讀數卡一致
       const techDue = fmtMD(c.prepDueTech);
       const dueText = [techDue && `技術檢測文件繳交截止日 ${techDue}`, prepDue && `實地稽核文件繳交截止日 ${prepDue}`].filter(Boolean).join('・');
+      // 分區繳交期限逾期(批57 overdue 樣式復用;批65 N3):技檢區截止已過整個到期日且未繳齊 → 逾期;技檢繳齊後熄,
+      // 之後實地區截止已過且未繳齊 → 再亮。未繳齊=facts.mech*AllSubmitted 取反;期限存台北 00:00,+24h 到隔日才算逾期。
+      const pastDueDay = (d: Date | null) => !!d && now.getTime() >= new Date(d).getTime() + 86400000;
+      const prepOverdue =
+        st === 'PREPARATION' &&
+        ((pastDueDay(c.prepDueTech) && !e.mechTechAllSubmitted) ||
+          (pastDueDay(c.prepDueDate) && !e.mechOnsiteAllSubmitted));
       // 開立中:讓機關在主橫幅就看到「今年將被稽核」的作業通知(不只埋在鈴鐺),但屬告知性、暫無需動作
       if (st === 'DRAFT') {
         todos.push({ key: `${c.id}-draft-org`, tone: 'neutral', title: `今年度將接受資通安全稽核（開立中），請留意中心後續通知${dueText ? `;${dueText}` : ''}`, href: base, cta: '查看' });
       }
       // 退補/退回類不進待辦清單:上方「退回收件匣」已單項級直達(含退補原因),同頁不雙講(大改造A 減法)
       if (st === 'PREPARATION' && e.mechRemaining > 0) {
-        todos.push({ key: `${c.id}-prep`, tone: 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理' });
+        todos.push({ key: `${c.id}-prep`, tone: prepOverdue ? 'danger' : 'primary', title: `稽核前資料還有 ${e.mechRemaining} 項未處理${dueText ? `(${dueText})` : ''}`, href: `${base}/prep`, cta: '去處理', overdue: prepOverdue });
       } else if (st === 'PREPARATION' && e.mechDraft > 0) {
-        todos.push({ key: `${c.id}-submit`, tone: 'primary', title: `稽核前資料已齊，請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交' });
+        todos.push({ key: `${c.id}-submit`, tone: prepOverdue ? 'danger' : 'primary', title: `稽核前資料已齊，請按「確定繳交」送交中心`, href: `${base}/prep`, cta: '去繳交', overdue: prepOverdue });
       }
       // 檢核表為與資料準備平行的任務(先前不在導引中)→ 獨立提示,未送出即顯示
       if (st === 'PREPARATION' && e.checklistTotal > 0 && !e.checklistSubmitted) {

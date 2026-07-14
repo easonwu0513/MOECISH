@@ -344,6 +344,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               cycleStatus={cycle.status}
               prepDueOnsiteISO={cycle.prepDueDate ? cycle.prepDueDate.toISOString() : null}
               prepDueTechISO={cycle.prepDueTech ? cycle.prepDueTech.toISOString() : null}
+              standardListFallback={Boolean(templateSetup && !templateSetup.hasYearTemplate)}
               initialItems={visibleRequirements.map((r) => ({
                 id: r.id,
                 title: r.title,

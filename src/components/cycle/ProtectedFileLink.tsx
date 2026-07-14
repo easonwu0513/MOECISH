@@ -11,7 +11,9 @@ import { Paperclip, X } from '@/components/icons';
  *    但移除「右鍵另存圖片/另存新檔」的便捷途徑,且留存可溯源浮水印。)
  * - 圖片檔:**所有角色一律僅站內檢視,不提供下載**(UAT 批40 裁定:機關上傳的圖片佐證不開放下載,
  *   與頁面「禁止外流」浮水印姿態一致)。
- * - 其餘角色的非圖片檔(機關/中心的 PDF/Office 等):維持新分頁預覽連結(可另存自家文件/工作底稿)。
+ * - PDF 檔:**比照圖片,所有角色一律僅站內檢視,不提供新分頁/下載**(批65:機關/中心先前為新分頁開原始檔,
+ *   瀏覽器 PDF 工具列可下載/列印;現全角色走站內 iframe 檢視器並隱藏工具列,與委員一致)。
+ * - 其餘非圖片非 PDF 檔(機關/中心的 Word/Excel 等 Office 檔):維持新分頁預覽連結(可另存自家文件/工作底稿)。
  */
 export function ProtectedFileLink({
   fileId,
@@ -42,8 +44,8 @@ export function ProtectedFileLink({
   const url = `/api/evidences/${fileId}/download?inline=1`;
   const isPdf = /\.pdf$/i.test(name);
   const isImage = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
-  // 圖片一律視為僅檢視(關閉下載),其餘檔型依呼叫端角色決定
-  const effectiveViewOnly = viewOnly || isImage;
+  // 圖片與 PDF 一律視為僅檢視(關閉下載;批65 PDF 全角色比照圖片),其餘檔型(Office)依呼叫端角色決定
+  const effectiveViewOnly = viewOnly || isImage || isPdf;
   const base = className ?? 'inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm';
 
   const label = (
@@ -94,8 +96,11 @@ export function ProtectedFileLink({
             onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           >
             {isPdf ? (
+              // #toolbar=0&navpanes=0&statusbar=0:Chrome/Edge 內建 PDF viewer 隱藏工具列(含下載/列印鈕)。
+              // ⚠️誠實限制:此為 UI 層盡力移除便捷途徑,非密碼學防護——位元組已送達瀏覽器,無法絕對禁存;
+              // 且 Firefox 用自家 pdf.js viewer 不理會 #toolbar=0(仍顯示其工具列)。檔案本身已燒浮水印可溯源。
               <iframe
-                src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                src={`${url}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0`}
                 title={name}
                 className="w-full h-full min-h-[82vh] rounded-sm bg-card"
               />

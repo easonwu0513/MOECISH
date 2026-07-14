@@ -157,6 +157,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const daysToDue = dueDay ? Math.round((dueDay.getTime() - today.getTime()) / 86400000) : 0;
 
+  // 是否已寄發「稽核作業通知」給機關(開立中「通知機關」訊號):系統提醒(批65 N1.3)與下方引導清單共用,免重算。
+  const orgNotified = (await prisma.emailLog.count({
+    where: { relatedCycleId: cycle.id, kind: 'cycle-notify', context: { contains: '"phase":"cycle-opened"' } },
+  })) > 0;
+  // 分區繳交期限是否「已過整個到期日」(prepDueTech/prepDueDate 存為台北當日 00:00;+24h=到期日隔日 00:00,
+  // 以絕對時刻比較不受伺服器時區影響;到期日當天不算逾期,隔日起才逾期)。批65 N1.4 用。
+  const pastDueDay = (d: Date | null) => !!d && Date.now() >= new Date(d).getTime() + 86400000;
+
   // 系統提醒(右欄):由當前階段 + 既有資料衍生的待辦訊號(角色相關)
   const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
   // (減法:原「全數缺失矯正通過!」success 提醒已刪——同一句話已由頂部「下一步」與用印卡/儀表板待辦表達,同頁三講)
@@ -165,8 +173,33 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   if (user.role === 'ORG_ADMIN' && stForMod === 'DRAFT') {
     alerts.push({ tone: 'info', title: '本週期尚在中心開立設定中', desc: '您目前無需任何動作；待中心推進至「資料準備中」，系統會通知您開始上傳資料與填報檢核表。' });
   }
+  // 中心開立中(批65 N1):卡關/漏設定例外警示——日期未設、需求清單未掛、日期已設但未通知機關。
+  if (user.role === 'SUPER_ADMIN' && stForMod === 'DRAFT') {
+    // 「必設」對齊引導清單 dates_set 規則(實地稽核日 + 實地稽核資料截止);技術檢測日/截止為選配不強制
+    const datesSet = !!cycle.onsiteDate && !!cycle.prepDueDate;
+    if (!datesSet)
+      alerts.push({ tone: 'warning', title: '稽核日期與繳交期限尚未設定', desc: '請按「編輯日期」設定實地稽核日與文件繳交截止。' });
+    if (cycle.prepRequirements.length === 0)
+      alerts.push({ tone: 'warning', title: '資料準備需求清單尚未掛上', desc: '請至「稽核前資料準備」設定機關應備文件清單。' });
+    if (datesSet && !orgNotified)
+      alerts.push({ tone: 'info', title: '日期已設，尚未通知機關', desc: '請按「通知機關（稽核開立）」寄發作業通知與重要時程。' });
+  }
+  // 分區繳交期限已過但未繳齊(批65 N1.4;danger)。未繳齊=該區有 submission 非 SUBMITTED/CONFIRMED
+  //（等同 facts.mech*AllSubmitted 取反;無該區項目視為已繳齊、不亮）。desc 依角色分述。
+  if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION') {
+    const overdueDesc = user.role === 'ORG_ADMIN' ? '已過繳交期限，請儘速上傳並繳交。' : '機關已過繳交期限，建議催繳機關。';
+    if (pastDueDay(cycle.prepDueTech) && !facts.mechTechAllSubmitted)
+      alerts.push({ tone: 'danger', title: '技術檢測文件已逾繳交期限', desc: overdueDesc });
+    if (pastDueDay(cycle.prepDueDate) && !facts.mechOnsiteAllSubmitted)
+      alerts.push({ tone: 'danger', title: '實地稽核文件已逾繳交期限', desc: overdueDesc });
+  }
   if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
-    alerts.push({ tone: 'warning', title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`, desc: '尚有退補或未繳交項目，建議提醒機關。' });
+    // 批65 N2:依角色分述——機關端是「自己要繳」,對機關講「提醒機關」語意錯位(同批57 逾期分角色手法)。
+    alerts.push({
+      tone: 'warning',
+      title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`,
+      desc: user.role === 'ORG_ADMIN' ? '尚有退補或未繳交項目，請儘速上傳並繳交。' : '尚有退補或未繳交項目，建議提醒機關。',
+    });
   }
   if (user.role === 'SUPER_ADMIN' && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED') && committeeTotal > 0 && committeeScored < committeeTotal) {
     alerts.push({ tone: 'danger', title: `${committeeTotal - committeeScored} 位委員尚未完成評分`, desc: '影響後續報告產出，建議催辦。' });
@@ -194,7 +227,9 @@ export default async function CyclePage({ params, searchParams }: { params: { id
       });
     else if (daysToDue <= 14) alerts.push({ tone: 'warning', title: `距矯正截止剩 ${daysToDue} 天`, desc: '請留意改善進度。' });
   }
-  const shownAlerts = alerts.slice(0, 3);
+  // 最重要排前(逾期 danger > 未設定/待補 warning > 未通知 info),再取前三(批65:同階段可能多條;sort 穩定)
+  const ALERT_RANK: Record<'danger' | 'warning' | 'info' | 'success', number> = { danger: 0, warning: 1, info: 2, success: 3 };
+  const shownAlerts = [...alerts].sort((a, b) => ALERT_RANK[a.tone] - ALERT_RANK[b.tone]).slice(0, 3);
 
   // 快捷統計(右欄):挑當前階段最相關的 2–3 個讀數
   const quickStats: { label: string; value: string; tone?: 'success' | 'warning' }[] = [];
@@ -220,9 +255,7 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   });
 
   // 引導式精靈(本週期各階段 checklist):中心看全部、機關/委員看自己角色 + 全體項。
-  const orgNotified = (await prisma.emailLog.count({
-    where: { relatedCycleId: cycle.id, kind: 'cycle-notify', context: { contains: '"phase":"cycle-opened"' } },
-  })) > 0;
+  // (orgNotified 已於上方系統提醒前算過,此處直接復用)
   const centerDataReleased = cycle.prepRequirements
     .filter((r) => r.category === 'CENTER')
     .every((r) => r.submission?.status === 'CONFIRMED');

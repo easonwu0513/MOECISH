@@ -56,6 +56,7 @@ export default function PrepBoard({
   prepDueTechISO,
   initialItems,
   initialFiles,
+  standardListFallback = false,
 }: {
   cycleId: string;
   role: string;
@@ -64,6 +65,9 @@ export default function PrepBoard({
   prepDueTechISO: string | null;
   initialItems: Item[];
   initialFiles: FileRec[];
+  /** 本年度資料準備標準清單尚未建立(批63 templateSetup.hasYearTemplate=false):套用標準清單只會帶入
+   *  系統內建預設清單 → 按「套用標準清單」前先跳確認,提示先從往年複製或建立本年度清單(批65)。 */
+  standardListFallback?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -138,6 +142,8 @@ export default function PrepBoard({
   const [submitPending, setSubmitPending] = useState<PrepCategory | null>(null);
   const [pendingFile, setPendingFile] = useState<{ id: string; name: string } | null>(null);
   const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
+  // 套用標準清單:本年度範本未建立時先跳確認(批65)
+  const [confirmStandardOpen, setConfirmStandardOpen] = useState(false);
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
@@ -618,7 +624,14 @@ export default function PrepBoard({
       {isAdmin && (
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setAddOpen(true)} leadingIcon={<Plus size={15} />}>新增需求項</Button>
-          <Button size="sm" variant="tonal" onClick={applyStandard} loading={busy}>套用標準清單</Button>
+          <Button
+            size="sm"
+            variant="tonal"
+            onClick={() => (standardListFallback ? setConfirmStandardOpen(true) : applyStandard())}
+            loading={busy}
+          >
+            套用標準清單
+          </Button>
         </div>
       )}
 
@@ -786,6 +799,18 @@ export default function PrepBoard({
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (deletingItem) { removeItem(deletingItem.id); setDeletingItem(null); } }}
+        loading={busy}
+      />
+
+      {/* 套用標準清單:本年度範本未建立時的空範本確認(批65) */}
+      <ConfirmDialog
+        open={confirmStandardOpen}
+        onOpenChange={(o) => !busy && !o && setConfirmStandardOpen(false)}
+        title="本年度標準清單尚未建立"
+        description="本年度資料準備標準清單尚未建立，現在套用將帶入系統內建預設清單。建議先於上方告示從往年複製、或至資料準備範本管理建立本年度清單後再套用。仍要套用內建預設嗎？"
+        confirmLabel="仍套用內建預設"
+        tone="warning"
+        onConfirm={() => { setConfirmStandardOpen(false); void applyStandard(); }}
         loading={busy}
       />
     </div>
