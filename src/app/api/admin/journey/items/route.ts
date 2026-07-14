@@ -12,7 +12,7 @@ const Body = z.object({
   stageId: z.string().min(1),
   title: z.string().min(1).max(200),
   hint: z.string().max(500).nullable().optional(),
-  role: z.enum(['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR']).nullable().optional(),
+  role: z.enum(['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER']).nullable().optional(),
   // 完成判定:autoKey=系統自動(限訊號目錄)、informational=純提醒;皆空=必做・手動勾選
   autoKey: z.enum(AUTO_KEYS).nullable().optional(),
   informational: z.boolean().optional(),

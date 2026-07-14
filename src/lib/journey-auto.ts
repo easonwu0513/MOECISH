@@ -20,6 +20,10 @@ export type JourneyAutoCtx = {
   orgNotified: boolean;
   /** 中心匯入區資料是否皆已上傳並「開放委員檢視」(CONFIRMED);無中心匯入項則視為已完成。 */
   centerDataReleased: boolean;
+  /** 委員審閱窗口是否已設(reviewWindowStart+End 皆有值)。 */
+  reviewWindowSet: boolean;
+  /** 觀察員審閱窗口是否已設(observerWindowStart+End 皆有值);本週期無配對觀察員時此值不影響判定。 */
+  observerWindowSet: boolean;
 };
 
 const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
@@ -35,6 +39,9 @@ const RULES: Record<string, (c: JourneyAutoCtx) => boolean> = {
   org_notified: (c) => c.orgNotified,
   // 「上傳並開放中心匯入區資料」:中心匯入區皆已上傳並按「開放委員檢視」(CONFIRMED)才算完成
   center_data_released: (c) => c.centerDataReleased,
+  // 「設定委員/觀察員審閱時間區間」(批67 P2):委員審閱窗口已設 且(本週期無配對觀察員 或 觀察員窗口亦已設)→ 完成。
+  // 取代原手動勾選:中心設好審閱起訖(委員必設;有觀察員則觀察員窗口也要設)即系統自動打勾。
+  review_windows_set: (c) => c.reviewWindowSet && (c.observersCount === 0 || c.observerWindowSet),
   // 機關區「上傳/繳交/確認」三項一律以「全部完成」判定(非「任一」):機關區=技術檢測+實地稽核。
   // 例:只傳了技術檢測、實地稽核未傳 → 不算「已上傳」;只確認了技術檢測 → 不算「已逐項確認」。
   prep_uploaded: (c) => c.facts.mechAllAddressed,
@@ -67,6 +74,7 @@ export const AUTO_KEY_OPTIONS: { key: string; label: string }[] = [
   { key: 'observers_assigned', label: '已配對至少一位觀察員' },
   { key: 'org_notified', label: '已寄發稽核作業通知給機關' },
   { key: 'center_data_released', label: '中心匯入區已上傳並開放委員檢視' },
+  { key: 'review_windows_set', label: '已設定委員/觀察員審閱時間區間' },
   { key: 'prep_uploaded', label: '機關區資料全部已上傳/敘明' },
   { key: 'checklist_filled', label: '自評檢核表已送出' },
   { key: 'prep_submitted', label: '機關區資料全部已確定繳交' },
@@ -114,7 +122,8 @@ export function journeyItemHref(stageKey: string, autoKey: string | null, title?
     case 'prep_submitted_tech':
     case 'prep_submitted_onsite':
     case 'prep_confirmed':
-    case 'center_data_released': return '/prep';
+    case 'center_data_released':
+    case 'review_windows_set': return '/prep'; // 審閱時間區間於資料準備頁設定
     case 'deficiencies_published':
     case 'remediation_submitted':
     case 'remediation_reviewed': return '/deficiencies';

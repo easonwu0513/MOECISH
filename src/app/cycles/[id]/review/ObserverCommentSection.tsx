@@ -134,7 +134,7 @@ export default function ObserverCommentSection({
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={3}
-            placeholder="觀察員意見（練習用；僅您本人、指導者與中心可見）…"
+            placeholder="觀察員意見…"
           />
           <div className="flex gap-2">
             <Button size="sm" loading={busy} onClick={create}>送出意見</Button>

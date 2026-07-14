@@ -144,6 +144,9 @@ export default function PrepBoard({
   const [deletingItem, setDeletingItem] = useState<{ id: string; title: string } | null>(null);
   // 套用標準清單:本年度範本未建立時先跳確認(批65)
   const [confirmStandardOpen, setConfirmStandardOpen] = useState(false);
+  // 中心匯入「一鍵開放全部」(批66 M1):對所有已匯入待開放項迴圈呼叫單項開放 API
+  const [confirmReleaseAll, setConfirmReleaseAll] = useState(false);
+  const [releasingAll, setReleasingAll] = useState(false);
 
   const isAdmin = role === 'SUPER_ADMIN';
   const isOrg = role === 'ORG_ADMIN';
@@ -401,6 +404,39 @@ export default function PrepBoard({
     } finally {
       setBusyItemId(null);
     }
+  }
+
+  // 中心匯入區「已匯入待開放」項:有上傳檔且尚未開放(status 非 CONFIRMED);供一鍵開放全部
+  const centerPendingSubIds = initialItems
+    .filter((it) => catOf(it) === 'CENTER')
+    .filter((it) => it.submission && it.submission.status !== 'CONFIRMED' && filesOf(it.submission.id).length > 0)
+    .map((it) => it.submission!.id);
+
+  // 一鍵開放全部(批66 M1):對每個待開放項迴圈呼叫「既有的單項開放 API」;逐項失敗不中斷,完成後總結
+  async function releaseAllCenter() {
+    setReleasingAll(true);
+    let ok = 0;
+    let fail = 0;
+    for (const subId of centerPendingSubIds) {
+      const res = await fetch(`/api/prep-submissions/${subId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'CONFIRMED' }),
+      }).catch(() => null);
+      if (res && res.ok) ok += 1;
+      else fail += 1;
+    }
+    setReleasingAll(false);
+    setConfirmReleaseAll(false);
+    if (fail === 0) {
+      toast.success(
+        centerReleaseEffective ? '已開放委員檢視' : '已標記開放（資料齊備階段後對委員生效）',
+        `成功開放 ${ok} 項中心匯入資料`,
+      );
+    } else {
+      toast.warning('部分項目開放失敗', `成功 ${ok} 項、失敗 ${fail} 項；失敗項可稍後重試或逐項開放。`);
+    }
+    router.refresh();
   }
 
   function renderItem(item: Item, idx: number) {
@@ -662,6 +698,18 @@ export default function PrepBoard({
                   ) : due ? (
                     <span className="text-caption text-ink-500">繳交截止 {fmtROC(due)}</span>
                   ) : null}
+                  {/* 中心匯入「一鍵開放全部」(批66 M1):僅中心、且該區有「已匯入待開放」項時顯示 */}
+                  {isAdmin && cat === 'CENTER' && adminCanImport && centerPendingSubIds.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="tonal"
+                      leadingIcon={<Check size={15} />}
+                      loading={releasingAll}
+                      onClick={() => setConfirmReleaseAll(true)}
+                    >
+                      一鍵開放全部（{centerPendingSubIds.length}）
+                    </Button>
+                  )}
                   {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
                   {isAdmin && cat !== 'CENTER' && (
                     <Button
@@ -800,6 +848,17 @@ export default function PrepBoard({
         tone="danger"
         onConfirm={() => { if (deletingItem) { removeItem(deletingItem.id); setDeletingItem(null); } }}
         loading={busy}
+      />
+
+      {/* 中心匯入「一鍵開放全部」確認(批66 M1) */}
+      <ConfirmDialog
+        open={confirmReleaseAll}
+        onOpenChange={(o) => !releasingAll && !o && setConfirmReleaseAll(false)}
+        title="開放全部中心匯入資料"
+        description={`將開放 ${centerPendingSubIds.length} 項中心匯入資料供委員檢視。${centerReleaseEffective ? '' : '（目前尚在資料準備階段，會先標記開放，待進入資料齊備階段後對委員生效。）'}`}
+        confirmLabel="開放全部"
+        onConfirm={releaseAllCenter}
+        loading={releasingAll}
       />
 
       {/* 套用標準清單:本年度範本未建立時的空範本確認(批65) */}

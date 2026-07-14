@@ -187,9 +187,10 @@ export async function loadJourney(opts: {
 export function canToggleJourneyItem(role: Role, scope: JourneyScope, itemRole: string | null): boolean {
   if (scope === 'PROGRAMME') return role === 'SUPER_ADMIN';
   if (role === 'SUPER_ADMIN') return true;
-  // 觀察員(批30)不可勾選引導清單:精靈為機關/委員/中心的作業進度,觀察員僅觀摩,
-  // 勾「全體」項會污染實際作業進度紀錄。
-  if (role === 'OBSERVER') return false;
+  // 觀察員(批30→批66 P4):僅可勾「明確標給觀察員」的手動項。精靈進度為每週期共享紀錄,
+  // 全體(null)項仍留給實際作業角色(機關/委員/中心)勾選——觀察員勾全體項會污染共享作業進度,
+  // 故不放行 null(比照委員可見+可勾自身角色項,但收斂到觀察員專屬項以維持批30 隔離原則)。
+  if (role === 'OBSERVER') return itemRole === 'OBSERVER';
   return itemRole == null || itemRole === role;
 }
 

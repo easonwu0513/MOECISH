@@ -42,6 +42,7 @@ const ROLE_OPTS = [
   { value: 'SUPER_ADMIN', label: '中心' },
   { value: 'ORG_ADMIN', label: '機關' },
   { value: 'AUDITOR', label: '委員' },
+  { value: 'OBSERVER', label: '觀察員' },
 ];
 
 export default function JourneyEditor({ data }: { data: EData }) {

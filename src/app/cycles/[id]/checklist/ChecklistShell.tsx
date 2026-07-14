@@ -270,7 +270,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定，鎖定後如需再修改，請通知中心工作人員，由中心退回重填。提醒：委員審閱意見不會回到本檢核表；正式回饋以實地稽核後開立之「待改善事項/建議事項」為準。`}
+        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定，鎖定後如需再修改，請通知中心工作人員，由中心退回重填。`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}

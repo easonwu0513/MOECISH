@@ -458,7 +458,7 @@ function ScoreSection({
   }
   // 送出/鎖定端點與通知對象:練習模式走 practice-lock,通知對象含指派的指導委員(批45)
   const lockUrl = practice ? `/api/cycles/${cycleId}/practice-lock` : `/api/cycles/${cycleId}/audit/lock`;
-  const notifyTarget = practice ? '工作人員與指派給您的指導委員' : '中心工作人員';
+  const notifyTarget = practice ? '工作人員與指導委員' : '中心工作人員';
   // 確認填寫完畢 → 先存當前評分,再鎖定(rebuild 後整頁唯讀)
   async function doConfirmDone() {
     if (timer.current) clearTimeout(timer.current);

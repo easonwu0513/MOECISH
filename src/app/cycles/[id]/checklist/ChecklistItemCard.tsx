@@ -16,7 +16,7 @@ import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
-import { LawPanel } from '@/components/checklist/LawBasis';
+import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
@@ -367,22 +367,29 @@ export default function ChecklistItemCard({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-rule">
-          <Tabs tabs={tabs} />
-          {/* 法規對照:填報者最需照法規填,故展開即顯眼(與委員審閱頁同範式),不再藏在分頁 */}
-          {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
-            <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
-              <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                法規對照（稽核依據・稽核重點・應備文件）
-              </summary>
-              <div className="px-3 pb-3 pt-1 bg-card">
-                <LawPanel
+          {/* 法規對照:填報者最需照法規填。lg 以上移至右欄常駐展開(sticky 跟隨),免上下來回捲;
+              窄螢幕維持題卡下方可摺疊面板。無法規資料則不分欄、左欄佔滿。 */}
+          <div className={hasLawRef(item) ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5' : ''}>
+            <div className="min-w-0">
+              <Tabs tabs={tabs} />
+              {hasLawRef(item) && (
+                <LawReferenceCollapsible
                   auditBasis={item.auditBasis}
                   auditFocus={item.auditFocus}
                   expectedEvidence={item.expectedEvidence}
+                  className="mt-3 lg:hidden"
                 />
-              </div>
-            </details>
-          )}
+              )}
+            </div>
+            {hasLawRef(item) && (
+              <LawReferenceSticky
+                auditBasis={item.auditBasis}
+                auditFocus={item.auditFocus}
+                expectedEvidence={item.expectedEvidence}
+                topClass="lg:top-56"
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

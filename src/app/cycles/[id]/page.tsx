@@ -261,11 +261,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     .every((r) => r.submission?.status === 'CONFIRMED');
   const journeyRole = user.role === 'SUPER_ADMIN' ? undefined : (user.role as Role);
   const observersCount = await prisma.cycleObserver.count({ where: { cycleId: cycle.id } });
+  // 審閱時間區間訊號(批67 P2):委員/觀察員窗口是否已設,供「設定審閱時間區間」項自動判定完成。
+  const reviewWindowSet = !!cycle.reviewWindowStart && !!cycle.reviewWindowEnd;
+  const observerWindowSet = !!cycle.observerWindowStart && !!cycle.observerWindowEnd;
   const journeyView = await loadJourney({
     scope: 'CYCLE',
     cycleId: cycle.id,
     role: journeyRole,
-    autoCtx: { facts, assignmentsCount: cycle.assignments.length, observersCount, orgNotified, centerDataReleased },
+    autoCtx: { facts, assignmentsCount: cycle.assignments.length, observersCount, orgNotified, centerDataReleased, reviewWindowSet, observerWindowSet },
   });
   const journeyStages = journeyView ? toClientStages(journeyView, user.role as Role) : [];
   const donePct = journeyView && journeyView.total > 0 ? Math.round((journeyView.doneCount / journeyView.total) * 100) : 0;

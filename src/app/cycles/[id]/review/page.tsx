@@ -14,9 +14,8 @@ import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPag
 import { filterOwnComments } from '@/lib/auditor-visibility';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
-import { LawPanel } from '@/components/checklist/LawBasis';
+import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
 import { NoteBox } from '@/components/cycle/NoteBox';
-import { SURFACE_INFO } from '@/lib/tone';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import ReviewNote from './ReviewNote';
@@ -287,11 +286,15 @@ export default async function ReviewPage({
               {items.map((item) => {
                 const r = responsesByItem.get(item.id);
                 const c = r?.compliance as ComplianceLevel | null;
+                const hasLaw = hasLawRef(item);
                 return (
                   <Card key={item.id} variant="outlined">
                     <div className="flex items-start gap-3">
                       <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">{item.itemNo}</Chip>
                       <div className="flex-1 min-w-0">
+                        {/* 法規對照 lg 以上移右欄常駐(sticky),審閱/留意見不再上下來回捲;窄螢幕維持下方摺疊面板 */}
+                        <div className={hasLaw ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5' : ''}>
+                        <div className="min-w-0">
                         <p className="text-body text-ink-900 leading-relaxed">{item.content}</p>
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                           {c ? (
@@ -346,22 +349,6 @@ export default async function ReviewPage({
                           </NoteBox>
                         )}
 
-                        {/* 法規對照:委員審查時即時對照稽核依據 */}
-                        {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
-                          <details className={`mt-3 rounded-md ${SURFACE_INFO} overflow-hidden`}>
-                            <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                              法規對照（稽核依據・稽核重點・應備文件）
-                            </summary>
-                            <div className="px-3 pb-3 pt-1 bg-card">
-                              <LawPanel
-                                auditBasis={item.auditBasis}
-                                auditFocus={item.auditFocus}
-                                expectedEvidence={item.expectedEvidence}
-                              />
-                            </div>
-                          </details>
-                        )}
-
                         {r && r.comments.length > 0 && (
                           <div className="mt-3 space-y-2">
                             {r.comments.map((cm) => (
@@ -402,6 +389,25 @@ export default async function ReviewPage({
                         ) : (
                           <p className="mt-2 text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
                         )}
+                        {/* 窄螢幕(<lg):法規對照沿用可摺疊面板置於題卡下方 */}
+                        {hasLaw && (
+                          <LawReferenceCollapsible
+                            auditBasis={item.auditBasis}
+                            auditFocus={item.auditFocus}
+                            expectedEvidence={item.expectedEvidence}
+                            className="mt-3 lg:hidden"
+                          />
+                        )}
+                        </div>
+                        {/* 寬螢幕(lg+):法規對照常駐右欄 sticky */}
+                        {hasLaw && (
+                          <LawReferenceSticky
+                            auditBasis={item.auditBasis}
+                            auditFocus={item.auditFocus}
+                            expectedEvidence={item.expectedEvidence}
+                          />
+                        )}
+                        </div>
                       </div>
                     </div>
                   </Card>

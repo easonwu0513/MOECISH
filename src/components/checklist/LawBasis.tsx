@@ -1,5 +1,20 @@
 import { cn } from '@/lib/cn';
 import { arabicizeLawRefs } from '@/lib/law-numerals';
+import { SURFACE_INFO } from '@/lib/tone';
+
+/** 法規對照面板共同標題(稽核依據・稽核重點・應備文件)。 */
+const LAW_REF_TITLE = '法規對照（稽核依據・稽核重點・應備文件）';
+
+type LawRefFields = {
+  auditBasis: string | null;
+  auditFocus: string | null;
+  expectedEvidence: string | null;
+};
+
+/** 該題是否有任一法規對照資料(供呼叫端決定是否渲染右欄/摺疊面板)。 */
+export function hasLawRef(item: LawRefFields): boolean {
+  return !!(item.auditBasis || item.auditFocus || item.expectedEvidence);
+}
 
 /**
  * 法規對照渲染:稽核依據(逐字法條)/ 稽核重點 / 佐證資料。
@@ -87,5 +102,53 @@ export function LawPanel({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 窄螢幕(<lg)沿用的可摺疊法規對照面板,置於題卡下方。
+ * 雙欄版面下由呼叫端加 `lg:hidden`——lg 以上改由右欄 LawReferenceSticky 常駐展開。
+ * 無資料時由呼叫端(hasLawRef)判斷不渲染。
+ */
+export function LawReferenceCollapsible({
+  auditBasis,
+  auditFocus,
+  expectedEvidence,
+  className,
+}: LawRefFields & { className?: string }) {
+  return (
+    <details className={cn(`rounded-md ${SURFACE_INFO} overflow-hidden`, className)}>
+      <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
+        {LAW_REF_TITLE}
+      </summary>
+      <div className="px-3 pb-3 pt-1 bg-card">
+        <LawPanel auditBasis={auditBasis} auditFocus={auditFocus} expectedEvidence={expectedEvidence} />
+      </div>
+    </details>
+  );
+}
+
+/**
+ * 寬螢幕(lg+)右欄常駐展開的法規對照:填報/審閱長表單捲動時 sticky 跟隨,過長則自身捲動(max-h 70vh)。
+ * 預設隱藏於 <lg(該尺寸改由 LawReferenceCollapsible 於題卡下方呈現)。
+ * topClass 控制 sticky 頂距,用以避開各頁固定工具列(如檢核表填報頁的 sticky 篩選列)。
+ */
+export function LawReferenceSticky({
+  auditBasis,
+  auditFocus,
+  expectedEvidence,
+  topClass = 'lg:top-20',
+}: LawRefFields & { topClass?: string }) {
+  return (
+    <aside className="hidden lg:block">
+      <div className={cn('lg:sticky max-h-[70vh] overflow-y-auto rounded-md', SURFACE_INFO, topClass)}>
+        <p className="sticky top-0 z-10 px-3 py-2 text-body-sm font-medium text-primary-800 bg-primary-50 border-b border-primary-100">
+          {LAW_REF_TITLE}
+        </p>
+        <div className="px-3 pb-3 pt-2">
+          <LawPanel auditBasis={auditBasis} auditFocus={auditFocus} expectedEvidence={expectedEvidence} />
+        </div>
+      </div>
+    </aside>
   );
 }
