@@ -49,6 +49,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const orgId = body.role === 'ORG_ADMIN' ? body.organizationId! : body.organizationId ?? null;
 
+    // 反向迴避閘(批64):不得將某員授權為某機關管理員,若其為該機關「未結案稽核週期」的在職委員——
+    // 對稱指派端的 COI 閘(assignments POST 查授權全集),堵住「先指派委員 → 後授權 ORG_ADMIN」
+    // 繞過迴避原則的時序漏洞(委員不得審查自己服務之機關)。CLOSED 週期審核已結束不阻擋。
+    if (body.role === 'ORG_ADMIN' && orgId) {
+      const auditingOrg = await prisma.auditorAssignment.count({
+        where: { auditorId: params.id, cycle: { organizationId: orgId, status: { not: 'CLOSED' } } },
+      });
+      if (auditingOrg > 0) {
+        return NextResponse.json(
+          {
+            error:
+              '該員為此機關稽核週期的在職委員，不得同時授權為該機關管理員（迴避原則）。如確需授權，請先解除其於該機關週期的委員指派。',
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     // 去重:同 (role, organizationId) 已有有效授權或即為現用身分 → 不重複建
     const identities = await listIdentities(params.id);
     if (identities.some((i) => i.role === body.role && i.organizationId === (orgId ?? null))) {

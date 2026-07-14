@@ -11,11 +11,39 @@ import type { CycleStatus } from '@/lib/types';
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
     await requireRole('SUPER_ADMIN');
-    const items = await prisma.auditorAssignment.findMany({
+    const cycle = await prisma.auditCycle.findUnique({
+      where: { id: params.id },
+      select: { organizationId: true },
+    });
+    const rows = await prisma.auditorAssignment.findMany({
       where: { cycleId: params.id },
-      include: { auditor: { select: { id: true, name: true, email: true } } },
+      include: {
+        auditor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organizationId: true,
+            roleGrants: { where: { endedAt: null, role: 'ORG_ADMIN' }, select: { organizationId: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
+    const orgId = cycle?.organizationId ?? null;
+    // COI 偵測旗標(批64):被指派委員若同時具「本週期機關」的機關管理員身分(現用身分 organizationId
+    // 或有效 ORG_ADMIN 授權),違反迴避原則——標旗提示中心。偵測「條件成立」而非攔動作,故涵蓋
+    // 「先指派委員→後授權 ORG_ADMIN」時序漏洞及一切授權路徑(含直改帳號 role)。roleGrants 不外傳,只回布林。
+    const items = rows.map((it) => ({
+      id: it.id,
+      role: it.role,
+      dimensions: it.dimensions,
+      scoreLockedAt: it.scoreLockedAt,
+      auditor: { id: it.auditor.id, name: it.auditor.name, email: it.auditor.email },
+      coiOrgAdmin:
+        !!orgId &&
+        (it.auditor.organizationId === orgId || it.auditor.roleGrants.some((g) => g.organizationId === orgId)),
+    }));
     const auditors = await prisma.user.findMany({
       where: { role: 'AUDITOR', isActive: true },
       select: { id: true, name: true, email: true },

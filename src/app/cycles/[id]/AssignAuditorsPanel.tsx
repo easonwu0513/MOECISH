@@ -9,10 +9,19 @@ import { Select } from '@/components/ui/Select';
 import { Chip } from '@/components/ui/Chip';
 import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
+import { AlertTriangle } from '@/components/icons';
 import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type AssignAspect } from '@/lib/audit-score';
 
 type Auditor = { id: string; name: string; email: string };
-type Assignment = { id: string; auditor: Auditor; role?: string; dimensions?: string | null; scoreLockedAt?: string | null };
+type Assignment = {
+  id: string;
+  auditor: Auditor;
+  role?: string;
+  dimensions?: string | null;
+  scoreLockedAt?: string | null;
+  /** COI 旗標(批64):此委員同時具本週期機關的機關管理員身分,違反迴避原則 */
+  coiOrgAdmin?: boolean;
+};
 
 export default function AssignAuditorsPanel({
   cycleId,
@@ -139,6 +148,18 @@ export default function AssignAuditorsPanel({
         被指派的委員才能檢視並審查本週期（不得審查自己服務之機關）。勾選各委員負責構面，未勾視同全構面。
       </CardDescription>
 
+      {/* COI 警示(批64):被指派委員若同時具本機關管理員身分(可能因「先指派委員→後授權管理員」的
+          時序而發生),違反迴避原則——主動偵測並提示,讓中心解除指派或收回授權 */}
+      {assignments.some((a) => a.coiOrgAdmin) && (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-danger-200 bg-danger-50 px-3.5 py-2.5 text-body-sm text-danger-700">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            下列標「⚠ 違反迴避」的委員同時具本機關管理員身分，違反「委員不得審查自己服務之機關」的迴避原則。
+            建議解除其委員指派，或收回其機關管理員授權後再繼續。
+          </span>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-col gap-3">
         {assignments.length === 0 ? (
           <p className="text-body-sm text-ink-500">尚未指派任何委員</p>
@@ -156,6 +177,11 @@ export default function AssignAuditorsPanel({
                 >
                   <Chip tone="neutral" size="sm" dot className="shrink-0">{a.auditor.name}</Chip>
                   {finalized && <Chip tone="success" size="sm" className="shrink-0">已定稿</Chip>}
+                  {a.coiOrgAdmin && (
+                    <Chip tone="danger" size="sm" className="shrink-0" title="此委員同時具本機關管理員身分，違反迴避原則">
+                      ⚠ 違反迴避
+                    </Chip>
+                  )}
                   <div className="flex flex-wrap items-center gap-1">
                     {ASSIGN_ASPECTS.map((asp) => {
                       const on = dims.includes(asp);
