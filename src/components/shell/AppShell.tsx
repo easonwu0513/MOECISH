@@ -68,7 +68,7 @@ export function AppShell({
       ? [
           { id: 'deficiencies', group: '導覽', label: '缺失與矯正', icon: <AlertTriangle size={16} />, action: () => router.push(`/cycles/${cycleId}/deficiencies`) } as Command,
           ...(user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN'
-            ? [{ id: 'review', group: '導覽', label: '委員審閱（檢核表）', icon: <Eye size={16} />, action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
+            ? [{ id: 'review', group: '導覽', label: '資通安全檢核表（審閱）', icon: <Eye size={16} />, keywords: '委員審閱 檢核表 review 審閱', action: () => router.push(`/cycles/${cycleId}/review`) } as Command]
             : []),
           { id: 'cycle', group: '導覽', label: '稽核週期首頁', hint: '回到本週期', action: () => router.push(`/cycles/${cycleId}`) } as Command,
         ]

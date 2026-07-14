@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { NoteBox } from '@/components/cycle/NoteBox';
 import { Plus } from '@/components/icons';
+import { onFlushReviewNotes } from './flush-review-notes';
 
 type ObserverComment = { id: string; content: string; timeLabel: string };
 
@@ -31,44 +32,71 @@ export default function ObserverCommentSection({
   const [deleting, setDeleting] = useState<ObserverComment | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function create() {
-    if (!text.trim()) return;
+  async function create(opts?: { silent?: boolean }): Promise<void> {
+    const body = text.trim();
+    if (!body) return;
     setBusy(true);
-    const res = await fetch(`/api/responses/${responseId}/practice-comments`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: text.trim() }),
-    });
-    setBusy(false);
+    let res: Response;
+    try {
+      res = await fetch(`/api/responses/${responseId}/practice-comments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: body }),
+      });
+    } finally {
+      setBusy(false);
+    }
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '新增失敗' }));
+      if (opts?.silent) throw new Error(j.error ?? '新增失敗');
       toast.error('新增失敗', j.error);
       return;
     }
-    toast.success('已送出觀察員意見', '僅您本人、您的指導者與中心可見。');
+    if (!opts?.silent) toast.success('已送出觀察員意見', '僅您本人、您的指導者與中心可見。');
     setText('');
     setOpen(false);
     router.refresh();
   }
 
-  async function saveEdit(id: string) {
-    if (!editText.trim()) return;
+  async function saveEdit(id: string, opts?: { silent?: boolean }): Promise<void> {
+    if (!editText.trim()) {
+      if (opts?.silent) throw new Error('內容不可空白');
+      return;
+    }
     setBusy(true);
-    const res = await fetch(`/api/practice-comments/${id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: editText.trim() }),
-    });
-    setBusy(false);
+    let res: Response;
+    try {
+      res = await fetch(`/api/practice-comments/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: editText.trim() }),
+      });
+    } finally {
+      setBusy(false);
+    }
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+      if (opts?.silent) throw new Error(j.error ?? '儲存失敗');
       toast.error('儲存失敗', j.error);
       return;
     }
-    toast.success('已更新觀察員意見');
+    if (!opts?.silent) toast.success('已更新觀察員意見');
     setEditingId(null);
     router.refresh();
   }
+
+  // 統一「儲存」鈕(批68 Q2):新增草稿有內容 → flush;正在編輯且有改動 → flush(皆靜默)。
+  const flushRef = useRef<() => Promise<void> | null>(() => null);
+  flushRef.current = () => {
+    const tasks: Promise<void>[] = [];
+    if (open && text.trim()) tasks.push(create({ silent: true }));
+    if (editingId) {
+      const orig = comments.find((c) => c.id === editingId)?.content ?? '';
+      if (editText.trim() && editText !== orig) tasks.push(saveEdit(editingId, { silent: true }));
+    }
+    return tasks.length ? Promise.all(tasks).then(() => {}) : null;
+  };
+  useEffect(() => onFlushReviewNotes(() => flushRef.current()), []);
 
   async function remove() {
     if (!deleting) return;
@@ -137,7 +165,7 @@ export default function ObserverCommentSection({
             placeholder="觀察員意見…"
           />
           <div className="flex gap-2">
-            <Button size="sm" loading={busy} onClick={create}>送出意見</Button>
+            <Button size="sm" loading={busy} onClick={() => create()}>送出意見</Button>
             <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setText(''); }}>取消</Button>
           </div>
         </div>

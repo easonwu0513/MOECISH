@@ -20,6 +20,7 @@ import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
 import ReviewNote from './ReviewNote';
 import ObserverCommentSection from './ObserverCommentSection';
+import SaveAllReviewNotes from './SaveAllReviewNotes';
 import SubmissionBanner from '../checklist/SubmissionBanner';
 
 const complianceTone = COMPLIANCE_TONE;
@@ -68,7 +69,9 @@ export default async function ReviewPage({
     redirect('/dashboard');
   }
   const isObserverView = session.user.role === 'OBSERVER';
-  const pageTitle = isObserverView ? '檢核表審閱' : '委員審閱';
+  // 頁面/卡片名稱統一為「資通安全檢核表」(批68 Q3:委員不只審這份表,「委員審閱」語意過寬;
+  // 角色差異由副標與側欄承擔,頁名回歸所審的實體)。副標維持角色化文案。
+  const pageTitle = '資通安全檢核表';
   // 審閱時間區間閘(UAT 批67;觀察員批30 查獨立窗口):不在窗口內(或未設)→ 早退顯鎖定頁,不載入任何機關資料
   const reviewState = reviewWindowStateForRole(session.user.role, cycle);
   if (reviewState !== 'open') {
@@ -213,7 +216,22 @@ export default async function ReviewPage({
         reopenNote={null}
         canReopen={false}
         hideModifyHint={session.user.role === 'AUDITOR' || isObserverView}
+        // 委員/觀察員不需知道機關端由誰送出(批68 Q1);中心(SUPER_ADMIN)維持具名,供監督。
+        hideSubmitter={session.user.role === 'AUDITOR' || isObserverView}
       />
+
+      {/* 統一儲存(批68 Q2):逐題筆記/意見各有送出鈕,委員怕漏存 → 提供一顆「儲存」立即存下所有
+          正在輸入的審閱筆記(僅 flush 筆記類草稿,不代送任何尚未按送出的正式流程外欄位)。 */}
+      {answered > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-caption text-ink-500">
+            {isObserverView
+              ? '每題觀察員意見各自送出；此鈕會將您正在輸入的內容一併存檔，確認不遺漏。'
+              : '每題審閱筆記各自送出；此鈕會將您正在輸入的內容一併存檔，確認不遺漏。'}
+          </p>
+          <SaveAllReviewNotes />
+        </div>
+      )}
 
       {/* 篩選 */}
       {answered > 0 && (

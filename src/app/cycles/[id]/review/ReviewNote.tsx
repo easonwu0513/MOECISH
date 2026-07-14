@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { NoteBox } from '@/components/cycle/NoteBox';
 import { Chip } from '@/components/ui/Chip';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { Pencil, Trash2 } from '@/components/icons';
+import { onFlushReviewNotes } from './flush-review-notes';
 
 /**
  * 委員審閱筆記單則(圖5):作者本人可就地「修正」或「刪除」自己的筆記。
@@ -39,27 +40,38 @@ export default function ReviewNote({
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function save() {
+  async function save(opts?: { silent?: boolean }): Promise<void> {
     if (!text.trim()) {
+      if (opts?.silent) throw new Error('內容不可空白');
       toast.error('內容不可空白');
       return;
     }
     setSaving(true);
-    const res = await fetch(`/api/responses/${responseId}/comments/${commentId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ content: text }),
-    });
-    setSaving(false);
+    let res: Response;
+    try {
+      res = await fetch(`/api/responses/${responseId}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+    } finally {
+      setSaving(false);
+    }
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '更新失敗' }));
+      if (opts?.silent) throw new Error(j.error ?? '更新失敗');
       toast.error('更新失敗', j.error);
       return;
     }
-    toast.success('已更新審閱筆記');
+    if (!opts?.silent) toast.success('已更新審閱筆記');
     setEditing(false);
     router.refresh();
   }
+
+  // 統一「儲存」鈕(批68 Q2):正在編輯且有改動才 flush(靜默存),否則跳過。
+  const flushRef = useRef<() => Promise<void> | null>(() => null);
+  flushRef.current = () => (editing && text.trim() && text !== content ? save({ silent: true }) : null);
+  useEffect(() => onFlushReviewNotes(() => flushRef.current()), []);
 
   async function doDelete() {
     setDeleting(true);
@@ -103,7 +115,7 @@ export default function ReviewNote({
             placeholder="審閱筆記…"
           />
           <div className="flex gap-2">
-            <Button size="sm" loading={saving} onClick={save}>
+            <Button size="sm" loading={saving} onClick={() => save()}>
               儲存
             </Button>
             <Button

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
 import { auditorCanSeePrep, auditorCanSeeCycle, reviewWindowStateForRole, onsiteStageEnded, type CycleStatus, type Role } from '@/lib/types';
-import { buildModuleNav } from '@/lib/cycle-modules';
+import { buildModuleNav, type ModuleNavItem } from '@/lib/cycle-modules';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { ReviewWindowLockNotice } from '@/components/cycle/ReviewWindowLock';
@@ -169,6 +169,25 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
     observerReviewState: isObserver ? reviewState : undefined,
     mentorObservers: isAuditor ? mentorObservers : undefined,
   });
+  // prep 左欄「稽核作業項目」清單:資料準備(當前頁)+ 其檢核表子項。
+  // 批68 Q4:委員/觀察員的檢核表(審閱入口)在其工作台為頂層卡(Q3 保留),但於此左欄亦以子項呈現,
+  // 連 /review、狀態=機關是否已送出——與中心/機關左欄一致。不動 cycle-modules 的 childOf
+  // (那會使頂層審閱卡被網格 filter 濾掉),僅於此左欄把檢核表模組複製為 prep 子項。
+  const prepLeftNav: ModuleNavItem[] = [
+    ...modules.filter((m) => m.key === 'prep'),
+    ...modules.filter((m) => m.childOf === 'prep'),
+    ...(isReviewer
+      ? modules
+          .filter((m) => m.key === 'checklist')
+          .map((m): ModuleNavItem => ({
+            ...m,
+            childOf: 'prep',
+            // 左欄子項語意=機關檢核表是否已送出(同中心/機關子項);審閱窗口狀態由頂層審閱卡承擔。
+            status: cycle.checklistSubmittedAt ? '已送出' : '未送出',
+            statusTone: cycle.checklistSubmittedAt ? 'success' : 'default',
+          }))
+      : []),
+  ];
   const MODULE_ICONS: Record<string, React.ReactNode> = {
     prep: <FileText size={18} />,
     checklist: <ClipboardCheck size={18} />,
@@ -204,7 +223,7 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             <div className="flex flex-col gap-0.5">
               {/* 批33 圖1:prep 工作區左欄只列「本工作區」——稽核前資料準備 + 其檢核表子項;
                   其他模組(進階設定/實地稽核/缺失)由頂部「回週期工作台」進入,不在此重列造成噪音。 */}
-              {modules.filter((m) => m.key === 'prep').flatMap((m) => [m, ...modules.filter((x) => x.childOf === 'prep')]).map((m) => {
+              {prepLeftNav.map((m) => {
                 const isChild = Boolean(m.childOf);
                 const isCurrent = m.key === 'prep';
                 const locked = m.locked && !isCurrent;

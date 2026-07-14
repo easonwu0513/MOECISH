@@ -51,7 +51,7 @@ for (const st of CYCLE_STATUSES) {
   check(`OBSERVER@${st} 審閱鎖=!(可視檢核內容)`, byKey(n, 'checklist').locked === !auditorCanViewChecklistContent(st));
   check(`OBSERVER@${st} 練習鎖=!canAccess(practice.access)`, byKey(n, 'practice').locked === !canAccess('practice.access', 'OBSERVER', st));
 }
-check('OBSERVER 審閱卡標題=檢核表審閱(非委員審閱)', byKey(nav('OBSERVER', 'READY'), 'checklist').title === '檢核表審閱');
+check('OBSERVER 審閱卡標題=資通安全檢核表(批68 Q3 更名)', byKey(nav('OBSERVER', 'READY'), 'checklist').title === '資通安全檢核表');
 check('OBSERVER 審閱卡 href=/review', byKey(nav('OBSERVER', 'READY'), 'checklist').href === '/cycles/cyc-1/review');
 check('OBSERVER 練習卡 href=/practice', byKey(nav('OBSERVER', 'ONSITE'), 'practice').href === '/cycles/cyc-1/practice');
 check('OBSERVER 練習卡標題=稽核發現撰寫練習', byKey(nav('OBSERVER', 'ONSITE'), 'practice').title === '稽核發現撰寫練習');
@@ -111,8 +111,8 @@ check('AUDITOR@REPORT_ISSUED 窗口關 → 提示改「實地稽核階段已結�
 check('AUDITOR@READY 窗口 open → 審閱卡進行中+primary+不淡化',
   (() => { const m = byKey(nav('AUDITOR', 'READY'), 'checklist'); return m.status === '進行中' && m.statusTone === 'primary' && !m.muted; })());
 
-// ── 委員命名/導向:入口統一「委員審閱」→ /review;缺失讀數 reviewer-aware 由呼叫端已過濾 ──
-check('AUDITOR 審閱卡標題=委員審閱', byKey(nav('AUDITOR', 'READY'), 'checklist').title === '委員審閱');
+// ── 委員命名/導向:入口統一「資通安全檢核表」(批68 Q3 由「委員審閱」更名)→ /review;缺失讀數 reviewer-aware 由呼叫端已過濾 ──
+check('AUDITOR 審閱卡標題=資通安全檢核表(批68 Q3 更名)', byKey(nav('AUDITOR', 'READY'), 'checklist').title === '資通安全檢核表');
 check('AUDITOR 審閱卡 href=/review', byKey(nav('AUDITOR', 'READY'), 'checklist').href === '/cycles/cyc-1/review');
 check('ORG 檢核表卡 href=/checklist', byKey(nav('ORG_ADMIN', 'PREPARATION'), 'checklist').href === '/cycles/cyc-1/checklist');
 

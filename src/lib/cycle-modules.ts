@@ -17,7 +17,7 @@ import {
  * 角色的模組卡(UAT 批26 裁定:檢核表=稽核前資料準備中的文件,獨立填報但「不再獨立分類」,
  * 降為 prep 子項 childOf='prep';模組卡網格只渲染頂層,子項於 prep 左欄/側欄樹縮排呈現):
  *   中心   = 資料準備(含檢核表) / 進階設定(日期、階段、委員指派) / 實地稽核 / 缺失矯正
- *   委員   = 資料準備 / 委員審閱(審閱為委員獨立活動,維持頂層) / 實地稽核 / 缺失矯正(限己審)
+ *   委員   = 資料準備 / 資通安全檢核表(審閱為委員獨立活動,維持頂層;批68 Q3 由「委員審閱」更名) / 實地稽核 / 缺失矯正(限己審)
  *   機關   = 資料準備(含檢核表) / 缺失矯正 / 改善報告(用印)
  * (機關不參與實地評分;其收尾工作是用印報告,錨點 #signed-report 與儀表板待辦一致)
  */
@@ -125,7 +125,8 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
   const checklist: ModuleNavItem = isObserver
     ? {
         key: 'checklist',
-        title: '檢核表審閱',
+        // 批68 Q3:頁面/卡片名稱統一「資通安全檢核表」(角色差異由 sub/caption 承擔);審閱窗口術語不受影響。
+        title: '資通安全檢核表',
         sub: '逐題檢視機關自評、留觀察員意見',
         href: `${base}/review`,
         status: onsitePast ? '已結束' : auditorReviewActive ? '開放中' : '待開放',
@@ -138,7 +139,9 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
     : isAuditor
     ? {
         key: 'checklist',
-        title: '委員審閱',
+        // 批68 Q3:「委員審閱」語意過寬(委員亦審其他上傳資料)→ 卡片/頁名統一「資通安全檢核表」;
+        // 副標維持角色化(逐題檢視機關自評)。審閱「窗口/時段」術語與通知動詞不在此改。
+        title: '資通安全檢核表',
         sub: '逐題檢視機關自評',
         href: `${base}/review`,
         status: onsitePast ? '已完成' : auditorReviewActive ? '進行中' : '待開放',
