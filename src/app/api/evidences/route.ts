@@ -149,12 +149,14 @@ export async function POST(req: Request) {
     });
 
     const meta = extractRequestMeta(req);
+    // 以 AuditCycle/cycleId 定址(批67 專審):活動流以「本週期」撈事件——若以 Evidence id 定址,
+    // 佐證被硬刪後 id 查不回本週期,上傳/刪除事件會從活動流永久消失;佐證明細保留於 after payload。
     await writeAuditLog({
       actorId: user.id,
       action: 'EVIDENCE_UPLOAD',
-      entityType: 'Evidence',
-      entityId: item.id,
-      after: { ...item, watermarked },
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
+      after: { evidenceId: item.id, ...item, watermarked, targetType, targetId },
       ...meta,
     });
 

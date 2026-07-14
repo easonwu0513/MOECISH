@@ -91,13 +91,36 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       }
     }
 
+    // 以 AuditCycle/cycleId 定址(批67 專審):Evidence 列已硬刪,若以已刪 id 定址,活動流(查現存
+    // 佐證 id 集合)永遠撈不到刪除事件;改以週期定址使「刪除佐證」對機關協作者可見。
+    // 目標列(submission/action/response)仍存在,自其解析 cycleId;查不到(理論不發生)退回原 Evidence 定址。
+    let cycleIdForLog: string | null = null;
+    if (e.targetType === 'AUDIT_CYCLE') {
+      cycleIdForLog = e.targetId;
+    } else if (e.targetType === 'PREP_SUBMISSION') {
+      const sub = await prisma.prepSubmission.findUnique({
+        where: { id: e.targetId },
+        select: { requirement: { select: { cycleId: true } } },
+      });
+      cycleIdForLog = sub?.requirement.cycleId ?? null;
+    } else if (e.targetType === 'CHECKLIST_RESPONSE') {
+      const resp = await prisma.checklistResponse.findUnique({ where: { id: e.targetId }, select: { cycleId: true } });
+      cycleIdForLog = resp?.cycleId ?? null;
+    } else if (e.targetType === 'CORRECTIVE_ACTION') {
+      const act = await prisma.correctiveAction.findUnique({
+        where: { id: e.targetId },
+        select: { deficiency: { select: { cycleId: true } } },
+      });
+      cycleIdForLog = act?.deficiency.cycleId ?? null;
+    }
+
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
       action: 'EVIDENCE_DELETE',
-      entityType: 'Evidence',
-      entityId: e.id,
-      before: { originalName: e.originalName, targetType: e.targetType, targetId: e.targetId },
+      entityType: cycleIdForLog ? 'AuditCycle' : 'Evidence',
+      entityId: cycleIdForLog ?? e.id,
+      before: { evidenceId: e.id, originalName: e.originalName, targetType: e.targetType, targetId: e.targetId },
       ...meta,
     });
 
