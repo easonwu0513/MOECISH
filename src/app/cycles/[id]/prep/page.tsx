@@ -16,6 +16,7 @@ import { getTemplateFilesForYear } from '@/lib/prep-standard';
 import PrepBoard from './PrepBoard';
 import { ReviewWindowSetting } from './ReviewWindowSetting';
 import LockedNavItem from './LockedNavItem';
+import PrepYearTemplateNotice from './PrepYearTemplateNotice';
 
 /** 將 +08:00 儲存的 Date 還原為當地 yyyy-mm-dd(供 date input;窗口起=00:00、迄=23:59:59 皆落在同一當地日) */
 function isoDate(d: Date): string {
@@ -87,6 +88,30 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
   const yearROC = cycle.year - 1911;
   // 文件範本(中心於標準清單維護,依週期年度解析):機關/中心可整包下載依式填寫;委員不需要
   const templateFiles = isReviewer ? [] : await getTemplateFilesForYear(cycle.year);
+  // 中心視角:本年度需求清單範本是否已建立(批63)。未建立時 getStandardItems 回退系統內建預設(10 項)、
+  // getTemplateFilesForYear 回空——這正是「10 項哪來的」「文件範本不見了」的根因;偵測後提供一鍵從往年複製。
+  let templateSetup: { hasYearTemplate: boolean; priorYearROC: number | null; priorItemIds: string[] } | null = null;
+  if (user.role === 'SUPER_ADMIN') {
+    const yearOrGeneric = await prisma.prepTemplateItem.count({
+      where: { OR: [{ year: null }, { year: cycle.year }] },
+    });
+    let priorYearROC: number | null = null;
+    let priorItemIds: string[] = [];
+    if (yearOrGeneric === 0) {
+      // 最近一個「有範本項目」的往年(整年複製其項目與文件範本檔)
+      const priors = await prisma.prepTemplateItem.findMany({
+        where: { year: { lt: cycle.year } },
+        select: { id: true, year: true },
+        orderBy: { year: 'desc' },
+      });
+      if (priors.length && priors[0].year != null) {
+        const py = priors[0].year;
+        priorYearROC = py - 1911;
+        priorItemIds = priors.filter((p) => p.year === py).map((p) => p.id);
+      }
+    }
+    templateSetup = { hasYearTemplate: yearOrGeneric > 0, priorYearROC, priorItemIds };
+  }
   // 機關管理員只負責機關區(技術檢測 / 實地稽核);中心匯入由中心經手,不計入機關的「已確認齊備 X/Y」分母。
   const countReqs = user.role === 'ORG_ADMIN' ? requirements.filter((r) => r.category !== 'CENTER') : requirements;
   const total = countReqs.length;
@@ -236,6 +261,17 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
             />
           )}
 
+          {/* 本年度需求清單範本未建立告示(中心;含一鍵從往年複製需求+文件範本):批63
+              解「套用標準清單只有 10 項內建預設、且文件範本不見」的根因 */}
+          {templateSetup && !templateSetup.hasYearTemplate && (
+            <PrepYearTemplateNotice
+              cycleYearAD={cycle.year}
+              cycleYearROC={yearROC}
+              priorYearROC={templateSetup.priorYearROC}
+              priorItemIds={templateSetup.priorItemIds}
+            />
+          )}
+
           {/* 文件範本:中心提供之應備文件空白範本(Word/Excel 等),下載依式填寫後轉 PDF 上傳 */}
           {!isReviewer && templateFiles.length > 0 && (
             <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg ${SURFACE_INFO} px-4 py-3.5`}>
@@ -248,6 +284,14 @@ export default async function PrepPage({ params }: { params: { id: string } }) {
               <a href={`/api/cycles/${cycle.id}/prep/templates`} className="shrink-0">
                 <Button size="sm" variant="tonal" leadingIcon={<Download size={15} />}>整包下載（zip）</Button>
               </a>
+            </div>
+          )}
+          {/* 文件範本空狀態(中心;年度範本已建立但尚無範本檔=邊角,讓「文件範本不見了」有明確去處) */}
+          {user.role === 'SUPER_ADMIN' && templateFiles.length === 0 && templateSetup?.hasYearTemplate && (
+            <div className="mb-5 rounded-lg border border-rule bg-paper-sunk px-4 py-3 text-caption text-ink-500 leading-relaxed">
+              本年度尚無文件範本檔。可至{' '}
+              <Link href="/admin/prep-template" className="text-primary-700 hover:underline">資料準備範本管理</Link>
+              {' '}上傳，機關即可於此整包下載依式填寫。
             </div>
           )}
 
