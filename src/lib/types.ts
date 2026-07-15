@@ -416,6 +416,7 @@ export const EVIDENCE_TARGET_TYPES = [
   'SURVEY_CV', // 批B:事前場次調查——委員經歷說明書(targetId=participantId)
   'SURVEY_NDA', // 批B:事前場次調查——聘任同意暨保密切結書(targetId=participantId)
   'SURVEY_TEMPLATE', // 批B:事前場次調查——公版範本(targetId=SurveyTemplate.id;受調者可下載)
+  'SURVEY_CV_PRIOR', // mockup 改版:個別委員「去年舊版經歷說明書」(中心上傳給特定委員參考;targetId=participantId,本人可下載)
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
 

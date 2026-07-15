@@ -17,7 +17,7 @@ export function sniffDocType(buf: Buffer): 'application/pdf' | 'image/png' | 'im
 /**
  * 場次調查檔案(Evidence)存取授權:
  *  - SURVEY_TEMPLATE(公版範本):開放全體受調者(presurvey.view=中心/委員/觀察員)下載;
- *  - SURVEY_CV / SURVEY_NDA(個人文件):中心(全可)或本人(participant.userId===user.id)。
+ *  - SURVEY_CV / SURVEY_NDA / SURVEY_CV_PRIOR(個人文件,targetId=participantId):中心(全可)或本人(participant.userId===user.id)。
  * 回傳呼叫者 user。用於下載路由;上傳/刪除另由各路由以 loadParticipantForAccess 把關。
  */
 export async function assertSurveyFileAccess(evidence: { targetType: string; targetId: string }) {

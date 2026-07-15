@@ -675,6 +675,8 @@ model SurveyParticipant {
   transport     String? // JSON string[]:交通方式(可複選)
   diet          String? // JSON string[]:飲食需求(可複選)
   travelNote    String? // 差旅特殊備註(本人填)
+  // ── mockup 改版:中心自訂欄位的值(JSON Record<columnId,string>;欄位定義見 SurveyCustomColumn。僅中心可改) ──
+  customValues  String?
   invitedById   String // 中心加入者快照
   invitedAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -696,6 +698,20 @@ model SurveyTemplate {
 
   @@unique([year, slot]) // 一年度一槽至多一範本(防並發重傳產生重複列)
   @@index([year])
+}
+
+// mockup 改版:中心可為管考表自訂欄位(年度制)。欄位「值」存於 SurveyParticipant.customValues JSON(以本表 id 為鍵),
+// 刪除欄位後 JSON 內殘鍵於渲染/匯出時忽略(無害),故不需連動清值。
+model SurveyCustomColumn {
+  id          String   @id @default(cuid())
+  year        Int
+  title       String
+  orderIndex  Int      @default(0)
+  createdById String // 建立者快照
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([year, orderIndex])
 }
 
 model SessionAvailability {

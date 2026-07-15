@@ -8,15 +8,17 @@ import { assertSurveyFileAccess } from '@/lib/pre-survey-files';
 const INLINE_MIME = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/i;
 
 /**
- * 下載/預覽事前場次調查檔案(批B):
- *  - SURVEY_CV / SURVEY_NDA:限本人或中心;SURVEY_TEMPLATE:開放全體受調者。
+ * 下載/預覽事前場次調查檔案(批B + mockup 改版):
+ *  - SURVEY_CV / SURVEY_NDA / SURVEY_CV_PRIOR:限本人或中心;SURVEY_TEMPLATE:開放全體受調者。
  * 授權由 assertSurveyFileAccess 依 targetType 把關(杜絕跨人 IDOR)。
  */
+const SURVEY_FILE_TYPES = new Set(['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_TEMPLATE', 'SURVEY_CV_PRIOR']);
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const e = await prisma.evidence.findUnique({ where: { id: params.id } });
     if (!e) return NextResponse.json({ error: 'not found' }, { status: 404 });
-    if (e.targetType !== 'SURVEY_CV' && e.targetType !== 'SURVEY_NDA' && e.targetType !== 'SURVEY_TEMPLATE') {
+    if (!SURVEY_FILE_TYPES.has(e.targetType)) {
       // 此路由僅供場次調查檔案;其餘走 /api/evidences
       return NextResponse.json({ error: '不支援的檔案類型' }, { status: 400 });
     }

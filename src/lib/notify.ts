@@ -1251,3 +1251,36 @@ export async function notifyPresurveyDocReturned(opts: { participantId: string; 
   });
   return { recipientCount: 1 };
 }
+
+/** 中心催辦某受調人員填二階差旅與飲食(已指派最終場次者;email + 站內鈴鐺,同人 24h 去重)。 */
+export async function notifyPresurveyTravelRemind(opts: { participantId: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: {
+      user: { select: { name: true, email: true, isActive: true } },
+      finalAssignments: { select: { id: true } },
+    },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
+  if (participant.finalAssignments.length === 0) return { recipientCount: 0 }; // 未指派場次=二階未解鎖,不催
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫差旅與飲食需求`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `您已獲指派 ${yearROC} 年度資通安全稽核的最終場次，尚待您填寫往返交通方式與飲食需求（第二階段）。\n` +
+      `請登入平台完成填寫：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-travel-remind',
+    notificationLink: '/pre-survey',
+    dedupeKey: `presurvey-travel-remind-${participant.id}`,
+    context: { participantId: participant.id, year: participant.year },
+  });
+  return { recipientCount: 1 };
+}

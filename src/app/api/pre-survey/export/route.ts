@@ -41,7 +41,7 @@ export async function GET(req: Request) {
       return new Response('year 參數不正確', { status: 400 });
     }
 
-    const [sessions, participants] = await Promise.all([
+    const [sessions, participants, customCols] = await Promise.all([
       prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
       prisma.surveyParticipant.findMany({
         where: { year, kind },
@@ -52,7 +52,18 @@ export async function GET(req: Request) {
         },
         orderBy: { invitedAt: 'asc' },
       }),
+      prisma.surveyCustomColumn.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
     ]);
+
+    const parseObj = (json: string | null): Record<string, string> => {
+      if (!json) return {};
+      try {
+        const o = JSON.parse(json);
+        return o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, string>) : {};
+      } catch {
+        return {};
+      }
+    };
 
     const md = (d: Date | null) => {
       if (!d) return '待定';
@@ -73,11 +84,13 @@ export async function GET(req: Request) {
       '交通',
       '飲食',
       '備註',
+      ...customCols.map((c) => c.title),
     ];
 
     const rows = participants.map((p) => {
       const availMap = new Map(p.availabilities.map((a) => [a.sessionId, a.status]));
       const finalLabels = p.finalAssignments.map((fa) => `${md(fa.session.date)} ${fa.session.name}`);
+      const custom = parseObj(p.customValues);
       return [
         p.user.name,
         p.committeeType ?? (kind === 'OBSERVER' ? '觀察員' : ''),
@@ -93,6 +106,7 @@ export async function GET(req: Request) {
         parseArr(p.transport).join(' / '),
         parseArr(p.diet).join(' / '),
         (p.note ?? '') + (p.travelNote ? ` / 差旅備註：${p.travelNote}` : ''),
+        ...customCols.map((c) => custom[c.id] ?? ''),
       ].map((v) => cell(String(v)));
     });
 

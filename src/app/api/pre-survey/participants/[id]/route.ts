@@ -16,7 +16,20 @@ const Body = z.object({
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
   replyStatus: z.enum(SURVEY_REPLY_STATUSES).optional(),
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
+  // 僅中心可改:自訂欄位單格值(mockup 改版;value 為空字串=清除該格)
+  customValue: z.object({ columnId: z.string().min(1), value: z.string().max(500) }).optional(),
 });
+
+/** 解析 customValues JSON;壞資料回空物件。 */
+function parseCustomValues(json: string | null): Record<string, string> {
+  if (!json) return {};
+  try {
+    const o = JSON.parse(json);
+    return o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * 更新受調人員欄位(批A)。
@@ -33,7 +46,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       body.note !== undefined ||
       body.committeeType !== undefined ||
       body.replyStatus !== undefined ||
-      body.docHandover !== undefined;
+      body.docHandover !== undefined ||
+      body.customValue !== undefined;
     if (adminOnlyTouched && !isAdmin) {
       return NextResponse.json({ error: '此欄位僅中心可調整' }, { status: 403 });
     }
@@ -50,18 +64,48 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;
     }
-    if (Object.keys(data).length === 0) {
+    const cv = isAdmin ? body.customValue : undefined; // customValues 為 read-modify-write,另走交易避免遺失更新
+    if (Object.keys(data).length === 0 && cv === undefined) {
       return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
     }
 
-    await prisma.surveyParticipant.update({ where: { id: participant.id }, data });
+    if (cv !== undefined) {
+      // 自訂欄位單格值合併到 customValues JSON blob:兩位中心同時改同一列不同格會 read-modify-write 遺失,
+      // 故 Serializable 交易內重讀後合併(PG SSI 撞寫→P2034→409 供前端重試,與全庫並發模式一致)。
+      try {
+        await prisma.$transaction(
+          async (tx) => {
+            const cur = await tx.surveyParticipant.findUnique({
+              where: { id: participant.id },
+              select: { customValues: true },
+            });
+            const values = parseCustomValues(cur?.customValues ?? null);
+            const v = cv.value.trim();
+            if (v) values[cv.columnId] = v;
+            else delete values[cv.columnId];
+            await tx.surveyParticipant.update({
+              where: { id: participant.id },
+              data: { ...data, customValues: Object.keys(values).length > 0 ? JSON.stringify(values) : null },
+            });
+          },
+          { isolationLevel: 'Serializable' },
+        );
+      } catch (e) {
+        if ((e as { code?: string }).code === 'P2034') {
+          return NextResponse.json({ error: '儲存衝突，請稍候重試。' }, { status: 409 });
+        }
+        throw e;
+      }
+    } else {
+      await prisma.surveyParticipant.update({ where: { id: participant.id }, data });
+    }
 
     await writeAuditLog({
       actorId: user.id,
       action: 'SURVEY_PARTICIPANT_UPDATE',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { fields: Object.keys(data), byAdmin: isAdmin },
+      after: { fields: [...Object.keys(data), ...(cv !== undefined ? ['customValues'] : [])], byAdmin: isAdmin },
       ...extractRequestMeta(req),
     });
 

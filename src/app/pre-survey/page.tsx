@@ -8,7 +8,8 @@ import { canAccess } from '@/lib/access-policy';
 import { anonymousSessionLabel } from '@/lib/pre-survey';
 import type { Role, SurveyParticipantKind, SurveyAvailabilityStatus } from '@/lib/types';
 import SurveyAdminBoard, { type AdminSessionDTO, type AdminParticipantDTO } from './SurveyAdminBoard';
-import SurveySelfForm, { type SelfDTO } from './SurveySelfForm';
+import SurveySelfDashboard from './SurveySelfDashboard';
+import { type SelfDTO } from './SurveySelfForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,16 @@ function parseArr(json: string | null): string[] {
     return Array.isArray(a) ? a.map(String) : [];
   } catch {
     return [];
+  }
+}
+/** 解析 JSON Record<string,string>(customValues);壞資料回空物件。 */
+function parseObj(json: string | null): Record<string, string> {
+  if (!json) return {};
+  try {
+    const o = JSON.parse(json);
+    return o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, string>) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -116,11 +127,12 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
             const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
             const isObserver = participant.kind === 'OBSERVER';
             const myDocs = await prisma.evidence.findMany({
-              where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA'] }, targetId: participant.id },
+              where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: participant.id },
               select: { id: true, targetType: true, originalName: true },
             });
             const cvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV') ?? null;
             const ndaEv = myDocs.find((d) => d.targetType === 'SURVEY_NDA') ?? null;
+            const priorCvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV_PRIOR') ?? null;
             const selfData: SelfDTO = {
               participantId: participant.id,
               yearROC,
@@ -133,6 +145,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
               rejectReason: participant.rejectReason,
               cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
               ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
+              priorCvFile: priorCvEv ? { id: priorCvEv.id, name: priorCvEv.originalName } : null,
               // 觀察員不需經歷說明書,故過濾掉 CV_* 範本
               templates: templateDTOs.filter((t) => !(isObserver && t.slot.startsWith('CV_'))),
               transport: parseArr(participant.transport),
@@ -151,7 +164,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
             };
             // key 綁 submittedAt+docStatus:送出/審核後伺服器資料變動時強制重掛,反映最新狀態
             //(意願三態鈕/差旅 pill 用樂觀 local state,編輯途中不 refresh,故不受此重掛影響)
-            return <SurveySelfForm key={`${participant.id}-${selfData.submittedAt ?? 'draft'}-${participant.docStatus}-${participant.docReviewedAt ? 'r' : 'n'}`} data={selfData} />;
+            return <SurveySelfDashboard key={`${participant.id}-${selfData.submittedAt ?? 'draft'}-${participant.docStatus}-${participant.docReviewedAt ? 'r' : 'n'}`} data={selfData} userName={user.name} />;
           })()
         )}
       </AppShell>
@@ -193,19 +206,28 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     targetObserverCount: s.targetObserverCount,
   }));
 
-  // 各受調人員的 cv/切結書檔案(批B;供中心審核預覽)
+  // 中心自訂欄位(mockup 改版;年度制)
+  const customColumns = await prisma.surveyCustomColumn.findMany({
+    where: { year },
+    orderBy: { orderIndex: 'asc' },
+    select: { id: true, title: true },
+  });
+
+  // 各受調人員的 cv/切結書/舊版參考檔案(批B + mockup 改版;供中心審核預覽/管理)
   const pIds = participants.map((p) => p.id);
   const allDocs = pIds.length
     ? await prisma.evidence.findMany({
-        where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA'] }, targetId: { in: pIds } },
+        where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: { in: pIds } },
         select: { id: true, targetId: true, targetType: true, originalName: true },
       })
     : [];
-  const docBy = new Map<string, { cv: { id: string; name: string } | null; nda: { id: string; name: string } | null }>();
+  type DocRef = { id: string; name: string } | null;
+  const docBy = new Map<string, { cv: DocRef; nda: DocRef; priorCv: DocRef }>();
   for (const d of allDocs) {
-    const cur = docBy.get(d.targetId) ?? { cv: null, nda: null };
+    const cur = docBy.get(d.targetId) ?? { cv: null, nda: null, priorCv: null };
     if (d.targetType === 'SURVEY_CV') cur.cv = { id: d.id, name: d.originalName };
-    else cur.nda = { id: d.id, name: d.originalName };
+    else if (d.targetType === 'SURVEY_NDA') cur.nda = { id: d.id, name: d.originalName };
+    else cur.priorCv = { id: d.id, name: d.originalName };
     docBy.set(d.targetId, cur);
   }
 
@@ -226,9 +248,11 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     rejectReason: p.rejectReason,
     cvFile: docBy.get(p.id)?.cv ?? null,
     ndaFile: docBy.get(p.id)?.nda ?? null,
+    priorCvFile: docBy.get(p.id)?.priorCv ?? null,
     transport: parseArr(p.transport),
     diet: parseArr(p.diet),
     travelNote: p.travelNote,
+    customValues: parseObj(p.customValues),
     availability: Object.fromEntries(p.availabilities.map((a) => [a.sessionId, a.status])),
     finalSessionIds: p.finalAssignments.map((fa) => fa.sessionId),
   }));
@@ -249,6 +273,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
         memberPool={memberPool}
         observerPool={observerPool}
         templates={templateDTOs}
+        customColumns={customColumns}
       />
     </AppShell>
   );

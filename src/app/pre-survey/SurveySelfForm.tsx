@@ -40,6 +40,7 @@ export type SelfDTO = {
   rejectReason: string | null;
   cvFile: { id: string; name: string } | null;
   ndaFile: { id: string; name: string } | null;
+  priorCvFile: { id: string; name: string } | null; // 中心提供的舊版經歷說明書參考(僅委員;供參考)
   templates: SelfTemplateDTO[];
   transport: string[];
   diet: string[];
@@ -48,7 +49,7 @@ export type SelfDTO = {
   sessions: SelfSessionDTO[];
 };
 
-export default function SurveySelfForm({ data }: { data: SelfDTO }) {
+export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hideHeader?: boolean }) {
   const router = useRouter();
   const toast = useToast();
 
@@ -196,17 +197,19 @@ export default function SurveySelfForm({ data }: { data: SelfDTO }) {
 
   return (
     <div className="space-y-6">
-      <Card variant="outlined">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-title-md text-ink-900">{data.yearROC} 年度事前場次調查</h2>
-            <p className="mt-1 text-body-sm text-ink-500">
-              請填寫各場次的出席意願（OK／待定／N/A）並繳交相關文件。{isObserver ? '' : '委員另需繳交經歷說明書與切結書。'}
-            </p>
+      {!hideHeader && (
+        <Card variant="outlined">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-title-md text-ink-900">{data.yearROC} 年度事前場次調查</h2>
+              <p className="mt-1 text-body-sm text-ink-500">
+                請填寫各場次的出席意願（OK／待定／N/A）並繳交相關文件。{isObserver ? '' : '委員另需繳交經歷說明書與切結書。'}
+              </p>
+            </div>
+            {data.submittedAt ? <Chip tone="success" dot>意願已送出</Chip> : <Chip tone="warning" dot>意願尚未送出</Chip>}
           </div>
-          {data.submittedAt ? <Chip tone="success" dot>意願已送出</Chip> : <Chip tone="warning" dot>意願尚未送出</Chip>}
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* 聯絡資訊 */}
       <Card variant="outlined">
@@ -263,6 +266,19 @@ export default function SurveySelfForm({ data }: { data: SelfDTO }) {
             </ul>
           )}
         </div>
+
+        {/* 中心提供的舊版經歷說明書參考(僅委員) */}
+        {!isObserver && data.priorCvFile && (
+          <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
+            <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
+            <p className="text-caption text-ink-700">
+              中心提供您的舊版經歷說明書供參考：
+              <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
+                {data.priorCvFile.name}
+              </a>
+            </p>
+          </div>
+        )}
 
         {/* 上傳個人文件 */}
         <div className="grid gap-3 sm:grid-cols-2">

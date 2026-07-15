@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -12,8 +12,8 @@ import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { Segmented } from '@/components/ui/Segmented';
 import { useToast } from '@/components/ui/Toast';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
-import { Plus, Settings, Bell, Trash2, MapPin, FileText, Paperclip } from '@/components/icons';
-import { targetTone, surveyDocDisplay } from '@/lib/pre-survey';
+import { Plus, Settings, Bell, Trash2, MapPin, FileText, Paperclip, User, CalendarDays, ChevronDown } from '@/components/icons';
+import { targetTone, surveyDocDisplay, availabilityTone } from '@/lib/pre-survey';
 import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_COMMITTEE_TYPES,
@@ -53,14 +53,17 @@ export type AdminParticipantDTO = {
   rejectReason: string | null;
   cvFile: { id: string; name: string } | null;
   ndaFile: { id: string; name: string } | null;
+  priorCvFile: { id: string; name: string } | null; // 中心提供的舊版經歷說明書參考
   transport: string[];
   diet: string[];
   travelNote: string | null;
+  customValues: Record<string, string>; // columnId → 值
   availability: Record<string, string>; // sessionId → status
   finalSessionIds: string[];
 };
 export type PoolUser = { id: string; name: string; email: string };
 export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
+export type AdminColumnDTO = { id: string; title: string };
 
 export default function SurveyAdminBoard({
   yearROC,
@@ -69,6 +72,7 @@ export default function SurveyAdminBoard({
   memberPool,
   observerPool,
   templates,
+  customColumns,
 }: {
   yearROC: number;
   sessions: AdminSessionDTO[];
@@ -76,6 +80,7 @@ export default function SurveyAdminBoard({
   memberPool: PoolUser[];
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
+  customColumns: AdminColumnDTO[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -85,11 +90,24 @@ export default function SurveyAdminBoard({
   const [assignFor, setAssignFor] = useState<AdminParticipantDTO | null>(null);
   const [removeFor, setRemoveFor] = useState<AdminParticipantDTO | null>(null);
   const [reviewFor, setReviewFor] = useState<AdminParticipantDTO | null>(null);
+  const [profileFor, setProfileFor] = useState<AdminParticipantDTO | null>(null);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
+  const [sortSessionId, setSortSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rows = participants.filter((p) => p.kind === kind);
+  const rows = useMemo(() => {
+    const list = participants.filter((p) => p.kind === kind);
+    if (!sortSessionId) return list;
+    // 一鍵分組:該場次「OK」者排前(穩定排序,不改其餘相對序)
+    return [...list].sort((a, b) => {
+      const av = a.availability[sortSessionId] === 'OK' ? 0 : 1;
+      const bv = b.availability[sortSessionId] === 'OK' ? 0 : 1;
+      return av - bv;
+    });
+  }, [participants, kind, sortSessionId]);
+
   const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
+  const colCount = sessions.length + customColumns.length + 10 + (kind === 'MEMBER' ? 1 : 0);
 
   async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -114,9 +132,39 @@ export default function SurveyAdminBoard({
     call(`/api/pre-survey/participants/${pid}/availability`, 'PUT', { sessionId, status });
   const patchParticipant = (pid: string, data: Record<string, unknown>) =>
     call(`/api/pre-survey/participants/${pid}`, 'PATCH', data);
+  const setCustomValue = (pid: string, columnId: string, value: string) =>
+    call(`/api/pre-survey/participants/${pid}`, 'PATCH', { customValue: { columnId, value } });
+
+  async function remind(p: AdminParticipantDTO, stage: 1 | 2) {
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/remind?stage=${stage}`, { method: 'POST' });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '催辦失敗' }));
+      toast.error('催辦失敗', j.error);
+      return;
+    }
+    const j = await res.json().catch(() => ({ recipientCount: 0 }));
+    if (j.recipientCount > 0) toast.success(`已寄出催辦（${stage === 2 ? '差旅' : '意願'}）`, p.name);
+    else if (stage === 2) toast.warning('未寄送', '該人員尚未被指派最終場次，或帳號已停用。');
+    else toast.warning('未寄送', '該帳號已停用或查無收件人。');
+  }
+
+  async function addColumn() {
+    await call('/api/pre-survey/columns', 'POST', { year: yearROC + 1911, title: '新欄位' }, '已新增欄位');
+  }
+  const renameColumn = (id: string, title: string) => call('/api/pre-survey/columns', 'PATCH', { id, title });
 
   return (
     <div className="space-y-6">
+      {/* 系統檔案管理區(公版範本 + 個別委員舊版經歷說明書) */}
+      <FileManagementCard
+        kind={kind}
+        templates={templates}
+        members={participants.filter((p) => p.kind === 'MEMBER')}
+        onManageTemplates={() => setTemplateMgrOpen(true)}
+      />
+
       {/* 工具列 */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Segmented
@@ -128,8 +176,8 @@ export default function SurveyAdminBoard({
           ]}
         />
         <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="outlined" leadingIcon={<FileText size={15} />} onClick={() => setTemplateMgrOpen(true)}>
-            公版範本
+          <Button size="sm" variant="outlined" leadingIcon={<Plus size={15} />} onClick={addColumn} disabled={busy}>
+            新增欄位
           </Button>
           <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
             管理場次
@@ -175,35 +223,82 @@ export default function SurveyAdminBoard({
               <tr className="bg-paper-sunk text-caption text-ink-500">
                 <th className="sticky left-0 z-10 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
                 {kind === 'MEMBER' && <th className="px-3 py-2.5 text-left font-medium min-w-[100px]">類型</th>}
-                <th className="px-3 py-2.5 text-left font-medium">意願送出</th>
-                <th className="px-3 py-2.5 text-left font-medium">文件</th>
-                {sessions.map((s, i) => (
-                  <th key={s.id} className="px-2 py-2.5 text-center font-medium min-w-[92px]" title={`${s.dateLabel} ${s.name}`}>
-                    <div className="text-ink-700">{s.dateLabel}</div>
-                    <div className="text-ink-900 truncate max-w-[88px]">{s.name}</div>
-                    <div className="text-[10px] text-ink-500">（場次 {i + 1})</div>
-                  </th>
-                ))}
+                <th className="px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
+                {/* 左群組:最終場次 / 意願回信 */}
                 <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
                 <th className="px-3 py-2.5 text-left font-medium">意願回信</th>
+                {/* 場次意願(點表頭一鍵分組) */}
+                {sessions.map((s, i) => {
+                  const active = sortSessionId === s.id;
+                  return (
+                    <th
+                      key={s.id}
+                      className={`px-2 py-2.5 text-center font-medium min-w-[92px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : ''}`}
+                      title={`${s.dateLabel} ${s.name}（點擊依此場次 OK 分組）`}
+                      onClick={() => setSortSessionId(active ? null : s.id)}
+                    >
+                      <div className="text-ink-700">{s.dateLabel}</div>
+                      <div className="text-ink-900 truncate max-w-[88px] inline-flex items-center gap-0.5">
+                        {s.name}{active && <ChevronDown size={11} />}
+                      </div>
+                      <div className="text-[10px] text-ink-500">（場次 {i + 1})</div>
+                    </th>
+                  );
+                })}
+                {/* 右群組:文件交接 / 交通 / 飲食 / 電話 / 備註 */}
                 <th className="px-3 py-2.5 text-left font-medium">文件交接</th>
                 <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
                 <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
-                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">備註</th>
-                <th className="px-3 py-2.5 text-right font-medium min-w-[110px]">動作</th>
+                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">聯絡電話</th>
+                <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">備註</th>
+                {/* 自訂欄位(可改名 / 刪除) */}
+                {customColumns.map((c) => (
+                  <th key={c.id} className="px-2 py-2 text-left font-medium min-w-[120px]">
+                    <div className="flex items-center gap-1">
+                      <input
+                        defaultValue={c.title}
+                        onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== c.title) renameColumn(c.id, t); else if (!t) e.target.value = c.title; }}
+                        className="w-full min-w-[60px] rounded bg-transparent px-1 py-0.5 text-caption font-medium text-ink-700 focus-ring hover:bg-paper"
+                        aria-label="自訂欄位標題"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => call('/api/pre-survey/columns', 'DELETE', { id: c.id }, '已刪除欄位')}
+                        className="shrink-0 text-ink-400 hover:text-danger-600 focus-ring rounded"
+                        title="刪除欄位"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </th>
+                ))}
+                <th className="px-3 py-2.5 text-right font-medium min-w-[80px]">動作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={sessions.length + (kind === 'MEMBER' ? 11 : 10)} className="px-3 py-10 text-center text-ink-500">
+                  <td colSpan={colCount} className="px-3 py-10 text-center text-ink-500">
                     尚無{kind === 'OBSERVER' ? '觀察員' : '委員'}。點右上「新增」從帳號池加入。
                   </td>
                 </tr>
               ) : (
                 rows.map((p) => (
                   <tr key={p.id} className="hover:bg-paper-sunk/40">
-                    <td className="sticky left-0 z-10 bg-card px-3 py-2 font-medium text-ink-900 whitespace-nowrap">{p.name}</td>
+                    {/* 姓名(點擊開個人資料彈窗) */}
+                    <td className="sticky left-0 z-10 bg-card px-3 py-2 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setProfileFor(p)}
+                        className="inline-flex items-center gap-2 font-medium text-ink-900 hover:text-primary-700 focus-ring rounded"
+                        title="檢視個人資料"
+                      >
+                        <span className="inline-flex w-6 h-6 rounded-full bg-paper-sunk items-center justify-center text-caption text-ink-600 shrink-0">
+                          {p.name.charAt(0)}
+                        </span>
+                        {p.name}
+                      </button>
+                    </td>
                     {kind === 'MEMBER' && (
                       <td className="px-3 py-2">
                         <Select
@@ -218,22 +313,61 @@ export default function SurveyAdminBoard({
                         </Select>
                       </td>
                     )}
+                    {/* 資料繳交(狀態 chip → 審核;催1/2階) */}
                     <td className="px-3 py-2">
-                      {p.submittedAt ? <Chip size="sm" tone="success">已送</Chip> : <Chip size="sm" tone="warning">未送</Chip>}
+                      <div className="flex flex-col items-start gap-1.5">
+                        <button type="button" onClick={() => setReviewFor(p)} className="focus-ring rounded" title="檢視/審核文件">
+                          {(() => {
+                            const d = surveyDocDisplay(p.docStatus, p.docReviewed);
+                            return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
+                          })()}
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => remind(p, 1)}
+                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring"
+                            title="催辦一階：出席意願與文件"
+                          >
+                            催1階
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || p.finalSessionIds.length === 0}
+                            onClick={() => remind(p, 2)}
+                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring disabled:opacity-40"
+                            title={p.finalSessionIds.length === 0 ? '未指派最終場次，無法催二階' : '催辦二階：差旅與飲食'}
+                          >
+                            催2階
+                          </button>
+                        </div>
+                      </div>
                     </td>
+                    {/* 最終場次 */}
                     <td className="px-3 py-2">
                       <button
                         type="button"
-                        onClick={() => setReviewFor(p)}
-                        className="focus-ring rounded"
-                        title="檢視/審核文件"
+                        onClick={() => setAssignFor(p)}
+                        className="inline-flex items-center gap-1 text-caption text-primary-700 hover:underline focus-ring rounded"
                       >
-                        {(() => {
-                          const d = surveyDocDisplay(p.docStatus, p.docReviewed);
-                          return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
-                        })()}
+                        <MapPin size={13} />
+                        {p.finalSessionIds.length > 0 ? `已指派 ${p.finalSessionIds.length} 場` : '指派'}
                       </button>
                     </td>
+                    {/* 意願回信 */}
+                    <td className="px-3 py-2">
+                      <Select
+                        value={p.replyStatus}
+                        onChange={(e) => patchParticipant(p.id, { replyStatus: e.target.value })}
+                        className="!py-1 text-caption"
+                      >
+                        {SURVEY_REPLY_STATUSES.map((r) => (
+                          <option key={r} value={r}>{SURVEY_REPLY_STATUS_LABELS[r]}</option>
+                        ))}
+                      </Select>
+                    </td>
+                    {/* 場次意願 */}
                     {sessions.map((s) => (
                       <td key={s.id} className="px-2 py-2 text-center">
                         <Select
@@ -249,27 +383,7 @@ export default function SurveyAdminBoard({
                         </Select>
                       </td>
                     ))}
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => setAssignFor(p)}
-                        className="inline-flex items-center gap-1 text-caption text-primary-700 hover:underline focus-ring rounded"
-                      >
-                        <MapPin size={13} />
-                        {p.finalSessionIds.length > 0 ? `已指派 ${p.finalSessionIds.length} 場` : '指派'}
-                      </button>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Select
-                        value={p.replyStatus}
-                        onChange={(e) => patchParticipant(p.id, { replyStatus: e.target.value })}
-                        className="!py-1 text-caption"
-                      >
-                        {SURVEY_REPLY_STATUSES.map((r) => (
-                          <option key={r} value={r}>{SURVEY_REPLY_STATUS_LABELS[r]}</option>
-                        ))}
-                      </Select>
-                    </td>
+                    {/* 文件交接 */}
                     <td className="px-3 py-2">
                       <Select
                         value={p.docHandover}
@@ -281,6 +395,7 @@ export default function SurveyAdminBoard({
                         ))}
                       </Select>
                     </td>
+                    {/* 交通 / 飲食(唯讀;本人填) */}
                     <td className="px-3 py-2 text-caption text-ink-700">
                       {p.transport.length > 0 ? p.transport.join('、') : <span className="text-ink-400">—</span>}
                     </td>
@@ -288,33 +403,38 @@ export default function SurveyAdminBoard({
                       {p.diet.length > 0 ? p.diet.join('、') : <span className="text-ink-400">—</span>}
                       {p.travelNote && <span className="block text-ink-400" title={p.travelNote}>備註…</span>}
                     </td>
+                    {/* 聯絡電話(中心可改) */}
+                    <td className="px-3 py-2">
+                      <input
+                        defaultValue={p.phone ?? ''}
+                        onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.phone ?? null)) patchParticipant(p.id, { phone: e.target.value.trim() || null }); }}
+                        placeholder="—"
+                        className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                      />
+                    </td>
+                    {/* 備註 */}
                     <td className="px-3 py-2">
                       <input
                         defaultValue={p.note ?? ''}
                         onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.note ?? null)) patchParticipant(p.id, { note: e.target.value.trim() || null }); }}
                         placeholder="—"
-                        className="w-full min-w-[90px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                        className="w-full min-w-[110px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
                       />
                     </td>
+                    {/* 自訂欄位值 */}
+                    {customColumns.map((c) => (
+                      <td key={c.id} className="px-2 py-2">
+                        <input
+                          defaultValue={p.customValues[c.id] ?? ''}
+                          onBlur={(e) => { if ((e.target.value.trim()) !== (p.customValues[c.id] ?? '')) setCustomValue(p.id, c.id, e.target.value.trim()); }}
+                          placeholder="—"
+                          className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                        />
+                      </td>
+                    ))}
+                    {/* 動作:移除 */}
                     <td className="px-3 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={async () => {
-                            setBusy(true);
-                            const res = await fetch(`/api/pre-survey/participants/${p.id}/remind`, { method: 'POST' });
-                            setBusy(false);
-                            if (!res.ok) { const j = await res.json().catch(() => ({ error: '催辦失敗' })); toast.error('催辦失敗', j.error); return; }
-                            const j = await res.json().catch(() => ({ recipientCount: 0 }));
-                            if (j.recipientCount > 0) toast.success('已寄出催辦', `${p.name}`);
-                            else toast.warning('未寄送', '該帳號已停用或查無收件人。');
-                          }}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-primary-700 hover:bg-primary-50 focus-ring"
-                          title="催辦填意願"
-                        >
-                          <Bell size={15} />
-                        </button>
+                      <div className="flex items-center justify-end">
                         <button
                           type="button"
                           onClick={() => setRemoveFor(p)}
@@ -345,6 +465,7 @@ export default function SurveyAdminBoard({
       />
       <AssignDialog participant={assignFor} sessions={sessions} onClose={() => setAssignFor(null)} />
       <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} />
+      <AdminProfileDialog participant={profileFor} sessions={sessions} onClose={() => setProfileFor(null)} />
       <ConfirmDialog
         open={removeFor !== null}
         onOpenChange={(o) => { if (!o) setRemoveFor(null); }}
@@ -354,6 +475,236 @@ export default function SurveyAdminBoard({
         tone="danger"
         onConfirm={async () => { if (removeFor) { await call(`/api/pre-survey/participants/${removeFor.id}`, 'DELETE', undefined, '已移除'); setRemoveFor(null); } }}
       />
+    </div>
+  );
+}
+
+// ── 系統檔案管理區(公版範本入口 + 個別委員舊版經歷說明書上傳) ──
+function FileManagementCard({
+  kind, templates, members, onManageTemplates,
+}: {
+  kind: SurveyParticipantKind;
+  templates: AdminTemplateDTO[];
+  members: AdminParticipantDTO[];
+  onManageTemplates: () => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [selectedId, setSelectedId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const uploadedCount = templates.filter((t) => t.fileId).length;
+  const selected = members.find((m) => m.id === selectedId) ?? null;
+
+  async function uploadPriorCv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!selectedId) { toast.error('請先選擇一位委員'); return; }
+    if (file.size > 20 * 1024 * 1024) { toast.error('檔案超過 20MB 上限'); return; }
+    setBusy(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/pre-survey/participants/${selectedId}/prior-cv`, { method: 'POST', body: fd });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '上傳失敗' })); toast.error('上傳失敗', j.error); return; }
+    toast.success('已上傳舊版經歷說明書', selected?.name);
+    router.refresh();
+  }
+  async function removePriorCv() {
+    if (!selectedId) return;
+    const res = await fetch(`/api/pre-survey/participants/${selectedId}/prior-cv`, { method: 'DELETE' });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除舊版參考件');
+    router.refresh();
+  }
+
+  return (
+    <Card variant="outlined">
+      <div className="flex items-center gap-2 mb-4">
+        <FileText size={16} className="text-primary-700" />
+        <h3 className="text-label text-ink-900">系統檔案管理區</h3>
+      </div>
+      <div className={`grid gap-4 ${kind === 'MEMBER' ? 'md:grid-cols-2' : ''}`}>
+        {/* 公版空白範本 */}
+        <div className="rounded-md border border-rule bg-paper-sunk/40 p-4">
+          <p className="text-body-sm font-medium text-ink-900">公版空白範本</p>
+          <p className="mt-1 text-caption text-ink-500">
+            全體受調者通用的空白切結書{kind === 'MEMBER' ? '與經歷說明書' : ''}等。目前已上傳 {uploadedCount} / {SURVEY_TEMPLATE_SLOTS.length} 槽。
+          </p>
+          <div className="mt-3">
+            <Button size="sm" variant="outlined" leadingIcon={<Paperclip size={14} />} onClick={onManageTemplates}>
+              管理公版範本
+            </Button>
+          </div>
+        </div>
+        {/* 個別委員舊版經歷說明書(僅委員) */}
+        {kind === 'MEMBER' && (
+          <div className="rounded-md border border-primary-100 bg-primary-50/40 p-4">
+            <p className="text-body-sm font-medium text-ink-900">個別委員舊版經歷說明書</p>
+            <p className="mt-1 text-caption text-ink-500">選擇委員，上傳其「去年舊版」經歷說明書供本人參考填寫。</p>
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="!py-1.5 text-caption min-w-[140px]">
+                <option value="">選擇委員…</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}{m.priorCvFile ? '（已上傳）' : ''}</option>
+                ))}
+              </Select>
+              <FileUploadButton size="sm" label="上傳" busy={busy} onChange={uploadPriorCv} />
+            </div>
+            {selected?.priorCvFile && (
+              <p className="mt-2 text-caption text-ink-600 break-all">
+                現有：
+                <a href={`/api/pre-survey/files/${selected.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline">
+                  {selected.priorCvFile.name}
+                </a>
+                <button type="button" onClick={removePriorCv} className="ml-2 text-danger-600 hover:underline focus-ring rounded">刪除</button>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ── 個人資料彈窗(中心視角詳情:聯絡/文件/意願/差旅一覽,真實地名) ──
+function AdminProfileDialog({
+  participant, sessions, onClose,
+}: { participant: AdminParticipantDTO | null; sessions: AdminSessionDTO[]; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setPhone(participant?.phone ?? '');
+    setEmail(participant?.email ?? '');
+  }, [participant]);
+
+  if (!participant) return null;
+  const p = participant;
+  const isObserver = p.kind === 'OBSERVER';
+  const assignedNames = sessions.filter((s) => p.finalSessionIds.includes(s.id)).map((s) => `${s.dateLabel} ${s.name}`);
+
+  async function saveContact() {
+    setSaving(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone: phone.trim() || null, email: email.trim() || null }),
+    });
+    setSaving(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已儲存聯絡資訊');
+    router.refresh();
+  }
+
+  const docDisp = surveyDocDisplay(p.docStatus, p.docReviewed);
+
+  return (
+    <Dialog
+      open={participant !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      size="lg"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <User size={18} /> {p.name}
+          <Chip size="sm" tone="neutral">{isObserver ? '觀察員' : p.committeeType ?? '委員'}</Chip>
+          <Chip size="sm" tone={docDisp.tone}>{docDisp.label}</Chip>
+        </span>
+      }
+    >
+      <div className="space-y-5">
+        {/* 聯絡資訊 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">聯絡資訊</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="電子郵件" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <TextField label="聯絡電話" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="mt-2">
+            <Button size="sm" variant="tonal" onClick={saveContact} loading={saving} disabled={saving}>儲存聯絡資訊</Button>
+          </div>
+        </section>
+
+        {/* 個人文件 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">個人文件</h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {!isObserver && <ProfileFileRow label="經歷說明書" file={p.cvFile} />}
+            <ProfileFileRow label="保密切結書" file={p.ndaFile} />
+            {!isObserver && <ProfileFileRow label="舊版經歷說明書（中心提供）" file={p.priorCvFile} />}
+          </div>
+          {p.docStatus === 'RETURNED' && p.rejectReason && (
+            <p className="mt-2 text-caption text-danger-600">退補理由：{p.rejectReason}</p>
+          )}
+        </section>
+
+        {/* 最終場次 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">最終場次</h4>
+          {assignedNames.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {assignedNames.map((n) => <Chip key={n} size="sm" tone="primary">{n}</Chip>)}
+            </div>
+          ) : (
+            <p className="text-caption text-ink-400">尚未指派（於管考表「最終場次」欄指派）</p>
+          )}
+        </section>
+
+        {/* 場次意願(真實地名) */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">場次意願</h4>
+          {sessions.length === 0 ? (
+            <p className="text-caption text-ink-400">此年度尚無場次。</p>
+          ) : (
+            <ul className="divide-y divide-rule rounded-md border border-rule">
+              {sessions.map((s) => {
+                const st = p.availability[s.id];
+                return (
+                  <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-caption text-ink-700 inline-flex items-center gap-1.5">
+                      <CalendarDays size={13} className="text-ink-400" /> {s.dateLabel} {s.name}
+                      {s.isRequired && <Chip size="sm" tone="danger">必參加</Chip>}
+                    </span>
+                    {st ? (
+                      <Chip size="sm" tone={availabilityTone(st)}>{SURVEY_AVAILABILITY_LABELS[st as keyof typeof SURVEY_AVAILABILITY_LABELS] ?? st}</Chip>
+                    ) : (
+                      <span className="text-caption text-ink-400">未填</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* 差旅與飲食(本人填,唯讀) */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">差旅與飲食（第二階段）</h4>
+          <div className="grid gap-3 sm:grid-cols-2 text-caption text-ink-700">
+            <div><span className="text-ink-500">交通：</span> {p.transport.length > 0 ? p.transport.join('、') : '—'}</div>
+            <div><span className="text-ink-500">飲食：</span> {p.diet.length > 0 ? p.diet.join('、') : '—'}</div>
+          </div>
+          {p.travelNote && <p className="mt-2 text-caption text-ink-700"><span className="text-ink-500">差旅備註：</span> {p.travelNote}</p>}
+        </section>
+      </div>
+    </Dialog>
+  );
+}
+
+function ProfileFileRow({ label, file }: { label: string; file: { id: string; name: string } | null }) {
+  return (
+    <div className="rounded-md border border-rule bg-card p-2.5">
+      <p className="text-caption text-ink-500">{label}</p>
+      {file ? (
+        <a href={`/api/pre-survey/files/${file.id}/download?inline=1`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-caption text-primary-700 hover:underline break-all">
+          <Paperclip size={12} /> {file.name}
+        </a>
+      ) : (
+        <p className="mt-1 text-caption text-ink-400">未上傳</p>
+      )}
     </div>
   );
 }

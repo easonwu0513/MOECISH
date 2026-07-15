@@ -3,13 +3,18 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { notifyPresurveyRemind } from '@/lib/notify';
+import { notifyPresurveyRemind, notifyPresurveyTravelRemind } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
-/** 催辦某受調人員填一階意願(批A;僅中心)。email + 站內鈴鐺,同人 24h 去重。 */
+/**
+ * 催辦某受調人員(批A + mockup 改版;僅中心)。email + 站內鈴鐺,同人同階段 24h 去重。
+ *  - stage=1(預設):催一階出席意願與文件。
+ *  - stage=2:催二階差旅與飲食(僅已指派最終場次者;未指派則不寄,回 recipientCount=0)。
+ */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
+    const stage = new URL(req.url).searchParams.get('stage') === '2' ? 2 : 1;
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
       select: { id: true },
@@ -18,7 +23,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     let recipientCount = 0;
     try {
-      const r = await notifyPresurveyRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) });
+      const r =
+        stage === 2
+          ? await notifyPresurveyTravelRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) })
+          : await notifyPresurveyRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) });
       recipientCount = r.recipientCount;
     } catch (e) {
       console.error('presurvey remind notify failed:', e);
@@ -29,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_REMIND',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { recipientCount },
+      after: { stage, recipientCount },
       ...extractRequestMeta(req),
     });
 
