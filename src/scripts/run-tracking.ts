@@ -7,11 +7,19 @@
  *   - D-1:截止前 1 天 → 再次提醒
  *   - 逾期:已過截止且未全數通過 → 每次執行提醒(timer 日跑,即每日一封)
  * 去重:同一週期同一觸發類型當日已寄過(EmailLog context.autoKey)則跳過。
+ *
+ * 批72 增段(對 status=TRACKING 的持續列管缺失,獨立於上方週期矯正追蹤):
+ *   - D-7:回報期限 7 天內且未有待審回報 → 提醒機關(每期限一次)
+ *   - 逾期:已過期限未回報 → 每 7 天提醒機關一次(半年週期,日寄=轟炸)
+ *   - 逾期 ≥14 天:另通知中心(每期限一次)
+ * 同機關多筆同觸發合併一封(半年到期常成批);去重鍵含期限日,續列管後新期限重新起算。
+ *
  * 寄送經 src/lib/email.ts(Graph 已啟用即真寄;未啟用記錄為模擬)。
  */
 import { prisma } from '../lib/db';
 import { sendEmail } from '../lib/email';
-import { orgAdminWhere } from '../lib/notify';
+import { orgAdminWhere, trackedItemLabel } from '../lib/notify';
+import { fmtROC } from '../lib/date';
 
 const APP_BASE = process.env.NEXTAUTH_URL ?? 'http://localhost:3001';
 
@@ -41,6 +49,16 @@ async function alreadySentToday(autoKey: string): Promise<boolean> {
 async function alreadySentEver(autoKey: string): Promise<boolean> {
   const hit = await prisma.emailLog.findFirst({
     where: { kind: 'tracking', context: { contains: `"autoKey":"${autoKey}"` } },
+    select: { id: true },
+  });
+  return hit !== null;
+}
+
+/** 批72:持續列管催辦鍵是否已寄過(kind='tracked-due')。合併信把各項鍵以「|」夾邊存於
+ *  context.autoKeys(如 "|k1|k2|"),查詢以 |鍵| 子字串比對——夾邊避免 OD1 誤中 OD10。 */
+async function trackedKeySent(key: string): Promise<boolean> {
+  const hit = await prisma.emailLog.findFirst({
+    where: { kind: 'tracked-due', context: { contains: `|${key}|` } },
     select: { id: true },
   });
   return hit !== null;
@@ -127,6 +145,106 @@ async function main() {
       sentCount++;
     }
     console.log(`[track] sent ${trigger} for cycle ${c.id} (${c.organization.name}) → ${recipients.length} recipients`);
+  }
+
+  // ── 批72:持續列管缺失到期催辦(跨年度滾動,與上方週期矯正追蹤獨立) ──
+  const trackedAll = await prisma.trackedDeficiency.findMany({
+    where: { status: 'TRACKING' },
+    include: {
+      organization: { select: { name: true } },
+      reports: { where: { reviewStatus: 'PENDING' }, select: { id: true } },
+    },
+  });
+
+  type TrackedRow = (typeof trackedAll)[number];
+  type Entry = { t: TrackedRow; key: string };
+  const byOrg = new Map<string, { orgName: string; d7: Entry[]; od: Entry[]; esc: Entry[] }>();
+  for (const t of trackedAll) {
+    if (t.reports.length > 0) continue; // 已回報待審 → 球在審核方,不催機關
+    const dleft = daysUntil(t.nextReportDue, now);
+    const dueKey = t.nextReportDue.toISOString().slice(0, 10); // 期限日=去重世代;續列管換期限即重新起算
+    const g = byOrg.get(t.organizationId) ?? { orgName: t.organization.name, d7: [], od: [], esc: [] };
+    if (dleft >= 0 && dleft <= 7) {
+      const key = `tracked:${t.id}:${dueKey}:D7`;
+      if (!(await trackedKeySent(key))) g.d7.push({ t, key });
+    } else if (dleft < 0) {
+      const week = Math.floor(-dleft / 7); // 逾期第 0/7/14… 天各一次 → 每 7 天一封
+      const odKey = `tracked:${t.id}:${dueKey}:OD${week}`;
+      if (!(await trackedKeySent(odKey))) g.od.push({ t, key: odKey });
+      if (-dleft >= 14) {
+        const escKey = `tracked:${t.id}:${dueKey}:ESC`;
+        if (!(await trackedKeySent(escKey))) g.esc.push({ t, key: escKey });
+      }
+    }
+    byOrg.set(t.organizationId, g);
+  }
+
+  const itemLine = (t: TrackedRow) =>
+    `・${trackedItemLabel(t)}(來源 ${t.originYear - 1911} 年度;回報期限 ${fmtROC(t.nextReportDue)})`;
+  const keysCtx = (entries: Entry[]) => `|${entries.map((e) => e.key).join('|')}|`;
+  const trackingLink = `${APP_BASE}/tracking`;
+
+  for (const [orgId, g] of byOrg) {
+    if (g.d7.length + g.od.length + g.esc.length === 0) continue;
+
+    // 機關收件人(含多重身分授權);無在職管理員時機關信略過,中心升級信仍寄(逾期事實不因無人收信消失)
+    const orgRecipients = g.d7.length + g.od.length > 0
+      ? await prisma.user.findMany({ where: orgAdminWhere(orgId) })
+      : [];
+
+    if (g.d7.length > 0 && orgRecipients.length > 0) {
+      const body =
+        `您好,\n\n貴機關下列持續列管缺失的回報期限將於 7 天內到期,請於期限前登入平台回報最新改善進度並上傳佐證:\n\n` +
+        `${g.d7.map((e) => itemLine(e.t)).join('\n')}\n\n${trackingLink}\n\n` +
+        `— MOECISH 資通安全稽核管考平台(系統自動發送)`;
+      for (const r of orgRecipients) {
+        await sendEmail({
+          to: r.email, toName: r.name,
+          subject: `[MOECISH] 持續列管缺失回報期限將屆(${g.d7.length} 項)`,
+          body, kind: 'tracked-due', notificationLink: '/tracking',
+          context: { autoKeys: keysCtx(g.d7), trigger: 'D7', count: g.d7.length, auto: true },
+        });
+        sentCount++;
+      }
+      console.log(`[track] tracked D7 for org ${g.orgName} × ${g.d7.length} items → ${orgRecipients.length} recipients`);
+    }
+
+    if (g.od.length > 0 && orgRecipients.length > 0) {
+      const body =
+        `您好,\n\n貴機關下列持續列管缺失已逾回報期限尚未回報,請儘速登入平台回報最新改善進度並上傳佐證:\n\n` +
+        `${g.od.map((e) => itemLine(e.t)).join('\n')}\n\n${trackingLink}\n\n` +
+        `— MOECISH 資通安全稽核管考平台(系統自動發送)`;
+      for (const r of orgRecipients) {
+        await sendEmail({
+          to: r.email, toName: r.name,
+          subject: `[MOECISH] 持續列管缺失回報已逾期(${g.od.length} 項),請儘速回報`,
+          body, kind: 'tracked-due', notificationLink: '/tracking',
+          context: { autoKeys: keysCtx(g.od), trigger: 'OVERDUE', count: g.od.length, auto: true },
+        });
+        sentCount++;
+      }
+      console.log(`[track] tracked OVERDUE for org ${g.orgName} × ${g.od.length} items → ${orgRecipients.length} recipients`);
+    }
+
+    if (g.esc.length > 0) {
+      const center = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+      if (center.length > 0) {
+        const body =
+          `您好,\n\n${g.orgName} 下列持續列管缺失已逾回報期限 14 天以上仍未回報,請協助關注或催辦:\n\n` +
+          `${g.esc.map((e) => itemLine(e.t)).join('\n')}\n\n${trackingLink}\n\n` +
+          `— MOECISH 資通安全稽核管考平台(系統自動發送)`;
+        for (const r of center) {
+          await sendEmail({
+            to: r.email, toName: r.name,
+            subject: `[MOECISH] ${g.orgName} 持續列管缺失逾期未回報已逾 14 天(${g.esc.length} 項)`,
+            body, kind: 'tracked-due', notificationLink: '/tracking',
+            context: { autoKeys: keysCtx(g.esc), trigger: 'ESCALATE', count: g.esc.length, auto: true },
+          });
+          sentCount++;
+        }
+        console.log(`[track] tracked ESCALATE for org ${g.orgName} × ${g.esc.length} items → ${center.length} center recipients`);
+      }
+    }
   }
 
   console.log(`[track] done. total sent: ${sentCount}`);

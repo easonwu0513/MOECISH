@@ -222,7 +222,8 @@ export default function TrackedItem({
           </div>
           <p className="mt-1 text-caption text-ink-500">
             來源 {item.originYear - 1911} 年度
-            {isCenter && <> · {item.orgName}</>}
+            {/* 機關看自家免標;中心跨機關、委員(批72 協審+調閱)可跨機關 → 標機關名 */}
+            {!isOrg && <> · {item.orgName}</>}
             {item.checklistRef && <> · 檢核項 <span className="font-mono">{item.checklistRef}</span></>}
           </p>
         </div>

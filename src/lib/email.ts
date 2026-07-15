@@ -30,6 +30,7 @@ export type EmailKind =
   | 'tracked-created'     // 缺失拋轉持續列管 → 通知機關(批71)
   | 'tracked-report'      // 機關送出列管回報 → 通知中心(+協審委員)(批71)
   | 'tracked-reviewed'    // 中心/協審委員審核列管回報 → 通知機關(批71)
+  | 'tracked-due'         // 列管回報到期/逾期催辦(timer;機關+逾期14天通知中心)(批72)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

@@ -167,6 +167,14 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   // 以絕對時刻比較不受伺服器時區影響;到期日當天不算逾期,隔日起才逾期)。批65 N1.4 用。
   const pastDueDay = (d: Date | null) => !!d && Date.now() >= new Date(d).getTime() + 86400000;
 
+  // 批72:本機關「歷年缺失持續列管中」提示帶——中心/機關/本週期委員可見(觀察員不可,對齊 tracking.view;
+  // 委員限非結案週期=實地稽核前調閱語境,/tracking 委員範圍亦以進行中指派週期為界)。
+  const showTrackedBand =
+    user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN' || (user.role === 'AUDITOR' && cycle.status !== 'CLOSED');
+  const trackedCount = showTrackedBand
+    ? await prisma.trackedDeficiency.count({ where: { organizationId: cycle.organizationId, status: 'TRACKING' } })
+    : 0;
+
   // 系統提醒(右欄):由當前階段 + 既有資料衍生的待辦訊號(角色相關)
   const alerts: { tone: 'danger' | 'warning' | 'info' | 'success'; title: string; desc: string }[] = [];
   // (減法:原「全數缺失矯正通過!」success 提醒已刪——同一句話已由頂部「下一步」與用印卡/儀表板待辦表達,同頁三講)
@@ -515,6 +523,27 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           custom={customRail}
         />
       </section>
+
+      {/* 批72:歷年缺失持續列管提示帶(前情提要;點擊往列管庫,中心帶機關篩選) */}
+      {trackedCount > 0 && (
+        <Link
+          href={user.role === 'SUPER_ADMIN' ? `/tracking?org=${cycle.organizationId}` : '/tracking'}
+          className="group mb-6 block focus-ring rounded-md"
+        >
+          <div className="flex items-center gap-3 rounded-md border border-warning-100 bg-warning-50 px-4 py-3">
+            <History size={18} className="shrink-0 text-warning-700" aria-hidden />
+            <p className="min-w-0 flex-1 text-body-sm text-ink-900">
+              本機關尚有 <span className="font-semibold tabular-nums">{trackedCount}</span> 筆歷年缺失持續列管中
+              <span className="text-ink-500">
+                {user.role === 'ORG_ADMIN'
+                  ? '，請依回報期限提交最新改善進度。'
+                  : '（跨年度滾動管考），實地稽核前可於列管庫調閱。'}
+              </span>
+            </p>
+            <ChevronRight size={16} className="shrink-0 text-ink-500 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </div>
+        </Link>
+      )}
 
       {/* 主體雙欄:左=工作內容;右=系統提醒 / 快捷統計 / 最近活動 */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6 lg:items-start">

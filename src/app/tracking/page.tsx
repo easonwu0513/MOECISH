@@ -49,7 +49,14 @@ export default async function TrackingPage({
     user.role === 'ORG_ADMIN'
       ? { organizationId: user.organizationId ?? '__none__' }
       : user.role === 'AUDITOR'
-      ? { assignedAuditorId: user.id }
+      ? {
+          // 委員=協審項(可審核)∪ 現任指派「進行中週期」機關之列管項(批72 調閱,唯讀——
+          // 審核權於卡片(assignedAuditorId===本人)與 review API 雙層另擋,不隨可見性放大)
+          OR: [
+            { assignedAuditorId: user.id },
+            { organization: { cycles: { some: { status: { notIn: ['DRAFT', 'CLOSED'] }, assignments: { some: { auditorId: user.id } } } } } },
+          ],
+        }
       : {}; // SUPER_ADMIN:全機關
 
   const where = {
@@ -168,7 +175,7 @@ export default async function TrackingPage({
     user.role === 'ORG_ADMIN'
       ? '歷次稽核中「填報辦理中而審核通過」的缺失，將於此持續追蹤至改善完成。請於回報期限前提交最新進度與佐證；「待回報」項目已為您置頂。'
       : user.role === 'AUDITOR'
-      ? '以下為指派給您協審的持續列管缺失。請檢視機關回報的進度與佐證後審核：通過續列管、認可完成或退回補正。'
+      ? '以下為指派給您協審的持續列管缺失，以及您現任稽核週期機關的列管項（供實地稽核前調閱）。協審項可於檢視機關回報後審核：通過續列管、認可完成或退回補正。'
       : '跨機關「歷年未完成缺失」持續列管總覽。逐項可調整回報週期、指派協審委員、審核機關回報。逾期未回報者以紅標示。';
 
   return (

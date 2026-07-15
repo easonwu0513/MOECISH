@@ -1061,8 +1061,8 @@ export async function notifyCycleStatusChange(opts: {
 // 批71:缺失持續列管通知(事件驅動,非週期狀態轉換 → 不受 notify-policy 矩陣約束)
 // ════════════════════════════════════════════
 
-/** 列管項標籤:構面－類型 第 N 項(通知內文共用)。 */
-function trackedItemLabel(t: { aspect: string; type: string; itemNo: number }): string {
+/** 列管項標籤:構面－類型 第 N 項(通知內文共用;run-tracking 催辦信亦引用)。 */
+export function trackedItemLabel(t: { aspect: string; type: string; itemNo: number }): string {
   return `${DEFICIENCY_ASPECT_LABELS[t.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[t.type as DeficiencyType]} 第 ${t.itemNo} 項`;
 }
 
