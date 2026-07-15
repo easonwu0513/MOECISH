@@ -156,6 +156,48 @@ export const TRACKING_CADENCE_OPTIONS = [3, 6, 9, 12] as const;
 export const DEFAULT_TRACKING_CADENCE = 6;
 
 // ════════════════════════════════════════════
+// 批A:事前場次調查
+// ════════════════════════════════════════════
+
+/** 受調人員類別:委員 / 觀察員(決定分表、cv 需求、達標分母)。 */
+export const SURVEY_PARTICIPANT_KINDS = ['MEMBER', 'OBSERVER'] as const;
+export type SurveyParticipantKind = (typeof SURVEY_PARTICIPANT_KINDS)[number];
+export const SURVEY_PARTICIPANT_KIND_LABELS: Record<SurveyParticipantKind, string> = {
+  MEMBER: '委員',
+  OBSERVER: '觀察員',
+};
+
+/** 委員細分構面(觀察員不適用;可於管考表調整)。 */
+export const SURVEY_COMMITTEE_TYPES = ['管理面', '策略面', '技術面', '管理面-OT'] as const;
+export type SurveyCommitteeType = (typeof SURVEY_COMMITTEE_TYPES)[number];
+
+/** 逐場次意願三態。 */
+export const SURVEY_AVAILABILITY_STATUSES = ['OK', 'PENDING', 'NA'] as const;
+export type SurveyAvailabilityStatus = (typeof SURVEY_AVAILABILITY_STATUSES)[number];
+export const SURVEY_AVAILABILITY_LABELS: Record<SurveyAvailabilityStatus, string> = {
+  OK: 'OK',
+  PENDING: '待定',
+  NA: 'N/A',
+};
+
+/** 意願回信(管考表欄位)。 */
+export const SURVEY_REPLY_STATUSES = ['YES', 'NO'] as const;
+export type SurveyReplyStatus = (typeof SURVEY_REPLY_STATUSES)[number];
+export const SURVEY_REPLY_STATUS_LABELS: Record<SurveyReplyStatus, string> = {
+  YES: '是',
+  NO: '否',
+};
+
+/** 文件交接狀態(管考表欄位)。 */
+export const SURVEY_DOC_HANDOVER_STATUSES = ['PENDING', 'WAITING', 'UPDATED'] as const;
+export type SurveyDocHandover = (typeof SURVEY_DOC_HANDOVER_STATUSES)[number];
+export const SURVEY_DOC_HANDOVER_LABELS: Record<SurveyDocHandover, string> = {
+  PENDING: '未處理',
+  WAITING: '等待回傳',
+  UPDATED: '更新文件已上傳',
+};
+
+// ════════════════════════════════════════════
 // 模組 B：資料準備（P2）
 // ════════════════════════════════════════════
 

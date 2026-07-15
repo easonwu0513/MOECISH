@@ -104,6 +104,14 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     AUDITOR: ALL,
     OBSERVER: NONE,
   },
+  // 事前場次調查(批A):年度制,不綁週期階段 → 允許者全階段允許(ALL)、拒絕者全階段拒絕(NONE)。
+  // ⚠️與 tracking 相反:觀察員為第一線受調者故 ALL;機關(ORG_ADMIN)不涉入場次調查故 NONE(細粒度「僅本人」由 API 另管)。
+  'presurvey.view': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: NONE,
+    AUDITOR: ALL,
+    OBSERVER: ALL,
+  },
 };
 
 const SURFACES = Object.keys(EXPECT) as Surface[];

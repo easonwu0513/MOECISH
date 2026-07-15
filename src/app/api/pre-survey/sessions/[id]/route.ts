@@ -1,0 +1,75 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { prisma } from '@/lib/db';
+import { requireRole } from '@/lib/rbac';
+import { errorResponse } from '@/lib/api';
+import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+
+const Body = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  isRequired: z.boolean().optional(),
+  remark: z.string().trim().max(500).nullable().optional(),
+  targetMemberCount: z.number().int().min(0).max(999).optional(),
+  targetObserverCount: z.number().int().min(0).max(999).optional(),
+});
+
+/** 編輯年度場次(批A;僅中心)。 */
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const body = Body.parse(await req.json());
+
+    const existing = await prisma.surveySession.findUnique({ where: { id: params.id }, select: { id: true } });
+    if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+
+    const data: Record<string, unknown> = {};
+    if (body.name !== undefined) data.name = body.name;
+    if (body.date !== undefined) data.date = body.date ? new Date(`${body.date}T00:00:00+08:00`) : null;
+    if (body.isRequired !== undefined) data.isRequired = body.isRequired;
+    if (body.remark !== undefined) data.remark = body.remark?.trim() || null;
+    if (body.targetMemberCount !== undefined) data.targetMemberCount = body.targetMemberCount;
+    if (body.targetObserverCount !== undefined) data.targetObserverCount = body.targetObserverCount;
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
+    }
+
+    await prisma.surveySession.update({ where: { id: params.id }, data });
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'SURVEY_SESSION_UPDATE',
+      entityType: 'SurveySession',
+      entityId: params.id,
+      after: data,
+      ...extractRequestMeta(req),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+/** 刪除年度場次(批A;僅中心)。關聯意願/指派由 schema onDelete: Cascade 一併清除。 */
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const existing = await prisma.surveySession.findUnique({ where: { id: params.id }, select: { id: true } });
+    if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+
+    await prisma.surveySession.delete({ where: { id: params.id } });
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'SURVEY_SESSION_DELETE',
+      entityType: 'SurveySession',
+      entityId: params.id,
+      ...extractRequestMeta(req),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}

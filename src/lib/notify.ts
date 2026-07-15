@@ -1189,3 +1189,36 @@ export async function notifyTrackedReviewed(opts: { reportId: string; appBaseUrl
   );
   return { recipientCount: recipients.length };
 }
+
+// ════════════════════════════════════════════
+// 批A:事前場次調查催辦(中心催委員/觀察員填意願;事件驅動,不入週期矩陣)
+// ════════════════════════════════════════════
+
+/** 中心催辦某受調人員填一階意願(email + 站內鈴鐺;同人 24h 去重防轟炸)。 */
+export async function notifyPresurveyRemind(opts: { participantId: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫出席意願`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `${yearROC} 年度資通安全稽核事前場次調查尚待您填寫出席意願（逐場次 OK／待定／N/A）並繳交相關文件。\n` +
+      `請登入平台完成填寫：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-remind',
+    notificationLink: '/pre-survey',
+    dedupeKey: `presurvey-remind-${participant.id}`,
+    context: { participantId: participant.id, year: participant.year },
+  });
+  return { recipientCount: 1 };
+}

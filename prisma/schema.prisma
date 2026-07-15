@@ -70,6 +70,8 @@ model User {
   practiceComments     PracticeComment[]      @relation("PracticeComments")
   // 缺失持續列管(批71):受指派協審之列管缺失(在職委員,一筆至多一位)
   trackedAssignments   TrackedDeficiency[]    @relation("TrackedAuditor")
+  // 事前場次調查(批A):此帳號受調的年度參與紀錄(綁帳號,委員/觀察員)
+  surveyParticipations SurveyParticipant[]    @relation("SurveyParticipations")
   // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
   roleGrants           UserRole[]
 }
@@ -622,6 +624,82 @@ model TrackedReport {
   createdAt     DateTime          @default(now())
 
   @@index([trackedId])
+}
+
+// ════════════════════════════════════════════
+// 批A：事前場次調查（年度制,非 per-hospital）
+//   中心規劃某年度的稽核場次(地點/日期/必參加/目標委員與觀察員數),委員/觀察員自助填逐場次意願
+//   (地名對受調者隱藏,以序號呈現),中心於管考總表看意願矩陣、指派最終場次、催辦。
+//   角色:SUPER_ADMIN 管理 / AUDITOR(委員)·OBSERVER(觀察員)自助;ORG_ADMIN 不涉入(見 access-policy presurvey.view)。
+//   附件(cv/切結書)、差旅二階(交通/飲食)、公版檔案、匯出、自訂欄位=批B additive 疊加。
+// ════════════════════════════════════════════
+
+model SurveySession {
+  id                  String   @id @default(cuid())
+  year                Int // 西元(顯示 -1911);對齊全庫主流,勿存民國
+  date                DateTime? // 場次日期(可空=待定)
+  name                String // 地點/場次名稱(對委員/觀察員隱藏,改以序號呈現)
+  isRequired          Boolean  @default(false) // 必參加
+  remark              String? // 給受調者看的備註
+  targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)
+  targetObserverCount Int      @default(0) // 目標觀察員數
+  orderIndex          Int      @default(0) // 穩定排序 → 決定受調者看到的匿名序號
+  createdById         String // 建立者快照(權責分立)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  availabilities      SessionAvailability[]
+  finalAssignments    SurveyFinalAssignment[]
+
+  @@index([year, orderIndex])
+}
+
+model SurveyParticipant {
+  id            String    @id @default(cuid())
+  year          Int
+  userId        String
+  user          User      @relation("SurveyParticipations", fields: [userId], references: [id])
+  kind          String // MEMBER | OBSERVER(決定分表 / cv 需求 / 達標分母)
+  committeeType String? // 管理面 / 策略面 / 技術面 / 管理面-OT(委員細分;觀察員為 null)
+  phone         String? // 調查用聯絡電話(可異於帳號)
+  email         String? // 調查用聯絡信箱
+  note          String?
+  replyStatus   String    @default("NO") // 意願回信:YES | NO
+  docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED
+  submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
+  invitedById   String // 中心加入者快照
+  invitedAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  availabilities   SessionAvailability[]
+  finalAssignments SurveyFinalAssignment[]
+
+  @@unique([year, userId]) // 一年度一帳號至多一列
+  @@index([year, kind])
+}
+
+model SessionAvailability {
+  id            String            @id @default(cuid())
+  participantId String
+  participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status        String // OK | PENDING(待定) | NA
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([participantId, sessionId]) // 一人對一場次一票(upsert)
+  @@index([sessionId])
+}
+
+model SurveyFinalAssignment {
+  id            String            @id @default(cuid())
+  participantId String
+  participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignedById  String // 指派者快照
+  assignedAt    DateTime          @default(now())
+
+  @@unique([participantId, sessionId])
+  @@index([participantId])
 }
 
 // ════════════════════════════════════════════

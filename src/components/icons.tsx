@@ -115,6 +115,21 @@ export const ClipboardCheck = ({ size, ...p }: IconProps) => (
   </svg>
 );
 
+export const CalendarDays = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M3 9h18M8 2v4M16 2v4" />
+    <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" />
+  </svg>
+);
+
+export const MapPin = ({ size, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M12 21s7-6.5 7-11a7 7 0 10-14 0c0 4.5 7 11 7 11z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </svg>
+);
+
 export const FileText = ({ size, ...p }: IconProps) => (
   <svg {...base(size)} {...p}>
     <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z" />

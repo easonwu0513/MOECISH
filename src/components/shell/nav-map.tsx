@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Role } from '@/lib/types';
 import {
   LayoutDashboard, ClipboardCheck, Users, History, Briefcase,
-  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings, Send, AlertTriangle,
+  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings, Send, AlertTriangle, CalendarDays,
 } from '../icons';
 
 /**
@@ -16,13 +16,14 @@ import {
  */
 
 export type NavIconKey =
-  | 'dashboard' | 'cycles' | 'tracking' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
+  | 'dashboard' | 'cycles' | 'tracking' | 'presurvey' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
   | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
   cycles: (s) => <ClipboardCheck size={s} />,
   tracking: (s) => <AlertTriangle size={s} />,
+  presurvey: (s) => <CalendarDays size={s} />,
   journey: (s) => <CheckCircle size={s} />,
   orgs: (s) => <Briefcase size={s} />,
   users: (s) => <Users size={s} />,
@@ -67,12 +68,16 @@ const ALL: Role[] = ['SUPER_ADMIN', 'AUDITOR', 'ORG_ADMIN', 'OBSERVER'];
 const ADMIN: Role[] = ['SUPER_ADMIN'];
 // 缺失持續列管:中心/機關/委員可見,觀察員不可(對齊 access-policy tracking.view)
 const TRACK_ROLES: Role[] = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR'];
+// 事前場次調查:中心/委員/觀察員可見,機關不涉入(對齊 access-policy presurvey.view;⚠️與 tracking 相反,含觀察員排除機關)
+const PRESURVEY_ROLES: Role[] = ['SUPER_ADMIN', 'AUDITOR', 'OBSERVER'];
 
 export const NAV_ROUTES: NavRoute[] = [
   { href: '/dashboard', label: '總覽',     allow: ALL, iconKey: 'dashboard', group: '',     cmdGroup: '導覽' },
   { href: '/cycles',    label: '稽核週期', allow: ALL, iconKey: 'cycles',    group: '稽核作業', cmdGroup: '導覽' },
   // 缺失持續列管(批71):中心/機關/委員可見(觀察員不可,對齊 access-policy tracking.view)
   { href: '/tracking',  label: '缺失持續列管', allow: TRACK_ROLES, iconKey: 'tracking', group: '稽核作業', cmdGroup: '導覽' },
+  // 事前場次調查(批A):中心/委員/觀察員可見(機關不可,對齊 access-policy presurvey.view)
+  { href: '/pre-survey', label: '事前場次調查', allow: PRESURVEY_ROLES, iconKey: 'presurvey', group: '稽核作業', cmdGroup: '導覽' },
   { href: '/journey',   label: '引導式精靈', allow: ADMIN, iconKey: 'journey', group: '稽核作業', cmdGroup: '導覽' },
   // ── 機構與人員 ──
   { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '機構與人員', cmdGroup: '管理' },

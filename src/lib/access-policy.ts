@@ -42,7 +42,8 @@ export type Surface =
   | 'signedReport.section' // 「用印掃描檔」整段可見
   | 'signedReport.upload' // 上傳用印掃描檔
   | 'auditReport.view' // 彙整報告(全體委員整合;中心專用)
-  | 'tracking.view'; // 缺失持續列管工作區(批71;跨年度滾動,不綁週期階段)
+  | 'tracking.view' // 缺失持續列管工作區(批71;跨年度滾動,不綁週期階段)
+  | 'presurvey.view'; // 事前場次調查工作區(批A;年度制,不綁週期階段;中心/委員/觀察員,機關不涉入)
 
 /**
  * 某角色在某週期階段是否可存取某介面(粗粒度)。所有頁面/API/磚請改呼叫此處,不要各自內聯階段判斷。
@@ -115,5 +116,13 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
       //  ・委員(AUDITOR):僅被指派協審之列管項(細粒度 assignedAuditorId 閘另由 API/頁面把關)。
       // 觀察員(OBSERVER)與未列舉角色一律拒絕(fail-closed;缺失管考不對觀察員開放,對齊 deficiencies.view)。
       return role === 'SUPER_ADMIN' || role === 'ORG_ADMIN' || role === 'AUDITOR';
+
+    case 'presurvey.view':
+      // 事前場次調查(批A)為「年度制」自助意願調查,不綁任一週期階段(cycleStatus 於此 surface 無作用):
+      //  ・中心(SUPER_ADMIN):管理年度場次、加受調人員、看管考矩陣、指派最終場次、催辦;
+      //  ・委員(AUDITOR)/觀察員(OBSERVER):自助填自己的逐場次意願(細粒度「僅本人」閘另由 API/頁面把關)。
+      // ⚠️與 tracking 相反:此模組觀察員為第一線受調者故「允許」;而機關(ORG_ADMIN)不涉入場次調查故「拒絕」。
+      // 未列舉角色一律拒絕(fail-closed)。
+      return role === 'SUPER_ADMIN' || role === 'AUDITOR' || role === 'OBSERVER';
   }
 }
