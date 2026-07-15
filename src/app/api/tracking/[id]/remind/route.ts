@@ -21,13 +21,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (tracked.status !== 'TRACKING') {
       return NextResponse.json({ error: '此列管項已結案，無須催辦' }, { status: 400 });
     }
+    // 與 timer 一致:已有待審回報=球在審核方,不催機關(伺服端防呆,兼防前端頁面過期後誤觸)
+    const pending = await prisma.trackedReport.count({ where: { trackedId: tracked.id, reviewStatus: 'PENDING' } });
+    if (pending > 0) {
+      return NextResponse.json({ error: '該機關已送出回報，正待審核，無須催辦。' }, { status: 400 });
+    }
 
     let recipientCount = 0;
     let skipped = false;
+    let failed = false;
     try {
       const r = await notifyTrackedManualRemind({ trackedId: tracked.id, appBaseUrl: appBaseUrl(req) });
       recipientCount = r.recipientCount;
       skipped = r.skipped;
+      failed = r.failed;
     } catch (e) {
       console.error('tracked manual remind failed:', e);
     }
@@ -37,11 +44,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'TRACKED_REMIND',
       entityType: 'TrackedDeficiency',
       entityId: tracked.id,
-      after: { recipientCount, skipped },
+      after: { recipientCount, skipped, failed },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, recipientCount, skipped });
+    return NextResponse.json({ ok: true, recipientCount, skipped, failed });
   } catch (e) {
     return errorResponse(e);
   }

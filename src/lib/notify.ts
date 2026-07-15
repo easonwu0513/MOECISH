@@ -1111,15 +1111,16 @@ export async function notifyTrackedManualRemind(opts: { trackedId: string; appBa
     where: { id: opts.trackedId },
     include: { organization: true },
   });
-  if (!tracked || tracked.status !== 'TRACKING') return { recipientCount: 0, skipped: false };
+  if (!tracked || tracked.status !== 'TRACKING') return { recipientCount: 0, skipped: false, failed: false };
   const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
-  if (recipients.length === 0) return { recipientCount: 0, skipped: false };
+  if (recipients.length === 0) return { recipientCount: 0, skipped: false, failed: false };
 
   const link = `${opts.appBaseUrl}/tracking`;
   const label = trackedItemLabel(tracked);
   const dueStr = fmtROC(tracked.nextReportDue);
   let sent = 0;
   let skippedN = 0;
+  let failedN = 0;
   for (const u of recipients) {
     const log = await sendEmail({
       to: u.email,
@@ -1135,10 +1136,12 @@ export async function notifyTrackedManualRemind(opts: { trackedId: string; appBa
       dedupeKey: `tracked-manual-remind-${tracked.id}`,
       context: { trackedId: tracked.id, manual: true },
     });
-    if (log.status === 'skipped') skippedN++;
-    else sent++;
+    // 誠實計數:僅實寄/模擬計入 sent;去重與寄送失敗分開,避免 failed 被誤報為「已寄出」(假成功)
+    if (log.status === 'sent' || log.status === 'simulated') sent++;
+    else if (log.status === 'skipped') skippedN++;
+    else failedN++;
   }
-  return { recipientCount: sent, skipped: sent === 0 && skippedN > 0 };
+  return { recipientCount: sent, skipped: sent === 0 && skippedN > 0, failed: sent === 0 && failedN > 0 };
 }
 
 /** 機關送出列管回報 → 通知中心(最高管理員)+ 協審委員(若有指派且在職)。 */
@@ -1256,8 +1259,9 @@ export async function notifyPresurveyRemind(opts: { participantId: string; appBa
     dedupeKey: `presurvey-remind-${participant.id}`,
     context: { participantId: participant.id, year: participant.year },
   });
-  const skipped = log.status === 'skipped';
-  return { recipientCount: skipped ? 0 : 1, skipped };
+  // 誠實計數:寄送失敗(Graph 例外)不計為已寄出,避免假成功
+  const delivered = log.status === 'sent' || log.status === 'simulated';
+  return { recipientCount: delivered ? 1 : 0, skipped: log.status === 'skipped' };
 }
 
 /** 中心退補某受調人員文件 → 通知本人補件(email + 站內;附退補理由)。 */
@@ -1319,6 +1323,7 @@ export async function notifyPresurveyTravelRemind(opts: { participantId: string;
     dedupeKey: `presurvey-travel-remind-${participant.id}`,
     context: { participantId: participant.id, year: participant.year },
   });
-  const skipped = log.status === 'skipped';
-  return { recipientCount: skipped ? 0 : 1, skipped };
+  // 誠實計數:寄送失敗(Graph 例外)不計為已寄出,避免假成功
+  const delivered = log.status === 'sent' || log.status === 'simulated';
+  return { recipientCount: delivered ? 1 : 0, skipped: log.status === 'skipped' };
 }

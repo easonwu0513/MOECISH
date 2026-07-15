@@ -213,9 +213,10 @@ export default function TrackedItem({
       toast.error('催辦失敗', j.error);
       return;
     }
-    const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false }));
+    const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false, failed: false }));
     if (j.recipientCount > 0) toast.success('已寄出催辦', item.orgName);
     else if (j.skipped) toast.warning('今日已催辦過', '24 小時內同一列管項僅寄一次。');
+    else if (j.failed) toast.error('寄送失敗', '請稍後重試，或確認郵件服務設定。');
     else toast.warning('未寄送', '該機關查無在職管理員收件人。');
   }
 
