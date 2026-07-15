@@ -660,8 +660,10 @@ model SurveyParticipant {
   user          User      @relation("SurveyParticipations", fields: [userId], references: [id])
   kind          String // MEMBER | OBSERVER(決定分表 / cv 需求 / 達標分母)
   committeeType String? // 管理面 / 策略面 / 技術面 / 管理面-OT(委員細分;觀察員為 null)
-  phone         String? // 調查用聯絡電話(可異於帳號)
-  email         String? // 調查用聯絡信箱
+  phone         String? // 主要聯絡電話(可異於帳號)
+  email         String? // 主要聯絡信箱(自助頁預設代入帳號 email,本人可改)
+  phone2        String? // 次要聯絡電話(UAT:本人可自行新增另一組聯絡)
+  email2        String? // 次要聯絡信箱(UAT:另一組聯絡帳號)
   note          String? // 中心對受調者的內部管理註記(自助頁不顯示;僅中心可改)
   replyStatus   String    @default("NO") // 意願回信:YES | NO
   docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED

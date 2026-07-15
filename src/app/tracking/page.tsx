@@ -42,7 +42,18 @@ export default async function TrackingPage({
       },
     },
     assignedAuditor: { select: { id: true, name: true } },
-    organization: { select: { name: true, shortName: true } },
+    organization: { select: { id: true, name: true, shortName: true } },
+    // UAT:持續列管項要看得到「來源週期當時填報的矯正紀錄」(發生原因/改善措施/預計完成/執行情形)
+    deficiency: {
+      select: {
+        action: {
+          select: {
+            rootCause: true, measureStrategy: true, measureManagement: true, measureTechnical: true,
+            plannedDate: true, trackingMethod: true, execStatus: true, actualDate: true, extendedDate: true, delayReason: true,
+          },
+        },
+      },
+    },
   };
 
   const baseWhere =
@@ -62,7 +73,8 @@ export default async function TrackingPage({
   const where = {
     ...baseWhere,
     ...(statusParam ? { status: statusParam } : {}),
-    ...(orgFilter && user.role === 'SUPER_ADMIN' ? { organizationId: orgFilter } : {}),
+    // 中心/委員可鑽研至單一機關(委員仍受 baseWhere 的協審∪現任機關範圍限制,org 篩選只會再收斂)
+    ...(orgFilter && (user.role === 'SUPER_ADMIN' || user.role === 'AUDITOR') ? { organizationId: orgFilter } : {}),
   };
 
   const rows = await prisma.trackedDeficiency.findMany({
@@ -122,7 +134,22 @@ export default async function TrackingPage({
     overdue: t.status === 'TRACKING' && isTrackedOverdue(t.nextReportDue),
     assignedAuditorId: t.assignedAuditorId,
     assignedAuditorName: t.assignedAuditor?.name ?? null,
+    orgId: t.organization.id,
     orgName: t.organization.shortName ?? t.organization.name,
+    originAction: t.deficiency?.action
+      ? {
+          rootCause: t.deficiency.action.rootCause,
+          measureStrategy: t.deficiency.action.measureStrategy,
+          measureManagement: t.deficiency.action.measureManagement,
+          measureTechnical: t.deficiency.action.measureTechnical,
+          plannedDate: t.deficiency.action.plannedDate?.toISOString() ?? null,
+          trackingMethod: t.deficiency.action.trackingMethod,
+          execStatus: t.deficiency.action.execStatus,
+          actualDate: t.deficiency.action.actualDate?.toISOString() ?? null,
+          extendedDate: t.deficiency.action.extendedDate?.toISOString() ?? null,
+          delayReason: t.deficiency.action.delayReason,
+        }
+      : null,
     reports: t.reports.map((r: ReviewSelect) => ({
       id: r.id,
       content: r.content,
@@ -158,15 +185,20 @@ export default async function TrackingPage({
   };
   const curStatus = searchParams.status === 'completed' ? 'completed' : searchParams.status === 'all' ? 'all' : 'tracking';
 
-  // 中心:按機關分組
-  const groups = new Map<string, TrackedDTO[]>();
-  if (user.role === 'SUPER_ADMIN') {
+  // UAT:中心/委員以受稽機關為單位分類——先看機關列表,點機關再看該機關列管項(相像稽核週期的機關導覽)。
+  // 機關(ORG_ADMIN)只有自家一機關,維持平鋪。
+  const isDrillRole = user.role === 'SUPER_ADMIN' || user.role === 'AUDITOR';
+  const showOrgList = isDrillRole && !orgFilter;
+  const orgGroups = new Map<string, { orgId: string; orgName: string; count: number; overdue: number }>();
+  if (isDrillRole) {
     for (const t of items) {
-      const list = groups.get(t.orgName) ?? [];
-      list.push(t);
-      groups.set(t.orgName, list);
+      const g = orgGroups.get(t.orgId) ?? { orgId: t.orgId, orgName: t.orgName, count: 0, overdue: 0 };
+      g.count += 1;
+      if (t.overdue) g.overdue += 1;
+      orgGroups.set(t.orgId, g);
     }
   }
+  const selectedOrgName = orgFilter ? items[0]?.orgName ?? null : null;
 
   const trackingCount = items.filter((t) => t.status === 'TRACKING').length;
   const overdueCount = rows.map(toDTO).filter((t) => t.overdue).length;
@@ -204,6 +236,18 @@ export default async function TrackingPage({
         )}
       </div>
 
+      {/* 已鑽入單一機關:返回機關列表 */}
+      {isDrillRole && orgFilter && (
+        <div className="mb-5">
+          <a
+            href={buildHref({ org: null })}
+            className="inline-flex items-center gap-1 text-body-sm text-primary-700 hover:underline focus-ring rounded"
+          >
+            ← 返回機關列表{selectedOrgName ? `（目前：${selectedOrgName}）` : ''}
+          </a>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="rounded-md border border-rule bg-card px-6 py-16 text-center">
           <p className="text-title text-ink-700">
@@ -215,26 +259,34 @@ export default async function TrackingPage({
               : '當缺失以「辦理中」通過審核時，會自動轉入此處持續追蹤。'}
           </p>
         </div>
-      ) : user.role === 'SUPER_ADMIN' ? (
-        <div className="space-y-8">
-          {Array.from(groups.entries()).map(([orgName, list]) => (
-            <section key={orgName}>
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="text-title-md text-ink-900">{orgName}</h2>
-                <span className="text-caption text-ink-500 tabular-nums">{list.length} 項</span>
+      ) : showOrgList ? (
+        // 機關列表(以受稽機關為單位分類;點入看該機關列管項)
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from(orgGroups.values()).map((g) => (
+            <a
+              key={g.orgId}
+              href={buildHref({ org: g.orgId })}
+              className="block rounded-md border border-rule bg-card px-4 py-3.5 hover:border-primary-300 hover:bg-paper-sunk/40 transition-colors focus-ring"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-title-md text-ink-900 truncate">{g.orgName}</span>
+                <span className="text-caption text-ink-500 tabular-nums shrink-0">{g.count} 項</span>
               </div>
-              <div className="space-y-4">
-                {list.map((t) => (
-                  <TrackedItem key={t.id} item={t} role={user.role} userId={user.id} auditors={auditors} />
-                ))}
-              </div>
-            </section>
+              {g.overdue > 0 && <p className="mt-1 text-caption text-danger-600">逾期未回報 {g.overdue} 項</p>}
+            </a>
           ))}
         </div>
       ) : (
+        // 單一機關的列管項(機關端平鋪、或中心/委員鑽入後)
         <div className="space-y-4">
           {items.map((t) => (
-            <TrackedItem key={t.id} item={t} role={user.role} userId={user.id} />
+            <TrackedItem
+              key={t.id}
+              item={t}
+              role={user.role}
+              userId={user.id}
+              auditors={user.role === 'SUPER_ADMIN' ? auditors : undefined}
+            />
           ))}
         </div>
       )}

@@ -32,8 +32,11 @@ export type SelfDTO = {
   participantId: string;
   yearROC: number;
   kind: 'MEMBER' | 'OBSERVER';
+  accountEmail: string | null; // 帳號 email(主要信箱空白時預設代入)
   phone: string | null;
   email: string | null;
+  phone2: string | null; // 次要聯絡電話
+  email2: string | null; // 次要聯絡信箱
   submittedAt: string | null;
   docStatus: string;
   docReviewed: boolean;
@@ -53,8 +56,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const router = useRouter();
   const toast = useToast();
 
+  // 主要信箱空白時預設代入帳號 email(本人可改)
+  const [email, setEmail] = useState(data.email ?? data.accountEmail ?? '');
   const [phone, setPhone] = useState(data.phone ?? '');
-  const [email, setEmail] = useState(data.email ?? '');
+  const [email2, setEmail2] = useState(data.email2 ?? '');
+  const [phone2, setPhone2] = useState(data.phone2 ?? '');
+  const [showSecondary, setShowSecondary] = useState(!!(data.email2 || data.phone2));
   const [statuses, setStatuses] = useState<Record<string, SurveyAvailabilityStatus | null>>(
     Object.fromEntries(data.sessions.map((s) => [s.id, s.status])),
   );
@@ -81,7 +88,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone: phone.trim() || null, email: email.trim() || null }),
+      body: JSON.stringify({
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        phone2: phone2.trim() || null,
+        email2: email2.trim() || null,
+      }),
     });
     setSavingContact(false);
     if (!res.ok) {
@@ -211,13 +223,28 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </Card>
       )}
 
-      {/* 聯絡資訊 */}
+      {/* 聯絡資訊(主要信箱預設代入帳號;可另加次要聯絡) */}
       <Card variant="outlined">
-        <h3 className="text-label text-ink-900 mb-3">聯絡資訊</h3>
+        <h3 className="text-label text-ink-900 mb-1">聯絡資訊</h3>
+        <p className="text-caption text-ink-500 mb-3">主要電子郵件已預先代入您的帳號信箱；如需以其他信箱、電話聯繫，可修改或新增次要聯絡。</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="電子郵件" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
-          <TextField label="聯絡電話" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
+          <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
+        {showSecondary ? (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <TextField label="電子郵件（次要，選填）" value={email2} onChange={(e) => setEmail2(e.target.value)} placeholder="另一組聯絡信箱" />
+            <TextField label="聯絡電話（次要，選填）" value={phone2} onChange={(e) => setPhone2(e.target.value)} placeholder="另一組聯絡電話" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowSecondary(true)}
+            className="mt-3 inline-flex items-center gap-1 text-caption text-primary-700 hover:underline focus-ring rounded"
+          >
+            ＋ 新增次要聯絡信箱／電話
+          </button>
+        )}
         <div className="mt-3">
           <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>
             儲存聯絡資訊

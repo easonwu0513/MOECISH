@@ -43,6 +43,18 @@ export type ReportDTO = {
   reviewerName: string | null;
   evidences: EvidenceDTO[];
 };
+export type OriginActionDTO = {
+  rootCause: string | null;
+  measureStrategy: string | null;
+  measureManagement: string | null;
+  measureTechnical: string | null;
+  plannedDate: string | null;
+  trackingMethod: string | null;
+  execStatus: string | null;
+  actualDate: string | null;
+  extendedDate: string | null;
+  delayReason: string | null;
+};
 export type TrackedDTO = {
   id: string;
   aspect: string;
@@ -57,7 +69,9 @@ export type TrackedDTO = {
   overdue: boolean;
   assignedAuditorId: string | null;
   assignedAuditorName: string | null;
+  orgId: string;
   orgName: string;
+  originAction: OriginActionDTO | null; // 來源週期當時的矯正填報快照
   reports: ReportDTO[];
 };
 
@@ -249,6 +263,9 @@ export default function TrackedItem({
       <div className="mt-3 rounded-md bg-paper-sunk px-3.5 py-2.5">
         <p className="text-body-sm text-ink-900 leading-relaxed whitespace-pre-wrap">{item.description}</p>
       </div>
+
+      {/* 來源週期的原始矯正填報(唯讀;供列管審核對照之前填報紀錄) */}
+      {item.originAction && <OriginActionBlock a={item.originAction} />}
 
       {/* 中心:回報週期 + 協審委員 */}
       {isCenter && item.status === 'TRACKING' && (
@@ -446,5 +463,46 @@ export default function TrackedItem({
         onConfirm={() => { if (pendingDelEv) removeEvidence(pendingDelEv.id); }}
       />
     </Card>
+  );
+}
+
+// ── 來源週期原始矯正填報(唯讀對照) ──
+function OriginActionBlock({ a }: { a: OriginActionDTO }) {
+  const measures: string[] = [];
+  if (a.measureStrategy) measures.push(`■ 策略面調整：${a.measureStrategy}`);
+  if (a.measureManagement) measures.push(`■ 管理面調整：${a.measureManagement}`);
+  if (a.measureTechnical) measures.push(`■ 技術面調整：${a.measureTechnical}`);
+
+  const exec = (a.execStatus ?? null) as ExecStatus | null;
+  let execLine = exec ? `■ ${EXEC_STATUS_LABELS[exec] ?? exec}` : '';
+  if ((exec === 'ON_TIME_DONE' || exec === 'LATE_DONE') && a.actualDate) execLine += `（實際完成日期 ${fmtROC(a.actualDate)}）`;
+  if (exec === 'LATE_IN_PROGRESS' && a.extendedDate) execLine += `（預計完成日期延長至 ${fmtROC(a.extendedDate)}）`;
+  if ((exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS') && a.delayReason) execLine += `，原因：${a.delayReason}`;
+
+  const schedule = [
+    a.plannedDate ? `預計完成時程：${fmtROC(a.plannedDate)}` : '',
+    a.trackingMethod ? `進度追蹤方式：${a.trackingMethod}` : '',
+  ].filter(Boolean).join('\n');
+
+  const rows = [
+    { label: '發生原因（根因分析）', value: a.rootCause ?? '' },
+    { label: '改善措施', value: measures.join('\n') },
+    { label: '預計完成時程及進度追蹤方式', value: schedule },
+    { label: '執行情形', value: execLine },
+  ];
+  if (!rows.some((r) => r.value.trim())) return null;
+
+  return (
+    <details className="mt-3 rounded-md border border-rule bg-card px-3.5 py-2.5" open>
+      <summary className="text-label text-ink-500 cursor-pointer select-none">來源週期矯正填報</summary>
+      <dl className="mt-2.5 space-y-2.5">
+        {rows.map((r) => (
+          <div key={r.label}>
+            <dt className="text-caption text-ink-500">{r.label}</dt>
+            <dd className="mt-0.5 text-body-sm text-ink-900 leading-relaxed whitespace-pre-wrap">{r.value.trim() || '—'}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }

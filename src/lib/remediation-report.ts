@@ -195,7 +195,16 @@ export function buildRemediationReportDocument(input: RemediationReportInput): D
     new Paragraph({ children: [new TextRun({ text: '單位主管：', size: 24 })], spacing: { after: 500 } }),
   );
 
+  // UAT:全文中文字體標楷體、英數 Times New Roman。docx 的 font 分 ascii(英數)/eastAsia(中日韓);
+  // 以文件層預設 run 樣式套到全部 TextRun(含未指定 font 者),標題另於 heading1 覆寫確保一致。
+  const REPORT_FONT = { ascii: 'Times New Roman', hAnsi: 'Times New Roman', eastAsia: '標楷體' };
   return new Document({
+    styles: {
+      default: {
+        document: { run: { font: REPORT_FONT } },
+        heading1: { run: { font: REPORT_FONT } },
+      },
+    },
     sections: [{
       properties: {
         // A4 直式、邊界 2.54cm(與列印版 @page { size: A4; margin: 2.54cm } 一致)

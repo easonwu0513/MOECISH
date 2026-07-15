@@ -44,6 +44,8 @@ export type AdminParticipantDTO = {
   committeeType: string | null;
   phone: string | null;
   email: string | null;
+  phone2: string | null;
+  email2: string | null;
   note: string | null;
   replyStatus: string;
   docHandover: string;
@@ -577,11 +579,15 @@ function AdminProfileDialog({
   const toast = useToast();
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [phone2, setPhone2] = useState('');
+  const [email2, setEmail2] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setPhone(participant?.phone ?? '');
     setEmail(participant?.email ?? '');
+    setPhone2(participant?.phone2 ?? '');
+    setEmail2(participant?.email2 ?? '');
   }, [participant]);
 
   if (!participant) return null;
@@ -594,7 +600,12 @@ function AdminProfileDialog({
     const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone: phone.trim() || null, email: email.trim() || null }),
+      body: JSON.stringify({
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        phone2: phone2.trim() || null,
+        email2: email2.trim() || null,
+      }),
     });
     setSaving(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
@@ -622,8 +633,10 @@ function AdminProfileDialog({
         <section>
           <h4 className="text-label text-ink-900 mb-2">聯絡資訊</h4>
           <div className="grid gap-3 sm:grid-cols-2">
-            <TextField label="電子郵件" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <TextField label="聯絡電話" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <TextField label="電子郵件（次要）" value={email2} onChange={(e) => setEmail2(e.target.value)} placeholder="—" />
+            <TextField label="聯絡電話（次要）" value={phone2} onChange={(e) => setPhone2(e.target.value)} placeholder="—" />
           </div>
           <div className="mt-2">
             <Button size="sm" variant="tonal" onClick={saveContact} loading={saving} disabled={saving}>儲存聯絡資訊</Button>

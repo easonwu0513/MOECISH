@@ -8,9 +8,11 @@ import { loadParticipantForAccess } from '@/lib/pre-survey-server';
 import { SURVEY_COMMITTEE_TYPES, SURVEY_REPLY_STATUSES, SURVEY_DOC_HANDOVER_STATUSES } from '@/lib/types';
 
 const Body = z.object({
-  // 本人或中心皆可改:自己的聯絡資訊
+  // 本人或中心皆可改:自己的聯絡資訊(主要 + 次要)
   phone: z.string().trim().max(50).nullable().optional(),
   email: z.string().trim().max(200).nullable().optional(),
+  phone2: z.string().trim().max(50).nullable().optional(),
+  email2: z.string().trim().max(200).nullable().optional(),
   // 僅中心可改的管考欄位(note=中心對受調者的內部管理註記,自助頁不顯示,故不對本人開放)
   note: z.string().trim().max(1000).nullable().optional(),
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
@@ -55,6 +57,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const data: Record<string, unknown> = {};
     if (body.phone !== undefined) data.phone = body.phone?.trim() || null;
     if (body.email !== undefined) data.email = body.email?.trim() || null;
+    if (body.phone2 !== undefined) data.phone2 = body.phone2?.trim() || null;
+    if (body.email2 !== undefined) data.email2 = body.email2?.trim() || null;
     if (isAdmin) {
       if (body.note !== undefined) data.note = body.note?.trim() || null;
       if (body.committeeType !== undefined) {

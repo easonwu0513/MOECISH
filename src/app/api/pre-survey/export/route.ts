@@ -84,6 +84,10 @@ export async function GET(req: Request) {
       '交通',
       '飲食',
       '備註',
+      '電子郵件',
+      '聯絡電話',
+      '次要信箱',
+      '次要電話',
       ...customCols.map((c) => c.title),
     ];
 
@@ -106,6 +110,10 @@ export async function GET(req: Request) {
         parseArr(p.transport).join(' / '),
         parseArr(p.diet).join(' / '),
         (p.note ?? '') + (p.travelNote ? ` / 差旅備註：${p.travelNote}` : ''),
+        p.email ?? '',
+        p.phone ?? '',
+        p.email2 ?? '',
+        p.phone2 ?? '',
         ...customCols.map((c) => custom[c.id] ?? ''),
       ].map((v) => cell(String(v)));
     });
