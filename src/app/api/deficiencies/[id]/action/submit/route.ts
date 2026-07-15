@@ -36,10 +36,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '此缺失描述尚未補述具體內容，請中心補述後再送審' }, { status: 400 });
     }
 
-    const updated = await prisma.correctiveAction.update({
-      where: { id: action.id },
+    // 樂觀鎖(批73 專審 P1):以「仍可編輯」為條件式更新,防雙擊/重試並發重複送審——輸掉競態者
+    // 影響 0 筆 → 不重複寫稽核軌跡、不重複寄委員通知(對齊 submit-round 的 updateMany 手法)。
+    const res = await prisma.correctiveAction.updateMany({
+      where: { id: action.id, status: { in: ['PENDING', 'DRAFT', 'RETURNED'] } },
       data: { status: 'SUBMITTED', submittedAt: new Date() },
     });
+    if (res.count === 0) {
+      return NextResponse.json({ error: '此項目已送審或已通過' }, { status: 400 });
+    }
+    const updated = await prisma.correctiveAction.findUnique({ where: { id: action.id } });
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

@@ -15,6 +15,9 @@ const Body = z.object({
   comment: z.string().optional(),
 });
 
+/** 交易內偵測「此件已非送審狀態」(並發雙審)的訊號:rollback 後轉 409。 */
+class ReviewConflictError extends Error {}
+
 /** 稽核委員審查：通過（PASS）或退回補正（RETURN，必填理由，輪次 +1） */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -62,45 +65,65 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const cycle = deficiency.cycle;
     const shouldTrack = body.decision === 'PASS' && isUnfinishedExec(action.execStatus);
 
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.reviewRecord.create({
-        data: {
-          actionId: action.id,
-          round: action.round,
-          decision: body.decision,
-          comment: body.comment?.trim() || null,
-          snapshot,
-          auditorId: user.id,
-        },
-      });
-      const up = await tx.correctiveAction.update({
-        where: { id: action.id },
-        data:
-          body.decision === 'PASS'
-            ? { status: 'PASSED' }
-            : { status: 'RETURNED', round: { increment: 1 } },
-      });
-      if (shouldTrack) {
-        await tx.trackedDeficiency.upsert({
-          where: { deficiencyId: deficiency.id },
-          create: {
-            deficiencyId: deficiency.id,
-            organizationId: cycle.organizationId,
-            originCycleId: cycle.id,
-            aspect: deficiency.aspect,
-            type: deficiency.type,
-            itemNo: deficiency.itemNo,
-            description: deficiency.description,
-            checklistRef: deficiency.checklistRef,
-            originYear: cycle.year,
-            cadenceMonths: DEFAULT_TRACKING_CADENCE,
-            nextReportDue: addMonths(new Date(), DEFAULT_TRACKING_CADENCE),
-          },
-          update: {}, // 冪等:已列管則不動(避免重審重置列管期限/協審指派)
+    // 交易內重查送審狀態 + 可序列化隔離(批73 專審 P2):防「外層檢查 SUBMITTED → 寫入」空檔被另一
+    // 並發審核搶先改狀態(中心與指派委員同時、或雙擊)造成同一件被審兩次、輪次錯亂、雙寫軌跡/雙寄信。
+    let updated;
+    try {
+      updated = await prisma.$transaction(async (tx) => {
+        const fresh = await tx.correctiveAction.findUnique({
+          where: { id: action.id },
+          select: { status: true },
         });
+        if (!fresh || fresh.status !== 'SUBMITTED') {
+          throw new ReviewConflictError('此項目已被審核或狀態已變更，請重新整理後再試。');
+        }
+        await tx.reviewRecord.create({
+          data: {
+            actionId: action.id,
+            round: action.round,
+            decision: body.decision,
+            comment: body.comment?.trim() || null,
+            snapshot,
+            auditorId: user.id,
+          },
+        });
+        const up = await tx.correctiveAction.update({
+          where: { id: action.id },
+          data:
+            body.decision === 'PASS'
+              ? { status: 'PASSED' }
+              : { status: 'RETURNED', round: { increment: 1 } },
+        });
+        if (shouldTrack) {
+          await tx.trackedDeficiency.upsert({
+            where: { deficiencyId: deficiency.id },
+            create: {
+              deficiencyId: deficiency.id,
+              organizationId: cycle.organizationId,
+              originCycleId: cycle.id,
+              aspect: deficiency.aspect,
+              type: deficiency.type,
+              itemNo: deficiency.itemNo,
+              description: deficiency.description,
+              checklistRef: deficiency.checklistRef,
+              originYear: cycle.year,
+              cadenceMonths: DEFAULT_TRACKING_CADENCE,
+              nextReportDue: addMonths(new Date(), DEFAULT_TRACKING_CADENCE),
+            },
+            update: {}, // 冪等:已列管則不動(避免重審重置列管期限/協審指派)
+          });
+        }
+        return up;
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if (e instanceof ReviewConflictError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
       }
-      return up;
-    });
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '審核發生並發衝突，請稍候重試。' }, { status: 409 });
+      }
+      throw e;
+    }
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

@@ -89,9 +89,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // 觀察員審閱窗口設定/變更後(批66 M2):若週期已 ≥ 資料齊備(READY),補通知本週期「已配對」觀察員。
     // (READY 轉換當下觀察員窗口可能尚未設,故此後才設定/變更時 READY 通知已過 → 於此補發;DRAFT/PREPARATION
     //  尚未開放審閱,交由日後 READY 轉換通知。)notify 函式的 dedupeKey 含窗口值,防重複轟炸。失敗不影響存檔。
+    // 僅在窗口「完整設定」(起訖皆有)時才補發「資料已齊備、請於審閱時段檢視」通知(批73 專審 P2):
+    // 清空窗口(兩端皆 null)或只設一端 → 無有效審閱時段,不寄誤導性通知(避免觀察員收到「請審閱」卻無時段)。
     const observerWindowTouched =
       body.observerWindowStart !== undefined || body.observerWindowEnd !== undefined;
-    if (observerWindowTouched && updated.status !== 'DRAFT' && updated.status !== 'PREPARATION') {
+    const observerWindowFullySet = Boolean(finalOWStart && finalOWEnd);
+    if (observerWindowTouched && observerWindowFullySet && updated.status !== 'DRAFT' && updated.status !== 'PREPARATION') {
       try {
         await notifyObserversOnReviewOpen({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
       } catch (e) {

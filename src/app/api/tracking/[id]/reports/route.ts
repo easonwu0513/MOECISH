@@ -13,6 +13,9 @@ const Body = z.object({
   execStatus: z.enum(EXEC_STATUSES),
 });
 
+/** 交易內偵測「已有待審回報 / 列管已結束」(並發雙送)的訊號:rollback 後轉 409。 */
+class ReportConflictError extends Error {}
+
 /**
  * 機關就某持續列管缺失提交一筆進度回報(批71)。
  *  - 僅該機關 ORG_ADMIN、列管項為「持續列管中(TRACKING)」時可送。
@@ -36,23 +39,44 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '此缺失已結束列管，無須再回報' }, { status: 400 });
     }
 
-    const pending = await prisma.trackedReport.findFirst({
-      where: { trackedId: tracked.id, reviewStatus: 'PENDING' },
-      select: { id: true },
-    });
-    if (pending) {
-      return NextResponse.json({ error: '尚有一筆回報待審核，請待審核後再提交下一筆' }, { status: 409 });
+    // 交易內重查「無待審回報」+ 可序列化隔離(批73 專審 P2):防「檢查無 PENDING → create」空檔被另一
+    // 並發送出(雙擊/重試)插入第二筆 PENDING,違反「一次一筆待審」不變量(schema 無部分唯一索引可擋)。
+    let report: { id: string };
+    try {
+      report = await prisma.$transaction(async (tx) => {
+        const fresh = await tx.trackedDeficiency.findUnique({
+          where: { id: tracked.id },
+          select: { status: true },
+        });
+        if (!fresh || fresh.status !== 'TRACKING') {
+          throw new ReportConflictError('此缺失已結束列管，無須再回報');
+        }
+        const pending = await tx.trackedReport.findFirst({
+          where: { trackedId: tracked.id, reviewStatus: 'PENDING' },
+          select: { id: true },
+        });
+        if (pending) {
+          throw new ReportConflictError('尚有一筆回報待審核，請待審核後再提交下一筆');
+        }
+        return tx.trackedReport.create({
+          data: {
+            trackedId: tracked.id,
+            content: body.content,
+            execStatus: body.execStatus,
+            submittedById: user.id,
+          },
+          select: { id: true },
+        });
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if (e instanceof ReportConflictError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
+      }
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '送出發生並發衝突，請稍候重試。' }, { status: 409 });
+      }
+      throw e;
     }
-
-    const report = await prisma.trackedReport.create({
-      data: {
-        trackedId: tracked.id,
-        content: body.content,
-        execStatus: body.execStatus,
-        submittedById: user.id,
-      },
-      select: { id: true },
-    });
 
     await writeAuditLog({
       actorId: user.id,

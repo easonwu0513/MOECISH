@@ -17,6 +17,11 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
     const { cycle, viewerKind, observerIds } = await assertPracticeAccess(params.id);
+    // 階段閘(批73 專審 P2 縱深防禦):練習資料自「實地稽核(ONSITE)」起才存在/可讀,對齊 POST 與 audit.score。
+    // 早於此階段一律回空——縱使未來任何路徑在 ONSITE 前寫入 PracticeFinding,此 GET 亦不會外流給觀察員/指導委員/中心。
+    if (!canAccess('practice.access', 'OBSERVER', cycle.status)) {
+      return NextResponse.json({ items: [], viewerKind });
+    }
     if (observerIds.length === 0) return NextResponse.json({ items: [], viewerKind });
 
     const items = await prisma.practiceFinding.findMany({

@@ -17,6 +17,9 @@ const Body = z.object({
 /** decision → 終態 reviewStatus。 */
 const DECISION_TO_STATUS = { CONTINUE: 'CONTINUE', COMPLETE: 'COMPLETE', RETURN: 'RETURNED' } as const;
 
+/** 交易內偵測「回報已被審 / 列管已結束」(並發雙審)的訊號:rollback 後轉 409。 */
+class TrackedReviewConflictError extends Error {}
+
 /**
  * 中心/協審委員審核一筆持續列管回報(批71):三態滾動審核。
  *  - CONTINUE(通過續列管):續追蹤,nextReportDue = now + cadence。
@@ -54,29 +57,49 @@ export async function POST(req: Request, { params }: { params: { reportId: strin
     const now = new Date();
     const newStatus = DECISION_TO_STATUS[body.decision];
 
-    await prisma.$transaction(async (tx) => {
-      await tx.trackedReport.update({
-        where: { id: report.id },
-        data: {
-          reviewStatus: newStatus,
-          reviewNote: body.note?.trim() || null,
-          reviewedAt: now,
-          reviewedById: user.id,
-        },
-      });
-      if (body.decision === 'CONTINUE') {
-        await tx.trackedDeficiency.update({
-          where: { id: tracked.id },
-          data: { nextReportDue: addMonths(now, tracked.cadenceMonths) },
+    // 交易內重查 + 可序列化隔離(批73 專審 P2):防「外層檢查 PENDING → 寫入」空檔被另一並發審核
+    // (中心與指派委員同時、或雙擊)搶先改狀態,造成同一回報被判定兩次、列管狀態/期限依到達順序覆寫。
+    try {
+      await prisma.$transaction(async (tx) => {
+        const fresh = await tx.trackedReport.findUnique({
+          where: { id: report.id },
+          select: { reviewStatus: true, tracked: { select: { status: true } } },
         });
-      } else if (body.decision === 'COMPLETE') {
-        await tx.trackedDeficiency.update({
-          where: { id: tracked.id },
-          data: { status: 'COMPLETED', closedAt: now, closedById: user.id },
+        if (!fresh) throw new TrackedReviewConflictError('回報不存在');
+        if (fresh.reviewStatus !== 'PENDING') throw new TrackedReviewConflictError('此回報已審核');
+        if (fresh.tracked.status !== 'TRACKING') throw new TrackedReviewConflictError('此缺失已結束列管');
+
+        await tx.trackedReport.update({
+          where: { id: report.id },
+          data: {
+            reviewStatus: newStatus,
+            reviewNote: body.note?.trim() || null,
+            reviewedAt: now,
+            reviewedById: user.id,
+          },
         });
+        if (body.decision === 'CONTINUE') {
+          await tx.trackedDeficiency.update({
+            where: { id: tracked.id },
+            data: { nextReportDue: addMonths(now, tracked.cadenceMonths) },
+          });
+        } else if (body.decision === 'COMPLETE') {
+          await tx.trackedDeficiency.update({
+            where: { id: tracked.id },
+            data: { status: 'COMPLETED', closedAt: now, closedById: user.id },
+          });
+        }
+        // RETURN:列管項不動(機關另建新回報重報)
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      if (e instanceof TrackedReviewConflictError) {
+        return NextResponse.json({ error: e.message }, { status: 409 });
       }
-      // RETURN:列管項不動(機關另建新回報重報)
-    });
+      if ((e as { code?: string }).code === 'P2034') {
+        return NextResponse.json({ error: '審核發生並發衝突，請稍候重試。' }, { status: 409 });
+      }
+      throw e;
+    }
 
     await writeAuditLog({
       actorId: user.id,

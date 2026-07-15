@@ -54,18 +54,30 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: msg, submitted: 0, skipped }, { status: 400 });
     }
 
-    // 以 status 為條件的 updateMany(樂觀鎖):只轉仍為 DRAFT/RETURNED 者,防與個別送審/退件並發重覆送出
-    const res = await prisma.correctiveAction.updateMany({
-      where: { deficiencyId: { in: toSubmitIds }, status: { in: ['DRAFT', 'RETURNED'] } },
-      data: { status: 'SUBMITTED', submittedAt: new Date() },
-    });
+    // 逐項條件式翻轉(批73 專審 v2):對每項獨立 updateMany(where status IN DRAFT/RETURNED),以 count(0/1)
+    // 精準判定「本請求真正轉入送審者」——CorrectiveAction.deficiencyId 為 1:1,每項恰翻 0 或 1 列。
+    // 取代原「共用時間戳回查」:避免兩並發請求同毫秒 submittedAt + 候選集分歧時對共同項重複寄信(專審 FIX_INCOMPLETE)。
+    // 並發他請求已搶先翻走者於本請求 count=0,不納入 notifyIds,故委員絕不會就同一項收到兩封。
+    const submittedAt = new Date();
+    const notifyIds: string[] = [];
+    for (const id of toSubmitIds) {
+      const r = await prisma.correctiveAction.updateMany({
+        where: { deficiencyId: id, status: { in: ['DRAFT', 'RETURNED'] } },
+        data: { status: 'SUBMITTED', submittedAt },
+      });
+      if (r.count > 0) notifyIds.push(id);
+    }
+    // 全部已被並發請求(雙擊/重試)搶先送審 → 本請求無實際轉換,不寫軌跡/寄信
+    if (notifyIds.length === 0) {
+      return NextResponse.json({ submitted: 0, skipped, notified: 0 });
+    }
 
     await writeAuditLog({
       actorId: user.id,
       action: 'ACTION_SUBMIT_ROUND',
       entityType: 'AuditCycle',
       entityId: cycle.id,
-      after: { submitted: res.count, deficiencyIds: toSubmitIds, skipped: skipped.length },
+      after: { submitted: notifyIds.length, deficiencyIds: notifyIds, skipped: skipped.length },
       ...extractRequestMeta(req),
     });
 
@@ -74,7 +86,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     try {
       const r = await notifyAuditorsOnRoundSubmit({
         cycleId: cycle.id,
-        deficiencyIds: toSubmitIds,
+        deficiencyIds: notifyIds,
         appBaseUrl: appBaseUrl(req),
       });
       notified = r.recipientCount;
@@ -82,7 +94,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       console.error('notifyAuditorsOnRoundSubmit failed:', e);
     }
 
-    return NextResponse.json({ submitted: res.count, skipped, notified });
+    return NextResponse.json({ submitted: notifyIds.length, skipped, notified });
   } catch (e) {
     return errorResponse(e);
   }
