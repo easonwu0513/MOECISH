@@ -209,6 +209,13 @@ export default function UserRowActions({
               此帳號未隸屬機關，不可改為機關管理員。
             </p>
           )}
+          {/* 選項C(批74):離開機關管理員的誤操作警示——避免無意中抹除機關歸屬與迴避關聯 */}
+          {role === 'ORG_ADMIN' && newRole !== 'ORG_ADMIN' && (
+            <p className="mt-2 rounded-md bg-warning-50 border border-warning-100 px-3 py-2 text-caption text-ink-700">
+              「{name}」目前為機關管理員。轉為其他角色後，系統將解除其機關歸屬並留存「曾任」歷史；
+              請留意：日後若指派其稽核原機關，利益迴避檢核目前不會自動偵測此「曾任」關聯。
+            </p>
+          )}
         </div>
       </Dialog>
 

@@ -6,6 +6,7 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ASSIGN_ASPECTS } from '@/lib/audit-score';
 import { canAssignAuditors } from '@/lib/stage';
+import { hasFormerOrgAdminConflict } from '@/lib/coi';
 import type { CycleStatus } from '@/lib/types';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -84,8 +85,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const holdsOrgAdminOfCycleOrg = auditor.roleGrants.some(
       (g) => g.role === 'ORG_ADMIN' && g.organizationId === cycle.organizationId,
     );
-    if ((auditor.organizationId && auditor.organizationId === cycle.organizationId) || holdsOrgAdminOfCycleOrg) {
-      return NextResponse.json({ error: '委員不得審查自己服務之機關（迴避原則，含其多重身分所屬機關）' }, { status: 400 });
+    // 選項2(批74;預設停用)預留:迴避涵蓋「曾任機關」——lib/coi 常數為 null 時 hasFormerOrgAdminConflict
+    // 直接回 false(零查詢、行為與現行一致);設為年數 N 即啟用「卸任 N 年內曾任者亦迴避」,一鍵開通。
+    const formerOrgConflict = await hasFormerOrgAdminConflict(body.auditorId, cycle.organizationId);
+    if (
+      (auditor.organizationId && auditor.organizationId === cycle.organizationId) ||
+      holdsOrgAdminOfCycleOrg ||
+      formerOrgConflict
+    ) {
+      return NextResponse.json(
+        {
+          error: formerOrgConflict
+            ? '委員曾任此機關管理員，於迴避回溯期間內不得被指派稽核此機關（迴避原則）。'
+            : '委員不得審查自己服務之機關（迴避原則，含其多重身分所屬機關）',
+        },
+        { status: 400 },
+      );
     }
     // 反向防呆(與 observers POST 的 observerAlsoAuditor 對稱):已配對為本週期觀察員者
     // 不可再被指派為正式委員,否則同人同週期雙重身分,破壞師徒制練習硬隔離的前提

@@ -67,9 +67,37 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // 避免非機關身分殘留機關歸屬造成醫院頁誤列)
     const orgClear = body.role && body.role !== 'ORG_ADMIN' ? { organizationId: null } : {};
 
-    const updated = await prisma.user.update({
-      where: { id: target.id },
-      data: { isActive: body.isActive, role: body.role, ...lifecycle, ...orgClear },
+    // 選項A(批74):角色離開「機關管理員」時,保留「曾任該機關」的歷史軌跡。orgClear 會清掉
+    // organizationId,若不留痕,日後「曾任機關」利益迴避(選項2,見 lib/coi)無從查證。
+    // 作法:優先結束該機關現有的有效 ORG_ADMIN 授權(多重身分);若無(legacy 單一身分)則補建一筆
+    // endedAt 的歷史列。現行迴避判定(選項3)不變,此處僅補資料基礎。
+    const leavingOrgAdmin =
+      !!body.role && body.role !== 'ORG_ADMIN' && target.role === 'ORG_ADMIN' && !!target.organizationId;
+    const formerOrgId = target.organizationId;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: target.id },
+        data: { isActive: body.isActive, role: body.role, ...lifecycle, ...orgClear },
+      });
+      if (leavingOrgAdmin && formerOrgId) {
+        const ended = await tx.userRole.updateMany({
+          where: { userId: target.id, role: 'ORG_ADMIN', organizationId: formerOrgId, endedAt: null },
+          data: { endedAt: new Date() },
+        });
+        if (ended.count === 0) {
+          await tx.userRole.create({
+            data: {
+              userId: target.id,
+              role: 'ORG_ADMIN',
+              organizationId: formerOrgId,
+              createdById: actor.id,
+              endedAt: new Date(),
+            },
+          });
+        }
+      }
+      return u;
     });
 
     const meta = extractRequestMeta(req);
@@ -83,6 +111,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         isActive: updated.isActive,
         role: updated.role,
         ...(disabling ? { disableReason: body.reason } : {}),
+        ...(leavingOrgAdmin ? { formerOrgArchived: formerOrgId } : {}),
       },
       ...meta,
     });
