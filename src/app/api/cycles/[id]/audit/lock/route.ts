@@ -78,10 +78,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         throw e;
       }
     } else {
-      await prisma.auditorAssignment.update({
-        where: { id: assignment.id },
-        data: { scoreLockedAt: null },
-      });
+      // 解除定稿:悲觀鎖 aggregate root(AuditCycle FOR UPDATE)+ 交易內重查階段閘,與中心「完成稽核 / 推進至
+      // REPORT_ISSUED」互斥——消除「中心讀到全體已定稿、推進途中本委員同時解鎖」的 TOCTOU。REPORT_ISSUED 起
+      // auditorCanScore=false 本就不可解鎖,此處持列鎖重查使其對「並發推進」亦成立(對手方 finish/transition 對稱鎖同列)。
+      // ⚠️不可只靠外層一次性 auditorCanScore(cycle.status)前置檢查:那是交易外讀,推進可插在檢查與此裸寫之間。
+      const unlocked = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "AuditCycle" WHERE id = ${cycle.id} FOR UPDATE`;
+        const fresh = await tx.auditCycle.findUnique({ where: { id: cycle.id }, select: { status: true } });
+        if (!fresh || fresh.status === 'CLOSED' || !auditorCanScore(fresh.status)) return false;
+        await tx.auditorAssignment.update({ where: { id: assignment.id }, data: { scoreLockedAt: null } });
+        return true;
+        // 提高 timeout(預設 5s):此交易持 AuditCycle 列鎖,可能排隊等中心 finish 的長臨界區(逐筆轉缺失),防等鎖期間 P2028。
+      }, { timeout: 30000, maxWait: 10000 });
+      if (!unlocked) {
+        return NextResponse.json(
+          { error: '週期階段已變更（缺失可能已發布），目前不可解除定稿；請重新整理後再試。' },
+          { status: 409 },
+        );
+      }
     }
 
     await writeAuditLog({

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { auditorScoringComplete } from './audit-score';
 
@@ -12,9 +13,15 @@ import { auditorScoringComplete } from './audit-score';
  * 供兩條抵達「缺失發布/完成稽核」的路徑共用同一前置,避免繞過:
  *  - 「已完成年度稽核」一鍵連動(api/cycles/[id]/audit/finish)
  *  - 手動推進至「缺失發布中(REPORT_ISSUED)」(api/cycles/[id]/transition)
+ *
+ * @param db 可傳入交易 client(`$transaction`)以與狀態落地同一交易內「重驗」,消除
+ *   「讀定稿後、狀態 commit 前委員被退件/解鎖」的 TOCTOU(呼叫端於 Serializable 交易內重跑)。
  */
-export async function auditorsFinalized(cycleId: string): Promise<{ ok: boolean; error?: string }> {
-  const assignments = await prisma.auditorAssignment.findMany({
+export async function auditorsFinalized(
+  cycleId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<{ ok: boolean; error?: string }> {
+  const assignments = await db.auditorAssignment.findMany({
     where: { cycleId },
     select: { auditorId: true, scoreLockedAt: true, dimensions: true, auditor: { select: { name: true } } },
   });
@@ -29,19 +36,19 @@ export async function auditorsFinalized(cycleId: string): Promise<{ ok: boolean;
     };
   }
   // ② 依責任構面重新驗算評分完整性(每構面題數以該檢核表版本為準,與 lock 閘同語彙)。
-  const cycle = await prisma.auditCycle.findUnique({
+  const cycle = await db.auditCycle.findUnique({
     where: { id: cycleId },
     select: { checklistVersionId: true },
   });
   const itemGroups = cycle?.checklistVersionId
-    ? await prisma.checklistItem.groupBy({
+    ? await db.checklistItem.groupBy({
         by: ['dimension'],
         where: { versionId: cycle.checklistVersionId },
         _count: { _all: true },
       })
     : [];
   const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
-  const scores = await prisma.auditScore.findMany({ where: { cycleId } });
+  const scores = await db.auditScore.findMany({ where: { cycleId } });
   for (const a of assignments) {
     const mine = scores.filter((s) => s.auditorId === a.auditorId);
     // 以「至少一個構面完整」為準(與委員端定稿閘 batch64 同語彙),不逐責任構面硬擋:

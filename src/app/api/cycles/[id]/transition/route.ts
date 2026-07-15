@@ -128,9 +128,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       }
     }
 
-    // 樂觀鎖:以 status===from 為條件更新,防兩個並行 transition 同時通過前置閘造成重複副作用
-    // (重複 notify / 標準清單 seed 重入 / 幻影轉換列)。更新與轉換紀錄收進同一交易;敗者 count===0 → 409。
+    // 悲觀鎖 aggregate root(FOR UPDATE)+ 樂觀鎖(status===from):先鎖住本週期列,使 REPORT_ISSUED 定稿重驗與
+    // 狀態落地期間,委員不可能並發解鎖(audit/lock)或被退件(audit/return)——二者對稱鎖同列、且於 REPORT_ISSUED 起
+    // 本就被凍結閘擋,故消除「讀定稿(全體已定稿)後、狀態 commit 前被解鎖」的 TOCTOU。⚠️不可只靠 Serializable:對手方
+    // 解鎖為非交易裸 UPDATE(READ COMMITTED),PostgreSQL SSI 不追蹤、無法形成 rw 依賴環。status===from 另擋並發
+    // 同向推進(重複 notify / 標準清單 seed 重入 / 幻影轉換列);敗者 count===0 → 409。
     const won = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "AuditCycle" WHERE id = ${cycle.id} FOR UPDATE`;
+      if (to === 'REPORT_ISSUED' && forward) {
+        const f = await auditorsFinalized(cycle.id, tx); // 持列鎖下重驗:期間不可能有並發解鎖/退件
+        if (!f.ok) return false; // 定稿已不成立 → 視為競態,回 409 重試(前置閘已給清楚訊息)
+      }
       const res = await tx.auditCycle.updateMany({
         where: { id: cycle.id, status: from },
         data: {
@@ -144,7 +152,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         data: { cycleId: cycle.id, fromStatus: from, toStatus: to, actorId: user.id, reason: body.reason ?? null },
       });
       return true;
-    });
+      // 提高 timeout(預設 5s):此交易持 AuditCycle 列鎖,可能排隊等 finish 的長臨界區(逐筆轉缺失),防等鎖期間 P2028。
+    }, { timeout: 30000, maxWait: 10000 });
     if (!won) {
       return NextResponse.json({ error: '週期狀態已被其他操作變更，請重新整理後再試。' }, { status: 409 });
     }

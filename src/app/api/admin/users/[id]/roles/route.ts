@@ -49,18 +49,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     const orgId = body.role === 'ORG_ADMIN' ? body.organizationId! : body.organizationId ?? null;
 
-    // 反向迴避閘(批64):不得將某員授權為某機關管理員,若其為該機關「未結案稽核週期」的在職委員——
-    // 對稱指派端的 COI 閘(assignments POST 查授權全集),堵住「先指派委員 → 後授權 ORG_ADMIN」
-    // 繞過迴避原則的時序漏洞(委員不得審查自己服務之機關)。CLOSED 週期審核已結束不阻擋。
+    // 反向迴避閘(批64 + 本批補觀察員兄弟):不得將某員授權為某機關管理員,若其為該機關「未結案稽核週期」的
+    // 在職委員(AuditorAssignment)或配對觀察員(CycleObserver)——對稱於指派端(assignments POST 查授權全集)
+    // 與配對端(observers POST holdsOrgAdminOfCycleOrg)的 COI 閘,堵住「先指派委員/配對觀察員 → 後授權
+    // ORG_ADMIN」繞過迴避原則的時序漏洞(委員/觀察員不得涉入自己服務之機關)。CLOSED 週期審核已結束不阻擋。
     if (body.role === 'ORG_ADMIN' && orgId) {
-      const auditingOrg = await prisma.auditorAssignment.count({
-        where: { auditorId: params.id, cycle: { organizationId: orgId, status: { not: 'CLOSED' } } },
-      });
-      if (auditingOrg > 0) {
+      const [auditingOrg, observingOrg] = await Promise.all([
+        prisma.auditorAssignment.count({
+          where: { auditorId: params.id, cycle: { organizationId: orgId, status: { not: 'CLOSED' } } },
+        }),
+        prisma.cycleObserver.count({
+          where: { observerId: params.id, cycle: { organizationId: orgId, status: { not: 'CLOSED' } } },
+        }),
+      ]);
+      if (auditingOrg > 0 || observingOrg > 0) {
+        const roleWord = auditingOrg > 0 ? '在職委員' : '配對觀察員';
+        const releaseWord = auditingOrg > 0 ? '委員指派' : '觀察員配對';
         return NextResponse.json(
           {
             error:
-              '該員為此機關稽核週期的在職委員，不得同時授權為該機關管理員（迴避原則）。如確需授權，請先解除其於該機關週期的委員指派。',
+              `該員為此機關稽核週期的${roleWord}，不得同時授權為該機關管理員（迴避原則）。如確需授權，請先解除其於該機關週期的${releaseWord}。`,
           },
           { status: 400 },
         );

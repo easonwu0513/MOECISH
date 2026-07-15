@@ -62,26 +62,37 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
-    // 2) 轉缺失 + 多跳狀態推進:單一交易確保原子性(中途失敗整批回滾,不卡中間狀態)
-    const { converted, totalDeficiencies } = await prisma.$transaction(async (tx) => {
-      const conv = await convertFindingsToDeficiencies(cycle.id, user.id, tx);
-      const total = await tx.deficiency.count({ where: { cycleId: cycle.id } });
+    // 2) 悲觀鎖 aggregate root(AuditCycle FOR UPDATE)+ 定稿重驗 + 多跳推進 + 轉缺失,收進單一交易:
+    //    - FOR UPDATE 使本交易與 transition / audit-lock(解鎖)/ audit-return 互斥同一週期列:定稿檢查與狀態落地
+    //      期間,委員不可能並發解鎖或被退件(它們阻塞於同列鎖;且退件/解鎖於 REPORT_ISSUED 起本就被閘擋)→ 消除 TOCTOU。
+    //      ⚠️不可只靠 Serializable:對手方 audit-lock/return 的解鎖是「非交易裸 UPDATE」=READ COMMITTED,PostgreSQL SSI
+    //      不追蹤非序列化寫入、無法形成 rw 依賴環,故必須以顯式列鎖互斥(見 audit/lock、audit/return 亦對稱加鎖)。
+    //    - 兩個並行「完成稽核」序列化於此列鎖:後到者待前者提交後,首跳 CAS(status===from)失敗、convert 見無待轉 → 不重複。
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "AuditCycle" WHERE id = ${cycle.id} FOR UPDATE`;
+      const f = await auditorsFinalized(cycle.id, tx); // 持列鎖下重驗:期間不可能有並發解鎖/退件
+      if (!f.ok) return { raced: true as const };
       const path = PATH_TO_REMEDIATION[cycle.status as CycleStatus] ?? [];
       let from = cycle.status as CycleStatus;
       for (const to of path) {
-        await tx.auditCycle.update({
-          where: { id: cycle.id },
-          data: {
-            status: to,
-            stateTransitions: {
-              create: { fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核（一鍵連動）' },
-            },
-          },
+        // 首跳為「認領」CAS;敗(count===0)=另一「完成稽核」在我取得列鎖前已推進。贏首跳後持鎖,後續跳不會再敗。
+        const upd = await tx.auditCycle.updateMany({ where: { id: cycle.id, status: from }, data: { status: to } });
+        if (upd.count === 0) return { raced: true as const };
+        await tx.cycleStateTransition.create({
+          data: { cycleId: cycle.id, fromStatus: from, toStatus: to, actorId: user.id, reason: '已完成年度稽核（一鍵連動）' },
         });
         from = to;
       }
-      return { converted: conv, totalDeficiencies: total };
-    });
+      const conv = await convertFindingsToDeficiencies(cycle.id, user.id, tx);
+      const total = await tx.deficiency.count({ where: { cycleId: cycle.id } });
+      return { raced: false as const, converted: conv, totalDeficiencies: total };
+      // 臨界區含逐筆轉缺失(convert 隨待轉筆數線性增長),且持鎖期間解鎖/退件/推進會排隊等此列鎖 →
+      // 提高交易 timeout(Prisma 互動式交易預設僅 5s)防大量待轉時 finish 或排隊端 P2028。
+    }, { timeout: 30000, maxWait: 10000 });
+    if (result.raced) {
+      return NextResponse.json({ error: '週期狀態已被其他操作變更，請重新整理後再試。' }, { status: 409 });
+    }
+    const { converted, totalDeficiencies } = result;
 
     // 3) 通知機關開始矯正填報(失敗不擋流程)
     let notified = 0;

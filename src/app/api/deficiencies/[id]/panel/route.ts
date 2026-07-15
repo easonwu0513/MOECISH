@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
+import { canAccess } from '@/lib/access-policy';
 import { actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
-import type { ActionStatus, CycleStatus } from '@/lib/types';
+import type { ActionStatus, CycleStatus, Role } from '@/lib/types';
 
 /**
  * 缺失就地展開面板資料(批47):缺失列表點一筆就地展開矯正措施填報,免換頁。
@@ -15,6 +16,12 @@ import type { ActionStatus, CycleStatus } from '@/lib/types';
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, deficiency } = await assertDeficiencyAccess(params.id);
+    // 階段閘(API 權威層,與列表端 cycles/[id]/deficiencies GET 及頁面 redirect 一致):
+    // 委員待缺失發布(REPORT_ISSUED)後可見、結案後鎖定;機關待矯正執行(REMEDIATION)後開放;中心全程。
+    // assertDeficiencyAccess 只驗「同機關/受指派」不驗階段 → 未達開放階段直打 panel 仍會讀到內容,故此處補階段閘。
+    if (user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, deficiency.cycle.status)) {
+      return NextResponse.json({ error: '目前階段尚未開放檢視此缺失' }, { status: 403 });
+    }
     // 委員僅能展開「指派給本人審閱」的缺失(與詳情頁一致;其餘不可見)
     if (user.role === 'AUDITOR' && deficiency.reviewerAuditorId !== user.id) {
       return NextResponse.json({ error: '您非此缺失的審閱委員' }, { status: 403 });

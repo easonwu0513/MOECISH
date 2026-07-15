@@ -29,29 +29,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '檔案超過 20MB 上限' }, { status: 400 });
     }
 
-    // 取代同人舊參考件(一人一檔)
-    const old = await prisma.evidence.findMany({ where: { targetType: 'SURVEY_CV_PRIOR', targetId: participant.id } });
-    for (const o of old) {
-      await deleteFileByKey(o.storageKey).catch(() => {});
-      await prisma.evidence.delete({ where: { id: o.id } }).catch(() => {});
-    }
-
+    // 取代同人舊參考件(一人一檔):先寫新檔成功、再刪舊檔(delete-after-write),避免「先刪舊→寫新失敗」遺失中心提供的參考件。
     const buf = Buffer.from(await file.arrayBuffer());
-    const saved = await saveBuffer(buf, `evidences/SURVEY_CV_PRIOR/${participant.id}`, file.name);
-    const item = await prisma.evidence.create({
-      data: {
-        targetType: 'SURVEY_CV_PRIOR',
-        targetId: participant.id,
-        fileName: saved.fileName,
-        originalName: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        sizeBytes: saved.sizeBytes,
-        storageKey: saved.storageKey,
-        sha256: saved.sha256,
-        uploadedById: user.id,
-      },
-      select: { id: true, originalName: true },
+    const old = await prisma.evidence.findMany({
+      where: { targetType: 'SURVEY_CV_PRIOR', targetId: participant.id },
+      select: { id: true, storageKey: true },
     });
+    const saved = await saveBuffer(buf, `evidences/SURVEY_CV_PRIOR/${participant.id}`, file.name); // 失敗即拋,舊檔原封不動
+
+    let item;
+    try {
+      // 建新列 + 刪舊列同一交易(原子);舊實體檔待交易成功後才刪。
+      item = await prisma.$transaction(async (tx) => {
+        if (old.length) await tx.evidence.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
+        return tx.evidence.create({
+          data: {
+            targetType: 'SURVEY_CV_PRIOR',
+            targetId: participant.id,
+            fileName: saved.fileName,
+            originalName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            sizeBytes: saved.sizeBytes,
+            storageKey: saved.storageKey,
+            sha256: saved.sha256,
+            uploadedById: user.id,
+          },
+          select: { id: true, originalName: true },
+        });
+      });
+    } catch (e) {
+      await deleteFileByKey(saved.storageKey).catch(() => {}); // DB 交易失敗 → 回收新實體檔,舊檔原封不動
+      throw e;
+    }
+    for (const o of old) await deleteFileByKey(o.storageKey).catch(() => {}); // 交易成功 → 刪舊實體檔(失敗僅留孤兒)
 
     await writeAuditLog({
       actorId: user.id,

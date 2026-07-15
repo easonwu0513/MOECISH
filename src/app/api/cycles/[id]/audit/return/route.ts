@@ -50,10 +50,25 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '該委員尚未確認填寫完畢，無需退件' }, { status: 409 });
     }
 
-    await prisma.auditorAssignment.update({
-      where: { id: assignment.id },
-      data: { scoreLockedAt: null },
-    });
+    // 退件解鎖:悲觀鎖 aggregate root(AuditCycle FOR UPDATE)+ 交易內重查凍結閘(REPORT_ISSUED 起不可退件)與定稿狀態,
+    // 與中心「完成稽核 / 推進至 REPORT_ISSUED」互斥——消除「讀到可退件、推進途中本委員被退件」的 TOCTOU(對手方 finish/
+    // transition 對稱鎖同列)。⚠️外層 canAssignAuditors(cycle.status) 前置檢查為交易外讀,推進可插在檢查與此裸寫之間。
+    const returned = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "AuditCycle" WHERE id = ${cycle.id} FOR UPDATE`;
+      const fresh = await tx.auditCycle.findUnique({ where: { id: cycle.id }, select: { status: true } });
+      if (!fresh || !canAssignAuditors(fresh.status as CycleStatus)) return false; // 已進入缺失發布/凍結 → 不可退件
+      const a = await tx.auditorAssignment.findUnique({ where: { id: assignment.id }, select: { scoreLockedAt: true } });
+      if (!a?.scoreLockedAt) return false; // 已被其他退件/解鎖清空
+      await tx.auditorAssignment.update({ where: { id: assignment.id }, data: { scoreLockedAt: null } });
+      return true;
+      // 提高 timeout(預設 5s):此交易持 AuditCycle 列鎖,可能排隊等中心 finish 的長臨界區(逐筆轉缺失),防等鎖期間 P2028。
+    }, { timeout: 30000, maxWait: 10000 });
+    if (!returned) {
+      return NextResponse.json(
+        { error: '週期階段已變更或該委員已非定稿狀態，請重新整理後再試。' },
+        { status: 409 },
+      );
+    }
 
     await writeAuditLog({
       actorId: session.user.id,
