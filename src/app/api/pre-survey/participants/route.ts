@@ -18,7 +18,7 @@ const Body = z.object({
  *  - MEMBER 須為在職委員(role='AUDITOR' 或有效 AUDITOR 授權);
  *  - OBSERVER 須為在職觀察員(role='OBSERVER' 或有效 OBSERVER 授權)。
  * 多重身分:查授權全集(role ∪ roleGrants endedAt=null),避免現用身分切換後漏查(批51 教訓)。
- * 同年度同帳號唯一(@@unique([year,userId]));重複回 409。
+ * 同年度同帳號同身分唯一(@@unique([year,userId,kind]);允許同人同年度兼委員與觀察員);重複回 409。
  */
 export async function POST(req: Request) {
   try {
@@ -63,9 +63,9 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ participant });
     } catch (e) {
-      // @@unique([year, userId]) 撞鍵
+      // @@unique([year, userId, kind]) 撞鍵(同帳號同年度同身分才算重複;允許兼委員與觀察員)
       if ((e as { code?: string }).code === 'P2002') {
-        return NextResponse.json({ error: '此帳號已在本年度受調名單中' }, { status: 409 });
+        return NextResponse.json({ error: '此帳號已在本年度以相同身分列入受調名單中' }, { status: 409 });
       }
       throw e;
     }

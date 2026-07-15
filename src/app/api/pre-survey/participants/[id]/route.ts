@@ -18,7 +18,8 @@ const Body = z.object({
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
   replyStatus: z.enum(SURVEY_REPLY_STATUSES).optional(),
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
-  // 僅中心可改:自訂欄位單格值(mockup 改版;value 為空字串=清除該格)
+  // 自訂欄位單格值(mockup 改版;value 為空字串=清除該格)。中心可改任一欄;
+  // 受調者本人僅限已開放填寫(selfEditable)的欄位(於下方 PATCH 內把關)。
   customValue: z.object({ columnId: z.string().min(1), value: z.string().max(500) }).optional(),
 });
 
@@ -35,9 +36,9 @@ function parseCustomValues(json: string | null): Record<string, string> {
 
 /**
  * 更新受調人員欄位(批A)。
- *  - 本人(委員/觀察員):限自己的聯絡資訊(phone/email)。
- *  - 中心(SUPER_ADMIN):上列 + 管考欄位(note/committeeType/replyStatus/docHandover)。
- * 授權由 loadParticipantForAccess(中心或本人)把關;管考欄位另擋非中心。
+ *  - 本人(委員/觀察員):限自己的聯絡資訊(phone/email)+ 中心已開放填寫(selfEditable)的自訂欄位值。
+ *  - 中心(SUPER_ADMIN):上列 + 管考欄位(note/committeeType/replyStatus/docHandover)+ 任一自訂欄位值。
+ * 授權由 loadParticipantForAccess(中心或本人)把關;管考欄位另擋非中心;自訂欄位本人另擋非 selfEditable。
  */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -48,10 +49,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       body.note !== undefined ||
       body.committeeType !== undefined ||
       body.replyStatus !== undefined ||
-      body.docHandover !== undefined ||
-      body.customValue !== undefined;
+      body.docHandover !== undefined;
     if (adminOnlyTouched && !isAdmin) {
       return NextResponse.json({ error: '此欄位僅中心可調整' }, { status: 403 });
+    }
+
+    // #5:自訂欄位單格值——本人只能操作自己的 participant(已由 loadParticipantForAccess 把關);
+    // 此處再擋欄位層級越權:本人僅可改「本年度、已開放受調者填寫(selfEditable)」的欄位。
+    if (body.customValue !== undefined && !isAdmin) {
+      const col = await prisma.surveyCustomColumn.findUnique({
+        where: { id: body.customValue.columnId },
+        select: { year: true, selfEditable: true },
+      });
+      if (!col || col.year !== participant.year || !col.selfEditable) {
+        return NextResponse.json({ error: '此欄位未開放您填寫' }, { status: 403 });
+      }
     }
 
     const data: Record<string, unknown> = {};
@@ -68,7 +80,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;
     }
-    const cv = isAdmin ? body.customValue : undefined; // customValues 為 read-modify-write,另走交易避免遺失更新
+    const cv = body.customValue; // 中心或(通過上方欄位閘的)本人;customValues 為 read-modify-write,另走交易避免遺失更新
     if (Object.keys(data).length === 0 && cv === undefined) {
       return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
     }

@@ -96,6 +96,18 @@ export default function SurveySelfDashboard({ data, userName }: { data: SelfDTO;
           <Button onClick={() => setOpen(true)} leadingIcon={<Pencil size={16} />}>{status.cta}</Button>
         </div>
         <p className="mt-4 text-body-sm text-ink-600">{status.hint}</p>
+        {(() => {
+          // #5:中心指定填報欄位若仍有未填,於總覽提醒(即使主流程已完成也看得到)
+          const pending = data.customFields.filter((f) => !f.value.trim());
+          if (pending.length === 0) return null;
+          const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+          const overdue = pending.filter((f) => f.dueDate && f.dueDate < today).length;
+          return (
+            <p className={`mt-2 text-caption ${overdue > 0 ? 'text-danger-600' : 'text-ink-500'}`}>
+              另有中心指定填報欄位 {pending.length} 項待填{overdue > 0 ? `（其中 ${overdue} 項已逾期）` : ''}，請點「{status.cta}」開啟填寫。
+            </p>
+          );
+        })()}
       </Card>
 
       <Dialog

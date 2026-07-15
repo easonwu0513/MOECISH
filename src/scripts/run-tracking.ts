@@ -64,6 +64,26 @@ async function trackedKeySent(key: string): Promise<boolean> {
   return hit !== null;
 }
 
+/** #5:事前場次調查自訂填報欄位催辦鍵是否已寄過(kind='presurvey-cv-due';autoKeys 以 |鍵| 夾邊比對,避免子字串誤中)。 */
+async function pcvKeySent(key: string): Promise<boolean> {
+  const hit = await prisma.emailLog.findFirst({
+    where: { kind: 'presurvey-cv-due', context: { contains: `|${key}|` } },
+    select: { id: true },
+  });
+  return hit !== null;
+}
+
+/** 解析 customValues JSON(Record<columnId,string>);壞資料回空物件。 */
+function parseCustomValues(json: string | null): Record<string, string> {
+  if (!json) return {};
+  try {
+    const o = JSON.parse(json);
+    return o && typeof o === 'object' && !Array.isArray(o) ? (o as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
 async function main() {
   const now = new Date();
   console.log(`[track] run at ${now.toISOString()}`);
@@ -279,6 +299,71 @@ async function main() {
       sentCount++;
     }
     console.log(`[track] tracked CENTER DIGEST × ${centerDigest.length} orgs / ${totalItems} items → ${center.length} center recipients`);
+  }
+
+  // ── #5:事前場次調查「中心指定填報欄位」到期催辦(selfEditable + 有到期日;催受調者本人) ──
+  // 對每位受調者,把其名下「該欄仍為空 且 進入催辦視窗」的欄位彙整成一封(到期前 7 日內一次、逾期每 7 天一次)。
+  const cvCols = await prisma.surveyCustomColumn.findMany({
+    where: { selfEditable: true, dueDate: { not: null } },
+    select: { id: true, year: true, title: true, dueDate: true },
+  });
+  if (cvCols.length > 0) {
+    const yearsInvolved = [...new Set(cvCols.map((c) => c.year))];
+    for (const y of yearsInvolved) {
+      const yearCols = cvCols.filter((c) => c.year === y);
+      const parts = await prisma.surveyParticipant.findMany({
+        where: { year: y },
+        select: {
+          id: true,
+          customValues: true,
+          user: { select: { name: true, email: true, isActive: true } },
+        },
+      });
+      for (const p of parts) {
+        if (!p.user.isActive) continue; // 停用帳號不催
+        const values = parseCustomValues(p.customValues);
+        const entries: { title: string; due: Date; overdue: boolean; key: string }[] = [];
+        for (const col of yearCols) {
+          if ((values[col.id] ?? '').trim().length > 0) continue; // 已填 → 不催
+          const due = col.dueDate!; // where dueDate not null 已保證
+          const dleft = daysUntil(due, now);
+          const dueKey = due.toISOString().slice(0, 10); // 到期日=去重世代;改期即重新起算
+          let key: string | null = null;
+          let overdue = false;
+          if (dleft >= 0 && dleft <= 7) {
+            key = `pcv:${col.id}:${p.id}:${dueKey}:D7`;
+          } else if (dleft < 0) {
+            overdue = true;
+            const week = Math.floor(-dleft / 7); // 逾期第 0/7/14… 天各一次 → 每 7 天一封
+            key = `pcv:${col.id}:${p.id}:${dueKey}:OD${week}`;
+          }
+          if (!key || (await pcvKeySent(key))) continue;
+          entries.push({ title: col.title, due, overdue, key });
+        }
+        if (entries.length === 0) continue;
+
+        const yearROC = y - 1911;
+        const link = `${APP_BASE}/pre-survey`;
+        const anyOverdue = entries.some((e) => e.overdue);
+        const lines = entries.map((e) => `・${e.title}（到期日 ${fmtROC(e.due)}${e.overdue ? '；已逾期' : ''}）`).join('\n');
+        const body =
+          `${p.user.name} 您好，\n\n` +
+          `${yearROC} 年度事前場次調查尚有下列由中心指定、須由您填報的欄位${anyOverdue ? '已逾期或即將到期' : '即將到期'}，請儘速登入平台填寫：\n\n` +
+          `${lines}\n\n${link}\n\n` +
+          `— 教育部轄下醫療領域資訊安全推動中心（系統自動發送）`;
+        await sendEmail({
+          to: p.user.email,
+          toName: p.user.name,
+          subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填報指定欄位（${entries.length} 項）`,
+          body,
+          kind: 'presurvey-cv-due',
+          notificationLink: '/pre-survey',
+          context: { autoKeys: `|${entries.map((e) => e.key).join('|')}|`, year: y, count: entries.length, auto: true },
+        });
+        sentCount++;
+        console.log(`[track] presurvey-cv-due for ${p.user.name} (${yearROC}) × ${entries.length} fields`);
+      }
+    }
   }
 
   console.log(`[track] done. total sent: ${sentCount}`);

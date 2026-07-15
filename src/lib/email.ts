@@ -34,6 +34,7 @@ export type EmailKind =
   | 'presurvey-remind'    // 事前場次調查催辦(中心催委員/觀察員填意願)(批A)
   | 'presurvey-travel-remind' // 事前場次調查二階催辦(中心催已指派者填差旅與飲食)(mockup 改版)
   | 'presurvey-doc-return' // 事前場次調查文件退補(中心退回受調者文件)(批B)
+  | 'presurvey-cv-due'    // 事前場次調查「中心指定填報欄位」到期催辦(timer;催受調者本人)(#5)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

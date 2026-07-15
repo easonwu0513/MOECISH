@@ -685,7 +685,7 @@ model SurveyParticipant {
   availabilities   SessionAvailability[]
   finalAssignments SurveyFinalAssignment[]
 
-  @@unique([year, userId]) // 一年度一帳號至多一列
+  @@unique([year, userId, kind]) // 一年度一帳號一身分至多一列(允許同人同年度兼委員與觀察員)
   @@index([year, kind])
 }
 
@@ -705,13 +705,15 @@ model SurveyTemplate {
 // mockup 改版:中心可為管考表自訂欄位(年度制)。欄位「值」存於 SurveyParticipant.customValues JSON(以本表 id 為鍵),
 // 刪除欄位後 JSON 內殘鍵於渲染/匯出時忽略(無害),故不需連動清值。
 model SurveyCustomColumn {
-  id          String   @id @default(cuid())
-  year        Int
-  title       String
-  orderIndex  Int      @default(0)
-  createdById String // 建立者快照
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  year         Int
+  title        String
+  orderIndex   Int       @default(0)
+  selfEditable Boolean   @default(false) // true=開放受調者於自助頁自行填寫(否則為中心內部欄,受調者看不到)
+  dueDate      DateTime? // 受調者填報到期日(僅 selfEditable 有意義);設定後 timer 對值仍空者催辦本人
+  createdById  String // 建立者快照
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([year, orderIndex])
 }

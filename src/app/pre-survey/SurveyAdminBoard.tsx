@@ -65,7 +65,7 @@ export type AdminParticipantDTO = {
 };
 export type PoolUser = { id: string; name: string; email: string };
 export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
-export type AdminColumnDTO = { id: string; title: string };
+export type AdminColumnDTO = { id: string; title: string; selfEditable: boolean; dueDate: string | null };
 
 export default function SurveyAdminBoard({
   yearROC,
@@ -93,6 +93,7 @@ export default function SurveyAdminBoard({
   const [removeFor, setRemoveFor] = useState<AdminParticipantDTO | null>(null);
   const [reviewFor, setReviewFor] = useState<AdminParticipantDTO | null>(null);
   const [profileFor, setProfileFor] = useState<AdminParticipantDTO | null>(null);
+  const [colSettingsFor, setColSettingsFor] = useState<AdminColumnDTO | null>(null);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
   const [sortSessionId, setSortSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -222,23 +223,23 @@ export default function SurveyAdminBoard({
 
       {/* 管考矩陣 */}
       <Card variant="outlined" className="!p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full text-body-sm border-collapse">
             <thead>
               <tr className="bg-paper-sunk text-caption text-ink-500">
-                <th className="sticky left-0 z-10 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
-                {kind === 'MEMBER' && <th className="px-3 py-2.5 text-left font-medium min-w-[124px]">類型</th>}
-                <th className="px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
+                <th className="sticky left-0 top-0 z-30 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
+                {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[124px]">類型</th>}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
                 {/* 左群組:最終場次 / 意願回信 */}
-                <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
-                <th className="px-3 py-2.5 text-left font-medium">意願回信</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">意願回信</th>
                 {/* 場次意願(點表頭一鍵分組) */}
                 {sessions.map((s, i) => {
                   const active = sortSessionId === s.id;
                   return (
                     <th
                       key={s.id}
-                      className={`px-2 py-2.5 text-center font-medium min-w-[108px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : ''}`}
+                      className={`sticky top-0 z-20 px-2 py-2.5 text-center font-medium min-w-[108px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : 'bg-paper-sunk'}`}
                       title={`${s.dateLabel} ${s.name}（點擊依此場次 OK 分組）`}
                       onClick={() => setSortSessionId(active ? null : s.id)}
                     >
@@ -251,21 +252,29 @@ export default function SurveyAdminBoard({
                   );
                 })}
                 {/* 右群組:文件交接 / 交通 / 飲食 / 電話 / 備註 */}
-                <th className="px-3 py-2.5 text-left font-medium">文件交接</th>
-                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
-                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
-                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">聯絡電話</th>
-                <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">備註</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">文件交接</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">聯絡電話</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">備註</th>
                 {/* 自訂欄位(可改名 / 刪除) */}
                 {customColumns.map((c) => (
-                  <th key={c.id} className="px-2 py-2 text-left font-medium min-w-[120px]">
+                  <th key={c.id} className="sticky top-0 z-20 bg-paper-sunk px-2 py-2 text-left font-medium min-w-[120px]">
                     <div className="flex items-center gap-1">
                       <input
                         defaultValue={c.title}
                         onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== c.title) renameColumn(c.id, t); else if (!t) e.target.value = c.title; }}
-                        className="w-full min-w-[60px] rounded bg-transparent px-1 py-0.5 text-caption font-medium text-ink-700 focus-ring hover:bg-paper"
+                        className="w-full min-w-[52px] rounded bg-transparent px-1 py-0.5 text-caption font-medium text-ink-700 focus-ring hover:bg-paper"
                         aria-label="自訂欄位標題"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setColSettingsFor(c)}
+                        className="shrink-0 text-ink-400 hover:text-primary-600 focus-ring rounded"
+                        title="欄位設定（開放受調者填寫／到期日）"
+                      >
+                        <Settings size={13} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => call('/api/pre-survey/columns', 'DELETE', { id: c.id }, '已刪除欄位')}
@@ -275,9 +284,17 @@ export default function SurveyAdminBoard({
                         <Trash2 size={13} />
                       </button>
                     </div>
+                    {(c.selfEditable || c.dueDate) && (
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-normal leading-tight text-ink-500">
+                        {c.selfEditable && (
+                          <span className="inline-flex items-center gap-0.5 text-primary-700"><User size={9} />受調者填</span>
+                        )}
+                        {c.dueDate && <span>到期 {c.dueDate.slice(5)}</span>}
+                      </div>
+                    )}
                   </th>
                 ))}
-                <th className="px-3 py-2.5 text-right font-medium min-w-[80px]">動作</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-right font-medium min-w-[80px]">動作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-rule">
@@ -467,11 +484,12 @@ export default function SurveyAdminBoard({
         yearROC={yearROC}
         kind={kind}
         pool={kind === 'OBSERVER' ? observerPool : memberPool}
-        existingUserIds={new Set(participants.map((p) => p.userId))}
+        existingUserIds={new Set(participants.filter((p) => p.kind === kind).map((p) => p.userId))}
       />
       <AssignDialog participant={assignFor} sessions={sessions} onClose={() => setAssignFor(null)} />
       <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} />
       <AdminProfileDialog participant={profileFor} sessions={sessions} onClose={() => setProfileFor(null)} />
+      <ColumnSettingsDialog column={colSettingsFor} onClose={() => setColSettingsFor(null)} />
       <ConfirmDialog
         open={removeFor !== null}
         onOpenChange={(o) => { if (!o) setRemoveFor(null); }}
@@ -707,6 +725,78 @@ function AdminProfileDialog({
           </div>
           {p.travelNote && <p className="mt-2 text-caption text-ink-700"><span className="text-ink-500">差旅備註：</span> {p.travelNote}</p>}
         </section>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 自訂欄位設定對話框(#5:開放受調者填寫 + 填報到期日) ──
+function ColumnSettingsDialog({ column, onClose }: { column: AdminColumnDTO | null; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [selfEditable, setSelfEditable] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSelfEditable(column?.selfEditable ?? false);
+    setDueDate(column?.dueDate ?? '');
+  }, [column]);
+
+  if (!column) return null;
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch('/api/pre-survey/columns', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      // 未開放受調者填寫時,到期日一併清除(避免殘留誤導 timer 設定判讀)
+      body: JSON.stringify({ id: column!.id, selfEditable, dueDate: selfEditable ? (dueDate || null) : null }),
+    });
+    setSaving(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新欄位設定');
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog
+      open={column !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={`欄位設定：${column.title}`}
+      description="可開放受調者於自助頁自行填寫，並設定填報到期日；逾期未填，系統排程將自動催辦受調者本人。"
+      footer={<><Button variant="text" onClick={onClose}>取消</Button><Button onClick={save} loading={saving} disabled={saving}>儲存</Button></>}
+    >
+      <div className="space-y-4 pt-2">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selfEditable}
+            onChange={(e) => setSelfEditable(e.target.checked)}
+            className="mt-0.5 rounded border-rule"
+          />
+          <span>
+            <span className="block text-body-sm font-medium text-ink-900">由受調者自行填寫</span>
+            <span className="block text-caption text-ink-500">
+              開啟後，此欄位會出現在委員/觀察員的自助頁供其填寫；關閉則僅中心於管考表填寫（受調者看不到）。
+            </span>
+          </span>
+        </label>
+        <div>
+          <TextField
+            label="填報到期日（選填）"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            disabled={!selfEditable}
+          />
+          <p className="mt-1 text-caption text-ink-500">
+            {selfEditable
+              ? '設定後，對到期仍未填寫的受調者，系統每日排程將自動寄信＋站內催辦本人（到期前 7 日內一次、逾期每 7 天一次）。留空＝不催辦。'
+              : '需先開啟「由受調者自行填寫」才能設定到期日。'}
+          </p>
+        </div>
       </div>
     </Dialog>
   );

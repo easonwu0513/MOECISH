@@ -7,7 +7,7 @@ import { FilterChipLink } from '@/components/ui/FilterChip';
 import { canAccess } from '@/lib/access-policy';
 import { buildSelfDTO } from '@/lib/pre-survey-self';
 import type { Role, SurveyParticipantKind } from '@/lib/types';
-import SurveyAdminBoard, { type AdminSessionDTO, type AdminParticipantDTO } from './SurveyAdminBoard';
+import SurveyAdminBoard, { type AdminSessionDTO, type AdminParticipantDTO, type AdminColumnDTO } from './SurveyAdminBoard';
 import SurveySelfDashboard from './SurveySelfDashboard';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,7 @@ function parseObj(json: string | null): Record<string, string> {
   }
 }
 
-export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string } }) {
+export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string; kind?: string } }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/pre-survey');
   const user = session.user;
@@ -101,13 +101,21 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
 
   // ── 委員/觀察員:自助填意願 ──
   if (user.role !== 'SUPER_ADMIN') {
-    const participant = await prisma.surveyParticipant.findUnique({
-      where: { year_userId: { year, userId: user.id } },
+    // #6:一人同年度可兼委員與觀察員 → 取全部身分列(非單筆);雙身分時以身分頁籤切換分別填報。
+    const myParts = await prisma.surveyParticipant.findMany({
+      where: { year, userId: user.id },
+      orderBy: { kind: 'asc' }, // 確定性:MEMBER 在前(雙身分預設頁籤)
       include: {
         availabilities: { select: { sessionId: true, status: true } },
         finalAssignments: { include: { session: { select: { name: true, date: true } } } },
       },
     });
+    const dual = myParts.length > 1;
+    const selectedKind =
+      searchParams.kind && myParts.some((p) => p.kind === searchParams.kind)
+        ? searchParams.kind
+        : myParts[0]?.kind ?? null;
+    const participant = myParts.find((p) => p.kind === selectedKind) ?? null;
 
     return (
       <AppShell user={shellUser} crumbs={crumbs} watermark>
@@ -116,6 +124,20 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
           <p className="mt-2 text-body-sm text-ink-500">填寫各年度稽核場次的出席意願；經中心指派最終場次後，再填寫差旅與飲食。</p>
         </header>
         {yearNav}
+        {dual && (
+          <>
+            <p className="mb-3 text-body-sm text-ink-600">
+              您於 {yearROC} 年度同時受調為委員與觀察員，請切換身分分別填報。
+            </p>
+            <div className="mb-5 flex items-center gap-2 flex-wrap" role="group" aria-label="受調身分">
+              {myParts.map((p) => (
+                <FilterChipLink key={p.kind} href={`/pre-survey?year=${year}&kind=${p.kind}`} selected={p.kind === selectedKind}>
+                  {p.kind === 'OBSERVER' ? '觀察員身分' : '委員身分'}
+                </FilterChipLink>
+              ))}
+            </div>
+          </>
+        )}
         {!participant ? (
           <Card variant="outlined" className="text-center py-14">
             <p className="text-title text-ink-700">您尚未列入 {yearROC} 年度的調查名單</p>
@@ -125,7 +147,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
           await (async () => {
             // DTO 組裝抽至 lib/pre-survey-self.buildSelfDTO(與儀表板整合共用)
             const selfData = await buildSelfDTO({ participant, sessions, templateDTOs, accountEmail: user.email ?? null });
-            // 總覽卡 key 綁 participant.id(穩定):送出/審核後不重掛總覽 → 彈窗保持開啟。
+            // 總覽卡 key 綁 participant.id(穩定;雙身分切換時 id 變→重掛):送出/審核後不重掛總覽 → 彈窗保持開啟。
             // 表單本體的重掛(反映最新伺服器狀態)由 SurveySelfDashboard 內部以 submittedAt/docStatus 為 key 處理。
             return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} />;
           })()
@@ -169,12 +191,18 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     targetObserverCount: s.targetObserverCount,
   }));
 
-  // 中心自訂欄位(mockup 改版;年度制)
-  const customColumns = await prisma.surveyCustomColumn.findMany({
+  // 中心自訂欄位(mockup 改版;年度制)。#5:selfEditable=開放受調者填寫、dueDate=填報到期日(供催辦)
+  const customColumnRows = await prisma.surveyCustomColumn.findMany({
     where: { year },
     orderBy: { orderIndex: 'asc' },
-    select: { id: true, title: true },
+    select: { id: true, title: true, selfEditable: true, dueDate: true },
   });
+  const customColumns: AdminColumnDTO[] = customColumnRows.map((c) => ({
+    id: c.id,
+    title: c.title,
+    selfEditable: c.selfEditable,
+    dueDate: toISODate(c.dueDate),
+  }));
 
   // 各受調人員的 cv/切結書/舊版參考檔案(批B + mockup 改版;供中心審核預覽/管理)
   const pIds = participants.map((p) => p.id);

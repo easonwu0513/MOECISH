@@ -48,6 +48,8 @@ export type SelfDTO = {
   transport: string[];
   diet: string[];
   travelNote: string | null;
+  // #5:中心開放受調者自行填寫的自訂欄位(selfEditable);dueDate 供本人參考,逾期由 timer 催辦
+  customFields: { id: string; title: string; dueDate: string | null; value: string }[];
   assignedLabels: string[]; // 已指派的最終場次(含真實地名,指派後揭露)
   sessions: SelfSessionDTO[];
 };
@@ -252,6 +254,11 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </div>
       </Card>
 
+      {/* #5:中心指定填報欄位(僅開放受調者填寫的自訂欄位;有到期日者逾期由系統催辦) */}
+      {data.customFields.length > 0 && (
+        <SelfCustomFields participantId={data.participantId} fields={data.customFields} />
+      )}
+
       {/* 文件繳交(公版下載 + 上傳 + 送審) */}
       <Card variant="outlined">
         <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
@@ -433,6 +440,77 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </Card>
       )}
     </div>
+  );
+}
+
+// ── #5:中心指定填報欄位(受調者自助填寫;每格獨立儲存,逾期由 timer 催辦) ──
+/** ISO(YYYY-MM-DD)→ 民國 YY/M/D 精簡標籤。 */
+function rocDateLabel(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${Number(y) - 1911}/${Number(m)}/${Number(d)}`;
+}
+/** 台北今日 YYYY-MM-DD(以 +8 時區近似,供逾期視覺提示;權威催辦仍以伺服器 timer 為準)。 */
+function taipeiTodayISO(): string {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function SelfCustomFields({ participantId, fields }: { participantId: string; fields: SelfDTO['customFields'] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [values, setValues] = useState<Record<string, string>>(
+    Object.fromEntries(fields.map((f) => [f.id, f.value])),
+  );
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const today = taipeiTodayISO();
+
+  async function save(columnId: string) {
+    const value = (values[columnId] ?? '').trim();
+    setSavingId(columnId);
+    const res = await fetch(`/api/pre-survey/participants/${participantId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ customValue: { columnId, value } }),
+    });
+    setSavingId(null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '儲存失敗' }));
+      toast.error('儲存失敗', j.error);
+      return;
+    }
+    toast.success('已儲存');
+    router.refresh();
+  }
+
+  return (
+    <Card variant="outlined">
+      <h3 className="text-label text-ink-900 mb-1">中心指定填報欄位</h3>
+      <p className="text-caption text-ink-500 mb-3">以下欄位由中心指定，請於到期日前完成填寫；每格請個別按「儲存」。</p>
+      <div className="space-y-3">
+        {fields.map((f) => {
+          // 逾期/紅框以「伺服器已存值 f.value」判定(與總覽提醒、run-tracking 催辦 timer 一致);
+          // 不用本地未存的 values[f.id],否則打字未按儲存就清掉警示，造成「看似已填、實則未存」誤導。
+          const empty = !(f.value ?? '').trim();
+          const overdue = !!f.dueDate && empty && f.dueDate < today;
+          return (
+            <div key={f.id} className={`rounded-md border p-3 ${overdue ? 'border-danger-200 bg-danger-50/40' : 'border-rule bg-card'}`}>
+              <TextField
+                label={f.title}
+                value={values[f.id] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [f.id]: e.target.value }))}
+              />
+              <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                <span className={`text-caption ${overdue ? 'text-danger-600' : 'text-ink-500'}`}>
+                  {f.dueDate ? `到期日：${rocDateLabel(f.dueDate)}${overdue ? '（已逾期，請儘速填寫）' : ''}` : '無到期日'}
+                </span>
+                <Button size="sm" variant="tonal" onClick={() => save(f.id)} loading={savingId === f.id} disabled={savingId === f.id}>
+                  儲存
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
