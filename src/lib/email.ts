@@ -32,6 +32,7 @@ export type EmailKind =
   | 'tracked-reviewed'    // 中心/協審委員審核列管回報 → 通知機關(批71)
   | 'tracked-due'         // 列管回報到期/逾期催辦(timer;機關+逾期14天通知中心)(批72)
   | 'presurvey-remind'    // 事前場次調查催辦(中心催委員/觀察員填意願)(批A)
+  | 'presurvey-doc-return' // 事前場次調查文件退補(中心退回受調者文件)(批B)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

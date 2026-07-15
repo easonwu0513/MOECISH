@@ -662,10 +662,19 @@ model SurveyParticipant {
   committeeType String? // 管理面 / 策略面 / 技術面 / 管理面-OT(委員細分;觀察員為 null)
   phone         String? // 調查用聯絡電話(可異於帳號)
   email         String? // 調查用聯絡信箱
-  note          String?
+  note          String? // 中心對受調者的內部管理註記(自助頁不顯示;僅中心可改)
   replyStatus   String    @default("NO") // 意願回信:YES | NO
   docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED
   submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
+  // ── 批B:文件繳交審核(cv/切結書經 Evidence 上傳,狀態機於此) ──
+  docStatus     String    @default("NONE") // NONE 未繳交 | SUBMITTED 已繳交 | RETURNED 待補件
+  rejectReason  String? // 退補理由(docStatus=RETURNED 時有意義)
+  docSubmittedAt DateTime? // 文件送審時間
+  docReviewedAt DateTime? // 中心核可時間(null=待審或已退補;有值=已核可,供區分「待審 vs 已核可」)
+  // ── 批B:差旅二階(指派最終場次後解鎖;本人填,與中心 note 分離) ──
+  transport     String? // JSON string[]:交通方式(可複選)
+  diet          String? // JSON string[]:飲食需求(可複選)
+  travelNote    String? // 差旅特殊備註(本人填)
   invitedById   String // 中心加入者快照
   invitedAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -674,6 +683,19 @@ model SurveyParticipant {
 
   @@unique([year, userId]) // 一年度一帳號至多一列
   @@index([year, kind])
+}
+
+// 批B:公版範本檔案(年度制;中心上傳,受調者下載。實體檔走 Evidence targetType=SURVEY_TEMPLATE)
+model SurveyTemplate {
+  id           String   @id @default(cuid())
+  year         Int
+  slot         String // CV_SAMPLE(舊版經歷說明書參考) | CV_BLANK(空白經歷說明書) | NDA_BLANK(空白切結書)
+  label        String
+  uploadedById String // 上傳者快照
+  createdAt    DateTime @default(now())
+
+  @@unique([year, slot]) // 一年度一槽至多一範本(防並發重傳產生重複列)
+  @@index([year])
 }
 
 model SessionAvailability {

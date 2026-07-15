@@ -25,6 +25,16 @@ function mdLabel(d: Date | null): string {
   const [, m, day] = iso.split('-');
   return `${Number(m)}/${Number(day)}`;
 }
+/** 解析 JSON string[](transport/diet);壞資料回空陣列。 */
+function parseArr(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const a = JSON.parse(json);
+    return Array.isArray(a) ? a.map(String) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string } }) {
   const session = await auth();
@@ -47,6 +57,23 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
   const yearROC = year - 1911;
 
   const sessions = await prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } });
+
+  // 公版範本(批B;兩視角共用):SurveyTemplate + 其實體檔 Evidence
+  const templates = await prisma.surveyTemplate.findMany({ where: { year }, orderBy: { slot: 'asc' } });
+  const templateFiles = templates.length
+    ? await prisma.evidence.findMany({
+        where: { targetType: 'SURVEY_TEMPLATE', targetId: { in: templates.map((t) => t.id) } },
+        select: { id: true, targetId: true, originalName: true },
+      })
+    : [];
+  const tfBy = new Map(templateFiles.map((f) => [f.targetId, f]));
+  const templateDTOs = templates.map((t) => ({
+    id: t.id,
+    slot: t.slot,
+    label: t.label,
+    fileId: tfBy.get(t.id)?.id ?? null,
+    fileName: tfBy.get(t.id)?.originalName ?? null,
+  }));
 
   const crumbs = [{ label: '總覽', href: '/dashboard' }, { label: '事前場次調查' }];
   const shellUser = { name: user.name, email: user.email, role: user.role, organizationName: user.organizationName };
@@ -85,8 +112,15 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
             <p className="mt-1.5 text-body-sm text-ink-500">若應受調，請洽教育部轄下醫療領域資訊安全推動中心。</p>
           </Card>
         ) : (
-          (() => {
+          await (async () => {
             const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
+            const isObserver = participant.kind === 'OBSERVER';
+            const myDocs = await prisma.evidence.findMany({
+              where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA'] }, targetId: participant.id },
+              select: { id: true, targetType: true, originalName: true },
+            });
+            const cvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV') ?? null;
+            const ndaEv = myDocs.find((d) => d.targetType === 'SURVEY_NDA') ?? null;
             const selfData: SelfDTO = {
               participantId: participant.id,
               yearROC,
@@ -94,6 +128,16 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
               phone: participant.phone,
               email: participant.email,
               submittedAt: participant.submittedAt?.toISOString() ?? null,
+              docStatus: participant.docStatus,
+              docReviewed: !!participant.docReviewedAt,
+              rejectReason: participant.rejectReason,
+              cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
+              ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
+              // 觀察員不需經歷說明書,故過濾掉 CV_* 範本
+              templates: templateDTOs.filter((t) => !(isObserver && t.slot.startsWith('CV_'))),
+              transport: parseArr(participant.transport),
+              diet: parseArr(participant.diet),
+              travelNote: participant.travelNote,
               assignedLabels: participant.finalAssignments.map(
                 (fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`,
               ),
@@ -105,9 +149,9 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
                 status: (statusMap.get(s.id) as SurveyAvailabilityStatus | undefined) ?? null,
               })),
             };
-            // key 綁 submittedAt:送出後(補 NA / 重送)伺服器資料變動時強制重掛,反映最新狀態
-            //(意願三態鈕本身用樂觀 local state,編輯途中不 refresh,故不受此重掛影響)
-            return <SurveySelfForm key={`${participant.id}-${selfData.submittedAt ?? 'draft'}`} data={selfData} />;
+            // key 綁 submittedAt+docStatus:送出/審核後伺服器資料變動時強制重掛,反映最新狀態
+            //(意願三態鈕/差旅 pill 用樂觀 local state,編輯途中不 refresh,故不受此重掛影響)
+            return <SurveySelfForm key={`${participant.id}-${selfData.submittedAt ?? 'draft'}-${participant.docStatus}-${participant.docReviewedAt ? 'r' : 'n'}`} data={selfData} />;
           })()
         )}
       </AppShell>
@@ -149,6 +193,22 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     targetObserverCount: s.targetObserverCount,
   }));
 
+  // 各受調人員的 cv/切結書檔案(批B;供中心審核預覽)
+  const pIds = participants.map((p) => p.id);
+  const allDocs = pIds.length
+    ? await prisma.evidence.findMany({
+        where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA'] }, targetId: { in: pIds } },
+        select: { id: true, targetId: true, targetType: true, originalName: true },
+      })
+    : [];
+  const docBy = new Map<string, { cv: { id: string; name: string } | null; nda: { id: string; name: string } | null }>();
+  for (const d of allDocs) {
+    const cur = docBy.get(d.targetId) ?? { cv: null, nda: null };
+    if (d.targetType === 'SURVEY_CV') cur.cv = { id: d.id, name: d.originalName };
+    else cur.nda = { id: d.id, name: d.originalName };
+    docBy.set(d.targetId, cur);
+  }
+
   const participantDTOs: AdminParticipantDTO[] = participants.map((p) => ({
     id: p.id,
     userId: p.userId,
@@ -161,6 +221,14 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     replyStatus: p.replyStatus,
     docHandover: p.docHandover,
     submittedAt: p.submittedAt?.toISOString() ?? null,
+    docStatus: p.docStatus,
+    docReviewed: !!p.docReviewedAt,
+    rejectReason: p.rejectReason,
+    cvFile: docBy.get(p.id)?.cv ?? null,
+    ndaFile: docBy.get(p.id)?.nda ?? null,
+    transport: parseArr(p.transport),
+    diet: parseArr(p.diet),
+    travelNote: p.travelNote,
     availability: Object.fromEntries(p.availabilities.map((a) => [a.sessionId, a.status])),
     finalSessionIds: p.finalAssignments.map((fa) => fa.sessionId),
   }));
@@ -180,6 +248,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
         participants={participantDTOs}
         memberPool={memberPool}
         observerPool={observerPool}
+        templates={templateDTOs}
       />
     </AppShell>
   );

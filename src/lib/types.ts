@@ -197,6 +197,31 @@ export const SURVEY_DOC_HANDOVER_LABELS: Record<SurveyDocHandover, string> = {
   UPDATED: '更新文件已上傳',
 };
 
+// ── 批B:文件繳交審核 + 差旅二階 ──
+
+/** 文件繳交狀態(cv/切結書):未繳交 → 已繳交(送審) → 待補件(退回)。 */
+export const SURVEY_DOC_STATUSES = ['NONE', 'SUBMITTED', 'RETURNED'] as const;
+export type SurveyDocStatus = (typeof SURVEY_DOC_STATUSES)[number];
+export const SURVEY_DOC_STATUS_LABELS: Record<SurveyDocStatus, string> = {
+  NONE: '未繳交',
+  SUBMITTED: '已繳交',
+  RETURNED: '待補件',
+};
+
+/** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員需要;NDA_BLANK 委員與觀察員皆需。 */
+export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'] as const;
+export type SurveyTemplateSlot = (typeof SURVEY_TEMPLATE_SLOTS)[number];
+export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
+  CV_SAMPLE: '舊版經歷說明書（參考）',
+  CV_BLANK: '空白經歷說明書',
+  NDA_BLANK: '空白保密切結書',
+};
+
+/** 交通方式(差旅二階,可複選)。 */
+export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸', '接駁'] as const;
+/** 飲食需求(差旅二階,可複選)。 */
+export const SURVEY_DIET_OPTIONS = ['葷', '素', '不吃豬', '不吃牛', '不吃家禽', '不吃海鮮'] as const;
+
 // ════════════════════════════════════════════
 // 模組 B：資料準備（P2）
 // ════════════════════════════════════════════
@@ -388,6 +413,9 @@ export const EVIDENCE_TARGET_TYPES = [
   'PREP_SUBMISSION',
   'AUDIT_CYCLE',
   'TRACKED_REPORT', // 批71:持續列管缺失之滾動回報佐證
+  'SURVEY_CV', // 批B:事前場次調查——委員經歷說明書(targetId=participantId)
+  'SURVEY_NDA', // 批B:事前場次調查——聘任同意暨保密切結書(targetId=participantId)
+  'SURVEY_TEMPLATE', // 批B:事前場次調查——公版範本(targetId=SurveyTemplate.id;受調者可下載)
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
 

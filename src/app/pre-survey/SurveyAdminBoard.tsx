@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
 import { Segmented } from '@/components/ui/Segmented';
 import { useToast } from '@/components/ui/Toast';
-import { Plus, Settings, Bell, Trash2, MapPin } from '@/components/icons';
-import { targetTone } from '@/lib/pre-survey';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { Plus, Settings, Bell, Trash2, MapPin, FileText, Paperclip } from '@/components/icons';
+import { targetTone, surveyDocDisplay } from '@/lib/pre-survey';
 import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_COMMITTEE_TYPES,
@@ -20,6 +21,8 @@ import {
   SURVEY_DOC_HANDOVER_LABELS,
   SURVEY_REPLY_STATUSES,
   SURVEY_DOC_HANDOVER_STATUSES,
+  SURVEY_TEMPLATE_SLOTS,
+  SURVEY_TEMPLATE_SLOT_LABELS,
   type SurveyParticipantKind,
 } from '@/lib/types';
 
@@ -45,10 +48,19 @@ export type AdminParticipantDTO = {
   replyStatus: string;
   docHandover: string;
   submittedAt: string | null;
+  docStatus: string;
+  docReviewed: boolean;
+  rejectReason: string | null;
+  cvFile: { id: string; name: string } | null;
+  ndaFile: { id: string; name: string } | null;
+  transport: string[];
+  diet: string[];
+  travelNote: string | null;
   availability: Record<string, string>; // sessionId → status
   finalSessionIds: string[];
 };
 export type PoolUser = { id: string; name: string; email: string };
+export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
 
 export default function SurveyAdminBoard({
   yearROC,
@@ -56,12 +68,14 @@ export default function SurveyAdminBoard({
   participants,
   memberPool,
   observerPool,
+  templates,
 }: {
   yearROC: number;
   sessions: AdminSessionDTO[];
   participants: AdminParticipantDTO[];
   memberPool: PoolUser[];
   observerPool: PoolUser[];
+  templates: AdminTemplateDTO[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -70,6 +84,8 @@ export default function SurveyAdminBoard({
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<AdminParticipantDTO | null>(null);
   const [removeFor, setRemoveFor] = useState<AdminParticipantDTO | null>(null);
+  const [reviewFor, setReviewFor] = useState<AdminParticipantDTO | null>(null);
+  const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const rows = participants.filter((p) => p.kind === kind);
@@ -111,9 +127,15 @@ export default function SurveyAdminBoard({
             { value: 'OBSERVER', label: '觀察員' },
           ]}
         />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" variant="outlined" leadingIcon={<FileText size={15} />} onClick={() => setTemplateMgrOpen(true)}>
+            公版範本
+          </Button>
           <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
             管理場次
+          </Button>
+          <Button href={`/api/pre-survey/export?year=${yearROC + 1911}&kind=${kind}`} size="sm" variant="outlined" download>
+            匯出 CSV
           </Button>
           <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setAddOpen(true)}>
             新增{kind === 'OBSERVER' ? '觀察員' : '委員'}
@@ -153,7 +175,8 @@ export default function SurveyAdminBoard({
               <tr className="bg-paper-sunk text-caption text-ink-500">
                 <th className="sticky left-0 z-10 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
                 {kind === 'MEMBER' && <th className="px-3 py-2.5 text-left font-medium min-w-[100px]">類型</th>}
-                <th className="px-3 py-2.5 text-left font-medium">送出</th>
+                <th className="px-3 py-2.5 text-left font-medium">意願送出</th>
+                <th className="px-3 py-2.5 text-left font-medium">文件</th>
                 {sessions.map((s, i) => (
                   <th key={s.id} className="px-2 py-2.5 text-center font-medium min-w-[92px]" title={`${s.dateLabel} ${s.name}`}>
                     <div className="text-ink-700">{s.dateLabel}</div>
@@ -164,6 +187,8 @@ export default function SurveyAdminBoard({
                 <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
                 <th className="px-3 py-2.5 text-left font-medium">意願回信</th>
                 <th className="px-3 py-2.5 text-left font-medium">文件交接</th>
+                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
+                <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
                 <th className="px-3 py-2.5 text-left font-medium min-w-[110px]">備註</th>
                 <th className="px-3 py-2.5 text-right font-medium min-w-[110px]">動作</th>
               </tr>
@@ -171,7 +196,7 @@ export default function SurveyAdminBoard({
             <tbody className="divide-y divide-rule">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={sessions.length + 7} className="px-3 py-10 text-center text-ink-500">
+                  <td colSpan={sessions.length + (kind === 'MEMBER' ? 11 : 10)} className="px-3 py-10 text-center text-ink-500">
                     尚無{kind === 'OBSERVER' ? '觀察員' : '委員'}。點右上「新增」從帳號池加入。
                   </td>
                 </tr>
@@ -195,6 +220,19 @@ export default function SurveyAdminBoard({
                     )}
                     <td className="px-3 py-2">
                       {p.submittedAt ? <Chip size="sm" tone="success">已送</Chip> : <Chip size="sm" tone="warning">未送</Chip>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setReviewFor(p)}
+                        className="focus-ring rounded"
+                        title="檢視/審核文件"
+                      >
+                        {(() => {
+                          const d = surveyDocDisplay(p.docStatus, p.docReviewed);
+                          return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
+                        })()}
+                      </button>
                     </td>
                     {sessions.map((s) => (
                       <td key={s.id} className="px-2 py-2 text-center">
@@ -243,6 +281,13 @@ export default function SurveyAdminBoard({
                         ))}
                       </Select>
                     </td>
+                    <td className="px-3 py-2 text-caption text-ink-700">
+                      {p.transport.length > 0 ? p.transport.join('、') : <span className="text-ink-400">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-caption text-ink-700">
+                      {p.diet.length > 0 ? p.diet.join('、') : <span className="text-ink-400">—</span>}
+                      {p.travelNote && <span className="block text-ink-400" title={p.travelNote}>備註…</span>}
+                    </td>
                     <td className="px-3 py-2">
                       <input
                         defaultValue={p.note ?? ''}
@@ -289,6 +334,7 @@ export default function SurveyAdminBoard({
       </Card>
 
       <SessionManagerDialog open={sessionMgrOpen} onOpenChange={setSessionMgrOpen} yearROC={yearROC} sessions={sessions} />
+      <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} />
       <AddParticipantDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -298,6 +344,7 @@ export default function SurveyAdminBoard({
         existingUserIds={new Set(participants.map((p) => p.userId))}
       />
       <AssignDialog participant={assignFor} sessions={sessions} onClose={() => setAssignFor(null)} />
+      <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} />
       <ConfirmDialog
         open={removeFor !== null}
         onOpenChange={(o) => { if (!o) setRemoveFor(null); }}
@@ -505,6 +552,158 @@ function AssignDialog({
           );
         })}
         {sessions.length === 0 && <p className="text-body-sm text-ink-500">此年度尚無場次可指派。</p>}
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 文件審核對話框(檢視 cv/切結書 + 核可/退補) ──
+function DocReviewDialog({ participant, onClose }: { participant: AdminParticipantDTO | null; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setReason(participant?.rejectReason ?? '');
+  }, [participant]);
+
+  async function review(decision: 'APPROVE' | 'RETURN') {
+    if (!participant) return;
+    if (decision === 'RETURN' && !reason.trim()) {
+      toast.error('退補必須填寫理由');
+      return;
+    }
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${participant.id}/docs/review`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision, reason: reason.trim() || undefined }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '審核失敗' }));
+      toast.error('審核失敗', j.error);
+      return;
+    }
+    toast.success(decision === 'APPROVE' ? '文件已核可' : '已退補，通知受調者補件');
+    onClose();
+    router.refresh();
+  }
+
+  const canReview = participant?.docStatus === 'SUBMITTED';
+  return (
+    <Dialog
+      open={participant !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={participant ? `${participant.name} 的文件審核` : ''}
+      description="檢視受調者繳交的文件；送審（已繳交）狀態可核可或退補。"
+    >
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {participant && (() => {
+            const d = surveyDocDisplay(participant.docStatus, participant.docReviewed);
+            return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
+          })()}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <FileRow label="經歷說明書" file={participant?.cvFile ?? null} hidden={participant?.kind === 'OBSERVER'} />
+          <FileRow label="保密切結書" file={participant?.ndaFile ?? null} />
+        </div>
+        {canReview ? (
+          <>
+            <Textarea label="退補理由（退補時必填）" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => review('APPROVE')} loading={busy} disabled={busy}>核可</Button>
+              <Button size="sm" variant="danger" onClick={() => review('RETURN')} loading={busy} disabled={busy}>退補</Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-caption text-ink-500">
+            {participant?.docStatus === 'RETURNED'
+              ? '已退補，待受調者補件並重新送審後再審核。'
+              : '受調者尚未送審文件。'}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function FileRow({ label, file, hidden }: { label: string; file: { id: string; name: string } | null; hidden?: boolean }) {
+  if (hidden) return null;
+  return (
+    <div className="rounded-md border border-rule bg-card p-2.5">
+      <p className="text-caption text-ink-500">{label}</p>
+      {file ? (
+        <a href={`/api/pre-survey/files/${file.id}/download?inline=1`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-caption text-primary-700 hover:underline break-all">
+          <Paperclip size={12} /> {file.name}
+        </a>
+      ) : (
+        <p className="mt-1 text-caption text-ink-400">未上傳</p>
+      )}
+    </div>
+  );
+}
+
+// ── 公版範本管理對話框(逐槽上傳/替換/刪除) ──
+function TemplateManagerDialog({
+  open, onOpenChange, yearROC, templates,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busySlot, setBusySlot] = useState<string | null>(null);
+  const bySlot = new Map(templates.map((t) => [t.slot, t]));
+
+  async function upload(slot: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { toast.error('檔案超過 20MB 上限'); return; }
+    setBusySlot(slot);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('year', String(yearROC + 1911));
+    fd.append('slot', slot);
+    fd.append('label', SURVEY_TEMPLATE_SLOT_LABELS[slot as keyof typeof SURVEY_TEMPLATE_SLOT_LABELS] ?? slot);
+    const res = await fetch('/api/pre-survey/templates', { method: 'POST', body: fd });
+    setBusySlot(null);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '上傳失敗' })); toast.error('上傳失敗', j.error); return; }
+    toast.success('已上傳範本');
+    router.refresh();
+  }
+  async function del(id: string) {
+    if (!window.confirm('確定刪除此公版範本？')) return;
+    const res = await fetch('/api/pre-survey/templates', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除範本');
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={`${yearROC} 年度公版範本`} description="上傳空白經歷說明書/切結書等範本，供委員/觀察員下載填寫。可為 Word 或 PDF。一槽一檔，重傳取代。">
+      <div className="space-y-3 pt-2">
+        {SURVEY_TEMPLATE_SLOTS.map((slot) => {
+          const t = bySlot.get(slot);
+          return (
+            <div key={slot} className="flex items-center justify-between gap-3 rounded-md border border-rule bg-card p-3">
+              <div className="min-w-0">
+                <p className="text-body-sm font-medium text-ink-900">{SURVEY_TEMPLATE_SLOT_LABELS[slot]}</p>
+                {t?.fileId ? (
+                  <a href={`/api/pre-survey/files/${t.fileId}/download`} className="text-caption text-primary-700 hover:underline break-all">{t.fileName}</a>
+                ) : (
+                  <p className="text-caption text-ink-400">尚未上傳</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <FileUploadButton size="sm" label={t ? '替換' : '上傳'} busy={busySlot === slot} onChange={(e) => upload(slot, e)} />
+                {t && (
+                  <button type="button" onClick={() => del(t.id)} className="text-caption text-danger-600 hover:underline focus-ring rounded">刪除</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Dialog>
   );

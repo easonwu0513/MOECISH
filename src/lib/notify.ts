@@ -1222,3 +1222,32 @@ export async function notifyPresurveyRemind(opts: { participantId: string; appBa
   });
   return { recipientCount: 1 };
 }
+
+/** 中心退補某受調人員文件 → 通知本人補件(email + 站內;附退補理由)。 */
+export async function notifyPresurveyDocReturned(opts: { participantId: string; reason: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: { user: { select: { name: true, email: true, isActive: true } } },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——文件需補件`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `您於 ${yearROC} 年度事前場次調查繳交的文件經中心審核，需補件或修改：\n\n` +
+      `${opts.reason}\n\n` +
+      `請登入平台重新上傳後再送審：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-doc-return',
+    notificationLink: '/pre-survey',
+    context: { participantId: participant.id, year: participant.year },
+  });
+  return { recipientCount: 1 };
+}

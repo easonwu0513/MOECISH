@@ -143,6 +143,13 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
     throw new AuthError(400, '佐證對象識別碼格式不正確');
   }
 
+  // 事前場次調查(批B)之檔案(cv/切結書/公版範本)不走共用 /api/evidences(其全域擋委員/觀察員上傳,
+  // 而受調委員/觀察員須能上傳自己的文件),改由 /api/pre-survey/** 專用路由自管授權(中心∨本人;範本公開下載)。
+  // 此處明確拒絕,防生成式共用路由繞過場次調查授權。
+  if (targetType === 'SURVEY_CV' || targetType === 'SURVEY_NDA' || targetType === 'SURVEY_TEMPLATE') {
+    throw new AuthError(403, '此類檔案請於事前場次調查介面操作');
+  }
+
   // 持續列管回報佐證(批71):跨年度、不綁週期階段,不能走 assertCycleAccess(來源週期多已結案、
   // 協審委員亦不在原週期指派表)。改以列管項的機關/協審委員自訂授權,並回傳來源週期供浮水印/軌跡定址。
   //  ・中心(SUPER_ADMIN):全可;  ・機關(ORG_ADMIN):限自家列管項(含多重身分授權);

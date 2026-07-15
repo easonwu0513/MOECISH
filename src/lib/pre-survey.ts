@@ -1,5 +1,5 @@
 import type { Tone } from './tone';
-import type { SurveyAvailabilityStatus, SurveyParticipantKind } from './types';
+import type { SurveyAvailabilityStatus, SurveyParticipantKind, SurveyDocStatus } from './types';
 
 /**
  * 事前場次調查(批A)共用純函式。
@@ -35,4 +35,26 @@ export function targetTone(okCount: number, target: number): Tone {
 /** 委員 vs 觀察員的達標分母欄位名(場次上兩個目標數擇一)。 */
 export function targetCountField(kind: SurveyParticipantKind): 'targetMemberCount' | 'targetObserverCount' {
   return kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
+}
+
+/** 文件繳交狀態 → 色調(批B):未繳交灰 / 已繳交綠 / 待補件黃。 */
+export function surveyDocTone(status: string | null | undefined): Tone {
+  switch (status as SurveyDocStatus) {
+    case 'SUBMITTED':
+      return 'success';
+    case 'RETURNED':
+      return 'warning';
+    case 'NONE':
+    default:
+      return 'neutral';
+  }
+}
+
+/** 文件狀態顯示(批B):已送審(SUBMITTED)再依 docReviewed 區分「審核中 vs 已核可」;供中心/自助共用。 */
+export function surveyDocDisplay(docStatus: string, docReviewed: boolean): { label: string; tone: Tone } {
+  if ((docStatus as SurveyDocStatus) === 'SUBMITTED') {
+    return docReviewed ? { label: '已核可', tone: 'success' } : { label: '審核中', tone: 'primary' };
+  }
+  if ((docStatus as SurveyDocStatus) === 'RETURNED') return { label: '待補件', tone: 'warning' };
+  return { label: '未繳交', tone: 'neutral' };
 }
