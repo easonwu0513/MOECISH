@@ -184,6 +184,9 @@ async function main() {
   const keysCtx = (entries: Entry[]) => `|${entries.map((e) => e.key).join('|')}|`;
   const trackingLink = `${APP_BASE}/tracking`;
 
+  // UAT(批H):彙整本日「已自動寄給機關」的催辦,於迴圈後回報中心(最高管理員)完成確認
+  const centerDigest: { org: string; d7: number; od: number }[] = [];
+
   for (const [orgId, g] of byOrg) {
     if (g.d7.length + g.od.length + g.esc.length === 0) continue;
 
@@ -226,6 +229,11 @@ async function main() {
       console.log(`[track] tracked OVERDUE for org ${g.orgName} × ${g.od.length} items → ${orgRecipients.length} recipients`);
     }
 
+    // 本輪確有寄給機關(D-7 或逾期)→ 納入回報中心的彙整
+    if (orgRecipients.length > 0 && (g.d7.length > 0 || g.od.length > 0)) {
+      centerDigest.push({ org: g.orgName, d7: g.d7.length, od: g.od.length });
+    }
+
     if (g.esc.length > 0) {
       const center = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
       if (center.length > 0) {
@@ -245,6 +253,32 @@ async function main() {
         console.log(`[track] tracked ESCALATE for org ${g.orgName} × ${g.esc.length} items → ${center.length} center recipients`);
       }
     }
+  }
+
+  // UAT(批H):本日已自動寄出機關催辦 → 彙整回報中心(最高管理員),email + 站內,同日去重。
+  // 讓中心知道「系統已自動完成催辦」,無須自行寄信;需個別催辦時可於列管頁逐項手動催辦。
+  if (centerDigest.length > 0) {
+    const center = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+    const totalItems = centerDigest.reduce((s, d) => s + d.d7 + d.od, 0);
+    const dateStr = now.toISOString().slice(0, 10);
+    const body =
+      `您好,\n\n本日系統已自動寄出下列持續列管缺失的回報催辦通知予受稽機關(共 ${centerDigest.length} 家機關、${totalItems} 項):\n\n` +
+      centerDigest
+        .map((d) => `・${d.org}:${[d.d7 ? `即將到期 ${d.d7} 項` : '', d.od ? `逾期 ${d.od} 項` : ''].filter(Boolean).join('、')}`)
+        .join('\n') +
+      `\n\n您無須另行寄信;如需個別加強催辦,可於「缺失持續列管」頁逐項點「催辦回報」。\n\n${trackingLink}\n\n` +
+      `— MOECISH 資通安全稽核管考平台(系統自動發送)`;
+    for (const r of center) {
+      await sendEmail({
+        to: r.email, toName: r.name,
+        subject: `[MOECISH] 本日已自動寄出持續列管催辦(${centerDigest.length} 機關／${totalItems} 項)`,
+        body, kind: 'tracked-due', notificationLink: '/tracking',
+        context: { trigger: 'CENTER_DIGEST', orgs: centerDigest.length, items: totalItems, auto: true },
+        dedupeKey: `tracked-due-digest-${dateStr}`,
+      });
+      sentCount++;
+    }
+    console.log(`[track] tracked CENTER DIGEST × ${centerDigest.length} orgs / ${totalItems} items → ${center.length} center recipients`);
   }
 
   console.log(`[track] done. total sent: ${sentCount}`);

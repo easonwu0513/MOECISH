@@ -208,13 +208,19 @@ export const SURVEY_DOC_STATUS_LABELS: Record<SurveyDocStatus, string> = {
   RETURNED: '待補件',
 };
 
-/** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員需要;NDA_BLANK 委員與觀察員皆需。 */
-export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'] as const;
+/** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員;切結書委員與觀察員各一份(UAT:觀察員切結書不同,分開)。 */
+export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER'] as const;
 export type SurveyTemplateSlot = (typeof SURVEY_TEMPLATE_SLOTS)[number];
 export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
   CV_SAMPLE: '舊版經歷說明書（參考）',
   CV_BLANK: '空白經歷說明書',
-  NDA_BLANK: '空白保密切結書',
+  NDA_BLANK: '空白保密切結書（委員）',
+  NDA_BLANK_OBSERVER: '空白保密切結書（觀察員）',
+};
+/** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
+export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
+  MEMBER: ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'],
+  OBSERVER: ['NDA_BLANK_OBSERVER'],
 };
 
 /** 交通方式(差旅二階,可複選)。 */

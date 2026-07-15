@@ -1105,6 +1105,42 @@ export async function notifyTrackedCreated(opts: { deficiencyId: string; appBase
   return { recipientCount: recipients.length };
 }
 
+/** 手動催辦某持續列管項的機關回報(UAT 批H;中心於列管頁逐項點觸發)。email + 站內,同項 24h 去重。 */
+export async function notifyTrackedManualRemind(opts: { trackedId: string; appBaseUrl: string }) {
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { id: opts.trackedId },
+    include: { organization: true },
+  });
+  if (!tracked || tracked.status !== 'TRACKING') return { recipientCount: 0, skipped: false };
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0, skipped: false };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const label = trackedItemLabel(tracked);
+  const dueStr = fmtROC(tracked.nextReportDue);
+  let sent = 0;
+  let skippedN = 0;
+  for (const u of recipients) {
+    const log = await sendEmail({
+      to: u.email,
+      toName: u.name,
+      subject: `[MOECISH] 持續列管缺失回報催辦`,
+      body:
+        `${u.name} 您好，\n\n` +
+        `貴機關持續列管缺失「${label}」（回報期限 ${dueStr}）尚待回報改善進度，請儘速登入平台回報並上傳佐證：\n\n` +
+        `${link}\n\n` +
+        `— MOECISH 資通安全稽核管考平台`,
+      kind: 'tracked-due',
+      notificationLink: '/tracking',
+      dedupeKey: `tracked-manual-remind-${tracked.id}`,
+      context: { trackedId: tracked.id, manual: true },
+    });
+    if (log.status === 'skipped') skippedN++;
+    else sent++;
+  }
+  return { recipientCount: sent, skipped: sent === 0 && skippedN > 0 };
+}
+
 /** 機關送出列管回報 → 通知中心(最高管理員)+ 協審委員(若有指派且在職)。 */
 export async function notifyTrackedReportSubmitted(opts: { reportId: string; appBaseUrl: string }) {
   const report = await prisma.trackedReport.findUnique({

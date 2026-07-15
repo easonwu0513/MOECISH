@@ -21,8 +21,8 @@ import {
   SURVEY_DOC_HANDOVER_LABELS,
   SURVEY_REPLY_STATUSES,
   SURVEY_DOC_HANDOVER_STATUSES,
-  SURVEY_TEMPLATE_SLOTS,
   SURVEY_TEMPLATE_SLOT_LABELS,
+  SURVEY_TEMPLATE_SLOTS_BY_KIND,
   type SurveyParticipantKind,
 } from '@/lib/types';
 
@@ -460,7 +460,7 @@ export default function SurveyAdminBoard({
       </Card>
 
       <SessionManagerDialog open={sessionMgrOpen} onOpenChange={setSessionMgrOpen} yearROC={yearROC} sessions={sessions} />
-      <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} />
+      <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} kind={kind} />
       <AddParticipantDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -498,7 +498,8 @@ function FileManagementCard({
   const toast = useToast();
   const [selectedId, setSelectedId] = useState('');
   const [busy, setBusy] = useState(false);
-  const uploadedCount = templates.filter((t) => t.fileId).length;
+  const kindSlots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] as readonly string[];
+  const uploadedCount = templates.filter((t) => t.fileId && kindSlots.includes(t.slot)).length;
   const selected = members.find((m) => m.id === selectedId) ?? null;
 
   async function uploadPriorCv(e: React.ChangeEvent<HTMLInputElement>) {
@@ -533,9 +534,9 @@ function FileManagementCard({
       <div className={`grid gap-4 ${kind === 'MEMBER' ? 'md:grid-cols-2' : ''}`}>
         {/* 公版空白範本 */}
         <div className="rounded-md border border-rule bg-paper-sunk/40 p-4">
-          <p className="text-body-sm font-medium text-ink-900">公版空白範本</p>
+          <p className="text-body-sm font-medium text-ink-900">公版空白範本（{kind === 'OBSERVER' ? '觀察員' : '委員'}）</p>
           <p className="mt-1 text-caption text-ink-500">
-            全體受調者通用的空白切結書{kind === 'MEMBER' ? '與經歷說明書' : ''}等。目前已上傳 {uploadedCount} / {SURVEY_TEMPLATE_SLOTS.length} 槽。
+            {kind === 'OBSERVER' ? '觀察員專用的空白保密切結書' : '委員通用的空白保密切結書與經歷說明書'}等。目前已上傳 {uploadedCount} / {kindSlots.length} 槽。
           </p>
           <div className="mt-3">
             <Button size="sm" variant="outlined" leadingIcon={<Paperclip size={14} />} onClick={onManageTemplates}>
@@ -1016,12 +1017,13 @@ function FileRow({ label, file, hidden }: { label: string; file: { id: string; n
 
 // ── 公版範本管理對話框(逐槽上傳/替換/刪除) ──
 function TemplateManagerDialog({
-  open, onOpenChange, yearROC, templates,
-}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[] }) {
+  open, onOpenChange, yearROC, templates, kind,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[]; kind: SurveyParticipantKind }) {
   const router = useRouter();
   const toast = useToast();
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const bySlot = new Map(templates.map((t) => [t.slot, t]));
+  const slots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind];
 
   async function upload(slot: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1049,9 +1051,9 @@ function TemplateManagerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={`${yearROC} 年度公版範本`} description="上傳空白經歷說明書/切結書等範本，供委員/觀察員下載填寫。可為 Word 或 PDF。一槽一檔，重傳取代。">
+    <Dialog open={open} onOpenChange={onOpenChange} title={`${yearROC} 年度公版範本（${kind === 'OBSERVER' ? '觀察員' : '委員'}）`} description="上傳空白經歷說明書/切結書等範本，供受調者下載填寫。觀察員切結書與委員分開。可為 Word 或 PDF。一槽一檔，重傳取代。">
       <div className="space-y-3 pt-2">
-        {SURVEY_TEMPLATE_SLOTS.map((slot) => {
+        {slots.map((slot) => {
           const t = bySlot.get(slot);
           return (
             <div key={slot} className="flex items-center justify-between gap-3 rounded-md border border-rule bg-card p-3">

@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import { anonymousSessionLabel } from './pre-survey';
-import type { SurveyAvailabilityStatus, SurveyParticipantKind } from './types';
+import { SURVEY_TEMPLATE_SLOTS_BY_KIND, type SurveyAvailabilityStatus, type SurveyParticipantKind } from './types';
 import type { SelfDTO } from '@/app/pre-survey/SurveySelfForm';
 
 /**
@@ -55,7 +55,8 @@ export async function buildSelfDTO(opts: {
 }): Promise<SelfDTO> {
   const { participant, sessions, templateDTOs, accountEmail } = opts;
   const yearROC = participant.year - 1911;
-  const isObserver = participant.kind === 'OBSERVER';
+  const kind = participant.kind as SurveyParticipantKind;
+  const kindSlots = (SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] ?? []) as readonly string[];
   const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
 
   const myDocs = await prisma.evidence.findMany({
@@ -69,7 +70,7 @@ export async function buildSelfDTO(opts: {
   return {
     participantId: participant.id,
     yearROC,
-    kind: participant.kind as SurveyParticipantKind,
+    kind,
     accountEmail, // 自助頁主要信箱預設代入帳號 email
     phone: participant.phone,
     email: participant.email,
@@ -82,8 +83,8 @@ export async function buildSelfDTO(opts: {
     cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
     ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
     priorCvFile: priorCvEv ? { id: priorCvEv.id, name: priorCvEv.originalName } : null,
-    // 觀察員不需經歷說明書,故過濾掉 CV_* 範本
-    templates: templateDTOs.filter((t) => !(isObserver && t.slot.startsWith('CV_'))),
+    // 依身分過濾公版範本(委員=CV+委員切結書;觀察員=觀察員切結書)
+    templates: templateDTOs.filter((t) => kindSlots.includes(t.slot)),
     transport: parseArr(participant.transport),
     diet: parseArr(participant.diet),
     travelNote: participant.travelNote,

@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { useToast } from '@/components/ui/Toast';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
-import { Paperclip, X, Info } from '@/components/icons';
+import { Paperclip, X, Info, Bell } from '@/components/icons';
 import { fmtROC, fmtROCDateTime } from '@/lib/date';
 import { trackedStatusTone, trackedReviewTone } from '@/lib/tracking';
 import {
@@ -105,6 +105,7 @@ export default function TrackedItem({
   const [reviewing, setReviewing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingCfg, setSavingCfg] = useState(false);
+  const [reminding, setReminding] = useState(false);
   const [pendingDelEv, setPendingDelEv] = useState<{ id: string; name: string } | null>(null);
 
   const aspectLabel = DEFICIENCY_ASPECT_LABELS[item.aspect as DeficiencyAspect] ?? item.aspect;
@@ -203,6 +204,21 @@ export default function TrackedItem({
     router.refresh();
   }
 
+  async function remindOrg() {
+    setReminding(true);
+    const res = await fetch(`/api/tracking/${item.id}/remind`, { method: 'POST' });
+    setReminding(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '催辦失敗' }));
+      toast.error('催辦失敗', j.error);
+      return;
+    }
+    const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false }));
+    if (j.recipientCount > 0) toast.success('已寄出催辦', item.orgName);
+    else if (j.skipped) toast.warning('今日已催辦過', '24 小時內同一列管項僅寄一次。');
+    else toast.warning('未寄送', '該機關查無在職管理員收件人。');
+  }
+
   async function updateCfg(patch: { cadenceMonths?: number; assignedAuditorId?: string | null }) {
     setSavingCfg(true);
     const res = await fetch(`/api/tracking/${item.id}`, {
@@ -267,30 +283,40 @@ export default function TrackedItem({
       {/* 來源週期的原始矯正填報(唯讀;供列管審核對照之前填報紀錄) */}
       {item.originAction && <OriginActionBlock a={item.originAction} />}
 
-      {/* 中心:回報週期 + 協審委員 */}
+      {/* 中心:回報週期 + 協審委員 + 手動催辦 */}
       {isCenter && item.status === 'TRACKING' && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Select
-            label="回報週期（月）"
-            value={item.cadenceMonths}
-            disabled={savingCfg}
-            onChange={(e) => updateCfg({ cadenceMonths: Number(e.target.value) })}
-          >
-            {TRACKING_CADENCE_OPTIONS.map((m) => (
-              <option key={m} value={m}>{m} 個月</option>
-            ))}
-          </Select>
-          <Select
-            label="協審委員（選填）"
-            value={item.assignedAuditorId ?? ''}
-            disabled={savingCfg}
-            onChange={(e) => updateCfg({ assignedAuditorId: e.target.value || null })}
-          >
-            <option value="">不指派（僅中心審核）</option>
-            {auditors.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </Select>
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select
+              label="回報週期（月）"
+              value={item.cadenceMonths}
+              disabled={savingCfg}
+              onChange={(e) => updateCfg({ cadenceMonths: Number(e.target.value) })}
+            >
+              {TRACKING_CADENCE_OPTIONS.map((m) => (
+                <option key={m} value={m}>{m} 個月</option>
+              ))}
+            </Select>
+            <Select
+              label="協審委員（選填）"
+              value={item.assignedAuditorId ?? ''}
+              disabled={savingCfg}
+              onChange={(e) => updateCfg({ assignedAuditorId: e.target.value || null })}
+            >
+              <option value="">不指派（僅中心審核）</option>
+              {auditors.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </Select>
+          </div>
+          {!pendingReport && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" variant="outlined" leadingIcon={<Bell size={15} />} onClick={remindOrg} loading={reminding} disabled={reminding}>
+                催辦回報
+              </Button>
+              <span className="text-caption text-ink-500">系統每日自動催辦（D-7／逾期）；此為即時加強催辦，同項 24 小時去重。</span>
+            </div>
+          )}
         </div>
       )}
 
