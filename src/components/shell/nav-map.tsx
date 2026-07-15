@@ -60,6 +60,8 @@ export type NavRoute = {
   cmdGroup?: string;   // ⌘K 分組(預設沿用 group)
   /** false = 不列側欄、仍可 ⌘K 搜尋(如「系統寄件紀錄」併入信件管理頁籤後,側欄只留一格) */
   sidebar?: boolean;
+  /** 側欄可見角色覆寫(未給則沿用 allow):供「⌘K/頁面對某些角色開放、但側欄不列」的細分(如事前場次調查對委員/觀察員整合進總覽,側欄只留中心) */
+  sidebarAllow?: Role[];
 };
 
 // ALL 含觀察員(批30):觀察員可用「總覽/稽核週期」基本導覽;其餘後台路由維持 ADMIN,
@@ -76,8 +78,9 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/cycles',    label: '稽核週期', allow: ALL, iconKey: 'cycles',    group: '稽核作業', cmdGroup: '導覽' },
   // 缺失持續列管(批71):中心/機關/委員可見(觀察員不可,對齊 access-policy tracking.view)
   { href: '/tracking',  label: '缺失持續列管', allow: TRACK_ROLES, iconKey: 'tracking', group: '稽核作業', cmdGroup: '導覽' },
-  // 事前場次調查(批A):中心/委員/觀察員可見(機關不可,對齊 access-policy presurvey.view)
-  { href: '/pre-survey', label: '事前場次調查', allow: PRESURVEY_ROLES, iconKey: 'presurvey', group: '稽核作業', cmdGroup: '導覽' },
+  // 事前場次調查(批A):中心/委員/觀察員可存取(機關不可,對齊 access-policy presurvey.view)。
+  // UAT:委員/觀察員整合進總覽身分帶(頭像/狀態徽章開彈窗),側欄只留中心;⌘K 與頁面(催辦 email 連結指此)仍對三角色開放。
+  { href: '/pre-survey', label: '事前場次調查', allow: PRESURVEY_ROLES, sidebarAllow: ADMIN, iconKey: 'presurvey', group: '稽核作業', cmdGroup: '導覽' },
   { href: '/journey',   label: '引導式精靈', allow: ADMIN, iconKey: 'journey', group: '稽核作業', cmdGroup: '導覽' },
   // ── 機構與人員 ──
   { href: '/admin/organizations',     label: '醫院管理',     allow: ADMIN, iconKey: 'orgs',        group: '機構與人員', cmdGroup: '管理' },
@@ -108,7 +111,7 @@ export function sidebarGroups(role: Role): SidebarGroup[] {
   return order
     .map((g) => ({
       label: g || undefined,
-      items: NAV_ROUTES.filter((r) => r.group === g && r.allow.includes(role) && r.sidebar !== false),
+      items: NAV_ROUTES.filter((r) => r.group === g && (r.sidebarAllow ?? r.allow).includes(role) && r.sidebar !== false),
     }))
     .filter((grp) => grp.items.length > 0);
 }

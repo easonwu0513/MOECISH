@@ -26,6 +26,8 @@ import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, f
 import { cn } from '@/lib/cn';
 import { fmtROC, fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
+import { SurveyProfileCard } from '@/components/dashboard/SurveyProfileCard';
+import { loadDashboardSelfSurvey } from '@/lib/pre-survey-self';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { CrossOrgOverview } from '@/components/dashboard/CrossOrgOverview';
 import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
@@ -271,6 +273,20 @@ export default async function HomePage() {
   const remediationCount = enriched.filter((e) => e.status === 'REMEDIATION').length;
   const confirmOrgs = orgsWith((e) => e.prepToConfirm);
 
+  // UAT:委員/觀察員的事前場次調查整合進總覽身分帶(頭像/狀態徽章開彈窗),不再側欄單列一個入口。
+  const survey =
+    user.role === 'AUDITOR' || user.role === 'OBSERVER'
+      ? await loadDashboardSelfSurvey(user.id, user.email ?? null)
+      : null;
+  const identityRoleChip = <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>;
+  const identityRight =
+    todos.length > 0 ? (
+      <>
+        <div className="text-title-md text-ink-500 tabular-nums leading-none">{todos.length}</div>
+        <div className="text-label-sm text-ink-500 mt-1">件待辦</div>
+      </>
+    ) : undefined;
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
@@ -283,20 +299,24 @@ export default async function HomePage() {
         <p className="text-caption text-ink-500 tracking-wide mb-2">{today}</p>
         {/* 早安身分帶 與「建議的下一步」整併為同一列(有週期時並排;無週期時身分帶滿版) */}
         <div className={cn('grid gap-4 items-stretch', cycles.length > 0 ? 'lg:grid-cols-2' : 'grid-cols-1')}>
-          <IdentityBand
-            avatar={user.name.slice(0, 1)}
-            title={`${greeting}，${user.name}`}
-            subtitle={scopeText}
-            roleChip={<Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>}
-            right={
-              todos.length > 0 ? (
-                <>
-                  <div className="text-title-md text-ink-500 tabular-nums leading-none">{todos.length}</div>
-                  <div className="text-label-sm text-ink-500 mt-1">件待辦</div>
-                </>
-              ) : undefined
-            }
-          />
+          {survey ? (
+            <SurveyProfileCard
+              data={survey}
+              avatarChar={user.name.slice(0, 1)}
+              title={`${greeting}，${user.name}`}
+              subtitle={scopeText}
+              roleChip={identityRoleChip}
+              right={identityRight}
+            />
+          ) : (
+            <IdentityBand
+              avatar={user.name.slice(0, 1)}
+              title={`${greeting}，${user.name}`}
+              subtitle={scopeText}
+              roleChip={identityRoleChip}
+              right={identityRight}
+            />
+          )}
           {cycles.length > 0 && (
             <PrimaryActionBanner next={topAction} subtext={topSubtext} overdue={Boolean(topTodo?.overdue)} doneText="目前沒有待辦事項，一切都在進度上。" />
           )}

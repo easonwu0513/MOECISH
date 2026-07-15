@@ -10,14 +10,14 @@ import { CheckCircle, AlertTriangle, MapPin, CalendarDays, Pencil } from '@/comp
 import type { Tone } from '@/lib/tone';
 import SurveySelfForm, { type SelfDTO } from './SurveySelfForm';
 
-type Status = { tone: Tone; label: string; hint: string; cta: string };
+export type Status = { tone: Tone; label: string; hint: string; cta: string };
 
 /**
  * 委員/觀察員總覽的狀態徽章:對齊 mockup 的四態指引
  * (第一階段待完成 / 待指派 / 第二階段待完成 / 已完成;另含退補特例)。
  * 本系統一階拆「意願送出(submittedAt)」與「文件送審(docStatus=SUBMITTED)」兩件,皆完成才算一階完成。
  */
-function computeStatus(data: SelfDTO): Status {
+export function computeStatus(data: SelfDTO): Status {
   const isObserver = data.kind === 'OBSERVER';
   const docsSubmitted = data.docStatus === 'SUBMITTED';
   const docsReturned = data.docStatus === 'RETURNED';
@@ -56,7 +56,7 @@ function computeStatus(data: SelfDTO): Status {
   };
 }
 
-function statusIcon(tone: Tone) {
+export function statusIcon(tone: Tone) {
   if (tone === 'success') return <CheckCircle size={16} />;
   if (tone === 'danger' || tone === 'warning') return <AlertTriangle size={16} />;
   if (tone === 'primary') return <MapPin size={16} />;

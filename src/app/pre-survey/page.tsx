@@ -5,11 +5,10 @@ import { AppShell } from '@/components/shell/AppShell';
 import { Card } from '@/components/ui/Card';
 import { FilterChipLink } from '@/components/ui/FilterChip';
 import { canAccess } from '@/lib/access-policy';
-import { anonymousSessionLabel } from '@/lib/pre-survey';
-import type { Role, SurveyParticipantKind, SurveyAvailabilityStatus } from '@/lib/types';
+import { buildSelfDTO } from '@/lib/pre-survey-self';
+import type { Role, SurveyParticipantKind } from '@/lib/types';
 import SurveyAdminBoard, { type AdminSessionDTO, type AdminParticipantDTO } from './SurveyAdminBoard';
 import SurveySelfDashboard from './SurveySelfDashboard';
-import { type SelfDTO } from './SurveySelfForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,47 +123,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
           </Card>
         ) : (
           await (async () => {
-            const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
-            const isObserver = participant.kind === 'OBSERVER';
-            const myDocs = await prisma.evidence.findMany({
-              where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: participant.id },
-              select: { id: true, targetType: true, originalName: true },
-            });
-            const cvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV') ?? null;
-            const ndaEv = myDocs.find((d) => d.targetType === 'SURVEY_NDA') ?? null;
-            const priorCvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV_PRIOR') ?? null;
-            const selfData: SelfDTO = {
-              participantId: participant.id,
-              yearROC,
-              kind: participant.kind as SurveyParticipantKind,
-              accountEmail: user.email ?? null, // 自助頁主要信箱預設代入帳號 email
-              phone: participant.phone,
-              email: participant.email,
-              phone2: participant.phone2,
-              email2: participant.email2,
-              submittedAt: participant.submittedAt?.toISOString() ?? null,
-              docStatus: participant.docStatus,
-              docReviewed: !!participant.docReviewedAt,
-              rejectReason: participant.rejectReason,
-              cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
-              ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
-              priorCvFile: priorCvEv ? { id: priorCvEv.id, name: priorCvEv.originalName } : null,
-              // 觀察員不需經歷說明書,故過濾掉 CV_* 範本
-              templates: templateDTOs.filter((t) => !(isObserver && t.slot.startsWith('CV_'))),
-              transport: parseArr(participant.transport),
-              diet: parseArr(participant.diet),
-              travelNote: participant.travelNote,
-              assignedLabels: participant.finalAssignments.map(
-                (fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`,
-              ),
-              sessions: sessions.map((s, i) => ({
-                id: s.id,
-                anonLabel: anonymousSessionLabel(i, mdLabel(s.date)),
-                isRequired: s.isRequired,
-                remark: s.remark,
-                status: (statusMap.get(s.id) as SurveyAvailabilityStatus | undefined) ?? null,
-              })),
-            };
+            // DTO 組裝抽至 lib/pre-survey-self.buildSelfDTO(與儀表板整合共用)
+            const selfData = await buildSelfDTO({ participant, sessions, templateDTOs, accountEmail: user.email ?? null });
             // 總覽卡 key 綁 participant.id(穩定):送出/審核後不重掛總覽 → 彈窗保持開啟。
             // 表單本體的重掛(反映最新伺服器狀態)由 SurveySelfDashboard 內部以 submittedAt/docStatus 為 key 處理。
             return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} />;

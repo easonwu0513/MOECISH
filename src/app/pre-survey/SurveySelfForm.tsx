@@ -343,40 +343,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </div>
       </Card>
 
-      {/* 差旅二階(指派後解鎖) */}
-      {isAssigned ? (
-        <Card variant="outlined" className="border-l-[3px] border-l-success-500">
-          <div className="flex items-start gap-2 mb-3">
-            <MapPin size={18} className="mt-0.5 shrink-0 text-success-700" />
-            <div>
-              <h3 className="text-label text-ink-900">第二階段：差旅與飲食調查</h3>
-              <p className="mt-1 text-body-sm text-ink-900">您被指派的最終場次：{data.assignedLabels.join('、')}</p>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MultiPills label="往返交通方式（含住宿，可複選）" options={SURVEY_TRANSPORT_OPTIONS} selected={transport} busy={travelBusy} onToggle={(v) => toggleMulti('transport', v)} />
-            <MultiPills label="飲食需求（可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleMulti('diet', v)} />
-          </div>
-          <div className="mt-4">
-            <Textarea label="差旅特殊備註" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="如被指派多場次且各場次需求不同，請詳述。" />
-            <div className="mt-2">
-              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存備註</Button>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <Card variant="outlined" className="bg-paper-sunk/40">
-          <div className="flex items-start gap-2 text-ink-500">
-            <MapPin size={18} className="mt-0.5 shrink-0" />
-            <div>
-              <h3 className="text-label text-ink-700">第二階段：差旅與飲食調查</h3>
-              <p className="mt-1 text-caption">中心指派最終場次後，此區將開放填寫交通與飲食需求。</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* 逐場次意願(地名以序號匿名) */}
+      {/* 逐場次意願(地名以序號匿名;UAT:置於文件繳交之下、差旅二階之上) */}
       <Card variant="outlined">
         <h3 className="text-label text-ink-900 mb-1">稽核場次意願調查</h3>
         <p className="text-caption text-ink-500 mb-3">場次地點於意願調查階段以序號呈現；經中心指派最終場次後方揭露實際地點。</p>
@@ -431,6 +398,39 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           </Button>
           <span className="text-caption text-ink-500">送出後未勾選的場次將記為 N/A;送出後仍可修改再送。</span>
         </div>
+      )}
+
+      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下) */}
+      {isAssigned ? (
+        <Card variant="outlined" className="border-l-[3px] border-l-success-500">
+          <div className="flex items-start gap-2 mb-3">
+            <MapPin size={18} className="mt-0.5 shrink-0 text-success-700" />
+            <div>
+              <h3 className="text-label text-ink-900">第二階段：差旅與飲食調查</h3>
+              <p className="mt-1 text-body-sm text-ink-900">您被指派的最終場次：{data.assignedLabels.join('、')}</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MultiPills label="往返交通方式（含住宿，可複選）" options={SURVEY_TRANSPORT_OPTIONS} selected={transport} busy={travelBusy} onToggle={(v) => toggleMulti('transport', v)} />
+            <MultiPills label="飲食需求（可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleMulti('diet', v)} />
+          </div>
+          <div className="mt-4">
+            <Textarea label="差旅特殊備註" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="如被指派多場次且各場次需求不同，請詳述。" />
+            <div className="mt-2">
+              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存備註</Button>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card variant="outlined" className="bg-paper-sunk/40">
+          <div className="flex items-start gap-2 text-ink-500">
+            <MapPin size={18} className="mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-label text-ink-700">第二階段：差旅與飲食調查</h3>
+              <p className="mt-1 text-caption">中心指派最終場次後，此區將開放填寫交通與飲食需求。</p>
+            </div>
+          </div>
+        </Card>
       )}
     </div>
   );

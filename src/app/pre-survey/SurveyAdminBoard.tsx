@@ -199,17 +199,19 @@ export default function SurveyAdminBoard({
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           {sessions.map((s) => {
             const target = s[targetField];
-            const ok = rows.filter((p) => p.availability[s.id] === 'OK').length;
+            // UAT:分母是「最終指派目標人數」,分子應為「已指派該場次人數」(非意願 OK 人數)
+            const assigned = rows.filter((p) => p.finalSessionIds.includes(s.id)).length;
             return (
               <Card key={s.id} variant="outlined" className="!p-3.5">
                 <p className="text-caption text-ink-500 truncate">{s.dateLabel} · {s.name}</p>
                 <p className="mt-1 text-title-md text-ink-900 tabular-nums">
-                  {ok}<span className="text-body-sm text-ink-500"> / {target} 人</span>
+                  {assigned}<span className="text-body-sm text-ink-500"> / {target} 人</span>
                 </p>
+                <p className="text-[10px] text-ink-400 leading-tight">已指派 / 目標</p>
                 <div className="mt-2 h-1.5 rounded-full bg-paper-sunk overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${targetTone(ok, target) === 'success' ? 'bg-success-500' : 'bg-primary-500'}`}
-                    style={{ width: `${target > 0 ? Math.min(100, (ok / target) * 100) : 0}%` }}
+                    className={`h-full rounded-full ${targetTone(assigned, target) === 'success' ? 'bg-success-500' : 'bg-primary-500'}`}
+                    style={{ width: `${target > 0 ? Math.min(100, (assigned / target) * 100) : 0}%` }}
                   />
                 </div>
               </Card>
@@ -225,7 +227,7 @@ export default function SurveyAdminBoard({
             <thead>
               <tr className="bg-paper-sunk text-caption text-ink-500">
                 <th className="sticky left-0 z-10 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
-                {kind === 'MEMBER' && <th className="px-3 py-2.5 text-left font-medium min-w-[100px]">類型</th>}
+                {kind === 'MEMBER' && <th className="px-3 py-2.5 text-left font-medium min-w-[124px]">類型</th>}
                 <th className="px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
                 {/* 左群組:最終場次 / 意願回信 */}
                 <th className="px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
@@ -236,12 +238,12 @@ export default function SurveyAdminBoard({
                   return (
                     <th
                       key={s.id}
-                      className={`px-2 py-2.5 text-center font-medium min-w-[92px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : ''}`}
+                      className={`px-2 py-2.5 text-center font-medium min-w-[108px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : ''}`}
                       title={`${s.dateLabel} ${s.name}（點擊依此場次 OK 分組）`}
                       onClick={() => setSortSessionId(active ? null : s.id)}
                     >
                       <div className="text-ink-700">{s.dateLabel}</div>
-                      <div className="text-ink-900 truncate max-w-[88px] inline-flex items-center gap-0.5">
+                      <div className="text-ink-900 truncate max-w-[104px] inline-flex items-center gap-0.5">
                         {s.name}{active && <ChevronDown size={11} />}
                       </div>
                       <div className="text-[10px] text-ink-500">（場次 {i + 1})</div>
@@ -307,7 +309,7 @@ export default function SurveyAdminBoard({
                         <Select
                           value={p.committeeType ?? ''}
                           onChange={(e) => patchParticipant(p.id, { committeeType: e.target.value || null })}
-                          className="!py-1 text-caption"
+                          dense
                         >
                           <option value="">未分類</option>
                           {SURVEY_COMMITTEE_TYPES.map((t) => (
@@ -363,7 +365,7 @@ export default function SurveyAdminBoard({
                       <Select
                         value={p.replyStatus}
                         onChange={(e) => patchParticipant(p.id, { replyStatus: e.target.value })}
-                        className="!py-1 text-caption"
+                        dense
                       >
                         {SURVEY_REPLY_STATUSES.map((r) => (
                           <option key={r} value={r}>{SURVEY_REPLY_STATUS_LABELS[r]}</option>
@@ -376,7 +378,7 @@ export default function SurveyAdminBoard({
                         <Select
                           value={p.availability[s.id] ?? ''}
                           onChange={(e) => setAvailability(p.id, s.id, e.target.value || 'NA')}
-                          className="!py-1 text-caption"
+                          dense
                           aria-label={`${p.name} 對 ${s.name} 意願`}
                         >
                           <option value="">未填</option>
@@ -391,7 +393,7 @@ export default function SurveyAdminBoard({
                       <Select
                         value={p.docHandover}
                         onChange={(e) => patchParticipant(p.id, { docHandover: e.target.value })}
-                        className="!py-1 text-caption"
+                        dense
                       >
                         {SURVEY_DOC_HANDOVER_STATUSES.map((d) => (
                           <option key={d} value={d}>{SURVEY_DOC_HANDOVER_LABELS[d]}</option>

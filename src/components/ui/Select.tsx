@@ -8,10 +8,12 @@ type Props = SelectHTMLAttributes<HTMLSelectElement> & {
   label?: string;
   helperText?: string;
   errorText?: string;
+  /** 密集模式:表格內嵌用,矮身/小字/窄箭頭留白,避免文字被壓縮截斷(UAT) */
+  dense?: boolean;
 };
 
 export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
-  { label, helperText, errorText, id, className, disabled, children, ...rest },
+  { label, helperText, errorText, id, className, disabled, children, dense, ...rest },
   ref,
 ) {
   const genId = useId();
@@ -35,7 +37,8 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
           aria-invalid={hasError}
           aria-describedby={describedBy}
           className={cn(
-            'w-full appearance-none bg-paper-sunk rounded-t-md px-3.5 h-12 pr-10 text-body outline-none',
+            'w-full appearance-none bg-paper-sunk outline-none',
+            dense ? 'rounded-md px-2 h-8 pr-7 text-caption' : 'rounded-t-md px-3.5 h-12 pr-10 text-body',
             'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-neutral-400',
             'hover:bg-rule transition-colors duration-200 ease-standard',
             'focus:shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] focus:shadow-primary-600',
@@ -47,8 +50,8 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
           {children}
         </select>
         <ChevronDown
-          size={18}
-          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-500"
+          size={dense ? 14 : 18}
+          className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-500', dense ? 'right-2' : 'right-3.5')}
         />
       </div>
       {hasError ? (
