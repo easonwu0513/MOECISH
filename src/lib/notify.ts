@@ -954,12 +954,19 @@ export async function notifyCycleTrackReminder(opts: {
       focus = { hint: '請儘速完成稽核前應備文件上傳與資通安全檢核表填報。', path: '/prep' };
       break;
     case 'REMEDIATION':
-      focus = {
-        hint: overdue
-          ? `缺失矯正措施填報已逾期（截止 ${fmtROC(cycle.dueDate)}），請儘速完成矯正措施填報與佐證上傳。`
-          : '請完成缺失矯正措施填報與佐證上傳。',
-        path: '/deficiencies',
-      };
+      // 全數通過後,機關待辦已非「填報矯正措施」而是「列印改善報告→用印→上傳回傳」;
+      // 催辦文案與直達連結須隨情境切換(否則催的是已完成的填報,語境錯位)。
+      focus = allPassed
+        ? {
+            hint: '缺失矯正措施均已審查通過，請儘速列印改善報告、完成用印後上傳回傳中心以利結案。',
+            path: '#signed-report',
+          }
+        : {
+            hint: overdue
+              ? `缺失矯正措施填報已逾期（截止 ${fmtROC(cycle.dueDate)}），請儘速完成矯正措施填報與佐證上傳。`
+              : '請完成缺失矯正措施填報與佐證上傳。',
+            path: '/deficiencies',
+          };
       break;
     case 'REPORT_ISSUED':
       focus = { hint: '稽核報告已產出，後續缺失矯正開放後請儘速辦理。', path: '' };

@@ -26,6 +26,7 @@ import TransitionButton from './TransitionButton';
 import SignedReportPanel from './SignedReportPanel';
 import EditCycleDialog from './EditCycleDialog';
 import JourneyTodoToggle from './JourneyTodoToggle';
+import RemindButton from '@/components/cycle/RemindButton';
 import { TileIcon, statusToneText } from '@/components/cycle/tile';
 
 // 四模組卡圖示(key 對齊 lib/cycle-modules 的 ModuleKey)
@@ -133,7 +134,8 @@ export default async function CyclePage({ params, searchParams }: { params: { id
   //  機關/委員=照舊;連結指回本頁時退為純文字。
   const selfHref = `/cycles/${cycle.id}`;
   const bannerNext = user.role === 'SUPER_ADMIN'
-    ? (next && next.href && next.href !== selfHref ? next : null)
+    // 跨頁捷徑型(href≠本頁)或一鍵寄提醒型(remind,無 href)保留為橫幅 CTA;純推進型(href=本頁)交給推進鈕群
+    ? (next && ((next.href && next.href !== selfHref) || next.remind) ? next : null)
     : next && next.href === selfHref ? { ...next, href: undefined, cta: undefined } : next;
 
   // 模組卡讀數:機關只看自己負責的機關區(技術檢測/實地稽核),扣除中心匯入區;中心/委員看全部
@@ -303,6 +305,16 @@ export default async function CyclePage({ params, searchParams }: { params: { id
           cta: '去查看',
         }
       : bannerNext;
+
+  // 「寄提醒」下一步(中心·全數通過待機關用印回傳):就地一鍵寄催辦信(復用 track-remind),
+  // 並帶出本週期催辦軌跡(上次日期/累計封數)。僅此情境才查詢,避免每次載入多打一次 DB。
+  const remindTrail = effectiveNext?.remind
+    ? await prisma.emailLog.aggregate({
+        where: { relatedCycleId: cycle.id, kind: 'track-remind', status: { in: ['sent', 'simulated'] } },
+        _count: { _all: true },
+        _max: { sentAt: true },
+      })
+    : null;
 
   // 階段待辦:預設當前階段;點橫向階段列(?stage=KEY)看該階段;?stage=all 看全部階段進度
   const stageParam = typeof searchParams?.stage === 'string' ? searchParams.stage : undefined;
@@ -477,11 +489,19 @@ export default async function CyclePage({ params, searchParams }: { params: { id
                 {effectiveNext.text && (
                   <span className="text-caption text-ink-500 leading-snug">下一步：{effectiveNext.text}</span>
                 )}
-                {effectiveNext.href && effectiveNext.cta && (
+                {effectiveNext.remind ? (
+                  <RemindButton
+                    cycleId={cycle.id}
+                    orgName={cycle.organization.name}
+                    yearLabel={String(yearROC)}
+                    lastLabel={remindTrail?._max.sentAt ? fmtROC(remindTrail._max.sentAt) : null}
+                    remindCount={remindTrail?._count._all ?? 0}
+                  />
+                ) : effectiveNext.href && effectiveNext.cta ? (
                   <Link href={effectiveNext.href}>
                     <Button size="sm">{effectiveNext.cta}</Button>
                   </Link>
-                )}
+                ) : null}
               </span>
             )}
           </div>

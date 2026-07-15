@@ -72,7 +72,8 @@ export type CycleFacts = {
   reviewWindowOpen: boolean;
 };
 
-export type NextAction = { text: string; href?: string; cta?: string } | null;
+// remind=true:此「下一步」為一鍵寄催辦信(復用 track-remind),頁面改渲染 RemindButton 而非純連結。
+export type NextAction = { text: string; href?: string; cta?: string; remind?: boolean } | null;
 
 export function fmtMD(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -175,7 +176,7 @@ export function nextActionForRole(role: Role, f: CycleFacts): NextAction {
     if (st === 'REPORT_ISSUED') return { text: '確認缺失內容，通知機關開始矯正', href: base, cta: '去通知' };
     // REMEDIATION
     if (!f.allPassed) return { text: `追蹤填報：待填 ${f.toFill}・審查中 ${f.submitted}・退回 ${f.returned}${f.overdue ? '・已逾期' : ''}`, href: `${base}/deficiencies`, cta: '去追蹤' };
-    if (!f.signedUploaded) return { text: '全數通過，等機關上傳用印報告（可寄提醒）', href: '/admin/emails', cta: '寄提醒' };
+    if (!f.signedUploaded) return { text: '全數通過，等機關上傳用印報告；可一鍵寄提醒催機關用印回傳', remind: true };
     if (!f.signedConfirmed) return { text: '用印報告已上傳，確認後正式結案', href: base, cta: '去結案' };
     return { text: '結案處理中', href: base, cta: '查看' };
   }
