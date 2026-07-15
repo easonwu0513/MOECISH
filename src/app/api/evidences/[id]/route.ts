@@ -58,6 +58,19 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         ) {
           return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段，文件不可刪除' }, { status: 400 });
         }
+      } else if (e.targetType === 'TRACKED_REPORT') {
+        // 持續列管回報佐證(批71):機關僅能刪自家、且尚待審核(PENDING)之回報佐證;審結後鎖定。
+        const report = await prisma.trackedReport.findUnique({
+          where: { id: e.targetId },
+          select: { reviewStatus: true, tracked: { select: { organizationId: true } } },
+        });
+        if (!report) return NextResponse.json({ error: '對應紀錄不存在' }, { status: 404 });
+        if (report.tracked.organizationId !== user.organizationId) {
+          return NextResponse.json({ error: '無權刪除其他機關之佐證' }, { status: 403 });
+        }
+        if (report.reviewStatus !== 'PENDING') {
+          return NextResponse.json({ error: '此回報已審核，佐證不可刪除' }, { status: 400 });
+        }
       } else {
         return NextResponse.json({ error: '此類型佐證不可刪除' }, { status: 400 });
       }

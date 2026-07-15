@@ -27,6 +27,9 @@ export type EmailKind =
   | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
   | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
   | 'audit-score-return'  // 最高管理員退件 → 通知該委員(解除鎖定、請重新編輯)
+  | 'tracked-created'     // 缺失拋轉持續列管 → 通知機關(批71)
+  | 'tracked-report'      // 機關送出列管回報 → 通知中心(+協審委員)(批71)
+  | 'tracked-reviewed'    // 中心/協審委員審核列管回報 → 通知機關(批71)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 

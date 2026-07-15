@@ -119,6 +119,43 @@ export const EXEC_STATUS_LABELS: Record<ExecStatus, string> = {
 export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
 
 // ════════════════════════════════════════════
+// 批71:歷年未完成缺失「持續列管」
+// ════════════════════════════════════════════
+
+/** 觸發拋轉持續列管的執行情形:機關填「辦理中」(未逾期/逾期皆然)而委員仍審核通過 → 週期照常結案,
+ *  但事項未真正完成,須跨年度滾動追蹤。「如期完成 / 逾期完成」視為已完成,不拋轉。 */
+export const TRACKING_TRIGGER_EXEC: readonly ExecStatus[] = ['IN_PROGRESS', 'LATE_IN_PROGRESS'];
+export function isUnfinishedExec(execStatus: string | null | undefined): boolean {
+  return !!execStatus && (TRACKING_TRIGGER_EXEC as readonly string[]).includes(execStatus);
+}
+
+/** 列管狀態:追蹤中 / 已完成(認可結案)。 */
+export const TRACKED_STATUSES = ['TRACKING', 'COMPLETED'] as const;
+export type TrackedStatus = (typeof TRACKED_STATUSES)[number];
+export const TRACKED_STATUS_LABELS: Record<TrackedStatus, string> = {
+  TRACKING: '持續列管中',
+  COMPLETED: '已完成結案',
+};
+
+/** 單筆回報的審核狀態(送出後由中心/協審委員裁決三態)。 */
+export const TRACKED_REVIEW_STATUSES = ['PENDING', 'CONTINUE', 'COMPLETE', 'RETURNED'] as const;
+export type TrackedReviewStatus = (typeof TRACKED_REVIEW_STATUSES)[number];
+export const TRACKED_REVIEW_STATUS_LABELS: Record<TrackedReviewStatus, string> = {
+  PENDING: '待審核',
+  CONTINUE: '通過・續列管',
+  COMPLETE: '認可完成',
+  RETURNED: '退回補正',
+};
+
+/** 滾動審核決議(送出時的三選一;對應 TrackedReport.reviewStatus 的三個終態)。 */
+export const TRACKED_REVIEW_DECISIONS = ['CONTINUE', 'COMPLETE', 'RETURN'] as const;
+export type TrackedReviewDecision = (typeof TRACKED_REVIEW_DECISIONS)[number];
+
+/** 回報週期(月)可選值:逐筆可調,預設 6 個月。 */
+export const TRACKING_CADENCE_OPTIONS = [3, 6, 9, 12] as const;
+export const DEFAULT_TRACKING_CADENCE = 6;
+
+// ════════════════════════════════════════════
 // 模組 B：資料準備（P2）
 // ════════════════════════════════════════════
 
@@ -308,6 +345,7 @@ export const EVIDENCE_TARGET_TYPES = [
   'CORRECTIVE_ACTION',
   'PREP_SUBMISSION',
   'AUDIT_CYCLE',
+  'TRACKED_REPORT', // 批71:持續列管缺失之滾動回報佐證
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
 

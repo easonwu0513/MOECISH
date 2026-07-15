@@ -58,6 +58,18 @@ export async function POST(req: Request) {
     // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
     const { user, cycle } = await assertEvidenceAccess(targetType, targetId);
 
+    // 持續列管回報佐證(批71):機關僅能對「本人送出、尚待審核(PENDING)」的回報補充佐證;
+    // 一旦審結(續列管/認可完成/退回)即鎖定,不可再附加(退回後由機關另建新回報)。
+    if (targetType === 'TRACKED_REPORT' && user.role === 'ORG_ADMIN') {
+      const report = await prisma.trackedReport.findUnique({
+        where: { id: targetId },
+        select: { reviewStatus: true },
+      });
+      if (!report || report.reviewStatus !== 'PENDING') {
+        return NextResponse.json({ error: '此回報已審核或不存在，無法再上傳佐證' }, { status: 400 });
+      }
+    }
+
     // 檢核表佐證:機關僅「資料準備中」可上傳(開立中尚未開放;送出鎖定後 checklistSubmittedAt 另擋)
     if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'ORG_ADMIN' && !checklistOrgCanEdit(cycle.status)) {
       return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證（開立中尚未開放）' }, { status: 400 });

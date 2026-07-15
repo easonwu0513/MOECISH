@@ -95,6 +95,15 @@ const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
     AUDITOR: NONE,
     OBSERVER: NONE,
   },
+  // 缺失持續列管工作區(批71):跨年度滾動,不綁週期階段 → 允許者於「所有階段」皆允許(ALL),
+  // 未允許者於所有階段皆拒絕(NONE)。中心/機關/委員可見(細粒度自家機關·協審委員閘由 API 另管);
+  // 觀察員一律不可(缺失管考不對觀察員開放,對齊 deficiencies.view)。
+  'tracking.view': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: ALL,
+    AUDITOR: ALL,
+    OBSERVER: NONE,
+  },
 };
 
 const SURFACES = Object.keys(EXPECT) as Surface[];

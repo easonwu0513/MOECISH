@@ -41,7 +41,8 @@ export type Surface =
   | 'deficiencies.view' // 檢視「缺失與矯正管考」模組(委員須待缺失發布後;觀察員一律不可=需求一-2)
   | 'signedReport.section' // 「用印掃描檔」整段可見
   | 'signedReport.upload' // 上傳用印掃描檔
-  | 'auditReport.view'; // 彙整報告(全體委員整合;中心專用)
+  | 'auditReport.view' // 彙整報告(全體委員整合;中心專用)
+  | 'tracking.view'; // 缺失持續列管工作區(批71;跨年度滾動,不綁週期階段)
 
 /**
  * 某角色在某週期階段是否可存取某介面(粗粒度)。所有頁面/API/磚請改呼叫此處,不要各自內聯階段判斷。
@@ -106,5 +107,13 @@ export function canAccess(surface: Surface, role: Role, cycleStatus: string): bo
     case 'auditReport.view':
       // 彙整報告為中心(最高管理員)專用;委員印自己的附件17、機關不涉入、觀察員練習資料結構性不進報告
       return role === 'SUPER_ADMIN';
+
+    case 'tracking.view':
+      // 缺失持續列管(批71)為「跨年度滾動管考」,刻意不綁任一週期階段(cycleStatus 於此 surface 無作用):
+      //  ・中心(SUPER_ADMIN):跨機關全景、指派協審委員、審核回報;
+      //  ・機關(ORG_ADMIN):自家列管清單、逐筆回報(細粒度自家機關閘另由 API/頁面把關);
+      //  ・委員(AUDITOR):僅被指派協審之列管項(細粒度 assignedAuditorId 閘另由 API/頁面把關)。
+      // 觀察員(OBSERVER)與未列舉角色一律拒絕(fail-closed;缺失管考不對觀察員開放,對齊 deficiencies.view)。
+      return role === 'SUPER_ADMIN' || role === 'ORG_ADMIN' || role === 'AUDITOR';
   }
 }

@@ -6,9 +6,11 @@ import { cycleTransitionNotify } from './notify-policy';
 import {
   DEFICIENCY_ASPECT_LABELS,
   DEFICIENCY_TYPE_LABELS,
+  TRACKED_REVIEW_STATUS_LABELS,
   type CycleStatus,
   type DeficiencyAspect,
   type DeficiencyType,
+  type TrackedReviewStatus,
 } from './types';
 
 /**
@@ -1049,6 +1051,139 @@ export async function notifyCycleStatusChange(opts: {
         relatedCycleId: cycle.id,
         dedupeKey: `status-${cycle.id}-${opts.status}`,
         context: { status: opts.status },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+// ════════════════════════════════════════════
+// 批71:缺失持續列管通知(事件驅動,非週期狀態轉換 → 不受 notify-policy 矩陣約束)
+// ════════════════════════════════════════════
+
+/** 列管項標籤:構面－類型 第 N 項(通知內文共用)。 */
+function trackedItemLabel(t: { aspect: string; type: string; itemNo: number }): string {
+  return `${DEFICIENCY_ASPECT_LABELS[t.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[t.type as DeficiencyType]} 第 ${t.itemNo} 項`;
+}
+
+/** 缺失拋轉持續列管 → 通知機關「此缺失轉入持續列管,首次回報期限 X」。 */
+export async function notifyTrackedCreated(opts: { deficiencyId: string; appBaseUrl: string }) {
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { deficiencyId: opts.deficiencyId },
+    include: { organization: true },
+  });
+  if (!tracked) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const originYearROC = tracked.originYear - 1911;
+  const dueStr = fmtROC(tracked.nextReportDue);
+  const label = trackedItemLabel(tracked);
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 缺失已轉入持續列管，請依期回報改善進度`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} ${originYearROC} 年度稽核之「${label}」因尚在辦理中，經審核後已轉入「缺失持續列管」，將跨年度滾動追蹤至改善完成。\n\n` +
+          `首次回報期限：${dueStr}。請於期限前登入平台回報最新進度並上傳佐證：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-created',
+        notificationLink: '/tracking',
+        // 同一列管項對同一機關 24h 去重(冪等 upsert 重審不重複轟炸)
+        dedupeKey: `tracked-created-${tracked.id}`,
+        context: { trackedId: tracked.id, deficiencyId: opts.deficiencyId },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 機關送出列管回報 → 通知中心(最高管理員)+ 協審委員(若有指派且在職)。 */
+export async function notifyTrackedReportSubmitted(opts: { reportId: string; appBaseUrl: string }) {
+  const report = await prisma.trackedReport.findUnique({
+    where: { id: opts.reportId },
+    include: { tracked: { include: { organization: true } } },
+  });
+  if (!report) return { recipientCount: 0 };
+  const tracked = report.tracked;
+
+  const center = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+  const auditor = tracked.assignedAuditorId
+    ? await prisma.user.findFirst({ where: { id: tracked.assignedAuditorId, isActive: true } })
+    : null;
+  const recipients = [...center, ...(auditor ? [auditor] : [])];
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const orgName = tracked.organization.shortName ?? tracked.organization.name;
+  const label = trackedItemLabel(tracked);
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} 已回報持續列管缺失進度，敬請審核`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} 已回報持續列管缺失「${label}」的最新改善進度，請登入平台檢視進度說明與佐證並審核（通過續列管／認可完成／退回補正）：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-report',
+        notificationLink: '/tracking',
+        context: { trackedId: tracked.id, reportId: report.id },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 中心/協審委員審核列管回報 → 通知機關結果(退回附理由;認可完成則告知結案)。 */
+export async function notifyTrackedReviewed(opts: { reportId: string; appBaseUrl: string }) {
+  const report = await prisma.trackedReport.findUnique({
+    where: { id: opts.reportId },
+    include: { tracked: { include: { organization: true } } },
+  });
+  if (!report) return { recipientCount: 0 };
+  const tracked = report.tracked;
+
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const label = trackedItemLabel(tracked);
+  const decisionLabel = TRACKED_REVIEW_STATUS_LABELS[report.reviewStatus as TrackedReviewStatus] ?? report.reviewStatus;
+  const noteBlock = report.reviewNote?.trim() ? `審核意見：\n${report.reviewNote.trim()}\n\n` : '';
+  const nextBlock =
+    report.reviewStatus === 'COMPLETE'
+      ? '本缺失已認可完成、結束列管，無須再回報。\n\n'
+      : report.reviewStatus === 'RETURNED'
+      ? '請依審核意見補充後重新回報。\n\n'
+      : `本缺失仍持續列管，下次回報期限：${fmtROC(tracked.nextReportDue)}。\n\n`;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 持續列管缺失回報審核結果：${decisionLabel}`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} 持續列管缺失「${label}」的進度回報，審核結果為「${decisionLabel}」。\n\n` +
+          noteBlock +
+          nextBlock +
+          `詳情請登入平台查看：\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-reviewed',
+        notificationLink: '/tracking',
+        context: { trackedId: tracked.id, reportId: report.id, decision: report.reviewStatus },
       }),
     ),
   );

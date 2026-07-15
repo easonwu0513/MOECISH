@@ -68,6 +68,11 @@ export default async function DeficiencyDetailPage({
   // 缺失內容仍為佔位文字/空白:委員不可審核通過(批58,對齊 review route 後端閘)。
   const descInvalid = isInvalidDeficiencyDescription(deficiency.description);
   const yearROC = cycle.year - 1911;
+  // 批71:此缺失是否已轉入持續列管(「辦理中」通過後自動拋轉)→ 顯示 chip 連往列管庫
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { deficiencyId: deficiency.id },
+    select: { status: true },
+  });
 
   const reviewerIds = Array.from(new Set((action?.reviews ?? []).map((r) => r.auditorId)));
   const reviewers = reviewerIds.length
@@ -259,6 +264,11 @@ export default async function DeficiencyDetailPage({
             </Chip>
             {(action?.round ?? 1) > 1 && (
               <Chip tone="neutral" size="md">第 {action!.round} 輪</Chip>
+            )}
+            {tracked?.status === 'TRACKING' && (
+              <Link href="/tracking" className="focus-ring rounded-full" title="此缺失以「辦理中」通過，已轉入持續列管；點擊前往列管庫">
+                <Chip tone="primary" size="md" dot>持續列管中</Chip>
+              </Link>
             )}
           </div>
           <p className="mt-1 text-body-sm text-ink-500">

@@ -84,9 +84,14 @@ export default function ReviewPanel({
       toast.error('審查失敗', j.error);
       return;
     }
+    const data = await res.json().catch(() => ({}));
     const t = open === 'PASS' ? TOAST.passedAction() : TOAST.returnedAction();
     const more = remaining && remaining > 0 ? `還有 ${remaining} 筆待審，已為你開啟下一筆。` : undefined;
-    toast.success(t.title, more ?? t.description);
+    // 批71:若此缺失因「辦理中」通過而轉入持續列管,於通過提示追加告知(後端回應 tracked=true)
+    const desc = data?.tracked
+      ? `此缺失未完成，已轉入持續列管，後續將跨年度滾動追蹤。${more ?? ''}`.trim()
+      : (more ?? t.description);
+    toast.success(t.title, desc);
     setOpen(null);
     setComment('');
     if (nextHref) {

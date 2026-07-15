@@ -24,6 +24,7 @@ model Organization {
   users       User[]
   cycles      AuditCycle[]
   invitations Invitation[]
+  trackedDeficiencies TrackedDeficiency[]
   createdAt   DateTime       @default(now())
 }
 
@@ -67,6 +68,8 @@ model User {
   practiceFeedbacks    PracticeFeedback[]     @relation("PracticeFeedbacks")
   practiceScores       PracticeScore[]        @relation("PracticeScores")
   practiceComments     PracticeComment[]      @relation("PracticeComments")
+  // 缺失持續列管(批71):受指派協審之列管缺失(在職委員,一筆至多一位)
+  trackedAssignments   TrackedDeficiency[]    @relation("TrackedAuditor")
   // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
   roleGrants           UserRole[]
 }
@@ -224,6 +227,7 @@ model AuditCycle {
   observers        CycleObserver[]
   practiceFindings PracticeFinding[]
   practiceScores   PracticeScore[]
+  trackedDeficiencies TrackedDeficiency[] // 批71:此週期缺失拋轉之持續列管項(來源週期)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
@@ -501,6 +505,8 @@ model Deficiency {
   // 審核權限(審核通過/退回補正)= 此委員 或 SUPER_ADMIN(見 action/review)。
   reviewerAuditorId String?
   reviewerAuditor   User?             @relation("DeficiencyReviewer", fields: [reviewerAuditorId], references: [id])
+  // 批71:此缺失若因「辦理中」通過而拋轉持續列管,關聯其列管項(一缺失至多一列管項)
+  tracked           TrackedDeficiency?
   createdAt         DateTime          @default(now())
 
   @@unique([cycleId, aspect, type, itemNo])
@@ -559,6 +565,63 @@ model SignedReport {
   confirmedAt   DateTime?
 
   @@index([cycleId])
+}
+
+// ════════════════════════════════════════════
+// 批71:歷年未完成缺失「持續列管」(跨年度滾動管考)
+//   機關填「未逾期辦理中/逾期辦理中」且委員審核通過 → 週期照常結案(零卡控,不動結案流),
+//   但該缺失自動拋轉此庫,由中心為主(可指派一位在職委員協審)滾動追蹤,直到真正完成。
+//   與 Deficiency/CorrectiveAction 解耦:originCycle 可能已結案,列管「不隨週期階段」鎖定
+//   (授權走 lib/access-policy tracking.view + 自家機關/協審委員細粒度閘,非週期階段閘)。
+//   快照缺失樣貌 → 列管庫獨立呈現,免回溯原週期。deficiencyId @unique = 拋轉冪等鍵。
+// ════════════════════════════════════════════
+
+model TrackedDeficiency {
+  id                String        @id @default(cuid())
+  deficiencyId      String        @unique // 一缺失至多一列管項(拋轉 upsert 冪等鍵)
+  deficiency        Deficiency    @relation(fields: [deficiencyId], references: [id], onDelete: Cascade)
+  organizationId    String
+  organization      Organization  @relation(fields: [organizationId], references: [id])
+  originCycleId     String
+  originCycle       AuditCycle    @relation(fields: [originCycleId], references: [id])
+  // 缺失快照(拋轉當下樣貌;列管庫獨立呈現)
+  aspect            String // DeficiencyAspect
+  type              String // DeficiencyType
+  itemNo            Int
+  description       String
+  checklistRef      String?
+  originYear        Int // 來源西元年(= originCycle.year)
+  status            String        @default("TRACKING") // TrackedStatus: TRACKING | COMPLETED
+  cadenceMonths     Int           @default(6) // 回報週期(月);逐筆可調
+  nextReportDue     DateTime // 下次回報期限(拋轉=now+6 個月;每次通過續列管=now+cadence)
+  // 協審委員(在職 AUDITOR,迴避該機關服務者);null=僅中心審核。可改指派。
+  assignedAuditorId String?
+  assignedAuditor   User?         @relation("TrackedAuditor", fields: [assignedAuditorId], references: [id])
+  reports           TrackedReport[]
+  createdAt         DateTime      @default(now())
+  closedAt          DateTime? // status=COMPLETED(認可完成)蓋章時間
+  closedById        String? // 認可完成之操作者 id 快照
+
+  @@index([organizationId, status])
+  @@index([assignedAuditorId, status])
+}
+
+model TrackedReport {
+  id            String            @id @default(cuid())
+  trackedId     String
+  tracked       TrackedDeficiency @relation(fields: [trackedId], references: [id], onDelete: Cascade)
+  content       String // 進度說明
+  execStatus    String // 沿用 ExecStatus(如期完成/未逾期辦理中/逾期完成/逾期辦理中)
+  submittedAt   DateTime          @default(now())
+  submittedById String // 送出者 id 快照
+  // 三態滾動審核決議:PENDING(待審)| CONTINUE(通過續列管)| COMPLETE(認可完成)| RETURNED(退回補正)
+  reviewStatus  String            @default("PENDING")
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedById  String? // 審核者 id 快照
+  createdAt     DateTime          @default(now())
+
+  @@index([trackedId])
 }
 
 // ════════════════════════════════════════════

@@ -40,6 +40,13 @@ export function rocYear(gregorianYear: number): number {
   return gregorianYear - 1911;
 }
 
+/** 加 n 個月(批71 回報期限計算);月底溢位由 Date 自然進位(如 1/31 + 1 個月 → 3/3,可接受)。 */
+export function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
 /** 民國年點分隔日期:115.06.11(正式報告 / Excel 匯出用) */
 export function rocDateDotted(d: Date | string | null | undefined): string {
   const p = tpeParts(d);

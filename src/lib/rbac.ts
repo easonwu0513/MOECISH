@@ -1,5 +1,6 @@
 import { EVIDENCE_TARGET_TYPES, type EvidenceTargetType, type Role, auditorCanSeePrep, auditorCanViewChecklistContent, auditorCanSeeCycle, auditorCanScore, reviewWindowOpenForRole } from './types';
 import { canAccess } from './access-policy';
+import { holdsActiveRole } from './identity';
 import { auth } from './auth';
 import { prisma } from './db';
 
@@ -140,6 +141,32 @@ export async function assertEvidenceAccess(targetType: string, targetId: string)
   if (!/^[a-z0-9]{20,40}$/i.test(targetId)) {
     // cuid 形式;阻擋路徑穿越與任意字串
     throw new AuthError(400, '佐證對象識別碼格式不正確');
+  }
+
+  // 持續列管回報佐證(批71):跨年度、不綁週期階段,不能走 assertCycleAccess(來源週期多已結案、
+  // 協審委員亦不在原週期指派表)。改以列管項的機關/協審委員自訂授權,並回傳來源週期供浮水印/軌跡定址。
+  //  ・中心(SUPER_ADMIN):全可;  ・機關(ORG_ADMIN):限自家列管項(含多重身分授權);
+  //  ・協審委員(AUDITOR):限被指派該項者,唯讀(寫入由 evidences POST 全域擋委員);其餘一律拒絕。
+  if (targetType === 'TRACKED_REPORT') {
+    const user = await requireUser();
+    const report = await prisma.trackedReport.findUnique({
+      where: { id: targetId },
+      select: { tracked: { select: { organizationId: true, assignedAuditorId: true, originCycleId: true } } },
+    });
+    if (!report) throw new AuthError(404, '佐證對象不存在');
+    const t = report.tracked;
+    let allowed = false;
+    if (user.role === 'SUPER_ADMIN') {
+      allowed = true;
+    } else if (user.role === 'ORG_ADMIN') {
+      allowed = user.organizationId === t.organizationId || (await holdsActiveRole(user.id, 'ORG_ADMIN', t.organizationId));
+    } else if (user.role === 'AUDITOR') {
+      allowed = t.assignedAuditorId === user.id;
+    }
+    if (!allowed) throw new AuthError(403, '無權存取此持續列管回報的佐證');
+    const cycle = await prisma.auditCycle.findUnique({ where: { id: t.originCycleId } });
+    if (!cycle) throw new AuthError(404, '佐證對象不存在');
+    return { user, cycle, cycleId: cycle.id };
   }
 
   let cycleId: string | null = null;
