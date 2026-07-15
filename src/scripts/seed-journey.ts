@@ -181,21 +181,24 @@ const CYCLE: SeedTemplate = {
     {
       stageKey: 'REMEDIATION',
       title: '矯正執行中',
-      summary: '機關逐項填報改善措施；委員審查；中心追蹤。',
+      summary: '機關逐項填報改善措施；委員審查；中心追蹤。全數通過後機關列印改善報告用印上傳，中心確認後結案。',
       items: [
         { title: '逐項填報根因分析與改善措施並上傳佐證後送審', role: 'ORG_ADMIN', autoKey: 'remediation_submitted' },
         { title: '退回項目補正後重新送審', role: 'ORG_ADMIN', informational: true },
         { title: '逐項審查矯正措施（通過 / 退回附理由）', role: 'AUDITOR', autoKey: 'remediation_reviewed' },
         { title: '追蹤各機關填報進度、寄送追蹤信', role: 'SUPER_ADMIN', informational: true },
+        // 批69:用印上傳/確認是「推進結案的前提」(transition 閘要求先完成),故屬矯正執行中尾段工作;
+        // 原置於結案階段=永遠推不進的雞生蛋矛盾(結案待辦要求做 X,但做完 X 才能到結案)。
+        { title: '全數通過後：列印改善報告、完成用印後上傳回傳中心', role: 'ORG_ADMIN', autoKey: 'signed_uploaded' },
+        { title: '確認機關用印報告並正式結案', role: 'SUPER_ADMIN', autoKey: 'signed_confirmed' },
       ],
     },
     {
       stageKey: 'CLOSED',
       title: '結案',
-      summary: '機關用印改善報告上傳；中心確認結案。',
+      summary: '用印報告已於矯正執行中完成上傳與確認；本週期資料唯讀留存。',
       items: [
-        { title: '列印改善報告、完成用印後上傳回傳中心', role: 'ORG_ADMIN', autoKey: 'signed_uploaded' },
-        { title: '確認機關用印報告並正式結案', role: 'SUPER_ADMIN', autoKey: 'signed_confirmed' },
+        { title: '本週期已正式結案；資料唯讀留存，可供日後查閱', informational: true },
       ],
     },
   ],
