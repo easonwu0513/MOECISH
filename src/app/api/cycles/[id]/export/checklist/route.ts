@@ -166,7 +166,7 @@ async function exportDocx(data: Loaded) {
   });
 
   const buf = await Packer.toBuffer(doc);
-  const filename = `${data.organization.code}_${yearROC}_檢核表。docx`;
+  const filename = `${data.organization.code}_${yearROC}_檢核表` + '.docx';
   return new NextResponse(new Uint8Array(buf), {
     status: 200,
     headers: {
@@ -294,7 +294,7 @@ async function exportXlsx(data: Loaded) {
   }
 
   const buf = await wb.xlsx.writeBuffer();
-  const filename = `${data.organization.code}_${data.year - 1911}_檢核表。xlsx`;
+  const filename = `${data.organization.code}_${data.year - 1911}_檢核表` + '.xlsx';
   return new NextResponse(Buffer.from(buf), {
     status: 200,
     headers: {
