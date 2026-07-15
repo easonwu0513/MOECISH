@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +28,8 @@ function computeStatus(data: SelfDTO): Status {
   const waitingForAssignment = !needsStage1 && !isAssigned;
 
   if (docsReturned) {
-    return { tone: 'danger', label: '文件需補件', hint: '中心已退回您的文件，請依退補說明修改後重新送審。', cta: '前往補件' };
+    const extra = willingnessSent ? '' : '另出席意願尚未送出，請一併於下方送出。';
+    return { tone: 'danger', label: '文件需補件', hint: `中心已退回您的文件，請依退補說明修改後重新送審。${extra}`, cta: '前往補件' };
   }
   if (needsStage1) {
     const missing: string[] = [];
@@ -66,8 +68,12 @@ function statusIcon(tone: Tone) {
  * 表單本體沿用 SurveySelfForm(全部後端保證不變),只是改由總覽卡引導入口。
  */
 export default function SurveySelfDashboard({ data, userName }: { data: SelfDTO; userName: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const status = computeStatus(data);
+  // 關窗時 refresh:意願鈕/差旅 pill 為樂觀存檔(不各自 refresh),關窗才同步伺服器狀態回本卡,
+  // 使總覽徽章 computeStatus(data) 正確、重開表單以最新 data 初始化(否則會像資料未存)。
+  const close = () => { setOpen(false); router.refresh(); };
 
   return (
     <>
@@ -94,12 +100,14 @@ export default function SurveySelfDashboard({ data, userName }: { data: SelfDTO;
 
       <Dialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(o) => { if (!o) close(); }}
         size="lg"
         title={`${data.yearROC} 年度事前場次調查`}
-        footer={<Button variant="text" onClick={() => setOpen(false)}>關閉</Button>}
+        footer={<Button variant="text" onClick={close}>關閉</Button>}
       >
-        <SurveySelfForm data={data} hideHeader />
+        {/* 送出意願/送審文件後,伺服器狀態變動 → 以此 key 重掛表單反映最新(彈窗維持開啟);
+            聯絡/意願三態/差旅 pill 用樂觀 local state 且不變動此 key,編輯途中不會被重掛打斷。 */}
+        <SurveySelfForm key={`${data.submittedAt ?? 'draft'}-${data.docStatus}-${data.docReviewed ? 'r' : 'n'}`} data={data} hideHeader />
       </Dialog>
     </>
   );

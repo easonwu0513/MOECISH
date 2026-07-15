@@ -144,8 +144,9 @@ export default function SurveyAdminBoard({
       toast.error('催辦失敗', j.error);
       return;
     }
-    const j = await res.json().catch(() => ({ recipientCount: 0 }));
+    const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false }));
     if (j.recipientCount > 0) toast.success(`已寄出催辦（${stage === 2 ? '差旅' : '意願'}）`, p.name);
+    else if (j.skipped) toast.warning('今日已催辦過', '24 小時內同一階段僅寄一次，避免重複打擾。');
     else if (stage === 2) toast.warning('未寄送', '該人員尚未被指派最終場次，或帳號已停用。');
     else toast.warning('未寄送', '該帳號已停用或查無收件人。');
   }
@@ -403,9 +404,10 @@ export default function SurveyAdminBoard({
                       {p.diet.length > 0 ? p.diet.join('、') : <span className="text-ink-400">—</span>}
                       {p.travelNote && <span className="block text-ink-400" title={p.travelNote}>備註…</span>}
                     </td>
-                    {/* 聯絡電話(中心可改) */}
+                    {/* 聯絡電話(中心可改;key 綁 p.phone → 個人資料彈窗改電話後 refresh 令此格重掛吃到新值) */}
                     <td className="px-3 py-2">
                       <input
+                        key={p.phone ?? ''}
                         defaultValue={p.phone ?? ''}
                         onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.phone ?? null)) patchParticipant(p.id, { phone: e.target.value.trim() || null }); }}
                         placeholder="—"

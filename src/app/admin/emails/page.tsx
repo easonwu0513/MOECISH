@@ -28,6 +28,10 @@ const kindLabel: Record<string, { label: string; tone: 'primary' | 'sage' | 'neu
   'tracked-report':      { label: '列管回報',     tone: 'primary' },
   'tracked-reviewed':    { label: '列管審核',     tone: 'sage' },
   'tracked-due':         { label: '列管催辦',     tone: 'warning' },
+  // 事前場次調查(批A/B + mockup 改版)
+  'presurvey-remind':        { label: '事前催辦-意願', tone: 'warning' },
+  'presurvey-travel-remind': { label: '事前催辦-差旅', tone: 'warning' },
+  'presurvey-doc-return':    { label: '事前文件退補', tone: 'warning' },
   'health-alert':        { label: '系統警報',     tone: 'danger' },
   'letter-manual':       { label: '手動信件',     tone: 'primary' },
   other:                 { label: '其他',         tone: 'neutral' },

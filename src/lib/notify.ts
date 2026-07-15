@@ -1194,19 +1194,19 @@ export async function notifyTrackedReviewed(opts: { reportId: string; appBaseUrl
 // 批A:事前場次調查催辦(中心催委員/觀察員填意願;事件驅動,不入週期矩陣)
 // ════════════════════════════════════════════
 
-/** 中心催辦某受調人員填一階意願(email + 站內鈴鐺;同人 24h 去重防轟炸)。 */
+/** 中心催辦某受調人員填一階意願(email + 站內鈴鐺;同人 24h 去重防轟炸)。skipped=true 表被去重未實際外寄。 */
 export async function notifyPresurveyRemind(opts: { participantId: string; appBaseUrl: string }) {
   const participant = await prisma.surveyParticipant.findUnique({
     where: { id: opts.participantId },
     include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
   });
-  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
+  if (!participant || !participant.user.isActive) return { recipientCount: 0, skipped: false };
 
   const yearROC = participant.year - 1911;
   const link = `${opts.appBaseUrl}/pre-survey`;
   const u = participant.user;
 
-  await sendEmail({
+  const log = await sendEmail({
     to: u.email,
     toName: u.name,
     subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫出席意願`,
@@ -1220,7 +1220,8 @@ export async function notifyPresurveyRemind(opts: { participantId: string; appBa
     dedupeKey: `presurvey-remind-${participant.id}`,
     context: { participantId: participant.id, year: participant.year },
   });
-  return { recipientCount: 1 };
+  const skipped = log.status === 'skipped';
+  return { recipientCount: skipped ? 0 : 1, skipped };
 }
 
 /** 中心退補某受調人員文件 → 通知本人補件(email + 站內;附退補理由)。 */
@@ -1261,14 +1262,14 @@ export async function notifyPresurveyTravelRemind(opts: { participantId: string;
       finalAssignments: { select: { id: true } },
     },
   });
-  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
-  if (participant.finalAssignments.length === 0) return { recipientCount: 0 }; // 未指派場次=二階未解鎖,不催
+  if (!participant || !participant.user.isActive) return { recipientCount: 0, skipped: false };
+  if (participant.finalAssignments.length === 0) return { recipientCount: 0, skipped: false }; // 未指派場次=二階未解鎖,不催
 
   const yearROC = participant.year - 1911;
   const link = `${opts.appBaseUrl}/pre-survey`;
   const u = participant.user;
 
-  await sendEmail({
+  const log = await sendEmail({
     to: u.email,
     toName: u.name,
     subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫差旅與飲食需求`,
@@ -1282,5 +1283,6 @@ export async function notifyPresurveyTravelRemind(opts: { participantId: string;
     dedupeKey: `presurvey-travel-remind-${participant.id}`,
     context: { participantId: participant.id, year: participant.year },
   });
-  return { recipientCount: 1 };
+  const skipped = log.status === 'skipped';
+  return { recipientCount: skipped ? 0 : 1, skipped };
 }

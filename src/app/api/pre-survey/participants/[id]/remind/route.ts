@@ -22,12 +22,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
 
     let recipientCount = 0;
+    let skipped = false;
     try {
       const r =
         stage === 2
           ? await notifyPresurveyTravelRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) })
           : await notifyPresurveyRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) });
       recipientCount = r.recipientCount;
+      skipped = r.skipped;
     } catch (e) {
       console.error('presurvey remind notify failed:', e);
     }
@@ -37,11 +39,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_REMIND',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { stage, recipientCount },
+      after: { stage, recipientCount, skipped },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, recipientCount });
+    return NextResponse.json({ ok: true, recipientCount, skipped });
   } catch (e) {
     return errorResponse(e);
   }

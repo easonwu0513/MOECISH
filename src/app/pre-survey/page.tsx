@@ -162,9 +162,9 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
                 status: (statusMap.get(s.id) as SurveyAvailabilityStatus | undefined) ?? null,
               })),
             };
-            // key 綁 submittedAt+docStatus:送出/審核後伺服器資料變動時強制重掛,反映最新狀態
-            //(意願三態鈕/差旅 pill 用樂觀 local state,編輯途中不 refresh,故不受此重掛影響)
-            return <SurveySelfDashboard key={`${participant.id}-${selfData.submittedAt ?? 'draft'}-${participant.docStatus}-${participant.docReviewedAt ? 'r' : 'n'}`} data={selfData} userName={user.name} />;
+            // 總覽卡 key 綁 participant.id(穩定):送出/審核後不重掛總覽 → 彈窗保持開啟。
+            // 表單本體的重掛(反映最新伺服器狀態)由 SurveySelfDashboard 內部以 submittedAt/docStatus 為 key 處理。
+            return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} />;
           })()
         )}
       </AppShell>
