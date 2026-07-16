@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: moecish
+          POSTGRES_PASSWORD: moecish
+          POSTGRES_DB: moecish_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moecish"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # CI 臨時庫(service container),與任何正式環境無關
+      DATABASE_URL: postgresql://moecish:moecish@127.0.0.1:5432/moecish_ci
+      # auth.ts 啟動 fail-fast 要求 ≥32 字元;此為 CI 專用假密鑰,非真憑證
+      NEXTAUTH_SECRET: ci-e2e-dummy-secret-0123456789abcdef0123456789abcdef
+      NEXTAUTH_URL: http://127.0.0.1:3001
+      # 防護基準在 CI 明確開啟:E2E 在基準開啟下全綠,是正式環境開啟前的安全網
+      SECURITY_BASELINE: '1'
+      TZ: Asia/Taipei
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: 建立 DB schema(以 migration 歷史從零建庫)
+        run: npx prisma migrate deploy
+
+      - name: Schema 漂移閘(migrations 疊加結果必須 === schema.prisma)
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Next.js build
+        run: npm run build
+
+      - name: 純函式真值表測試
+        run: |
+          npm run test:access
+          npm run test:notify
+          npm run test:modules
+          npm run test:auditscore
+          npm run test:posts
+          npm run test:statemachine
+          npm run test:punct
+
+      - name: 全形標點守門
+        run: npm run lint:punct
+
+      - name: Seed 測試資料
+        run: npm run db:seed
+
+      - name: DB 整合測試(退回收件匣)
+        run: npm run test:returns
+
+      - name: 啟動 app 並等待就緒
+        run: |
+          npx next start -p 3001 &
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3001/api/version > /dev/null; then ok=1; break; fi
+            sleep 2
+          done
+          if [ "$ok" != "1" ]; then echo "::error::app 未在 60 秒內就緒"; exit 1; fi
+          curl -s http://127.0.0.1:3001/api/version
+
+      - name: E2E 跨機關隔離測試
+        run: npm run test:isolation
+        env:
+          BASE_URL: http://127.0.0.1:3001
