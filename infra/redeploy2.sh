@@ -41,6 +41,12 @@ INNER
 # ── systemd 單元安裝/更新(idempotent;root) ──
 install_unit() { cp "/srv/moecish/infra/$1" "/etc/systemd/system/$1"; }
 
+# 主應用單元也一併更新(版控權威):否則 infra/moecish.service 的變更(Environment/MemoryMax/ReadWritePaths…)
+# 不會套用,下方 daemon-reload + restart 沿用磁碟上舊單元 → 新程式在缺組態下啟動的假成功(rev 卻照翻)。
+# ⚠️同步本腳本到 VM 前,先確認 infra/moecish.service 與正式機 /etc/systemd/system/moecish.service 一致
+# (無未入版的現場手改),避免覆蓋掉調校。
+install_unit moecish.service
+
 cp /srv/moecish/infra/moecish-health.sh /usr/local/bin/moecish-health.sh
 chmod +x /usr/local/bin/moecish-health.sh
 install_unit moecish-health.service
