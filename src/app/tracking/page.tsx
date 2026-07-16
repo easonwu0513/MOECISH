@@ -50,6 +50,7 @@ export default async function TrackingPage({
           select: {
             rootCause: true, measureStrategy: true, measureManagement: true, measureTechnical: true,
             plannedDate: true, trackingMethod: true, execStatus: true, actualDate: true, extendedDate: true, delayReason: true,
+            submittedAt: true, // 來源矯正填報「送出審核」的時間(UAT:於來源週期矯正填報區顯示)
           },
         },
       },
@@ -148,6 +149,7 @@ export default async function TrackingPage({
           actualDate: t.deficiency.action.actualDate?.toISOString() ?? null,
           extendedDate: t.deficiency.action.extendedDate?.toISOString() ?? null,
           delayReason: t.deficiency.action.delayReason,
+          submittedAt: t.deficiency.action.submittedAt?.toISOString() ?? null,
         }
       : null,
     reports: t.reports.map((r: ReviewSelect) => ({

@@ -54,6 +54,7 @@ export type OriginActionDTO = {
   actualDate: string | null;
   extendedDate: string | null;
   delayReason: string | null;
+  submittedAt: string | null; // 來源矯正填報「送出審核」的時間
 };
 export type TrackedDTO = {
   id: string;
@@ -521,7 +522,12 @@ function OriginActionBlock({ a }: { a: OriginActionDTO }) {
 
   return (
     <details className="mt-3 rounded-md border border-rule bg-card px-3.5 py-2.5" open>
-      <summary className="text-label text-ink-500 cursor-pointer select-none">來源週期矯正填報</summary>
+      <summary className="text-label text-ink-500 cursor-pointer select-none">
+        來源週期矯正填報
+        {a.submittedAt && (
+          <span className="ml-2 text-caption font-normal text-ink-400 tabular-nums">（送審 {fmtROCDateTime(a.submittedAt)}）</span>
+        )}
+      </summary>
       <dl className="mt-2.5 space-y-2.5">
         {rows.map((r) => (
           <div key={r.label}>
