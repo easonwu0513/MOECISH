@@ -30,7 +30,8 @@ jobs:
     env:
       # CI 臨時庫(service container),與任何正式環境無關
       DATABASE_URL: postgresql://moecish:moecish@127.0.0.1:5432/moecish_ci
-      NEXTAUTH_SECRET: ci-only-not-a-real-secret
+      # auth.ts 啟動 fail-fast 要求 ≥32 字元;此為 CI 專用假密鑰,非真憑證
+      NEXTAUTH_SECRET: ci-e2e-dummy-secret-0123456789abcdef0123456789abcdef
       NEXTAUTH_URL: http://127.0.0.1:3001
       # 防護基準在 CI 明確開啟:E2E 在基準開啟下全綠,是正式環境開啟前的安全網
       SECURITY_BASELINE: '1'
