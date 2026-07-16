@@ -114,6 +114,48 @@ async function expectAllowed(name: string, jar: Jar, method: string, path: strin
 
 const REDIRECTED = [302, 303, 307, 308];
 
+/** 夾具機敏標記:甲醫院名 —— 被拒頁面回應中出現即代表受保護內容外流。 */
+const LEAK_MARKER = '隔離測試甲醫院';
+
+/**
+ * 頁面級「拒絕」斷言(批53 迴響):/cycles/[id] 樹掛 loading.tsx(Suspense 邊界)後,
+ * Next 對 document 請求先以 200 送出 loading 骨架,頁面授權的 redirect() 改以串流
+ * NEXT_REDIRECT 指令抵達 —— HTTP 狀態碼不再必為 3xx。「拒絕」的實質 = 未流出受保護
+ * 內容且把使用者轉走,故接受兩種形態:
+ *   a) 傳統 3xx(無 loading.tsx 的頁面);
+ *   b) 200 且 body 含串流 redirect 標記(redirect() 為 throw,頁面本體未渲染),
+ *      並雙保險負面斷言:body 不得含甲院夾具標記(LEAK_MARKER)。
+ */
+async function expectPageDenied(name: string, jar: Jar, path: string) {
+  const res = await fetch(`${BASE}${path}`, {
+    redirect: 'manual',
+    headers: { cookie: cookieHeader(jar) },
+  });
+  if (REDIRECTED.includes(res.status)) {
+    passCount++;
+    console.log(`  [PASS] ${name} (${res.status})`);
+    return;
+  }
+  if (res.status === 200) {
+    const html = await res.text();
+    const redirected = html.includes('NEXT_REDIRECT') || html.includes('http-equiv="refresh"');
+    const leaked = html.includes(LEAK_MARKER);
+    if (redirected && !leaked) {
+      passCount++;
+      console.log(`  [PASS] ${name} (200+串流 redirect,無內容外流)`);
+      return;
+    }
+    const why = [redirected ? '' : '無串流 redirect 標記', leaked ? '夾具內容外流' : '']
+      .filter(Boolean)
+      .join('且');
+    failures.push(`${name}: 200 但${why}`);
+    console.log(`  [FAIL] ${name} — 200 但${why}`);
+    return;
+  }
+  failures.push(`${name}: 預期 3xx 或 200+串流 redirect,得到 ${res.status}`);
+  console.log(`  [FAIL] ${name} — 預期 3xx 或 200+串流 redirect,得到 ${res.status}`);
+}
+
 // ── 夾具 ─────────────────────────────────────
 
 async function cleanup() {
@@ -265,13 +307,13 @@ async function main() {
   await expectStatus('B管理員 匯出A檢核表', jarB, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [403]);
   await expectStatus('B管理員 匯出A改善報告', jarB, 'GET', `/api/cycles/${cycleA.id}/export/remediation-report`, [403]);
   await expectStatus('B管理員 填A缺失矯正措施', jarB, 'PUT', `/api/deficiencies/${defA.id}/action`, [403], { description: 'x' });
-  await expectStatus('B管理員 開A週期頁(redirect)', jarB, 'GET', `/cycles/${cycleA.id}`, REDIRECTED);
-  await expectStatus('B管理員 開A檢核表頁(redirect)', jarB, 'GET', `/cycles/${cycleA.id}/checklist`, REDIRECTED);
+  await expectPageDenied('B管理員 開A週期頁(redirect)', jarB, `/cycles/${cycleA.id}`);
+  await expectPageDenied('B管理員 開A檢核表頁(redirect)', jarB, `/cycles/${cycleA.id}/checklist`);
 
   console.log('\n── 委員指派隔離 ──');
   await expectStatus('未指派委員X 匯出A檢核表', jarX, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [403]);
   await expectStatus('未指派委員X 退回A檢核表', jarX, 'POST', `/api/cycles/${cycleA.id}/checklist/reopen`, [403], { reason: 'x' });
-  await expectStatus('未指派委員X 開A檢核表頁(redirect)', jarX, 'GET', `/cycles/${cycleA.id}/checklist`, REDIRECTED);
+  await expectPageDenied('未指派委員X 開A檢核表頁(redirect)', jarX, `/cycles/${cycleA.id}/checklist`);
   await expectStatus('指派委員Y 匯出B檢核表(未指派)', jarY, 'GET', `/api/cycles/${cycleB.id}/export/checklist`, [403]);
 
   console.log('\n── 權限升級防護(/api/admin)──');
@@ -312,7 +354,7 @@ async function main() {
   await expectStatus('指派委員Y 資料準備中新增發現(階段閘)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/findings`, [403], findingBody);
   await expectStatus('指派委員Y 資料準備中鎖定評分(階段閘)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/lock`, [403], { locked: true });
   await expectStatus('未指派委員X 評分A週期', jarX, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
-  await expectStatus('未指派委員X 開A稽核頁(redirect)', jarX, 'GET', `/cycles/${cycleA.id}/audit`, REDIRECTED);
+  await expectPageDenied('未指派委員X 開A稽核頁(redirect)', jarX, `/cycles/${cycleA.id}/audit`);
   await expectStatus('B管理員 評分A週期(非委員)', jarB, 'PUT', `/api/cycles/${cycleA.id}/audit/scores`, [403], scoreBody);
   await expectStatus('B管理員 轉入缺失(非最高管理員)', jarB, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
   await expectStatus('委員Y 轉入缺失(非最高管理員)', jarY, 'POST', `/api/cycles/${cycleA.id}/audit/convert`, [403]);
@@ -344,8 +386,8 @@ async function main() {
 
   console.log('\n── 委員階段可見性閘(資料準備中不可見機關檢核表)──');
   await expectStatus('指派委員Y 資料準備中匯出A檢核表', jarY, 'GET', `/api/cycles/${cycleA.id}/export/checklist`, [403]);
-  await expectStatus('指派委員Y 資料準備中開A檢核表頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/checklist`, REDIRECTED);
-  await expectStatus('指派委員Y 資料準備中開A審閱頁(redirect)', jarY, 'GET', `/cycles/${cycleA.id}/review`, REDIRECTED);
+  await expectPageDenied('指派委員Y 資料準備中開A檢核表頁(redirect)', jarY, `/cycles/${cycleA.id}/checklist`);
+  await expectPageDenied('指派委員Y 資料準備中開A審閱頁(redirect)', jarY, `/cycles/${cycleA.id}/review`);
 
   console.log('\n── 觀察員練習模組隔離(批30 師徒制)──');
   const practicePath = `/api/cycles/${cycleOn.id}/practice-findings`;
@@ -361,7 +403,7 @@ async function main() {
   await expectStatus('非指導委員Z 給練習回饋(非mentor)', jarZ, 'POST', `/api/practice-findings/${pf1.id}/feedback`, [403], { content: 'x' });
   // 配對隔離:未配對觀察員 O2 全擋;跨週期(O1→未配對的 cycleA)亦擋
   await expectStatus('未配對觀察員O2 列練習', jarO2, 'GET', practicePath, [403]);
-  await expectStatus('未配對觀察員O2 開練習頁(redirect)', jarO2, 'GET', `/cycles/${cycleOn.id}/practice`, REDIRECTED);
+  await expectPageDenied('未配對觀察員O2 開練習頁(redirect)', jarO2, `/cycles/${cycleOn.id}/practice`);
   await expectStatus('未配對觀察員O2 編修O1練習', jarO2, 'PATCH', `/api/practice-findings/${pf1.id}`, [403], { content: 'xxxxx' });
   await expectStatus('配對觀察員O1 列未配對週期練習', jarO1, 'GET', `/api/cycles/${cycleA.id}/practice-findings`, [403]);
   // 機關完全不可見練習(需求二-2)
@@ -372,9 +414,9 @@ async function main() {
   console.log('\n── 觀察員擋官方稽核面(完全移除評分/缺失/正式發現/審閱意見)──');
   await expectStatus('觀察員O1 評分(無評分功能)', jarO1, 'PUT', `/api/cycles/${cycleOn.id}/audit/scores`, [403], scoreBody);
   await expectStatus('觀察員O1 新增正式發現', jarO1, 'POST', `/api/cycles/${cycleOn.id}/audit/findings`, [403], findingBody);
-  await expectStatus('觀察員O1 開評分頁(redirect→練習)', jarO1, 'GET', `/cycles/${cycleOn.id}/audit`, REDIRECTED);
+  await expectPageDenied('觀察員O1 開評分頁(redirect→練習)', jarO1, `/cycles/${cycleOn.id}/audit`);
   await expectStatus('觀察員O1 留審閱意見(僅委員)', jarO1, 'POST', `/api/responses/${respOn.id}/comments`, [403], cmtBody);
-  await expectStatus('觀察員O1 開缺失頁(不開放,redirect)', jarO1, 'GET', `/cycles/${cycleOn.id}/deficiencies`, REDIRECTED);
+  await expectPageDenied('觀察員O1 開缺失頁(不開放,redirect)', jarO1, `/cycles/${cycleOn.id}/deficiencies`);
   await expectStatus('觀察員O1 匯出檢核表(不提供下載)', jarO1, 'GET', `/api/cycles/${cycleOn.id}/export/checklist`, [403]);
   // 對抗審查修補回歸(端點層,非僅頁面 redirect):
   await expectStatus('觀察員O1 直打缺失清單 API(P1)', jarO1, 'GET', `/api/cycles/${cycleOn.id}/deficiencies`, [403]);
