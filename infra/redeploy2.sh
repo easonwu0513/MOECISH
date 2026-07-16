@@ -1,6 +1,6 @@
 #!/bin/bash
 # MOECISH 正式機重新部署(版控權威版;取代僅存於 VM /tmp、易隨 VM 消失的個人副本)。
-# 流程:解壓 tarball → npm ci(可重現)→ 版號自動注入 → prisma db push/generate → build → 裝 systemd 單元 → 重啟 → 自驗。
+# 流程:解壓 tarball → npm ci(可重現)→ 版號自動注入 → prisma migrate deploy/generate → build → 裝 systemd 單元 → 重啟 → 自驗。
 #
 # 執行:useradmin 以 `sudo /usr/bin/bash <此腳本>`(sudoers NOPASSWD)。
 # 前置:先 scp 好 /tmp/moecish-src.tar.gz(= `git archive HEAD`;版號由 .gitattributes export-subst 內嵌 infra/build-rev.txt,毋須再手 sed .env)。
@@ -32,7 +32,11 @@ case "$REV" in
   *) export NEXT_PUBLIC_BUILD_REV="$REV"; export NEXT_PUBLIC_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M)"; echo "版號注入 NEXT_PUBLIC_BUILD_REV=$REV" ;;
 esac
 
-npx prisma db push --skip-generate 2>&1 | tail -2
+# migrate deploy(取代 db push,消雷#6 一族):只執行 prisma/migrations/ 尚未套用的 migration 檔,
+# 每一步 SQL 皆入版可審閱/可回溯;永不互動、永不比對現庫做隱式 DROP,不存在 --accept-data-loss 靜默情境。
+# 前置(一次性,已於 2026-07-16 完成):prod DB 以 `prisma migrate resolve --applied 0_init` 標記 baseline,
+# 故既有庫不會重跑 0_init;未標記時 migrate deploy 會因撞既有表而炸=fail-safe 保護,非缺陷。
+npx prisma migrate deploy 2>&1 | tail -5
 npx prisma generate 2>&1 | tail -1
 npm run build 2>&1 | tail -3
 echo BUILD_OK

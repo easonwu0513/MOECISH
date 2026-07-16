@@ -47,8 +47,11 @@ jobs:
       - name: 安裝依賴
         run: npm ci
 
-      - name: 建立 DB schema(CI 空庫,直接 push)
-        run: npx prisma db push
+      - name: 建立 DB schema(以 migration 歷史從零建庫)
+        run: npx prisma migrate deploy
+
+      - name: Schema 漂移閘(migrations 疊加結果必須 === schema.prisma)
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
 
       - name: Next.js build
         run: npm run build
