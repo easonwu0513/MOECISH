@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { deleteFileByKey } from '@/lib/storage';
 import { SURVEY_COMMITTEE_TYPES, SURVEY_REPLY_STATUSES, SURVEY_DOC_HANDOVER_STATUSES } from '@/lib/types';
 
 const Body = z.object({
@@ -135,14 +136,28 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-/** 移除受調人員(批A;僅中心)。關聯意願/指派由 onDelete: Cascade 一併清除。 */
+/**
+ * 移除受調人員(批A;僅中心)。關聯意願/指派由 onDelete: Cascade 一併清除。
+ * 個資清理:Evidence 為多型關聯(targetType/targetId)無 FK/cascade,不清會遺留 CV/切結書/舊版經歷
+ * 等敏感個資於磁碟與懸空 DB 列(違個資法「刪除即清除」)——於同交易刪 DB 列,交易成功後再刪實體檔。
+ */
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const existing = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { id: true } });
     if (!existing) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
 
-    await prisma.surveyParticipant.delete({ where: { id: params.id } });
+    const docs = await prisma.evidence.findMany({
+      where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: params.id },
+      select: { id: true, storageKey: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      if (docs.length) await tx.evidence.deleteMany({ where: { id: { in: docs.map((d) => d.id) } } });
+      await tx.surveyParticipant.delete({ where: { id: params.id } });
+    });
+    // 交易成功(participant 與 Evidence 列已刪)後才刪實體檔;失敗僅留孤兒檔(無資料不一致,比照 docs 上傳)。
+    for (const d of docs) await deleteFileByKey(d.storageKey).catch(() => {});
 
     await writeAuditLog({
       actorId: user.id,

@@ -25,6 +25,7 @@
     "test:auditscore": "tsx src/scripts/test-audit-score.ts",
     "test:modules": "tsx src/scripts/test-cycle-modules.ts",
     "test:posts": "tsx src/scripts/test-post-lifecycle.ts",
+    "test:statemachine": "tsx src/scripts/test-state-machine.ts",
     "test:returns": "tsx src/scripts/test-returns.ts",
     "reset:hospitals": "tsx src/scripts/reset-hospitals.ts",
     "reset:cycles": "tsx src/scripts/reset-cycles.ts",

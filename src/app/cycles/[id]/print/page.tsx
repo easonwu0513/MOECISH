@@ -11,11 +11,12 @@ import {
   DEFICIENCY_ASPECT_NUM,
 } from '@/lib/types';
 import PrintTrigger from './PrintTrigger';
+import { fmtROC } from '@/lib/date';
 
+// 民國年日期:走 date.ts(Asia/Taipei)——原裸 getFullYear/getMonth 依伺服器時區,近午夜會 off-by-8h
+// 使具法律效力的稽核報告日期少一天。fmtROC(null) 回 ''。
 function rocDate(d: Date | null): string {
-  if (!d) return '';
-  const dt = new Date(d);
-  return `${dt.getFullYear() - 1911} 年 ${dt.getMonth() + 1} 月 ${dt.getDate()} 日`;
+  return fmtROC(d);
 }
 
 export default async function PrintPage({ params }: { params: { id: string } }) {

@@ -11,8 +11,13 @@ const num = (v: string | undefined, fallback: number) => {
 };
 
 export const BASELINE = {
-  /** 總開關(未啟用時以下控制全部不生效) */
+  /**
+   * 總開關(未啟用時以下控制全部不生效)。
+   * 資安:正式環境「預設開」——漏設不再靜默 fail-open,須顯式 SECURITY_BASELINE=0 才關;
+   * 開發/測試維持預設關(顯式 =1 才開),避免本機被帳戶鎖定/IP 限速干擾。
+   */
   get enabled() {
+    if (process.env.NODE_ENV === 'production') return process.env.SECURITY_BASELINE !== '0';
     return process.env.SECURITY_BASELINE === '1';
   },
 
@@ -32,6 +37,18 @@ export const BASELINE = {
   loginRateWindowMinutes: 15,
   loginRateMaxFailuresPerIp: num(process.env.SB_LOGIN_RATE_MAX, 20),
 };
+
+// 啟動期告警(比照 auth.ts 的 NEXTAUTH_SECRET fail-fast;跳過 build phase):
+// 正式環境若「顯式停用」防護基準,大聲記錄——避免無感在無鎖定/無限速/接受弱密碼/無稽核防竄改鏈下營運。
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
+  process.env.SECURITY_BASELINE === '0'
+) {
+  console.error(
+    '[security-baseline] 正式環境已「顯式停用」資通系統防護基準（SECURITY_BASELINE=0）：登入無帳戶鎖定與 IP 限速、接受弱密碼、稽核無防竄改鏈。除非有明確理由，請移除此設定以恢復預設保護。',
+  );
+}
 
 /** 密碼複雜度:至少 pwMinLength 字,含大寫、小寫、數字、特殊符號其中三類以上。 */
 export function validatePasswordComplexity(pw: string): string | null {

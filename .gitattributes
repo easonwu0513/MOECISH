@@ -1,0 +1,6 @@
+# git archive 時把 infra/build-rev.txt 的 $Format:%h$ 換成當次 commit 短雜湊(部署版號自動注入,
+# 見 infra/redeploy2.sh;消除「手動 sed .env 版號」的假成功雷)。僅對 `git archive` 生效。
+infra/build-rev.txt export-subst
+
+# shell 腳本一律 LF(結構性防「Windows checkout 出 CRLF → Linux 上 set -eo pipefail^M 掛」的舊部署雷)。
+*.sh text eol=lf
