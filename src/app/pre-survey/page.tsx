@@ -180,6 +180,14 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     }),
   ]);
 
+  const fillWindowRow = await prisma.surveyFillWindow.findUnique({
+    where: { year },
+    select: { openAt: true, closeAt: true },
+  });
+  const fillWindow = fillWindowRow
+    ? { openAt: fillWindowRow.openAt?.toISOString() ?? null, closeAt: fillWindowRow.closeAt?.toISOString() ?? null }
+    : null;
+
   const sessionDTOs: AdminSessionDTO[] = sessions.map((s) => ({
     id: s.id,
     name: s.name,
@@ -239,6 +247,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     replyStatus: p.replyStatus,
     docHandover: p.docHandover,
     submittedAt: p.submittedAt?.toISOString() ?? null,
+    editUnlocked: p.editUnlocked,
     docStatus: p.docStatus,
     docReviewed: !!p.docReviewedAt,
     rejectReason: p.rejectReason,
@@ -272,6 +281,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
         observerPool={observerPool}
         templates={templateDTOs}
         customColumns={customColumns}
+        fillWindow={fillWindow}
       />
     </AppShell>
   );

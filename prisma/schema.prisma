@@ -673,6 +673,7 @@ model SurveyParticipant {
   replyStatus   String    @default("NO") // 意願回信:YES | NO
   docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED
   submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
+  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更意願」;true=可無視填報時窗編修/送出意願(逾窗補填或變更用)
   // ── 批B:文件繳交審核(cv/切結書經 Evidence 上傳,狀態機於此) ──
   docStatus     String    @default("NONE") // NONE 未繳交 | SUBMITTED 已繳交 | RETURNED 待補件
   rejectReason  String? // 退補理由(docStatus=RETURNED 時有意義)
@@ -723,13 +724,24 @@ model SurveyCustomColumn {
   @@index([year, orderIndex])
 }
 
+// UAT:意願填報開放時窗(年度制;中心設定,用於「安排好時間、避免安排後又變動」)。
+// openAt/closeAt 皆可為 null=該端不限;兩者皆 null 或無此列=永遠開放(向後相容)。
+// 逾窗後受調者不可改/送出意願;中心(SUPER_ADMIN)代填不受限;中心亦可對個別受調者開放補填(SurveyParticipant.editUnlocked)。
+model SurveyFillWindow {
+  year        Int       @id
+  openAt      DateTime?
+  closeAt     DateTime?
+  updatedById String // 最後設定者快照
+  updatedAt   DateTime  @updatedAt
+}
+
 model SessionAvailability {
   id            String            @id @default(cuid())
   participantId String
   participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   sessionId     String
   session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  status        String // OK | PENDING(待定) | NA
+  status        String // OK | NA(UAT 已移除 PENDING/待定;未填=無此列,送出時未答場次擋下要求補齊)
   updatedAt     DateTime          @updatedAt
 
   @@unique([participantId, sessionId]) // 一人對一場次一票(upsert)

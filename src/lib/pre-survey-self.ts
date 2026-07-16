@@ -1,5 +1,7 @@
 import { prisma } from './db';
 import { anonymousSessionLabel } from './pre-survey';
+import { rocSlashWeekday } from './date';
+import { canEditAvailability, fillWindowState } from './pre-survey-window';
 import { SURVEY_TEMPLATE_SLOTS_BY_KIND, type SurveyAvailabilityStatus, type SurveyParticipantKind } from './types';
 import type { SelfDTO } from '@/app/pre-survey/SurveySelfForm';
 
@@ -7,12 +9,9 @@ import type { SelfDTO } from '@/app/pre-survey/SurveySelfForm';
  * 事前場次調查「自助 SelfDTO」建構(委員/觀察員自助頁與儀表板整合共用,避免兩處 DTO 組裝漂移)。
  */
 
-/** DateTime(存 +08:00 當日 00:00)→ 台北 M/D 精簡標籤;null=待定。 */
+/** DateTime(存 +08:00 當日 00:00)→ 民國斜線日期含星期(115/7/20（一));null=待定。 */
 function mdLabel(d: Date | null): string {
-  if (!d) return '待定';
-  const t = new Date(d.getTime() + 8 * 3600 * 1000);
-  const [, m, day] = t.toISOString().slice(0, 10).split('-');
-  return `${Number(m)}/${Number(day)}`;
+  return d ? rocSlashWeekday(d) : '待定';
 }
 /** 解析 JSON string[](transport/diet);壞資料回空陣列。 */
 function parseArr(json: string | null): string[] {
@@ -49,6 +48,7 @@ export type SelfParticipant = {
   phone2: string | null;
   email2: string | null;
   submittedAt: Date | null;
+  editUnlocked: boolean; // 中心對此人開放補填/變更意願(逾填報時窗仍可編修)
   docStatus: string;
   docReviewedAt: Date | null;
   rejectReason: string | null;
@@ -109,6 +109,14 @@ export async function buildSelfDTO(opts: {
     value: cvValues[c.id] ?? '',
   }));
 
+  // UAT:意願填報時窗(逾窗鎖定編修/送出;中心可對本人 editUnlocked 開放補填)
+  const fillWin = await prisma.surveyFillWindow.findUnique({
+    where: { year: participant.year },
+    select: { openAt: true, closeAt: true },
+  });
+  const now = new Date();
+  const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
+
   return {
     participantId: participant.id,
     yearROC,
@@ -119,6 +127,16 @@ export async function buildSelfDTO(opts: {
     phone2: participant.phone2,
     email2: participant.email2,
     submittedAt: participant.submittedAt?.toISOString() ?? null,
+    // UAT 填報時窗:canEditAvailability=false 時自助頁鎖定意願編修並顯示時窗說明
+    canEditAvailability: canEdit,
+    editUnlocked: participant.editUnlocked,
+    fillWindow: fillWin
+      ? {
+          openAt: fillWin.openAt?.toISOString() ?? null,
+          closeAt: fillWin.closeAt?.toISOString() ?? null,
+          state: fillWindowState(fillWin, now),
+        }
+      : null,
     docStatus: participant.docStatus,
     docReviewed: !!participant.docReviewedAt,
     rejectReason: participant.rejectReason,

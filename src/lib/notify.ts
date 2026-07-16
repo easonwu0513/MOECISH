@@ -1251,7 +1251,7 @@ export async function notifyPresurveyRemind(opts: { participantId: string; appBa
     subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫出席意願`,
     body:
       `${u.name} 您好，\n\n` +
-      `${yearROC} 年度資通安全稽核事前場次調查尚待您填寫出席意願（逐場次 OK／待定／N/A）並繳交相關文件。\n` +
+      `${yearROC} 年度資通安全稽核事前場次調查尚待您填寫出席意願（每個場次選擇 OK 或 NO）並繳交相關文件。\n` +
       `請登入平台完成填寫：\n\n${link}\n\n` +
       `— 教育部轄下醫療領域資訊安全推動中心`,
     kind: 'presurvey-remind',

@@ -21,17 +21,28 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
-      select: { id: true, year: true },
+      select: { id: true, year: true, kind: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
 
     const wanted = Array.from(new Set(body.sessionIds));
     if (wanted.length > 0) {
-      const valid = await prisma.surveySession.count({
-        where: { id: { in: wanted }, year: participant.year },
-      });
+      // D 防禦縱深:觀察員不得被指派到「委員專屬」場次(sharedWithObserver=false),與自助頁/達標卡排除一致。
+      const where =
+        participant.kind === 'OBSERVER'
+          ? { id: { in: wanted }, year: participant.year, sharedWithObserver: true }
+          : { id: { in: wanted }, year: participant.year };
+      const valid = await prisma.surveySession.count({ where });
       if (valid !== wanted.length) {
-        return NextResponse.json({ error: '含不存在或非此年度的場次' }, { status: 400 });
+        return NextResponse.json(
+          {
+            error:
+              participant.kind === 'OBSERVER'
+                ? '含不存在、非此年度、或委員專屬（不開放觀察員）的場次'
+                : '含不存在或非此年度的場次',
+          },
+          { status: 400 },
+        );
       }
     }
 

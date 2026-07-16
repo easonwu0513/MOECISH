@@ -7,10 +7,12 @@ import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
 import { Textarea } from '@/components/ui/Textarea';
+import { Alert } from '@/components/ui/Alert';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { useToast } from '@/components/ui/Toast';
 import { CheckCircle, MapPin, AlertTriangle, Paperclip } from '@/components/icons';
 import { surveyDocDisplay } from '@/lib/pre-survey';
+import { fmtROCDateTime } from '@/lib/date';
 import {
   SURVEY_AVAILABILITY_STATUSES,
   SURVEY_AVAILABILITY_LABELS,
@@ -38,6 +40,10 @@ export type SelfDTO = {
   phone2: string | null; // 次要聯絡電話
   email2: string | null; // 次要聯絡信箱
   submittedAt: string | null;
+  // UAT 填報時窗:canEditAvailability=false 時鎖定意願編修/送出並顯示時窗說明
+  canEditAvailability: boolean;
+  editUnlocked: boolean;
+  fillWindow: { openAt: string | null; closeAt: string | null; state: 'OPEN' | 'BEFORE' | 'AFTER' } | null;
   docStatus: string;
   docReviewed: boolean;
   rejectReason: string | null;
@@ -108,6 +114,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   }
 
   async function setStatus(sessionId: string, status: SurveyAvailabilityStatus) {
+    if (!data.canEditAvailability) return; // 逾填報時窗鎖定(按鈕亦 disabled,此為防禦)
     const prev = statuses[sessionId] ?? null;
     setStatuses((s) => ({ ...s, [sessionId]: status }));
     setBusySession(sessionId);
@@ -125,6 +132,13 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   }
 
   async function submit() {
+    if (!data.canEditAvailability) return; // 逾填報時窗(按鈕亦 disabled)
+    // 所有場次必填:未答齊先擋在前端(後端 submit route 亦硬擋)
+    const unanswered = data.sessions.filter((s) => !statuses[s.id]);
+    if (unanswered.length > 0) {
+      toast.error('尚有場次未填', `所有場次皆須填寫，請完成剩餘 ${unanswered.length} 個場次的出席意願（OK 或 NO）後再送出。`);
+      return;
+    }
     setSubmitting(true);
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}/submit`, { method: 'POST' });
     setSubmitting(false);
@@ -133,7 +147,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('已送出意願', '未勾選的場次已自動記為 N/A;之後仍可修改後再送出。');
+    toast.success('已送出意願', '於開放期間內仍可修改後再送出。');
     router.refresh();
   }
 
@@ -352,8 +366,16 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
       {/* 逐場次意願(地名以序號匿名;UAT:置於文件繳交之下、差旅二階之上) */}
       <Card variant="outlined">
-        <h3 className="text-label text-ink-900 mb-1">稽核場次意願調查</h3>
-        <p className="text-caption text-ink-500 mb-3">場次地點於意願調查階段以序號呈現；經中心指派最終場次後方揭露實際地點。</p>
+        <h3 className="text-label text-ink-900 mb-3">稽核場次意願調查</h3>
+        {!data.canEditAvailability && (
+          <Alert tone="warning" icon={<AlertTriangle size={15} />} className="mb-3">
+            {data.fillWindow?.state === 'BEFORE' ? (
+              <>意願填報尚未開始{data.fillWindow.openAt ? `（開放時間：${fmtROCDateTime(data.fillWindow.openAt)} 起）` : ''}。如需提前填報，請聯絡中心開放。</>
+            ) : (
+              <>意願填報已截止{data.fillWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.fillWindow.closeAt)}）` : ''}。如需補填或變更，請聯絡中心開放後再填。</>
+            )}
+          </Alert>
+        )}
         {data.sessions.length === 0 ? (
           <p className="py-8 text-center text-body-sm text-ink-500">此年度尚無規劃稽核場次。</p>
         ) : (
@@ -374,7 +396,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                       <button
                         key={opt}
                         type="button"
-                        disabled={busySession === s.id}
+                        disabled={busySession === s.id || !data.canEditAvailability}
                         onClick={() => setStatus(s.id, opt)}
                         aria-pressed={on}
                         className={`px-3.5 py-1.5 text-caption font-medium rounded-md transition-colors focus-ring ${
@@ -398,10 +420,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
       {data.sessions.length > 0 && (
         <div className="flex items-center gap-3">
-          <Button onClick={submit} loading={submitting} disabled={submitting} leadingIcon={<CheckCircle size={16} />}>
+          <Button onClick={submit} loading={submitting} disabled={submitting || !data.canEditAvailability || busySession !== null} leadingIcon={<CheckCircle size={16} />}>
             {data.submittedAt ? '重新送出意願' : '送出意願'}
           </Button>
-          <span className="text-caption text-ink-500">送出後未勾選的場次將記為 N/A;送出後仍可修改再送。</span>
+          <span className="text-caption text-ink-500">所有場次皆須填寫 OK 或 NO 才能送出；於開放期間內送出後仍可修改再送。</span>
         </div>
       )}
 

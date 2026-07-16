@@ -53,6 +53,7 @@ export type AdminParticipantDTO = {
   replyStatus: string;
   docHandover: string;
   submittedAt: string | null;
+  editUnlocked: boolean; // 中心已對此人開放補填/變更意願(逾填報時窗仍可編修)
   docStatus: string;
   docReviewed: boolean;
   rejectReason: string | null;
@@ -78,6 +79,7 @@ export default function SurveyAdminBoard({
   observerPool,
   templates,
   customColumns,
+  fillWindow,
   initialKind = 'MEMBER',
 }: {
   yearROC: number;
@@ -87,6 +89,7 @@ export default function SurveyAdminBoard({
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
   customColumns: AdminColumnDTO[];
+  fillWindow: { openAt: string | null; closeAt: string | null } | null; // 該年度意願填報時窗(中心設定)
   initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
 }) {
   const router = useRouter();
@@ -100,6 +103,7 @@ export default function SurveyAdminBoard({
   const [profileFor, setProfileFor] = useState<AdminParticipantDTO | null>(null);
   const [colSettingsFor, setColSettingsFor] = useState<AdminColumnDTO | null>(null);
   const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
+  const [fillWindowOpen, setFillWindowOpen] = useState(false);
   const [sortSessionId, setSortSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -202,6 +206,9 @@ export default function SurveyAdminBoard({
           <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
             管理場次
           </Button>
+          <Button size="sm" variant="outlined" leadingIcon={<CalendarDays size={15} />} onClick={() => setFillWindowOpen(true)}>
+            填報時間
+          </Button>
           <Button href={`/api/pre-survey/export?year=${yearROC + 1911}&kind=${kind}`} size="sm" variant="outlined" download>
             匯出 CSV
           </Button>
@@ -256,7 +263,7 @@ export default function SurveyAdminBoard({
                     <th
                       key={s.id}
                       className={`sticky top-0 z-20 px-2 py-2.5 text-center font-medium min-w-[108px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : 'bg-paper-sunk'}`}
-                      title={`${s.dateLabel} ${s.name}（點擊依此場次 OK 分組）`}
+                      title={`${s.dateLabel} ${s.name}（點擊依此場次最終指派分組）`}
                       onClick={() => setSortSessionId(active ? null : s.id)}
                     >
                       <div className="text-ink-700">{s.dateLabel}</div>
@@ -485,6 +492,7 @@ export default function SurveyAdminBoard({
       </Card>
 
       <SessionManagerDialog open={sessionMgrOpen} onOpenChange={setSessionMgrOpen} yearROC={yearROC} sessions={sessions} />
+      <FillWindowDialog open={fillWindowOpen} onOpenChange={setFillWindowOpen} yearROC={yearROC} fillWindow={fillWindow} />
       <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} kind={kind} />
       <AddParticipantDialog
         open={addOpen}
@@ -613,6 +621,7 @@ function AdminProfileDialog({
   const [saving, setSaving] = useState(false);
   const [reviewReason, setReviewReason] = useState('');
   const [reviewing, setReviewing] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   useEffect(() => {
     setPhone(participant?.phone ?? '');
@@ -658,6 +667,21 @@ function AdminProfileDialog({
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '審核失敗' })); toast.error('審核失敗', j.error); return; }
     toast.success(decision === 'APPROVE' ? '文件已核可' : '已退補，將通知受調者補件');
     onClose(); // 關窗 + refresh 使管考表狀態同步(彈窗持舊 DTO,不重掛)
+    router.refresh();
+  }
+
+  // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願;供受調者逾期補填或申請變更)
+  async function toggleUnlock() {
+    setUnlocking(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ editUnlocked: !p.editUnlocked }),
+    });
+    setUnlocking(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '設定失敗' })); toast.error('設定失敗', j.error); return; }
+    toast.success(!p.editUnlocked ? '已開放此人補填/變更意願' : '已關閉此人補填權限');
+    onClose(); // 關窗 + refresh 使狀態同步(彈窗持舊 DTO,不重掛)
     router.refresh();
   }
 
@@ -754,6 +778,20 @@ function AdminProfileDialog({
               })}
             </ul>
           )}
+          {/* UAT:逾填報時窗開放此人補填/變更意願(供逾期補填或申請變更) */}
+          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-caption font-medium text-ink-700">開放補填／變更意願</p>
+              <p className="text-caption text-ink-500">
+                {p.editUnlocked
+                  ? '已開放：此人可無視填報時窗編修並重新送出意願。'
+                  : '逾填報時窗後此人不可再改意願；開放後可補填或變更。'}
+              </p>
+            </div>
+            <Button size="sm" variant={p.editUnlocked ? 'danger' : 'tonal'} onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
+              {p.editUnlocked ? '關閉補填' : '開放補填'}
+            </Button>
+          </div>
         </section>
 
         {/* 差旅與飲食(本人填,唯讀) */}
@@ -858,6 +896,100 @@ function ProfileFileRow({ label, file }: { label: string; file: { id: string; na
 }
 
 // ── 場次管理對話框 ──
+/** ISO(UTC)→ datetime-local input 值,固定以台北時區呈現(不隨管理員瀏覽器時區偏移);null/空/無效回 ''。 */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const o: Record<string, string> = {};
+  for (const p of f.formatToParts(d)) if (p.type !== 'literal') o[p.type] = p.value;
+  return `${o.year}-${o.month}-${o.day}T${o.hour}:${o.minute}`;
+}
+
+// ── 意願填報時窗設定(中心設定 openAt/closeAt;逾窗受調者鎖定,除非個別開放補填) ──
+function FillWindowDialog({
+  open, onOpenChange, yearROC, fillWindow,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  yearROC: number;
+  fillWindow: { openAt: string | null; closeAt: string | null } | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [openAt, setOpenAt] = useState('');
+  const [closeAt, setCloseAt] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // 每次開啟以最新 prop 重置(避免關窗後再開仍顯舊值)
+  useEffect(() => {
+    if (open) {
+      setOpenAt(isoToLocalInput(fillWindow?.openAt ?? null));
+      setCloseAt(isoToLocalInput(fillWindow?.closeAt ?? null));
+    }
+  }, [open, fillWindow?.openAt, fillWindow?.closeAt]);
+
+  async function save() {
+    // datetime-local 一律解讀為台北時間(+08:00),不隨管理員瀏覽器時區偏移;空=null(該端不限)
+    const openIso = openAt ? new Date(`${openAt.slice(0, 16)}:00+08:00`).toISOString() : null;
+    const closeIso = closeAt ? new Date(`${closeAt.slice(0, 16)}:00+08:00`).toISOString() : null;
+    if (openIso && closeIso && new Date(openIso) > new Date(closeIso)) {
+      toast.error('開放起始時間不得晚於截止時間');
+      return;
+    }
+    setBusy(true);
+    const res = await fetch('/api/pre-survey/fill-window', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: yearROC + 1911, openAt: openIso, closeAt: closeIso }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新填報時間');
+    onOpenChange(false);
+    router.refresh();
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`${yearROC} 年度意願填報時間`}
+      description="設定受調者可填寫／送出意願的時間區間；逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
+    >
+      <div className="space-y-3 pt-2">
+        <div>
+          <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
+          <input
+            type="datetime-local"
+            value={openAt}
+            onChange={(e) => setOpenAt(e.target.value)}
+            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+          />
+        </div>
+        <div>
+          <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
+          <input
+            type="datetime-local"
+            value={closeAt}
+            onChange={(e) => setCloseAt(e.target.value)}
+            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+          />
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button size="sm" onClick={save} loading={busy} disabled={busy}>儲存</Button>
+          <Button size="sm" variant="text" onClick={() => { setOpenAt(''); setCloseAt(''); }} disabled={busy}>清除限制</Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function SessionManagerDialog({
   open, onOpenChange, yearROC, sessions,
 }: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; sessions: AdminSessionDTO[] }) {
