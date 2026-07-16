@@ -638,7 +638,10 @@ model SurveySession {
   id                  String   @id @default(cuid())
   year                Int // 西元(顯示 -1911);對齊全庫主流,勿存民國
   date                DateTime? // 場次日期(可空=待定)
-  name                String // 地點/場次名稱(對委員/觀察員隱藏,改以序號呈現)
+  name                String // 地點/場次名稱(依 anonymizeFor* 決定對委員/觀察員是否以序號匿名呈現)
+  // UAT:每場次可各自決定是否對委員/觀察員匿名地點(預設 true=匿名,維持原行為;如委員共識會議可關閉,自助頁顯真實地名)
+  anonymizeForMember   Boolean  @default(true)
+  anonymizeForObserver Boolean  @default(true)
   isRequired          Boolean  @default(false) // 必參加
   remark              String? // 給受調者看的備註
   targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)

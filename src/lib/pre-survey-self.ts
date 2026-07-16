@@ -59,7 +59,15 @@ export type SelfParticipant = {
   availabilities: { sessionId: string; status: string }[];
   finalAssignments: { session: { name: string; date: Date | null } }[];
 };
-export type SelfSession = { id: string; date: Date | null; isRequired: boolean; remark: string | null };
+export type SelfSession = {
+  id: string;
+  date: Date | null;
+  name: string;
+  isRequired: boolean;
+  remark: string | null;
+  anonymizeForMember: boolean;
+  anonymizeForObserver: boolean;
+};
 export type SelfTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
 
 /** 由 participant(含 availabilities/finalAssignments)+ 該年度 sessions/templateDTOs 組出自助 SelfDTO。 */
@@ -120,13 +128,19 @@ export async function buildSelfDTO(opts: {
     travelNote: participant.travelNote,
     customFields,
     assignedLabels: participant.finalAssignments.map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
-    sessions: sessions.map((s, i) => ({
-      id: s.id,
-      anonLabel: anonymousSessionLabel(i, mdLabel(s.date)),
-      isRequired: s.isRequired,
-      remark: s.remark,
-      status: (statusMap.get(s.id) as SurveyAvailabilityStatus | undefined) ?? null,
-    })),
+    sessions: sessions.map((s, i) => {
+      // UAT:每場次可各自關閉對委員/觀察員的匿名(如委員共識會議);關閉則顯真實地名,否則仍以穩定序號匿名。
+      // 僅送出計算後的 anonLabel,匿名場次的真實地名不會外洩到 client。
+      const anon = kind === 'OBSERVER' ? s.anonymizeForObserver : s.anonymizeForMember;
+      const md = mdLabel(s.date);
+      return {
+        id: s.id,
+        anonLabel: anon ? anonymousSessionLabel(i, md) : `${md} ${s.name}`.trim(),
+        isRequired: s.isRequired,
+        remark: s.remark,
+        status: (statusMap.get(s.id) as SurveyAvailabilityStatus | undefined) ?? null,
+      };
+    }),
   };
 }
 

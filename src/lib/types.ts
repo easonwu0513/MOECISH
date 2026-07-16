@@ -171,13 +171,12 @@ export const SURVEY_PARTICIPANT_KIND_LABELS: Record<SurveyParticipantKind, strin
 export const SURVEY_COMMITTEE_TYPES = ['管理面', '策略面', '技術面', '管理面-OT'] as const;
 export type SurveyCommitteeType = (typeof SURVEY_COMMITTEE_TYPES)[number];
 
-/** 逐場次意願三態。 */
-export const SURVEY_AVAILABILITY_STATUSES = ['OK', 'PENDING', 'NA'] as const;
+/** 逐場次意願二態(UAT:移除「待定」;N/A 顯示為「NO」)。值 'NA' 保留(未勾＝不可出席),僅顯示改 NO。 */
+export const SURVEY_AVAILABILITY_STATUSES = ['OK', 'NA'] as const;
 export type SurveyAvailabilityStatus = (typeof SURVEY_AVAILABILITY_STATUSES)[number];
 export const SURVEY_AVAILABILITY_LABELS: Record<SurveyAvailabilityStatus, string> = {
   OK: 'OK',
-  PENDING: '待定',
-  NA: 'N/A',
+  NA: 'NO',
 };
 
 /** 意願回信(管考表欄位)。 */

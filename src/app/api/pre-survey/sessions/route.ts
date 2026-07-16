@@ -13,6 +13,8 @@ const Body = z.object({
   remark: z.string().trim().max(500).optional(),
   targetMemberCount: z.number().int().min(0).max(999).optional(),
   targetObserverCount: z.number().int().min(0).max(999).optional(),
+  anonymizeForMember: z.boolean().optional(),
+  anonymizeForObserver: z.boolean().optional(),
 });
 
 /** 新增年度場次(批A;僅中心 SUPER_ADMIN)。orderIndex 附加於該年度末端,決定受調者看到的匿名序號。 */
@@ -36,6 +38,8 @@ export async function POST(req: Request) {
         remark: body.remark?.trim() || null,
         targetMemberCount: body.targetMemberCount ?? 0,
         targetObserverCount: body.targetObserverCount ?? 0,
+        anonymizeForMember: body.anonymizeForMember ?? true,
+        anonymizeForObserver: body.anonymizeForObserver ?? true,
         orderIndex: (last?.orderIndex ?? -1) + 1,
         createdById: user.id,
       },

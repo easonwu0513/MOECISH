@@ -35,6 +35,8 @@ export type AdminSessionDTO = {
   remark: string | null;
   targetMemberCount: number;
   targetObserverCount: number;
+  anonymizeForMember: boolean; // 對委員是否匿名地點
+  anonymizeForObserver: boolean; // 對觀察員是否匿名地點
 };
 export type AdminParticipantDTO = {
   id: string;
@@ -400,7 +402,6 @@ export default function SurveyAdminBoard({
                         >
                           <option value="">未填</option>
                           <option value="OK">{SURVEY_AVAILABILITY_LABELS.OK}</option>
-                          <option value="PENDING">{SURVEY_AVAILABILITY_LABELS.PENDING}</option>
                           <option value="NA">{SURVEY_AVAILABILITY_LABELS.NA}</option>
                         </Select>
                       </td>
@@ -830,6 +831,8 @@ function SessionManagerDialog({
   const [to, setTo] = useState('1');
   const [required, setRequired] = useState(false);
   const [remark, setRemark] = useState('');
+  const [anonM, setAnonM] = useState(true);
+  const [anonO, setAnonO] = useState(true);
   const [busy, setBusy] = useState(false);
 
   async function add() {
@@ -838,26 +841,20 @@ function SessionManagerDialog({
     const res = await fetch('/api/pre-survey/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0 }),
+      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO }),
     });
     setBusy(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
-    setName(''); setDate(''); setRemark('');
+    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true);
     toast.success('已新增場次');
-    router.refresh();
-  }
-  async function del(id: string, label: string) {
-    if (!window.confirm(`確定刪除場次「${label}」？其意願與指派將一併刪除。`)) return;
-    const res = await fetch(`/api/pre-survey/sessions/${id}`, { method: 'DELETE' });
-    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
-    toast.success('已刪除場次');
     router.refresh();
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={`管理 ${yearROC} 年度場次`} description="新增稽核場次（地點對受調者以序號匿名）；目標人數為達標儀表卡分母。">
+    <Dialog open={open} onOpenChange={onOpenChange} title={`管理 ${yearROC} 年度場次`} description="新增或就地編輯稽核場次；地點預設對受調者以序號匿名（可逐場次關閉）；目標人數為達標儀表卡分母。">
       <div className="space-y-4 pt-2">
         <div className="rounded-md border border-rule bg-card p-3.5">
+          <p className="text-label text-ink-900 mb-2">新增場次</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：總院、斗六" />
             <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -872,30 +869,111 @@ function SessionManagerDialog({
               placeholder="如：請至少勾選 2 場、上午 09:30 簽到"
             />
           </div>
-          <label className="mt-3 flex items-center gap-2 text-body-sm text-ink-700">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="rounded border-rule" />
-            必參加
-          </label>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="rounded border-rule" /> 必參加
+            </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
+            </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+            </label>
+          </div>
+          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱。</p>
           <div className="mt-3">
             <Button size="sm" onClick={add} loading={busy} disabled={busy}>新增場次</Button>
           </div>
         </div>
+
         {sessions.length > 0 && (
-          <ul className="divide-y divide-rule rounded-md border border-rule">
-            {sessions.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <div className="min-w-0">
-                  <span className="text-body-sm font-medium text-ink-900">{s.dateLabel} · {s.name}</span>
-                  {s.isRequired && <Chip size="sm" tone="danger" className="ml-2">必參加</Chip>}
-                  <span className="ml-2 text-caption text-ink-500">目標 委員 {s.targetMemberCount}／觀察員 {s.targetObserverCount}</span>
-                </div>
-                <button type="button" onClick={() => del(s.id, `${s.dateLabel} ${s.name}`)} className="text-caption text-danger-600 hover:underline focus-ring rounded">刪除</button>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+            <p className="text-label text-ink-500">既有場次（可直接修改，免刪除重建）</p>
+            {sessions.map((s) => <SessionEditRow key={s.id} s={s} />)}
+          </div>
         )}
       </div>
     </Dialog>
+  );
+}
+
+// ── 單一場次就地編輯列(#3 UAT:日期/名稱/目標人數/匿名等直接改,免刪除重建) ──
+function SessionEditRow({ s }: { s: AdminSessionDTO }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [name, setName] = useState(s.name);
+  const [date, setDate] = useState(s.dateInput ?? '');
+  const [tm, setTm] = useState(String(s.targetMemberCount));
+  const [to, setTo] = useState(String(s.targetObserverCount));
+  const [required, setRequired] = useState(s.isRequired);
+  const [remark, setRemark] = useState(s.remark ?? '');
+  const [anonM, setAnonM] = useState(s.anonymizeForMember);
+  const [anonO, setAnonO] = useState(s.anonymizeForObserver);
+  const [busy, setBusy] = useState(false);
+
+  const dirty =
+    name.trim() !== s.name ||
+    (date || null) !== (s.dateInput ?? null) ||
+    (Number(tm) || 0) !== s.targetMemberCount ||
+    (Number(to) || 0) !== s.targetObserverCount ||
+    required !== s.isRequired ||
+    (remark.trim() || '') !== (s.remark ?? '') ||
+    anonM !== s.anonymizeForMember ||
+    anonO !== s.anonymizeForObserver;
+
+  async function save() {
+    if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/sessions/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || null,
+        targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0,
+        anonymizeForMember: anonM, anonymizeForObserver: anonO,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新場次');
+    router.refresh();
+  }
+  async function del() {
+    if (!window.confirm(`確定刪除場次「${s.dateLabel} ${s.name}」？其意願與指派將一併刪除。`)) return;
+    const res = await fetch(`/api/pre-survey/sessions/${s.id}`, { method: 'DELETE' });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除場次');
+    router.refresh();
+  }
+
+  return (
+    <div className="rounded-md border border-rule bg-card p-3.5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
+        <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
+      </div>
+      <div className="mt-3">
+        <TextField label="備註（受調者可見，勿含地點）" value={remark} onChange={(e) => setRemark(e.target.value)} />
+      </div>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="rounded border-rule" /> 必參加
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+        </label>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <Button size="sm" onClick={save} loading={busy} disabled={busy || !dirty}>儲存變更</Button>
+        {!dirty && <span className="text-caption text-ink-400">尚未修改</span>}
+        <button type="button" onClick={del} className="ml-auto text-caption text-danger-600 hover:underline focus-ring rounded">刪除場次</button>
+      </div>
+    </div>
   );
 }
 
@@ -985,15 +1063,21 @@ function AssignDialog({
     router.refresh();
   }
 
+  // #1 UAT:只列此受調者勾選「OK」（或已指派）的場次,免逐場對照。以原始 finalSessionIds 判定,
+  // 使可見集在對話框開啟期間穩定(切換勾選不會讓已指派但非 OK 的場次消失)。
+  const visibleSessions = participant
+    ? sessions.filter((s) => participant.availability[s.id] === 'OK' || participant.finalSessionIds.includes(s.id))
+    : [];
+
   return (
     <Dialog
       open={participant !== null}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title={participant ? `指派「${participant.name}」的最終場次` : ''}
-      description="可複選；指派 ≥1 場即解鎖該受調者的差旅與飲食調查（第二階段）。"
+      description="僅列出此受調者勾選「OK」（或已指派）的場次；指派 ≥1 場即解鎖其差旅與飲食調查（第二階段）。"
     >
       <div className="flex flex-wrap gap-2 pt-2">
-        {sessions.map((s) => {
+        {visibleSessions.map((s) => {
           const on = selected.has(s.id);
           return (
             <button
@@ -1010,7 +1094,13 @@ function AssignDialog({
             </button>
           );
         })}
-        {sessions.length === 0 && <p className="text-body-sm text-ink-500">此年度尚無場次可指派。</p>}
+        {visibleSessions.length === 0 && (
+          <p className="text-body-sm text-ink-500">
+            {sessions.length === 0
+              ? '此年度尚無場次可指派。'
+              : '此受調者尚無勾選「OK」的場次可指派；可於管考表該人列改其場次意願後再指派。'}
+          </p>
+        )}
       </div>
     </Dialog>
   );

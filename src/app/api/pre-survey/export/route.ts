@@ -102,7 +102,8 @@ export async function GET(req: Request) {
         p.submittedAt ? '已送出' : '未送出',
         ...sessions.map((s) => {
           const st = availMap.get(s.id) as SurveyAvailabilityStatus | undefined;
-          return st ? SURVEY_AVAILABILITY_LABELS[st] : '未填寫';
+          // ?? st 保底:舊制殘留值(如已移除的 PENDING)不致印出 "undefined";與其他欄位一致。
+          return st ? (SURVEY_AVAILABILITY_LABELS[st] ?? st) : '未填寫';
         }),
         finalLabels.join(' / '),
         SURVEY_REPLY_STATUS_LABELS[p.replyStatus as SurveyReplyStatus] ?? p.replyStatus,

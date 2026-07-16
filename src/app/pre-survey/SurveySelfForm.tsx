@@ -217,7 +217,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             <div>
               <h2 className="text-title-md text-ink-900">{data.yearROC} 年度事前場次調查</h2>
               <p className="mt-1 text-body-sm text-ink-500">
-                請填寫各場次的出席意願（OK／待定／N/A）並繳交相關文件。{isObserver ? '' : '委員另需繳交經歷說明書與切結書。'}
+                請填寫各場次的出席意願（OK／NO）並繳交相關文件。{isObserver ? '' : '委員另需繳交經歷說明書與切結書。'}
               </p>
             </div>
             {data.submittedAt ? <Chip tone="success" dot>意願已送出</Chip> : <Chip tone="warning" dot>意願尚未送出</Chip>}
@@ -381,8 +381,6 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                           on
                             ? opt === 'OK'
                               ? 'bg-success-600 text-white'
-                              : opt === 'PENDING'
-                              ? 'bg-warning-500 text-white'
                               : 'bg-ink-700 text-white'
                             : 'text-ink-500 hover:text-ink-700'
                         }`}

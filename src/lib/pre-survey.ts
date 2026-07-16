@@ -13,13 +13,11 @@ export function anonymousSessionLabel(index: number, dateLabel: string): string 
   return d ? `${d} 稽核場次 ${index + 1}` : `稽核場次 ${index + 1}`;
 }
 
-/** 意願三態 → 色調(OK 綠 / 待定 黃 / N/A 灰)。 */
+/** 意願二態 → 色調(OK 綠 / NO(值 NA)灰)。 */
 export function availabilityTone(status: string | null | undefined): Tone {
   switch (status as SurveyAvailabilityStatus) {
     case 'OK':
       return 'success';
-    case 'PENDING':
-      return 'warning';
     case 'NA':
       return 'neutral';
     default:

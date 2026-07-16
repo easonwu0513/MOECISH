@@ -189,6 +189,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     remark: s.remark,
     targetMemberCount: s.targetMemberCount,
     targetObserverCount: s.targetObserverCount,
+    anonymizeForMember: s.anonymizeForMember,
+    anonymizeForObserver: s.anonymizeForObserver,
   }));
 
   // 中心自訂欄位(mockup 改版;年度制)。#5:selfEditable=開放受調者填寫、dueDate=填報到期日(供催辦)
