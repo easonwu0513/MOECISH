@@ -11,7 +11,7 @@ import { useToast } from '@/components/ui/Toast';
 import { cn } from '@/lib/cn';
 import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type AssignAspect } from '@/lib/audit-score';
 
-type PersonRef = { id: string; name: string; email?: string };
+type PersonRef = { id: string; name: string; email?: string; coiOrgAdmin?: boolean };
 type Pairing = { id: string; observer: PersonRef; mentor: PersonRef; dimensions?: string | null };
 
 /**
@@ -35,6 +35,8 @@ export default function AssignObserversPanel({
   const [pickMentor, setPickMentor] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
+  // J UAT:配對到「自己服務機關」的 COI 提示(後端另硬擋;前端先明確告知,不送出)
+  const [pendingCoi, setPendingCoi] = useState<{ name: string } | null>(null);
 
   async function load() {
     const res = await fetch(`/api/cycles/${cycleId}/observers`);
@@ -56,7 +58,14 @@ export default function AssignObserversPanel({
   const available = observers.filter((o) => !pairedIds.has(o.id));
 
   async function add() {
-    if (!pickObserver || !pickMentor) return;
+    if (!pickObserver) return;
+    const obs = available.find((o) => o.id === pickObserver);
+    // J:配對到自己服務之機關(受稽醫院)→ 依迴避原則不可,先跳提示視窗告知(不送出)
+    if (obs?.coiOrgAdmin) {
+      setPendingCoi({ name: obs.name });
+      return;
+    }
+    if (!pickMentor) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/cycles/${cycleId}/observers`, {
@@ -165,6 +174,20 @@ export default function AssignObserversPanel({
         loading={busy}
         onConfirm={() => { if (pendingRemove) void remove(pendingRemove.id); }}
       />
+      {/* J UAT:配對到自己服務之機關 → 依迴避原則不可,明確提示視窗告知(後端亦硬擋) */}
+      <ConfirmDialog
+        open={pendingCoi !== null}
+        onOpenChange={(o) => { if (!o) setPendingCoi(null); }}
+        title="不可配對：違反迴避原則"
+        description={
+          pendingCoi
+            ? `「${pendingCoi.name}」為本受稽機關的機關管理員（其所屬醫院即本週期受稽對象）。依迴避原則，觀察員不得觀摩自己服務之機關，系統不會配對。請改配對其他觀察員。`
+            : undefined
+        }
+        confirmLabel="我知道了"
+        tone="primary"
+        onConfirm={() => setPendingCoi(null)}
+      />
       <CardTitle>觀察員配對（師徒制）</CardTitle>
       <CardDescription>
         為觀察員指派本場次的指導者（本週期已指派之稽核委員，或中心人員——初期場次多由中心帶審）。
@@ -252,7 +275,9 @@ export default function AssignObserversPanel({
           >
             <option value="">{available.length === 0 ? '（無可配對的觀察員）' : '選擇觀察員…'}</option>
             {available.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}{o.email ? `(${o.email})` : ''}</option>
+              <option key={o.id} value={o.id}>
+                {o.name}{o.email ? `(${o.email})` : ''}{o.coiOrgAdmin ? ' ⚠ 受稽機關管理員' : ''}
+              </option>
             ))}
           </Select>
           <Select

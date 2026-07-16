@@ -30,7 +30,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     });
     // 可選觀察員池=「現用身分為觀察員」∪「多重身分授權(UserRole)持有效觀察員授權」——
     // 只查現用身分會漏掉如「現用機關管理員、已被授予觀察員身分」者(UAT:已授身分卻選不到)
-    const observers = await prisma.user.findMany({
+    const cycleOrg = await prisma.auditCycle.findUnique({ where: { id: params.id }, select: { organizationId: true } });
+    const orgId = cycleOrg?.organizationId ?? null;
+    const observerUsers = await prisma.user.findMany({
       where: {
         isActive: true,
         OR: [
@@ -38,9 +40,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           { roleGrants: { some: { role: 'OBSERVER', endedAt: null } } },
         ],
       },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true, name: true, email: true, organizationId: true,
+        roleGrants: { where: { endedAt: null, role: 'ORG_ADMIN' }, select: { organizationId: true } },
+      },
       orderBy: { name: 'asc' },
     });
+    // J UAT:標記「本員為受稽機關的機關管理員」(現用身分或 ORG_ADMIN 授權)→ 前端配對前提示 COI(後端 POST 另硬擋)。roleGrants 不外傳,只回布林。
+    const observers = observerUsers.map((o) => ({
+      id: o.id,
+      name: o.name,
+      email: o.email,
+      coiOrgAdmin: !!orgId && (o.organizationId === orgId || o.roleGrants.some((g) => g.organizationId === orgId)),
+    }));
     // 指導池=本週期已指派委員 ∪ 中心人員(UAT:觀察員初期場次由中心人員帶審,第三場起才由委員;
     // 中心恆存在,亦解決開立中尚未指派委員時池空無法配對的問題)。中心人員名稱加註以資區別。
     const mentors = await prisma.auditorAssignment.findMany({
