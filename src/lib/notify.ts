@@ -1,8 +1,34 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { sendEmail } from './email';
 import { fmtROC } from './date';
 import { cycleTransitionNotify } from './notify-policy';
-import type { CycleStatus } from './types';
+import {
+  DEFICIENCY_ASPECT_LABELS,
+  DEFICIENCY_TYPE_LABELS,
+  TRACKED_REVIEW_STATUS_LABELS,
+  type CycleStatus,
+  type DeficiencyAspect,
+  type DeficiencyType,
+  type TrackedReviewStatus,
+} from './types';
+
+/**
+ * 機關管理員(ORG_ADMIN)收件人 where(批51):納「多重身分授權」。
+ * 除「現用身分即為該機關 ORG_ADMIN」者,亦含以 UserRole 授權持該機關 ORG_ADMIN(endedAt=null)者——
+ * 多重身分帳號切換現用身分後(User.organizationId 暫離本機關)仍應收到本機關通知,否則漏收(批31 多重身分之副作用)。
+ * 用於「收件人綁單一週期機關、orgName 取自 cycle」的自動通知;各呼叫端保留自身 select。
+ * (中心手動群發 admin/emails/send 以收件人自身 org 代入 {{orgName}},刻意不套此 helper——見該檔。)
+ */
+export function orgAdminWhere(organizationId: string): Prisma.UserWhereInput {
+  return {
+    isActive: true,
+    OR: [
+      { organizationId, role: 'ORG_ADMIN' },
+      { roleGrants: { some: { organizationId, role: 'ORG_ADMIN', endedAt: null } } },
+    ],
+  };
+}
 
 /**
  * 週期狀態 → 通知機關的訊息內容(僅 org 通知政策為 true 的狀態才有條目)。
@@ -30,21 +56,21 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
   const yearROC = cycle.year - 1911;
   const scheduleLines = [
-    cycle.techCheckDate && `・技術檢測日:${fmtROC(cycle.techCheckDate)}`,
-    cycle.onsiteDate && `・實地稽核日:${fmtROC(cycle.onsiteDate)}`,
-    cycle.prepDueTech && `・技術檢測資料繳交截止:${fmtROC(cycle.prepDueTech)}`,
-    cycle.prepDueDate && `・實地稽核資料繳交截止:${fmtROC(cycle.prepDueDate)}`,
-    cycle.dueDate && `・矯正填報截止:${fmtROC(cycle.dueDate)}`,
+    cycle.techCheckDate && `・技術檢測日：${fmtROC(cycle.techCheckDate)}`,
+    cycle.onsiteDate && `・實地稽核日：${fmtROC(cycle.onsiteDate)}`,
+    cycle.prepDueTech && `・技術檢測資料繳交截止：${fmtROC(cycle.prepDueTech)}`,
+    cycle.prepDueDate && `・實地稽核資料繳交截止：${fmtROC(cycle.prepDueDate)}`,
+    cycle.dueDate && `・矯正填報截止：${fmtROC(cycle.dueDate)}`,
   ].filter(Boolean) as string[];
   const scheduleBlock = scheduleLines.length
-    ? `重要時程如下:\n${scheduleLines.join('\n')}\n\n`
+    ? `重要時程如下：\n${scheduleLines.join('\n')}\n\n`
     : '相關時程確定後將另行通知。\n\n';
 
   const results = await Promise.all(
@@ -54,10 +80,10 @@ export async function notifyCycleOpened(opts: { cycleId: string; appBaseUrl: str
         toName: u.name,
         subject: `[MOECISH] 貴機關 ${yearROC} 年度資通安全稽核作業通知`,
         body:
-          `${u.name} 您好,\n\n` +
-          `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立,貴機關今年度將接受資通安全稽核。\n\n` +
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} 之 ${yearROC} 年度資通安全稽核作業已於平台建立，貴機關今年度將接受資通安全稽核。\n\n` +
           scheduleBlock +
-          `待中心開放「資料準備」後,請登入平台依清單填寫資通安全檢核表並上傳應備文件:\n${link}\n\n` +
+          `待中心開放「資料準備」後，請登入平台依清單填寫資通安全檢核表並上傳應備文件：\n${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
@@ -85,11 +111,7 @@ export async function notifyCycleOrgAdmins(opts: {
   if (!cycle) throw new Error('稽核週期不存在');
 
   const recipients = await prisma.user.findMany({
-    where: {
-      organizationId: cycle.organizationId,
-      role: 'ORG_ADMIN',
-      isActive: true,
-    },
+    where: orgAdminWhere(cycle.organizationId),
   });
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies`;
@@ -134,12 +156,19 @@ export async function notifyAuditorsOnSubmit(opts: {
   if (!def) return { recipientCount: 0 };
   const cycle = def.cycle;
 
-  const auditors = await prisma.user.findMany({
+  let auditors = await prisma.user.findMany({
     where: {
       id: { in: cycle.assignments.map((a) => a.auditorId) },
       isActive: true,
     },
   });
+  // 個別送審但本週期尚無「在職且受指派」委員(未指派/委員已停用)→ 通知中心(SUPER_ADMIN),
+  // 否則此送審件無人知悉待審(鏡射 notifyAuditorsOnRoundSubmit 的 uncovered→中心)。
+  let toCenter = false;
+  if (auditors.length === 0) {
+    auditors = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+    toCenter = true;
+  }
   if (auditors.length === 0) return { recipientCount: 0 };
 
   const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies?status=submitted`;
@@ -153,7 +182,7 @@ export async function notifyAuditorsOnSubmit(opts: {
         toName: u.name,
         subject: `[MOECISH] ${orgName} 已送審矯正措施（第 ${def.itemNo} 項），敬請審查`,
         body:
-          `${u.name} 委員您好，\n\n` +
+          `${u.name}${toCenter ? '' : ' 委員'}您好，\n\n` +
           `${cycle.organization.name} 於 ${yearROC} 年度稽核已送審 1 項矯正措施，\n` +
           `請登入系統檢視填報內容與佐證並進行審查：\n\n` +
           `${link}\n\n` +
@@ -165,6 +194,90 @@ export async function notifyAuditorsOnSubmit(opts: {
     ),
   );
   return { recipientCount: auditors.length };
+}
+
+/**
+ * 一輪矯正措施「批次送審」後,對每位委員寄「單一封」彙整通知(批50):
+ * 原 notifyAuditorsOnSubmit 每送一件就對全體委員各寄一封 → N 件會讓每位委員收到 N 封信;
+ * 改為每位委員一封,只列「本輪送審且屬其審閱(或尚未指派)」的缺失,杜絕信件轟炸。
+ */
+export async function notifyAuditorsOnRoundSubmit(opts: {
+  cycleId: string;
+  deficiencyIds: string[];
+  appBaseUrl: string;
+}) {
+  if (opts.deficiencyIds.length === 0) return { recipientCount: 0 };
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, assignments: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const [defs, auditors, admins] = await Promise.all([
+    prisma.deficiency.findMany({
+      where: { id: { in: opts.deficiencyIds } },
+      select: { id: true, itemNo: true, aspect: true, type: true, reviewerAuditorId: true },
+      orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
+    }),
+    prisma.user.findMany({
+      where: { id: { in: cycle.assignments.map((a) => a.auditorId) }, isActive: true },
+    }),
+    prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } }),
+  ]);
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/deficiencies?status=submitted`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  type Def = (typeof defs)[number];
+  const sendReviewMail = (u: { email: string; name: string }, list: Def[], salutation: string) => {
+    const listText = list
+      .map(
+        (d) =>
+          `・${DEFICIENCY_ASPECT_LABELS[d.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[d.type as DeficiencyType]} 第 ${d.itemNo} 項`,
+      )
+      .join('\n');
+    return sendEmail({
+      to: u.email,
+      toName: u.name,
+      subject: `[MOECISH] ${orgName} 已送審 ${list.length} 項矯正措施，敬請審查`,
+      body:
+        `${salutation}\n\n` +
+        `${cycle.organization.name} 於 ${yearROC} 年度稽核本輪送審以下 ${list.length} 項矯正措施，\n` +
+        `請登入系統檢視填報內容與佐證並進行審查：\n\n` +
+        `${listText}\n\n` +
+        `${link}\n\n` +
+        `— MOECISH 資通安全稽核管考平台`,
+      kind: 'review-request',
+      relatedCycleId: cycle.id,
+      context: { deficiencyIds: list.map((d) => d.id) },
+    });
+  };
+
+  let recipientCount = 0;
+  const covered = new Set<string>();
+  // 指派審閱委員:每位只收「指派給他審閱」的本輪缺失(一封彙整信)
+  await Promise.all(
+    auditors.map(async (u) => {
+      const mine = defs.filter((d) => d.reviewerAuditorId === u.id);
+      if (mine.length === 0) return;
+      mine.forEach((d) => covered.add(d.id));
+      await sendReviewMail(u, mine, `${u.name} 委員您好，`);
+      recipientCount++;
+    }),
+  );
+  // 無「在職且被指派」委員涵蓋的缺失(未指派審閱委員,或指派給已停用委員)→ 通知中心:
+  // 未指派者僅中心可審(委員清單/審查 API 皆 reviewer-scoped),否則會漏通知(批50 專審 P2)。
+  const uncovered = defs.filter((d) => !covered.has(d.id));
+  if (uncovered.length > 0) {
+    await Promise.all(
+      admins.map(async (u) => {
+        await sendReviewMail(u, uncovered, `${u.name} 您好，`);
+        recipientCount++;
+      }),
+    );
+  }
+  return { recipientCount };
 }
 
 /** 委員退回後通知機關管理員(帶退回理由與直達連結)。 */
@@ -182,7 +295,7 @@ export async function notifyOrgOnReturn(opts: {
   const cycle = def.cycle;
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -194,7 +307,7 @@ export async function notifyOrgOnReturn(opts: {
       sendEmail({
         to: u.email,
         toName: u.name,
-        subject: `[MOECISH] 矯正措施退回補正（第 ${def.itemNo} 項），敬請依意見重新提交`,
+        subject: `[MOECISH] 矯正措施退回補正（第 ${def.itemNo} 項），敬請依意見重新送出`,
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} ${yearROC} 年度稽核之第 ${def.itemNo} 項矯正措施經委員審查退回（第 ${opts.round} 輪）。\n\n` +
@@ -243,7 +356,7 @@ export async function notifyChecklistSubmitted(opts: {
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 完成 ${yearROC} 年度資通安全檢核表填報並送出，內容已鎖定。\n` +
-          `請登入系統審閱填報內容;待稽核前資料一併確認齊備後，推進週期至「資料齊備」並通知委員審閱：\n\n` +
+          `請登入系統審閱填報內容；待稽核前資料一併確認齊備後，推進週期至「資料齊備」並通知委員審閱：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'checklist-submitted',
@@ -286,7 +399,7 @@ export async function notifyCycleSignedReportSubmitted(opts: {
         body:
           `${u.name} 您好，\n\n` +
           `${cycle.organization.name} 已於本日由 ${opts.submittedByName} 確認繳交 ${yearROC} 年度用印改善報告掃描檔（${opts.fileName}），檔案已鎖定。\n` +
-          `請登入系統確認掃描檔;確認後即可結案：\n\n` +
+          `請登入系統確認掃描檔；確認後即可結案：\n\n` +
           `${link}\n\n` +
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'signed-report-submitted',
@@ -333,6 +446,152 @@ export async function notifyCommitteeReview(opts: { cycleId: string; appBaseUrl:
         // 同一週期對同一委員 24h 內只寄一次(轉換重試/回退再進入不重複轟炸;不同週期各自獨立)
         dedupeKey: `committee-review-${cycle.id}`,
         context: {},
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/**
+ * 觀察員受配對為某週期觀察員(批66 M2)→ 通知該觀察員(email + 站內)。
+ * 由 observers POST 配對成功後呼叫(寄信失敗不影響配對,呼叫端 try/catch)。
+ * 僅通知被配對的該名觀察員本人(CycleObserver.observerId 直指 user,不涉他人);
+ * 同一週期對同一觀察員 24h 去重(改指導委員等重複 upsert 不重複轟炸)。
+ */
+export async function notifyObserverOnPaired(opts: {
+  cycleId: string;
+  observerId: string;
+  mentorId: string;
+  appBaseUrl: string;
+}) {
+  const [cycle, observer, mentor] = await Promise.all([
+    prisma.auditCycle.findUnique({ where: { id: opts.cycleId }, include: { organization: true } }),
+    prisma.user.findUnique({
+      where: { id: opts.observerId },
+      select: { id: true, name: true, email: true, isActive: true },
+    }),
+    prisma.user.findUnique({ where: { id: opts.mentorId }, select: { name: true } }),
+  ]);
+  if (!cycle || !observer || !observer.isActive) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+  const mentorName = mentor?.name ?? '（待中心指派）';
+
+  await sendEmail({
+    to: observer.email,
+    toName: observer.name,
+    subject: `[MOECISH] 您已受配對為 ${orgName} ${yearROC} 年度稽核之觀察員`,
+    body:
+      `${observer.name} 您好，\n\n` +
+      `您已受配對為 ${cycle.organization.name} ${yearROC} 年度資通安全稽核之觀察員（指導委員：${mentorName}）。\n` +
+      `待資料齊備後，您可於觀察員審閱時段內檢視機關資料、熟悉稽核背景，並於練習工作台進行評分練習：\n\n` +
+      `${link}\n\n` +
+      `— MOECISH 資通安全稽核管考平台`,
+    kind: 'observer-paired',
+    relatedCycleId: cycle.id,
+    // 同一週期對同一觀察員 24h 內只寄一次(改指導委員等重複 upsert 不重複轟炸)
+    dedupeKey: `observer-paired-${cycle.id}-${observer.id}`,
+    context: { observerId: observer.id, mentorId: opts.mentorId },
+  });
+  return { recipientCount: 1 };
+}
+
+/**
+ * 資料齊備(READY)或事後設定/變更觀察員審閱窗口(批66 M2)→ 通知本週期「已配對」觀察員
+ * 可於觀察員審閱時段檢視機關資料熟悉背景(email + 站內)。比照委員 notifyCommitteeReview。
+ * 政策=僅通知本週期配對觀察員(CycleObserver.observerId 直指 user),絕不外洩他週期/他機關。
+ * dedupeKey 含窗口值:同一(週期,窗口)只寄一次(轉換重試/重複存檔不轟炸);窗口真正變更則以新鍵再通知一次。
+ */
+export async function notifyObserversOnReviewOpen(opts: { cycleId: string; appBaseUrl: string }) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const paired = await prisma.cycleObserver.findMany({
+    where: { cycleId: opts.cycleId },
+    include: { observer: { select: { id: true, name: true, email: true, isActive: true } } },
+  });
+  const recipients = paired.filter((p) => p.observer.isActive);
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+  const windowText =
+    cycle.observerWindowStart && cycle.observerWindowEnd
+      ? `${fmtROC(cycle.observerWindowStart)}－${fmtROC(cycle.observerWindowEnd)}`
+      : '待中心設定';
+  // 窗口值入去重鍵:窗口未變 → 24h 內不重寄;窗口變更 → 新鍵再通知一次(既不漏真正變更,也不重複轟炸)
+  const wKey = `${cycle.observerWindowStart?.toISOString() ?? 'none'}_${cycle.observerWindowEnd?.toISOString() ?? 'none'}`;
+
+  await Promise.all(
+    recipients.map((p) =>
+      sendEmail({
+        to: p.observer.email,
+        toName: p.observer.name,
+        subject: `[MOECISH] ${orgName} ${yearROC} 年度資料已齊備，請於觀察員審閱時段檢視`,
+        body:
+          `${p.observer.name} 您好，\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核資料已確認齊備。\n` +
+          `請於觀察員審閱時段內檢視機關資料、熟悉稽核背景（審閱時段：${windowText}）：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'observer-review-open',
+        relatedCycleId: cycle.id,
+        dedupeKey: `observer-review-open-${cycle.id}-${wKey}`,
+        context: { observerId: p.observer.id },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/**
+ * 委員求援:週期已進入可審閱階段,但中心尚未設定「委員審閱時段」(reviewWindowStart/End 為 null),
+ * 委員因而全被鎖在門外且無自救 → 一鍵通知最高管理員(中心)盡快設定。email + 站內鈴鐺,24h 去重。
+ */
+export async function notifyReviewWindowRequested(opts: {
+  cycleId: string;
+  auditorName: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true },
+  });
+  if (!cycle) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+  });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}/prep`;
+  const yearROC = cycle.year - 1911;
+  const orgName = cycle.organization.shortName ?? cycle.organization.name;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 委員待審：請設定 ${orgName} ${yearROC} 年度委員審閱時段`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${opts.auditorName} 委員已可審閱 ${cycle.organization.name} ${yearROC} 年度資料，但本週期尚未設定「委員審閱時段」，委員目前無法檢視。\n` +
+          `請至資料準備頁的「委員審閱時段」設定起訖後，委員即可開始審閱：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'review-window-request',
+        relatedCycleId: cycle.id,
+        notificationLink: `/cycles/${cycle.id}/prep`,
+        // 同一週期 24h 內只提醒一次(避免多位委員/重複點擊轟炸中心)
+        dedupeKey: `review-window-request-${cycle.id}`,
+        context: { auditorName: opts.auditorName },
       }),
     ),
   );
@@ -492,10 +751,10 @@ export async function notifyAuditScoreReturned(opts: {
     data: {
       userId: auditor.id,
       kind: 'audit-score-return',
-      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回,請重新確認`,
+      title: `您於 ${orgName} ${yearROC} 年度的實地稽核評分已退回，請重新確認`,
       body:
-        '最高管理員已將您的實地稽核評分與稽核發現退回,已解除鎖定,請重新編輯後再次按「確認填寫完畢」。' +
-        (opts.reason ? ` 退回原因:${opts.reason}` : ''),
+        '最高管理員已將您的實地稽核評分與稽核發現退回，已解除鎖定，請重新編輯後再次按「確認填寫完畢」。' +
+        (opts.reason ? ` 退回原因：${opts.reason}` : ''),
       link: `/cycles/${cycle.id}/audit`,
     },
   });
@@ -516,7 +775,7 @@ export async function notifyChecklistReopened(opts: {
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -553,7 +812,7 @@ export async function notifyOrgAllPassed(opts: { cycleId: string; appBaseUrl: st
   if (!cycle) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -637,7 +896,7 @@ export async function notifyPrepReturned(opts: {
   const cycle = sub.requirement.cycle;
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -665,6 +924,93 @@ export async function notifyPrepReturned(opts: {
   return { recipientCount: recipients.length };
 }
 
+/**
+ * 中心「一鍵寄追蹤信」:對落後(逾期/停滯)週期之機關管理員寄出進度追蹤提醒,並以 EmailLog(獨立 kind=track-remind,
+ * relatedCycleId 綁定)構成該週期的「催辦軌跡」(不與一般 tracking / 自動催繳排程混淆)。提醒內容依週期階段給對應待辦焦點與直達連結。
+ * 同一週期 24h 內對同一收件人只寄一次(dedupeKey),避免重複點擊轟炸;此為中心主動動作,非狀態轉換,故不受 notify-policy 約束。
+ */
+export async function notifyCycleTrackReminder(opts: {
+  cycleId: string;
+  triggeredById: string;
+  appBaseUrl: string;
+}) {
+  const cycle = await prisma.auditCycle.findUnique({
+    where: { id: opts.cycleId },
+    include: { organization: true, deficiencies: { include: { action: { select: { status: true } } } } },
+  });
+  if (!cycle) return { recipientCount: 0, sentCount: 0, skippedCount: 0, remindCount: 0 };
+
+  const recipients = await prisma.user.findMany({
+    where: orgAdminWhere(cycle.organizationId),
+  });
+
+  const yearROC = cycle.year - 1911;
+  // overdue 與 admin/cycles 落後列同義:REMEDIATION 且尚未全數通過且已過矯正截止(對齊避免對已完成週期誤稱「已逾期」)
+  const total = cycle.deficiencies.length;
+  const allPassed = total > 0 && cycle.deficiencies.every((d) => (d.action?.status ?? 'PENDING') === 'PASSED');
+  const overdue = cycle.status === 'REMEDIATION' && !allPassed && !!cycle.dueDate && new Date(cycle.dueDate) < new Date();
+  // 依階段給待辦焦點與直達連結;不誇稱未查詢的細目,只點出該階段機關應辦事項。
+  let focus: { hint: string; path: string };
+  switch (cycle.status) {
+    case 'PREPARATION':
+      focus = { hint: '請儘速完成稽核前應備文件上傳與資通安全檢核表填報。', path: '/prep' };
+      break;
+    case 'REMEDIATION':
+      // 全數通過後,機關待辦已非「填報矯正措施」而是「列印改善報告→用印→上傳回傳」;
+      // 催辦文案與直達連結須隨情境切換(否則催的是已完成的填報,語境錯位)。
+      focus = allPassed
+        ? {
+            hint: '缺失矯正措施均已審查通過，請儘速列印改善報告、完成用印後上傳回傳中心以利結案。',
+            path: '#signed-report',
+          }
+        : {
+            hint: overdue
+              ? `缺失矯正措施填報已逾期（截止 ${fmtROC(cycle.dueDate)}），請儘速完成矯正措施填報與佐證上傳。`
+              : '請完成缺失矯正措施填報與佐證上傳。',
+            path: '/deficiencies',
+          };
+      break;
+    case 'REPORT_ISSUED':
+      focus = { hint: '稽核報告已產出，後續缺失矯正開放後請儘速辦理。', path: '' };
+      break;
+    default:
+      focus = { hint: '貴機關本年度稽核作業仍有待辦事項，請登入平台查看後續進度。', path: '' };
+  }
+
+  const link = `${opts.appBaseUrl}/cycles/${cycle.id}${focus.path}`;
+  const results = await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${yearROC} 年度資通安全稽核 進度追蹤提醒`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${cycle.organization.name} 的 ${yearROC} 年度資通安全稽核仍有待辦事項，謹此提醒。\n\n` +
+          `${focus.hint}\n\n` +
+          `請登入平台查看並辦理：\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'track-remind',
+        relatedCycleId: cycle.id,
+        // 同一週期 24h 內對同一收件人只寄一次(防連續點擊重複轟炸;不同週期各自獨立)
+        dedupeKey: `track-remind-${cycle.id}`,
+        context: { phase: 'track-remind', triggeredBy: opts.triggeredById, status: cycle.status },
+      }),
+    ),
+  );
+  // 誠實回報:24h 內重複點擊會被 sendEmail 去重(status=skipped),故區分「實際寄出」與「今日已提醒過而略過」。
+  const sentCount = results.filter((r) => r.status === 'sent' || r.status === 'simulated').length;
+  const skippedCount = results.filter((r) => r.status === 'skipped').length;
+
+  // 催辦軌跡:此週期累計實際寄出(sent/simulated)之「一鍵催辦」信封數(含本次;24h 內去重的重複點擊不計入)。
+  // 用獨立 kind='track-remind' 查詢,不與一般 tracking 追蹤信 / 自動催繳排程(run-tracking)/ 手動群發混淆。
+  const remindCount = await prisma.emailLog.count({
+    where: { relatedCycleId: cycle.id, kind: 'track-remind', status: { in: ['sent', 'simulated'] } },
+  });
+
+  return { cycleId: cycle.id, recipientCount: recipients.length, sentCount, skippedCount, remindCount };
+}
+
 /** 週期狀態推進(forward 轉換)時通知機關管理員;依新狀態給對應訊息與連結。 */
 export async function notifyCycleStatusChange(opts: {
   cycleId: string;
@@ -683,7 +1029,7 @@ export async function notifyCycleStatusChange(opts: {
   if (!m) return { recipientCount: 0 };
 
   const recipients = await prisma.user.findMany({
-    where: { organizationId: cycle.organizationId, role: 'ORG_ADMIN', isActive: true },
+    where: orgAdminWhere(cycle.organizationId),
   });
   if (recipients.length === 0) return { recipientCount: 0 };
 
@@ -703,10 +1049,281 @@ export async function notifyCycleStatusChange(opts: {
           `— MOECISH 資通安全稽核管考平台`,
         kind: 'cycle-notify',
         relatedCycleId: cycle.id,
-        dedupeKey: `status-${opts.status}`,
+        dedupeKey: `status-${cycle.id}-${opts.status}`,
         context: { status: opts.status },
       }),
     ),
   );
   return { recipientCount: recipients.length };
+}
+
+// ════════════════════════════════════════════
+// 批71:缺失持續列管通知(事件驅動,非週期狀態轉換 → 不受 notify-policy 矩陣約束)
+// ════════════════════════════════════════════
+
+/** 列管項標籤:構面－類型 第 N 項(通知內文共用;run-tracking 催辦信亦引用)。 */
+export function trackedItemLabel(t: { aspect: string; type: string; itemNo: number }): string {
+  return `${DEFICIENCY_ASPECT_LABELS[t.aspect as DeficiencyAspect]}－${DEFICIENCY_TYPE_LABELS[t.type as DeficiencyType]} 第 ${t.itemNo} 項`;
+}
+
+/** 缺失拋轉持續列管 → 通知機關「此缺失轉入持續列管,首次回報期限 X」。 */
+export async function notifyTrackedCreated(opts: { deficiencyId: string; appBaseUrl: string }) {
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { deficiencyId: opts.deficiencyId },
+    include: { organization: true },
+  });
+  if (!tracked) return { recipientCount: 0 };
+
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const originYearROC = tracked.originYear - 1911;
+  const dueStr = fmtROC(tracked.nextReportDue);
+  const label = trackedItemLabel(tracked);
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 缺失已轉入持續列管，請依期回報改善進度`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} ${originYearROC} 年度稽核之「${label}」因尚在辦理中，經審核後已轉入「缺失持續列管」，將跨年度滾動追蹤至改善完成。\n\n` +
+          `首次回報期限：${dueStr}。請於期限前登入平台回報最新進度並上傳佐證：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-created',
+        notificationLink: '/tracking',
+        // 同一列管項對同一機關 24h 去重(冪等 upsert 重審不重複轟炸)
+        dedupeKey: `tracked-created-${tracked.id}`,
+        context: { trackedId: tracked.id, deficiencyId: opts.deficiencyId },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 手動催辦某持續列管項的機關回報(UAT 批H;中心於列管頁逐項點觸發)。email + 站內,同項 24h 去重。 */
+export async function notifyTrackedManualRemind(opts: { trackedId: string; appBaseUrl: string }) {
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { id: opts.trackedId },
+    include: { organization: true },
+  });
+  if (!tracked || tracked.status !== 'TRACKING') return { recipientCount: 0, skipped: false, failed: false };
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0, skipped: false, failed: false };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const label = trackedItemLabel(tracked);
+  const dueStr = fmtROC(tracked.nextReportDue);
+  let sent = 0;
+  let skippedN = 0;
+  let failedN = 0;
+  for (const u of recipients) {
+    const log = await sendEmail({
+      to: u.email,
+      toName: u.name,
+      subject: `[MOECISH] 持續列管缺失回報催辦`,
+      body:
+        `${u.name} 您好，\n\n` +
+        `貴機關持續列管缺失「${label}」（回報期限 ${dueStr}）尚待回報改善進度，請儘速登入平台回報並上傳佐證：\n\n` +
+        `${link}\n\n` +
+        `— MOECISH 資通安全稽核管考平台`,
+      kind: 'tracked-due',
+      notificationLink: '/tracking',
+      dedupeKey: `tracked-manual-remind-${tracked.id}`,
+      context: { trackedId: tracked.id, manual: true },
+    });
+    // 誠實計數:僅實寄/模擬計入 sent;去重與寄送失敗分開,避免 failed 被誤報為「已寄出」(假成功)
+    if (log.status === 'sent' || log.status === 'simulated') sent++;
+    else if (log.status === 'skipped') skippedN++;
+    else failedN++;
+  }
+  return { recipientCount: sent, skipped: sent === 0 && skippedN > 0, failed: sent === 0 && failedN > 0 };
+}
+
+/** 機關送出列管回報 → 通知中心(最高管理員)+ 協審委員(若有指派且在職)。 */
+export async function notifyTrackedReportSubmitted(opts: { reportId: string; appBaseUrl: string }) {
+  const report = await prisma.trackedReport.findUnique({
+    where: { id: opts.reportId },
+    include: { tracked: { include: { organization: true } } },
+  });
+  if (!report) return { recipientCount: 0 };
+  const tracked = report.tracked;
+
+  const center = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', isActive: true } });
+  const auditor = tracked.assignedAuditorId
+    ? await prisma.user.findFirst({ where: { id: tracked.assignedAuditorId, isActive: true } })
+    : null;
+  const recipients = [...center, ...(auditor ? [auditor] : [])];
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const orgName = tracked.organization.shortName ?? tracked.organization.name;
+  const label = trackedItemLabel(tracked);
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] ${orgName} 已回報持續列管缺失進度，敬請審核`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} 已回報持續列管缺失「${label}」的最新改善進度，請登入平台檢視進度說明與佐證並審核（通過續列管／認可完成／退回補正）：\n\n` +
+          `${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-report',
+        notificationLink: '/tracking',
+        context: { trackedId: tracked.id, reportId: report.id },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+/** 中心/協審委員審核列管回報 → 通知機關結果(退回附理由;認可完成則告知結案)。 */
+export async function notifyTrackedReviewed(opts: { reportId: string; appBaseUrl: string }) {
+  const report = await prisma.trackedReport.findUnique({
+    where: { id: opts.reportId },
+    include: { tracked: { include: { organization: true } } },
+  });
+  if (!report) return { recipientCount: 0 };
+  const tracked = report.tracked;
+
+  const recipients = await prisma.user.findMany({ where: orgAdminWhere(tracked.organizationId) });
+  if (recipients.length === 0) return { recipientCount: 0 };
+
+  const link = `${opts.appBaseUrl}/tracking`;
+  const label = trackedItemLabel(tracked);
+  const decisionLabel = TRACKED_REVIEW_STATUS_LABELS[report.reviewStatus as TrackedReviewStatus] ?? report.reviewStatus;
+  const noteBlock = report.reviewNote?.trim() ? `審核意見：\n${report.reviewNote.trim()}\n\n` : '';
+  const nextBlock =
+    report.reviewStatus === 'COMPLETE'
+      ? '本缺失已認可完成、結束列管，無須再回報。\n\n'
+      : report.reviewStatus === 'RETURNED'
+      ? '請依審核意見補充後重新回報。\n\n'
+      : `本缺失仍持續列管，下次回報期限：${fmtROC(tracked.nextReportDue)}。\n\n`;
+
+  await Promise.all(
+    recipients.map((u) =>
+      sendEmail({
+        to: u.email,
+        toName: u.name,
+        subject: `[MOECISH] 持續列管缺失回報審核結果：${decisionLabel}`,
+        body:
+          `${u.name} 您好，\n\n` +
+          `${tracked.organization.name} 持續列管缺失「${label}」的進度回報，審核結果為「${decisionLabel}」。\n\n` +
+          noteBlock +
+          nextBlock +
+          `詳情請登入平台查看：\n${link}\n\n` +
+          `— MOECISH 資通安全稽核管考平台`,
+        kind: 'tracked-reviewed',
+        notificationLink: '/tracking',
+        context: { trackedId: tracked.id, reportId: report.id, decision: report.reviewStatus },
+      }),
+    ),
+  );
+  return { recipientCount: recipients.length };
+}
+
+// ════════════════════════════════════════════
+// 批A:事前場次調查催辦(中心催委員/觀察員填意願;事件驅動,不入週期矩陣)
+// ════════════════════════════════════════════
+
+/** 中心催辦某受調人員填一階意願(email + 站內鈴鐺;同人 24h 去重防轟炸)。skipped=true 表被去重未實際外寄。 */
+export async function notifyPresurveyRemind(opts: { participantId: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0, skipped: false };
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  const log = await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫出席意願`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `${yearROC} 年度資通安全稽核事前場次調查尚待您填寫出席意願（每個場次選擇 OK 或 NO）並繳交相關文件。\n` +
+      `請登入平台完成填寫：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-remind',
+    notificationLink: '/pre-survey',
+    dedupeKey: `presurvey-remind-${participant.id}`,
+    context: { participantId: participant.id, year: participant.year },
+  });
+  // 誠實計數:寄送失敗(Graph 例外)不計為已寄出,避免假成功
+  const delivered = log.status === 'sent' || log.status === 'simulated';
+  return { recipientCount: delivered ? 1 : 0, skipped: log.status === 'skipped' };
+}
+
+/** 中心退補某受調人員文件 → 通知本人補件(email + 站內;附退補理由)。 */
+export async function notifyPresurveyDocReturned(opts: { participantId: string; reason: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: { user: { select: { name: true, email: true, isActive: true } } },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0 };
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——文件需補件`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `您於 ${yearROC} 年度事前場次調查繳交的文件經中心審核，需補件或修改：\n\n` +
+      `${opts.reason}\n\n` +
+      `請登入平台重新上傳後再送審：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-doc-return',
+    notificationLink: '/pre-survey',
+    context: { participantId: participant.id, year: participant.year },
+  });
+  return { recipientCount: 1 };
+}
+
+/** 中心催辦某受調人員填二階差旅與飲食(已指派最終場次者;email + 站內鈴鐺,同人 24h 去重)。 */
+export async function notifyPresurveyTravelRemind(opts: { participantId: string; appBaseUrl: string }) {
+  const participant = await prisma.surveyParticipant.findUnique({
+    where: { id: opts.participantId },
+    include: {
+      user: { select: { name: true, email: true, isActive: true } },
+      finalAssignments: { select: { id: true } },
+    },
+  });
+  if (!participant || !participant.user.isActive) return { recipientCount: 0, skipped: false };
+  if (participant.finalAssignments.length === 0) return { recipientCount: 0, skipped: false }; // 未指派場次=二階未解鎖,不催
+
+  const yearROC = participant.year - 1911;
+  const link = `${opts.appBaseUrl}/pre-survey`;
+  const u = participant.user;
+
+  const log = await sendEmail({
+    to: u.email,
+    toName: u.name,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫差旅與飲食需求`,
+    body:
+      `${u.name} 您好，\n\n` +
+      `您已獲指派 ${yearROC} 年度資通安全稽核的最終場次，尚待您填寫往返交通方式與飲食需求（第二階段）。\n` +
+      `請登入平台完成填寫：\n\n${link}\n\n` +
+      `— 教育部轄下醫療領域資訊安全推動中心`,
+    kind: 'presurvey-travel-remind',
+    notificationLink: '/pre-survey',
+    dedupeKey: `presurvey-travel-remind-${participant.id}`,
+    context: { participantId: participant.id, year: participant.year },
+  });
+  // 誠實計數:寄送失敗(Graph 例外)不計為已寄出,避免假成功
+  const delivered = log.status === 'sent' || log.status === 'simulated';
+  return { recipientCount: delivered ? 1 : 0, skipped: log.status === 'skipped' };
 }

@@ -22,12 +22,13 @@ export default async function FindingSnippetsPage() {
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '發現片語庫' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">稽核發現片語庫(剪貼簿)</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          維護委員實地稽核時常用的發現片語。可標註適用構面與類型(或設為通用);委員於「實地稽核 → 稽核發現」表單按「剪貼簿」時,
-          會依其當前構面/類型自動篩選並一鍵插入。
-        </p>
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">稽核發現片語庫（剪貼簿）</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+            維護委員實地稽核時常用的發現片語。可標註適用構面與類型（或設為通用）；委員於「實地稽核 → 稽核發現」表單按「剪貼簿」時，會依其當前構面/類型自動篩選並一鍵插入。
+          </p>
+        </div>
       </header>
       <SnippetManager
         initial={snippets.map((s) => ({ id: s.id, aspect: s.aspect, kind: s.kind, text: s.text }))}

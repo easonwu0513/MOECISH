@@ -6,21 +6,60 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { ASSIGN_ASPECTS } from '@/lib/audit-score';
 import { canAssignAuditors } from '@/lib/stage';
+import { hasFormerOrgAdminConflict } from '@/lib/coi';
 import type { CycleStatus } from '@/lib/types';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
     await requireRole('SUPER_ADMIN');
-    const items = await prisma.auditorAssignment.findMany({
+    const cycle = await prisma.auditCycle.findUnique({
+      where: { id: params.id },
+      select: { organizationId: true },
+    });
+    const rows = await prisma.auditorAssignment.findMany({
       where: { cycleId: params.id },
-      include: { auditor: { select: { id: true, name: true, email: true } } },
+      include: {
+        auditor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            organizationId: true,
+            roleGrants: { where: { endedAt: null, role: 'ORG_ADMIN' }, select: { organizationId: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
-    const auditors = await prisma.user.findMany({
+    const orgId = cycle?.organizationId ?? null;
+    // COI 偵測旗標(批64):被指派委員若同時具「本週期機關」的機關管理員身分(現用身分 organizationId
+    // 或有效 ORG_ADMIN 授權),違反迴避原則——標旗提示中心。偵測「條件成立」而非攔動作,故涵蓋
+    // 「先指派委員→後授權 ORG_ADMIN」時序漏洞及一切授權路徑(含直改帳號 role)。roleGrants 不外傳,只回布林。
+    const items = rows.map((it) => ({
+      id: it.id,
+      role: it.role,
+      dimensions: it.dimensions,
+      scoreLockedAt: it.scoreLockedAt,
+      auditor: { id: it.auditor.id, name: it.auditor.name, email: it.auditor.email },
+      coiOrgAdmin:
+        !!orgId &&
+        (it.auditor.organizationId === orgId || it.auditor.roleGrants.some((g) => g.organizationId === orgId)),
+    }));
+    const auditorUsers = await prisma.user.findMany({
       where: { role: 'AUDITOR', isActive: true },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true, name: true, email: true, organizationId: true,
+        roleGrants: { where: { endedAt: null, role: 'ORG_ADMIN' }, select: { organizationId: true } },
+      },
       orderBy: { name: 'asc' },
     });
+    // J UAT:標記「本員為受稽機關的機關管理員」(現用身分或 ORG_ADMIN 授權)→ 前端指派前提示 COI(後端 POST 另硬擋)。roleGrants 不外傳,只回布林。
+    const auditors = auditorUsers.map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      coiOrgAdmin: !!orgId && (a.organizationId === orgId || a.roleGrants.some((g) => g.organizationId === orgId)),
+    }));
     return NextResponse.json({ items, auditors });
   } catch (e) {
     return errorResponse(e);
@@ -41,16 +80,46 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     // 實地稽核結束後(缺失發布中起)凍結委員名單:不得再新增指派(與 client 共用 canAssignAuditors)
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
-      return NextResponse.json({ error: '實地稽核階段已結束,委員名單已凍結,無法再新增指派' }, { status: 409 });
+      return NextResponse.json({ error: '實地稽核階段已結束，委員名單已凍結，無法再新增指派' }, { status: 409 });
     }
 
-    const auditor = await prisma.user.findUnique({ where: { id: body.auditorId } });
+    const auditor = await prisma.user.findUnique({
+      where: { id: body.auditorId },
+      include: { roleGrants: { where: { endedAt: null } } },
+    });
     if (!auditor || auditor.role !== 'AUDITOR' || !auditor.isActive) {
       return NextResponse.json({ error: '稽核委員不存在或已停用' }, { status: 400 });
     }
-    // 委員迴避:不得審查自己服務機關
-    if (auditor.organizationId && auditor.organizationId === cycle.organizationId) {
-      return NextResponse.json({ error: '委員不得審查自己服務之機關（迴避原則）' }, { status: 400 });
+    // 委員迴避:不得審查自己服務機關——含多重身分授權(批31):持有該機關「機關管理員」授權者
+    // 亦不得被指派(利益迴避查授權全集,非只現用身分)。
+    const holdsOrgAdminOfCycleOrg = auditor.roleGrants.some(
+      (g) => g.role === 'ORG_ADMIN' && g.organizationId === cycle.organizationId,
+    );
+    // 選項2(批74;預設停用)預留:迴避涵蓋「曾任機關」——lib/coi 常數為 null 時 hasFormerOrgAdminConflict
+    // 直接回 false(零查詢、行為與現行一致);設為年數 N 即啟用「卸任 N 年內曾任者亦迴避」,一鍵開通。
+    const formerOrgConflict = await hasFormerOrgAdminConflict(body.auditorId, cycle.organizationId);
+    if (
+      (auditor.organizationId && auditor.organizationId === cycle.organizationId) ||
+      holdsOrgAdminOfCycleOrg ||
+      formerOrgConflict
+    ) {
+      return NextResponse.json(
+        {
+          error: formerOrgConflict
+            ? '委員曾任此機關管理員，於迴避回溯期間內不得被指派稽核此機關（迴避原則）。'
+            : '委員不得審查自己服務之機關（迴避原則，含其多重身分所屬機關）',
+        },
+        { status: 400 },
+      );
+    }
+    // 反向防呆(與 observers POST 的 observerAlsoAuditor 對稱):已配對為本週期觀察員者
+    // 不可再被指派為正式委員,否則同人同週期雙重身分,破壞師徒制練習硬隔離的前提
+    const alsoObserver = await prisma.cycleObserver.findUnique({
+      where: { cycleId_observerId: { cycleId: params.id, observerId: body.auditorId } },
+      select: { id: true },
+    });
+    if (alsoObserver) {
+      return NextResponse.json({ error: '該員已是本週期配對觀察員，不可同時指派為正式委員（請先移除觀察員配對）' }, { status: 400 });
     }
 
     const item = await prisma.auditorAssignment.upsert({
@@ -97,7 +166,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
       return NextResponse.json(
-        { error: '實地稽核階段已結束,委員名單已凍結,無法再調整負責構面或召集委員' },
+        { error: '實地稽核階段已結束，委員名單已凍結，無法再調整負責構面或召集委員' },
         { status: 409 },
       );
     }
@@ -109,7 +178,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // 定稿保護:委員已「確認填寫完畢」後,其構面歸屬即為報告內容的一部分,不可再改;須先退件解除定稿
     if (exists.scoreLockedAt) {
       return NextResponse.json(
-        { error: '該委員已確認填寫完畢(定稿),不可再調整其負責構面/角色。如確需調整,請先於「彙整報告」頁對其「退件」解除定稿' },
+        { error: '該委員已確認填寫完畢（定稿），不可再調整其負責構面/角色。如確需調整，請先於「彙整報告」頁對其「退件」解除定稿' },
         { status: 409 },
       );
     }
@@ -169,7 +238,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const user = await requireRole('SUPER_ADMIN');
     const url = new URL(req.url);
     const auditorId = url.searchParams.get('auditorId') ?? '';
-    if (!auditorId) return NextResponse.json({ error: 'auditorId required' }, { status: 400 });
+    if (!auditorId) return NextResponse.json({ error: '請求參數不完整，請重新整理後再試' }, { status: 400 });
 
     const cycle = await prisma.auditCycle.findUnique({
       where: { id: params.id },
@@ -181,7 +250,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!canAssignAuditors(cycle.status as CycleStatus)) {
       // 補救文案須指向狀態機真實存在的路徑:REPORT_ISSUED 唯一回退目標是「開立中」(無回退至實地稽核的邊)
       return NextResponse.json(
-        { error: '實地稽核階段已結束,委員名單已凍結,無法再移除指派。如確需調整,請將週期回退至「開立中」後處理(重大操作,請審慎)' },
+        { error: '實地稽核階段已結束，委員名單已凍結，無法再移除指派。如確需調整，請將週期回退至「開立中」後處理（重大操作，請審慎）' },
         { status: 409 },
       );
     }
@@ -191,11 +260,20 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       select: { scoreLockedAt: true },
     });
     if (!assignment) return NextResponse.json({ error: '該委員未被指派於本週期' }, { status: 404 });
+    // 師徒制(批30):該委員若為本週期觀察員的指導委員,移除會使配對懸空(觀察員練習無人指導)——
+    // 須先於「觀察員配對」改指派其他指導委員後再移除。
+    const menteeCount = await prisma.cycleObserver.count({ where: { cycleId: params.id, mentorId: auditorId } });
+    if (menteeCount > 0) {
+      return NextResponse.json(
+        { error: `該委員目前為本週期 ${menteeCount} 位觀察員的指導委員，請先於「觀察員配對」改指派其他指導委員後再移除` },
+        { status: 409 },
+      );
+    }
     // 定稿保護:已「確認填寫完畢」(定稿)的委員不可直接移除——移除會刪掉其定稿紀錄、
     // 並讓「全委員定稿才能完成年度稽核」的閘門失真;須先於彙整報告頁「退件」解除定稿。
     if (assignment.scoreLockedAt) {
       return NextResponse.json(
-        { error: '該委員已確認填寫完畢(定稿),不可直接移除。如確需移除,請先於「彙整報告」頁對其「退件」解除定稿後再移除' },
+        { error: '該委員已確認填寫完畢（定稿），不可直接移除。如確需移除，請先於「彙整報告」頁對其「退件」解除定稿後再移除' },
         { status: 409 },
       );
     }
@@ -207,7 +285,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     });
     if (deleted.count === 0) {
       return NextResponse.json(
-        { error: '該委員剛完成定稿,未移除。如確需移除,請先於「彙整報告」頁對其「退件」解除定稿' },
+        { error: '該委員剛完成定稿，未移除。如確需移除，請先於「彙整報告」頁對其「退件」解除定稿' },
         { status: 409 },
       );
     }

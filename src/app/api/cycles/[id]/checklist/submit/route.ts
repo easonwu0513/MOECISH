@@ -20,10 +20,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅機關管理員可送出填報' }, { status: 403 });
     }
     if (cycle.checklistSubmittedAt) {
-      return NextResponse.json({ error: '已送出,無需重複操作' }, { status: 409 });
+      return NextResponse.json({ error: '已送出，無需重複操作' }, { status: 409 });
     }
     if (!checklistOrgCanEdit(cycle.status)) {
-      return NextResponse.json({ error: '目前週期狀態不開放填報送出(僅「資料準備中」可送出)' }, { status: 409 });
+      return NextResponse.json({ error: '目前週期狀態不開放填報送出（僅「資料準備中」可送出）' }, { status: 409 });
     }
 
     const [totalItems, answered] = await Promise.all([
@@ -35,7 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const unanswered = totalItems - answered;
     if (unanswered > 0) {
       return NextResponse.json(
-        { error: `尚有 ${unanswered} 題未作答,請完成後再送出(沒有的項目請選「不適用」)` },
+        { error: `尚有 ${unanswered} 題未作答，請完成後再送出（沒有的項目請選「不適用」）` },
         { status: 400 },
       );
     }
@@ -71,7 +71,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       cycleId: cycle.id,
       submittedByName: user.name,
       appBaseUrl: appBaseUrl(req),
-    }).catch((e) => console.error('[checklist.submit] 通知失敗:', e));
+    }).catch((e) => console.error('[checklist.submit] 通知失敗：', e));
 
     return NextResponse.json({ ok: true, submittedAt: submittedAt.toISOString() });
   } catch (e) {

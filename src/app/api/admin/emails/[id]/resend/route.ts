@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 以可查詢的 status 欄為準;失敗或死信(自動補寄達上限)皆可人工重寄
     if (log.status !== 'failed' && log.status !== 'dead-letter') {
       return NextResponse.json(
-        { error: '只有「寄送失敗」或「死信」的信可重寄(避免重複寄出)' },
+        { error: '只有「寄送失敗」或「死信」的信可重寄（避免重複寄出）' },
         { status: 400 },
       );
     }

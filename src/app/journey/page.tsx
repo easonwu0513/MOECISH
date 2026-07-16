@@ -32,15 +32,15 @@ export default async function JourneyPage({ searchParams }: { searchParams: { ye
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '引導式精靈' }]}
     >
       <header className="mb-6">
-        <h1 className="text-headline text-on-surface">中心年度計畫執行精靈</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
+        <h1 className="text-headline text-ink-900">中心年度計畫執行精靈</h1>
+        <p className="mt-1 text-body-sm text-ink-500 leading-relaxed">
           依年度計畫生命週期逐階段追蹤中心的執行任務（計畫籌備、委員共識會議、機關說明會、稽核前文件、實地稽核、報帳與結案）。
-          勾選即存檔(依年度分開記錄);各階段項目可於「精靈範本」維護。
+          勾選即存檔（依年度分開記錄）；各階段項目可於「精靈範本」維護。
         </p>
       </header>
 
       <div className="flex items-center gap-2 mb-5">
-        <span className="text-caption text-on-surface-variant">年度</span>
+        <span className="text-caption text-ink-500">年度</span>
         {years.map((y) => (
           <Link
             key={y}
@@ -49,8 +49,8 @@ export default async function JourneyPage({ searchParams }: { searchParams: { ye
             className={cn(
               'inline-flex items-center min-h-9 px-3 rounded-full text-label-lg focus-ring transition-colors tabular-nums',
               y === year
-                ? 'bg-primary-container text-on-primary-container font-medium'
-                : 'text-on-surface-variant hover:bg-surface-container',
+                ? 'bg-focus-wash text-primary-700 font-medium'
+                : 'text-ink-500 hover:bg-paper-sunk',
             )}
           >
             {y}
@@ -63,13 +63,13 @@ export default async function JourneyPage({ searchParams }: { searchParams: { ye
           <EmptyState
             icon={<CheckCircle size={28} />}
             title="尚未建立年度精靈範本"
-            description="請至「精靈範本」新增階段與項目,或執行 npm run journey:seed 匯入骨架。"
+            description="請至「精靈範本」新增階段與項目，或執行 npm run journey:seed 匯入骨架。"
           />
         </Card>
       ) : (
         <>
           <div className="flex items-center justify-end mb-3">
-            <span className="text-caption text-on-surface-variant tabular-nums">
+            <span className="text-caption text-ink-500 tabular-nums">
               {year} 年度已完成 {view.doneCount}/{view.total}
             </span>
           </div>

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { AuditMergeTool } from '@/components/audit-merge/AuditMergeTool';
 import { loadAuditReport, buildReportData } from '@/app/cycles/[id]/audit/report/ReportBody';
@@ -26,9 +26,9 @@ export default async function AuditMergeToolPage({
 
   if (searchParams.cycleId) {
     const data = await loadAuditReport(searchParams.cycleId);
-    if (data) {
-      return <AuditMergeTool cycleId={data.id} initial={buildReportData(data)} />;
-    }
+    // 帶了 cycleId 卻查不到(已刪/ID 有誤)→ notFound,避免靜默開空白手動工具讓使用者誤以為沒資料(批35 稽核)
+    if (!data) notFound();
+    return <AuditMergeTool cycleId={data.id} initial={buildReportData(data)} />;
   }
 
   return <AuditMergeTool />;

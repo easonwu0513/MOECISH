@@ -31,11 +31,42 @@
 
 | Token | 用途 |
 |---|---|
-| `surface` | App 背景(冷白 #f6f8fb) |
+| `surface` | App 背景(晨霧近白 #f7f8fa) |
 | `surface-container-lowest` → `-highest` | 卡片/面板由淺到深的層級 |
 | `on-surface` / `on-surface-variant` | 主要 / 次要文字 |
 | `outline` / `outline-variant` | 邊框 / 淺邊框 |
 | `primary-container` / `on-primary-container` | tonal 元件底色 / 其上文字 |
+
+**深藍憲章招牌 token**(批74,設計精緻化 #14 —— 收編映象面手抄漸層與規線):
+
+| Token | 用途 · 選用規則 |
+|---|---|
+| `bg-cta-surface` | CTA 收尾/深藍實心面(primary-800→900 漸層)。取代手抄 `#1a334a→#2f5b88`。 |
+| `bg-hero-ambient` | Hero 環境覆層(primary-900 極淡徑向)。取代 `rgba(40,82,160,0.07)`。 |
+| `border-ledger-line` (`--navy-ledger-line` = primary-200) | 「編輯級細分隔線」。**⚠️僅供資料表欄分隔與 Hero 內框**,一般容器仍用 `outline-variant`(中性);全域取代會全站偏藍疲勞。 |
+| `SURFACE_INFO`(lib/tone.ts,= `bg-primary-50 ring-primary-100`) | 填報/審查流的資訊面單一來源。取代散落的 `bg-primary-50/{30–60}` 手挑 alpha。 |
+
+**靜謐文件工作坊 token**(批 B1 —— 後台三角色「全新設計語言」重新設計,方向 B):
+
+> 後台頁的**遷移目標**語彙。方向 B 把後台重構為「逐步完成的活文件」:留白與排印承載階層,而非色彩與框線。
+> 過渡期與既有 `surface`/`outline` **並存**(映象前台與未遷移後台頁續用舊 token);後台頁自 B2 起逐批改吃下列 token,遷移完成後舊 token 於後台退場。
+> 值只在 [globals.css](../src/app/globals.css) `:root` 定義一次,`tailwind.config.ts` 全部 `var()` 引用(避免色彩雙 SoT 不同步);等值於既有色階者(`rule-active`/`focus-wash`)直接 `var()` 別名。
+
+| Token(utility) | 值 | 用途 |
+|---|---|---|
+| `bg-paper` | `#fcfdfe` **新值** | 後台 app 底:近白紙面(較 `surface #f7f8fa` 再白一階) |
+| `bg-paper-sunk` | `#f6f8fa` | 凹陷 / 表格斑馬 / 軌道底 |
+| `bg-card` | `#ffffff` | 卡面 / 文件面 |
+| `text-ink-900/700/500` | `#101826`/`#2b3a4e`/`#5b6a7d` | 墨階文字(排印承載階層):大標 / 正文 / 次要。**須讀文字只用這三階,對 calm 三底皆過 WCAG AA(≥4.5:1)** |
+| `ink-400/300` | `#8a97a8`/`#b7c0cc` | ⚠️**裝飾 / 停用 / 分隔專用**——對白底僅 ~2.9/1.8:1 未達 AA,**勿綁 `text-*` 於任何須讀文字**(B1–B3 審查修) |
+| `border-rule` | `#e7ecf1` **新值** | 髮絲行線(較 `outline-variant` 更淺的編輯級細線) |
+| `border-rule-strong` | `#d4dbe3` | 章節 / 強分隔 |
+| `border-rule-active` | = `primary-600` | 當前文件左緣規線 / 焦點 |
+| `bg-focus-wash` | = `primary-50` | 段落聚焦極淡藍底 |
+| 文件大標 | `font-sans`(黑體) | 使用者裁定:大標維持黑體(不用襯線),以「放大 text-headline-lg + 公文式底規線(border-b border-rule)」承載文件感。`font-serif` 僅 audit-merge 逗號等零星用途,不載 web font。 |
+
+> 語意色沿用既有 `success/warning/danger`(calm 的 通過=`success-700`、退回/待補=`warning-700`、逾期=`danger-600`,底色用各 `-50`)。角色 accent:中心=`primary-600`、委員=`sage-700`、機關=`warning-700`。
+> **三修正紀律**(承使用者裁定「這版對了」的互動試用版):①密集資料(評分矩陣/87 題/紀錄)一律**全寬帳冊附件**承載,不塞窄讀欄;②段落聚焦=**加亮當前**(`border-rule-active`+`bg-focus-wash`)**不壓暗其餘**(勿用 opacity 降透明,傷對照與對比);③襯線僅限大標,逾期/退回用**實心左條+文字雙載**,前景背景逐對過 WCAG AA。
 
 ### 字體
 

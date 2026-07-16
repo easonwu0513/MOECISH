@@ -50,7 +50,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!inv) return NextResponse.json({ error: '邀請不存在' }, { status: 404 });
     const st = inviteStatus(inv);
     if (st === 'used' || st === 'revoked') {
-      return NextResponse.json({ error: '此邀請已使用或已撤銷,請建立新邀請' }, { status: 400 });
+      return NextResponse.json({ error: '此邀請已使用或已撤銷，請建立新邀請' }, { status: 400 });
     }
 
     const expiresAt = new Date(Date.now() + 14 * 86400_000);
@@ -60,13 +60,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await sendEmail({
       to: inv.email,
       toName: inv.name,
-      subject: '[MOECISH] 邀請您加入資通安全稽核管考平台(重寄)',
+      subject: '[MOECISH] 邀請您加入資通安全稽核管考平台（重寄）',
       body:
-        `${inv.name} 您好,\n\n` +
-        `提醒您:您已被邀請加入 MOECISH 資通安全稽核管考平台,角色為 ${ROLE_LABELS[inv.role as Role]}` +
+        `${inv.name} 您好，\n\n` +
+        `提醒您：您已被邀請加入 MOECISH 資通安全稽核管考平台，角色為 ${ROLE_LABELS[inv.role as Role]}` +
         (inv.organization ? `(${inv.organization.name})` : '') + `。\n\n` +
-        `請於 14 日內點擊以下連結設定您的密碼完成啟用:\n${link}\n\n` +
-        `若您未預期收到此信,請忽略本信件。\n\n` +
+        `請於 14 日內點擊以下連結設定您的密碼完成啟用：\n${link}\n\n` +
+        `若您未預期收到此信，請忽略本信件。\n\n` +
         `— MOECISH 資通安全稽核管考平台`,
       kind: 'invitation',
       relatedInvitationId: inv.id,

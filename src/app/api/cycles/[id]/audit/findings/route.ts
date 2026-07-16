@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess, assertAuditorScoreUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { DEFICIENCY_ASPECTS } from '@/lib/types';
+import { DEFICIENCY_ASPECTS, auditorCanScore } from '@/lib/types';
 import { FINDING_KINDS } from '@/lib/audit-score';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -23,6 +23,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
     if (cycle.status === 'CLOSED') {
       return NextResponse.json({ error: '已結案的週期不可再輸入' }, { status: 409 });
+    }
+    // 階段閘下沉 API 層(縱深防禦):實地稽核(ONSITE 起)才可記錄稽核發現(封 READY 繞頁面直打之破口)。
+    if (!auditorCanScore(cycle.status)) {
+      return NextResponse.json({ error: '尚未進入實地稽核階段，暫不可記錄稽核發現' }, { status: 403 });
     }
     await assertAuditorScoreUnlocked(cycle.id, user.id); // 已鎖定 → 擋下
 

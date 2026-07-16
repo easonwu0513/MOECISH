@@ -15,10 +15,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     const { user, cycle } = await assertCycleAccess(params.id);
     if (user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: '僅最高管理員可退回重填(委員請逐題留意見並按「意見填寫完成」)' }, { status: 403 });
+      return NextResponse.json({ error: '僅最高管理員可退回重填（委員請逐題留意見並按「意見填寫完成」）' }, { status: 403 });
     }
     if (!cycle.checklistSubmittedAt) {
-      return NextResponse.json({ error: '機關尚未送出填報,無可退回' }, { status: 409 });
+      return NextResponse.json({ error: '機關尚未送出填報，無可退回' }, { status: 409 });
+    }
+    // 階段閘(全掃 P1):機關僅能於「資料準備中(PREPARATION)」重編/重送檢核表(checklistOrgCanEdit)。
+    // 若週期已推進離開該階段就退回,會清掉 checklistSubmittedAt 但機關無編輯權=死路(文案叫補正卻鎖死),
+    // 且破壞 READY 推進閘依賴的不變式。此階段之後要改檢核表,中心須先回退週期至 PREPARATION。
+    if (cycle.status !== 'PREPARATION') {
+      return NextResponse.json({ error: '週期已離開「資料準備中」，機關無法重新編輯檢核表；如需退回請先回退週期階段至「資料準備中」。' }, { status: 409 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -50,7 +56,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       reason: note,
       reopenedByName: user.name,
       appBaseUrl: appBaseUrl(req),
-    }).catch((e) => console.error('[checklist.reopen] 通知失敗:', e));
+    }).catch((e) => console.error('[checklist.reopen] 通知失敗：', e));
 
     return NextResponse.json({ ok: true });
   } catch (e) {

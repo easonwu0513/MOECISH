@@ -43,7 +43,7 @@ if (
     NEXTAUTH_SECRET === 'change-me-to-a-random-string'
   ) {
     throw new Error(
-      'NEXTAUTH_SECRET 未設定、長度不足 32 字元或沿用預設值;正式環境請以 `openssl rand -hex 32` 產生強隨機值',
+      'NEXTAUTH_SECRET 未設定、長度不足 32 字元或沿用預設值；正式環境請以 `openssl rand -hex 32` 產生強隨機值',
     );
   }
 }

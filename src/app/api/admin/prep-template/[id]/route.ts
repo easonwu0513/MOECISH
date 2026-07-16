@@ -51,7 +51,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       try {
         await deleteFileByKey(f.storageKey);
       } catch (err) {
-        console.error('[prep-template] 刪除範本實體檔失敗:', (err as Error).message);
+        console.error('[prep-template] 刪除範本實體檔失敗：', (err as Error).message);
       }
     }
     await writeAuditLog({

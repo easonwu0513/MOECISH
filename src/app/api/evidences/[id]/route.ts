@@ -36,7 +36,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
           return NextResponse.json({ error: '無權刪除其他機關之佐證' }, { status: 403 });
         }
         if (cycle.status !== 'REMEDIATION' || !actionEditable(action.status as ActionStatus)) {
-          return NextResponse.json({ error: '此項目已送審或已通過,佐證不可刪除' }, { status: 400 });
+          return NextResponse.json({ error: '此項目已送審或已通過，佐證不可刪除' }, { status: 400 });
         }
       } else if (e.targetType === 'PREP_SUBMISSION') {
         const sub = await prisma.prepSubmission.findUnique({
@@ -49,14 +49,27 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
           return NextResponse.json({ error: '無權刪除其他機關之文件' }, { status: 403 });
         }
         if (sub.requirement.category === 'CENTER') {
-          return NextResponse.json({ error: '中心匯入區由中心管理,機關無法刪除' }, { status: 403 });
+          return NextResponse.json({ error: '中心匯入區由中心管理，機關無法刪除' }, { status: 403 });
         }
         if (
           sub.status === 'CONFIRMED' ||
           sub.status === 'SUBMITTED' ||
           !(cycle.status === 'DRAFT' || cycle.status === 'PREPARATION')
         ) {
-          return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段,文件不可刪除' }, { status: 400 });
+          return NextResponse.json({ error: '已繳交、已確認齊備或週期已進入後續階段，文件不可刪除' }, { status: 400 });
+        }
+      } else if (e.targetType === 'TRACKED_REPORT') {
+        // 持續列管回報佐證(批71):機關僅能刪自家、且尚待審核(PENDING)之回報佐證;審結後鎖定。
+        const report = await prisma.trackedReport.findUnique({
+          where: { id: e.targetId },
+          select: { reviewStatus: true, tracked: { select: { organizationId: true } } },
+        });
+        if (!report) return NextResponse.json({ error: '對應紀錄不存在' }, { status: 404 });
+        if (report.tracked.organizationId !== user.organizationId) {
+          return NextResponse.json({ error: '無權刪除其他機關之佐證' }, { status: 403 });
+        }
+        if (report.reviewStatus !== 'PENDING') {
+          return NextResponse.json({ error: '此回報已審核，佐證不可刪除' }, { status: 400 });
         }
       } else {
         return NextResponse.json({ error: '此類型佐證不可刪除' }, { status: 400 });
@@ -91,13 +104,36 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       }
     }
 
+    // 以 AuditCycle/cycleId 定址(批67 專審):Evidence 列已硬刪,若以已刪 id 定址,活動流(查現存
+    // 佐證 id 集合)永遠撈不到刪除事件;改以週期定址使「刪除佐證」對機關協作者可見。
+    // 目標列(submission/action/response)仍存在,自其解析 cycleId;查不到(理論不發生)退回原 Evidence 定址。
+    let cycleIdForLog: string | null = null;
+    if (e.targetType === 'AUDIT_CYCLE') {
+      cycleIdForLog = e.targetId;
+    } else if (e.targetType === 'PREP_SUBMISSION') {
+      const sub = await prisma.prepSubmission.findUnique({
+        where: { id: e.targetId },
+        select: { requirement: { select: { cycleId: true } } },
+      });
+      cycleIdForLog = sub?.requirement.cycleId ?? null;
+    } else if (e.targetType === 'CHECKLIST_RESPONSE') {
+      const resp = await prisma.checklistResponse.findUnique({ where: { id: e.targetId }, select: { cycleId: true } });
+      cycleIdForLog = resp?.cycleId ?? null;
+    } else if (e.targetType === 'CORRECTIVE_ACTION') {
+      const act = await prisma.correctiveAction.findUnique({
+        where: { id: e.targetId },
+        select: { deficiency: { select: { cycleId: true } } },
+      });
+      cycleIdForLog = act?.deficiency.cycleId ?? null;
+    }
+
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
       action: 'EVIDENCE_DELETE',
-      entityType: 'Evidence',
-      entityId: e.id,
-      before: { originalName: e.originalName, targetType: e.targetType, targetId: e.targetId },
+      entityType: cycleIdForLog ? 'AuditCycle' : 'Evidence',
+      entityId: cycleIdForLog ?? e.id,
+      before: { evidenceId: e.id, originalName: e.originalName, targetType: e.targetType, targetId: e.targetId },
       ...meta,
     });
 

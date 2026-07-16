@@ -38,8 +38,13 @@ export function cjkNumeralToInt(s: string): number | null {
 }
 
 const CJK = '〇零一二兩三四五六七八九十百千';
-const ARTICLE_RE = new RegExp(`第([${CJK}]+)(條|項|款|目|次|點|章|節|編)`, 'g');
-const TABLE_RE = new RegExp(`(附表|附件)([${CJK}]+)`, 'g');
+// 下列括號為 regex 捕獲群組語法(非顯示標點);將中文片段抽成變數,使群組括號落在「無中文的樣板段」,
+// 既保持正確語意,又不會被 lint:punct 全形化誤傷(全形化只掃含中文的字串段)。
+const ARTICLE_PREFIX = '第';
+const ARTICLE_UNITS = '條|項|款|目|次|點|章|節|編';
+const TABLE_HEADS = '附表|附件';
+const ARTICLE_RE = new RegExp(`${ARTICLE_PREFIX}([${CJK}]+)(${ARTICLE_UNITS})`, 'g');
+const TABLE_RE = new RegExp(`(${TABLE_HEADS})([${CJK}]+)`, 'g');
 
 /** 將法規文字中的條次類中文數字轉為阿拉伯數字(純函式,可於 server/client 共用)。 */
 export function arabicizeLawRefs(text: string): string {

@@ -30,7 +30,7 @@ export function SaveStatus({
           <span className="text-warning-700">{dirtyLabel}</span>
         </>
       )}
-      {state === 'saving' && <span className="text-on-surface-variant">{savingLabel}</span>}
+      {state === 'saving' && <span className="text-ink-500">{savingLabel}</span>}
       {state === 'saved' && (
         <span className="inline-flex items-center gap-1 text-success-700 animate-fade-in">
           <Check size={13} className="shrink-0" />

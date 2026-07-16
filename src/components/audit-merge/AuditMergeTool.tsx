@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Logo } from '@/components/brand/Logo';
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   CATEGORIES,
@@ -37,6 +38,40 @@ const NAV_TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'technical', label: '5. 技術面', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
 ];
 
+/** 存回系統的完整 meta 酬載(封面/基本資訊 + 稽核小組 + 版面換頁);供手動存回與自動同步共用單一來源。
+ *  發現本體不入 meta(永遠取系統即時資料),僅逐則「此前換頁」以 AuditFinding.id 記錄。 */
+function buildMetaPayload(d: ReportData) {
+  const findingBreaks: Record<string, boolean> = {};
+  for (const cat of ['strategy', 'management', 'technical'] as const) {
+    for (const sec of ['compliance', 'improvements', 'suggestions'] as const) {
+      for (const f of d.findings[cat][sec]) if (f.pageBreakBefore) findingBreaks[f.id] = true;
+    }
+  }
+  return {
+    auditDateRaw: d.auditDateRaw,
+    scope: d.scope,
+    auditCriteria: d.auditCriteria.map((c) => c.text).filter((t) => t.trim()),
+    lead: d.lead,
+    subLead: d.subLead,
+    team: d.team,
+    sectionSettings: d.sectionSettings,
+    findingBreaks,
+  };
+}
+
+/** 發現覆蓋層(UAT 批28 法遵→批34 圖4 擴及待改善/建議):只為「中心實際編輯過的(構面×區段)」產生覆蓋,
+ *  未編輯者不入→避免中心只改 scope 就把委員發現快照凍結/(空)清除(批28 專審 P1 的教訓,批34 沿用同紀律)。
+ *  touched 以 `${cat}:${sec}` 為鍵;某 section 空=不送該 override 鍵,route 淺合併不動舊值。 */
+function buildSectionOverride(d: ReportData, touched: Set<string>, sec: SectionKey) {
+  const out: Record<string, { code: string; text: string; pageBreakBefore: boolean }[]> = {};
+  for (const cat of ['strategy', 'management', 'technical'] as const) {
+    if (touched.has(`${cat}:${sec}`)) {
+      out[cat] = d.findings[cat][sec].map((f) => ({ code: f.code, text: f.text, pageBreakBefore: f.pageBreakBefore }));
+    }
+  }
+  return out;
+}
+
 /**
  * 稽核報告彙整工具 — 原生模組版(自單檔工具 1:1 移植)。
  * 週期模式(cycleId+initial):由「實地稽核彙整報告→報告設定」啟動,
@@ -51,6 +86,10 @@ export function AuditMergeTool({
 } = {}) {
   const storageKey = cycleId ? `${STORAGE_KEY}:${cycleId}` : STORAGE_KEY;
   const [reportData, setReportData] = useState<ReportData>(makeDefaultReportData);
+  // 中心實際編輯過的(構面×區段)(批29 起紀律,批34 圖4 擴及三區段):只有這些才產生 override 存回,
+  // 杜絕「改別的欄位就凍結委員發現」。鍵=`${cat}:${sec}`;三區段(法遵/待改善/建議)皆記錄。
+  const sectionTouchedRef = useRef<Set<string>>(new Set());
+  const markSectionTouched = (cat: Category, sec: SectionKey) => { sectionTouchedRef.current.add(`${cat}:${sec}`); };
   const [syncBusy, setSyncBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('basic');
@@ -77,22 +116,34 @@ export function AuditMergeTool({
   const toast = useToast();
   const [resetOpen, setResetOpen] = useState(false);
 
-  // 週期模式:把封面/基本資訊存回系統(彙整報告頁與列印版同步)
+  // 自動同步 debounce timer 的 ref(供手動「存回系統」取消,避免手動與自動兩條 PATCH 對同一 cycle 競態覆蓋)
+  const metaSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 存回系統的完整酬載=基礎 meta + 三區段發現覆蓋層(僅中心編輯過的構面×區段;未編輯則不含該鍵,route 淺合併不動舊值)
+  const buildFullPayload = () => {
+    const base = buildMetaPayload(reportData);
+    const touched = sectionTouchedRef.current;
+    const co = buildSectionOverride(reportData, touched, 'compliance');
+    const io = buildSectionOverride(reportData, touched, 'improvements');
+    const so = buildSectionOverride(reportData, touched, 'suggestions');
+    return {
+      ...base,
+      ...(Object.keys(co).length ? { complianceOverride: co } : {}),
+      ...(Object.keys(io).length ? { improvementsOverride: io } : {}),
+      ...(Object.keys(so).length ? { suggestionsOverride: so } : {}),
+    };
+  };
+
+  // 週期模式:把封面/基本資訊 + 稽核小組 + 版面換頁存回系統(彙整報告頁與列印版同步)
   async function saveMetaToSystem() {
     if (!cycleId) return;
+    // 手動存回前先取消在途的自動同步(收斂驗證修:兩條 read-modify-write PATCH 競態→較舊快照可能後到覆蓋)
+    if (metaSyncTimerRef.current) { clearTimeout(metaSyncTimerRef.current); metaSyncTimerRef.current = null; }
     setSyncBusy(true);
-    const d = reportData;
     const res = await fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        auditDateRaw: d.auditDateRaw,
-        scope: d.scope,
-        auditCriteria: d.auditCriteria.map((c) => c.text).filter((t) => t.trim()),
-        lead: d.lead,
-        subLead: d.subLead,
-        team: d.team,
-      }),
+      body: JSON.stringify(buildFullPayload()),
     });
     setSyncBusy(false);
     if (!res.ok) {
@@ -100,17 +151,18 @@ export function AuditMergeTool({
       toast.error('存回系統失敗', j.error);
       return;
     }
-    toast.success('已存回系統', '彙整報告頁的封面與基本資訊已同步。');
+    toast.success('已存回系統', '封面/基本資訊、稽核小組、版面換頁，以及您編輯過的法遵/待改善/建議發現文字，已同步到彙整報告頁與正式列印。');
   }
-  const [clearFindingsOpen, setClearFindingsOpen] = useState(false);
   const [forceState, setForceState] = useState<{ warnings: string[]; action: 'print' | 'word' } | null>(null);
 
   // 掛載時:載入暫存 + 啟用列印樣式 scope
-  // 週期模式:發現(findings)永遠取系統即時資料;頁首沿用上次在工具的編輯(本機暫存)
+  // 週期模式:發現(findings)與稽核小組(team)永遠取系統即時資料——兩者皆由現存委員指派派生,
+  //   若沿用本機暫存會殘留「已移除委員」(幽靈委員),故一律以 initial 覆蓋;其餘頁首(日期/範圍/
+  //   準則/正副領隊/版面換頁)沿用上次在工具的編輯(本機暫存)。
   useEffect(() => {
     if (cycleId && initial) {
       const stored = loadStoredReportData(storageKey);
-      setReportData(stored ? { ...stored, findings: initial.findings } : initial);
+      setReportData(stored ? { ...stored, findings: initial.findings, team: initial.team } : initial);
     } else {
       const stored = loadStoredReportData(storageKey);
       if (stored) setReportData(stored);
@@ -128,6 +180,28 @@ export function AuditMergeTool({
     const now = new Date();
     setLastSavedTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
   }, [reportData, hydrated]);
+
+  // ★報告設定(封面/基本資訊、稽核小組、準則、日期、範圍、版面換頁)一經調整即自動同步回系統(debounce 1s):
+  // 使用者在工具改了內容、看到預覽已更新,卻常忘按「存回系統」→ 正式報告/列印仍是舊內容(UAT 重複回報)。
+  // 此效果讓報告設定與系統即時一致(含掛載時把本機暫存但未存回的編輯補推上系統),不再依賴手動存回。僅週期模式。
+  // 註:發現本體(逐則文字)不在此同步——設計上發現永遠取系統委員即時資料,工具不改寫委員發現內容。
+  // metaSig 含 complianceOverride(僅編輯過的構面);systemMetaSig 取 initial 的基礎 meta(初始 touched 為空,
+  // 故載入時兩者皆無 override→相符,不觸發幽靈同步)。編輯符合情形→touched 增→metaSig 含 override→觸發同步。
+  const metaSig = JSON.stringify(buildFullPayload());
+  const systemMetaSig = initial ? JSON.stringify(buildMetaPayload(initial)) : null;
+  useEffect(() => {
+    if (!cycleId || !hydrated || metaSig === systemMetaSig) return;
+    const timer = setTimeout(() => {
+      fetch(`/api/cycles/${cycleId}/audit/report-meta`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(buildFullPayload()),
+      }).catch(() => {});
+    }, 1000);
+    metaSyncTimerRef.current = timer; // 供手動存回取消
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metaSig, cycleId, hydrated]);
 
   const updateReportData = useCallback((updater: ReportData | ((prev: ReportData) => ReportData)) => {
     setReportData((prev) => {
@@ -250,7 +324,7 @@ export function AuditMergeTool({
           setCanUndo(false);
           setCanRedo(false);
           setReportData(sanitized);
-          toast.success('草稿匯入成功', `受稽機關:${sanitized.hospitalName}`);
+          toast.success('草稿匯入成功', `受稽機關：${sanitized.hospitalName}`);
         } else {
           toast.error('匯入失敗', '檔案格式不符合稽核草稿格式');
         }
@@ -263,34 +337,24 @@ export function AuditMergeTool({
   };
 
   const doReset = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    // 清「本模式實際使用的鍵」(週期模式=STORAGE_KEY:cycleId;收斂驗證修:原寫死 STORAGE_KEY 刪錯鍵→週期暫存沒清)
+    localStorage.removeItem(storageKey);
     pastRef.current = [];
     futureRef.current = [];
     setCanUndo(false);
     setCanRedo(false);
-    setReportData(makeDefaultReportData());
+    // 週期模式:重置回到剛進來的初始狀態(含自動帶入的委員發現),而非全空——否則委員以為只是清頁首,
+    // 卻把帶入的發現一起清光且只能重新整理才救回(批35 稽核)。手動(全域)模式維持回預設空白。
+    setReportData(cycleId && initial ? initial : makeDefaultReportData());
     setResetOpen(false);
-    toast.success('已重置', '所有暫存資料已恢復為預設值');
-  };
-
-  const doClearFindings = () => {
-    updateReportData((prev) => ({
-      ...prev,
-      findings: {
-        strategy: { compliance: [], improvements: [], suggestions: [] },
-        management: { compliance: [], improvements: [], suggestions: [] },
-        technical: { compliance: [], improvements: [], suggestions: [] },
-      },
-    }));
-    setClearFindingsOpen(false);
-    toast.success('稽核發現已全數清空', '基本資訊與團隊名單已保留');
+    toast.success('已重置', cycleId ? '已恢復為剛進入時的狀態（含委員自動帶入的發現）。' : '所有暫存資料已恢復為預設值。');
   };
 
   /** 匯出/列印前防呆:回傳警告清單(空 = 可直接執行)。 */
   const collectWarnings = (): string[] => {
     const warnings: string[] = [];
-    if (!reportData.auditDateRaw) warnings.push('基本資訊:尚未填寫【稽核日期】');
-    if (!reportData.hospitalName) warnings.push('基本資訊:尚未填寫【受稽醫院名稱】');
+    if (!reportData.auditDateRaw) warnings.push('基本資訊：尚未填寫【稽核日期】');
+    if (!reportData.hospitalName) warnings.push('基本資訊：尚未填寫【受稽醫院名稱】');
     let hasEmptyFinding = false;
     for (const cat of CATEGORIES) {
       for (const sec of SECTIONS) {
@@ -299,13 +363,13 @@ export function AuditMergeTool({
         }
       }
     }
-    if (hasEmptyFinding) warnings.push('稽核發現:存在【內容留白】的稽核項目');
+    if (hasEmptyFinding) warnings.push('稽核發現：存在【內容留白】的稽核項目');
     return warnings;
   };
 
   const doPrint = () => {
     const originalTitle = document.title;
-    document.title = `實地稽核報告_${reportData.hospitalName}`;
+    document.title = `實地稽核報告_${reportData.hospitalName || '未命名機關'}`;
     window.print();
     document.title = originalTitle;
   };
@@ -330,18 +394,20 @@ export function AuditMergeTool({
         <meta charset='utf-8'>
         <title>資安稽核報告</title>
         <style>
-          @font-face { font-family: "標楷體"; panose-1: 2 11 6 4 3 5 4 4 2 4; }
+          @font-face { font-family: 「標楷體」； panose-1: 2 11 6 4 3 5 4 4 2 4; }
           @page { size: 21cm 29.7cm; margin: 2.54cm 2.54cm 2.54cm 2.54cm; mso-page-orientation: portrait; }
-          body, p, td, div, span, li, ul, ol, h1, h2, h3 { font-family: 'Times New Roman', serif; mso-fareast-font-family: '標楷體'; line-height: 24pt; color: black; margin: 0; }
-          h1 { font-size: 16pt; font-weight: bold; text-align: left; margin: 24pt 0 12pt 0; mso-style-name: "Heading 1"; }
-          h2 { font-size: 14pt; font-weight: bold; text-align: left; margin: 18pt 0 12pt 32pt; mso-style-name: "Heading 2"; }
-          h3 { font-size: 12pt; font-weight: normal; text-align: left; margin: 12pt 0 6pt 56pt; mso-style-name: "Heading 3"; }
-          table { width: 100%; border-collapse: collapse; }
+          body, p, td, div, span, li, ul, ol, h1, h2, h3 { font-family: 'Times New Roman'， serif; mso-fareast-font-family: '標楷體'； line-height: 24pt; color: black; margin: 0; }
+          h1 { font-size: 16pt; font-weight: bold; text-align: left; margin: 24pt 0 12pt 0; mso-style-name: 「Heading 1」； }
+          h2 { font-size: 14pt; font-weight: bold; text-align: left; margin: 18pt 0 12pt 32pt; mso-style-name: 「Heading 2」； }
+          h3 { font-size: 12pt; font-weight: normal; text-align: left; margin: 12pt 0 6pt 56pt; mso-style-name: 「Heading 3」； }
+          table { width: 100%； border-collapse: collapse; }
           td { vertical-align: top; text-align: justify; padding-bottom: 6pt; }
-          .finding-list { margin-left: 0 !important; padding-left: 0 !important; list-style-type: decimal; }
-          /* Word 匯出「稽核發現」段落設定:目標 = 使用者實機段落對話框(左縮排 3.4cm、凸排 0.63cm、左右對齊、最小行高 24pt)。
-             ⚠️ Word 匯入 HTML 編號清單時會自動加 +1.27cm(0.5")清單縮排,故 li margin-left 須設 2.13cm(=3.4-1.27)才會在 Word 顯示為左縮排 3.4cm;經 Word COM round-trip 實測 1~12 項皆得 左3.40/首行-0.63/左右對齊。勿改回 3.4cm(會變 4.67cm)。 */
-          .finding-item { margin-left: 2.13cm !important; text-indent: -0.63cm !important; text-align: justify; padding-left: 0 !important; }
+          。finding-list { margin-left: 0 ！important; padding-left: 0 ！important; list-style-type: decimal; }
+          /* Word 匯出「稽核發現」段落設定：目標 = 左縮排 3.4cm、凸排 0.63cm（首行落 2.77cm）、左右對齊、最小行高 24pt。
+             批66 修：批26 曾假設 Word 匯入 HTML 編號清單會自動加 +1.27cm 偏移，故設 li 2.13cm 期望顯示 3.4cm;
+             但使用者實機 Word 未套用該偏移，匯出後段落只落在 ~1.5cm（=2.13-0.63 首行）→ 與瀏覽器列印（audit-merge.css
+             直接 3.4cm）不一致。改為與列印路徑相同的 3.4cm 字面值，不再依賴版本相依的清單偏移補償。 */
+          。finding-item { margin-left: 3.4cm ！important; text-indent: -0.63cm ！important; text-align: justify; padding-left: 0 ！important; }
         </style>
       </head>
       <body>
@@ -375,6 +441,9 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const handleUpdateFinding = useCallback((cat: Category, sec: SectionKey, id: string, field: keyof Finding, value: FindingUpdateValue) => {
+    // duplicateAcknowledged 是純 UI 的重複警示確認,不入覆蓋層序列化——只勾它不算「編輯過此區段」,
+    // 不標 touched(批34 專審 P2-2:避免點個確認勾就把該區段凍結成中心覆蓋、脫離委員即時資料)。
+    if (field !== 'duplicateAcknowledged') markSectionTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -385,6 +454,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const addFinding = (cat: Category, sec: SectionKey) => {
+    markSectionTouched(cat, sec);
     const id = Date.now().toString();
     updateReportData((prev) => ({
       ...prev,
@@ -397,6 +467,7 @@ export function AuditMergeTool({
   };
 
   const removeFinding = useCallback((cat: Category, sec: SectionKey, id: string) => {
+    markSectionTouched(cat, sec);
     updateReportData((prev) => ({
       ...prev,
       findings: {
@@ -408,6 +479,7 @@ export function AuditMergeTool({
   }, [updateReportData]);
 
   const moveFinding = (cat: Category, sec: SectionKey, fromIndex: number, toIndex: number) => {
+    markSectionTouched(cat, sec);
     updateReportData((prev) => {
       const items = [...prev.findings[cat][sec]];
       if (toIndex >= 0 && toIndex < items.length) {
@@ -458,7 +530,7 @@ export function AuditMergeTool({
 
   const handleInsertSnippet = (snippet: string) => {
     if (!activeFocusId) {
-      toast.info('請先點選輸入框', '將游標放在欲插入的「稽核發現」或「編號」內容框中,再點詞彙');
+      toast.info('請先點選輸入框', '將游標放在欲插入的「稽核發現」或「編號」內容框中，再點詞彙');
       return;
     }
     // 在目前狀態中定位該筆發現
@@ -545,74 +617,79 @@ export function AuditMergeTool({
     <div className="amt-app">
       <div className="flex flex-col h-screen overflow-hidden no-print relative text-sm">
         {/* 頂部導航列 */}
-        <header className="glass-header text-slate-800 p-3 flex flex-wrap justify-between items-center gap-3 shrink-0 z-20 relative">
+        <header className="glass-header text-on-surface p-3 flex flex-wrap justify-between items-center gap-3 shrink-0 z-20 relative">
           <div className="flex items-center gap-3 ml-2">
-            <div className="bg-gradient-to-r from-primary-600 to-primary-800 p-1.5 rounded-lg text-white font-bold text-xs shadow-md">Audit</div>
+            <Logo size={32} />
             <div>
-              <h1 className="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">稽核報告彙整工具</h1>
+              {/* MOECISH 品牌條/麵包屑:全螢幕工具不套 AppShell,於此補回導覽脈絡(#14 邊界縫合) */}
+              <nav className="flex items-center gap-1.5 text-caption text-on-surface-variant" aria-label="麵包屑">
+                <Link href="/dashboard" className="hover:text-on-surface transition-colors">管理</Link>
+                <span aria-hidden>/</span>
+                <span className="text-on-surface font-medium">報告彙整工具</span>
+              </nav>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500" />
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium">已暫存於 {lastSavedTime || '—'}</span>
+                <span className="text-[10px] text-on-surface-variant font-medium">已暫存於 {lastSavedTime || '—'}</span>
               </div>
             </div>
             <Link
               href={cycleId ? `/cycles/${cycleId}/audit/report` : '/dashboard'}
-              className="ml-2 text-xs font-bold text-slate-500 hover:text-primary-600 bg-slate-100 hover:bg-primary-50 border border-slate-200 px-3 py-1.5 rounded-full transition-colors"
+              className="ml-2 text-xs font-medium text-on-surface-variant hover:text-primary-700 bg-surface-container hover:bg-primary-50 border border-outline-variant px-3 py-1.5 rounded-full transition-colors"
             >
               {cycleId ? '← 回彙整報告' : '← 回管考平台'}
             </Link>
             {cycleId && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                週期模式:委員發現已自動帶入
+              <span className="text-[10px] font-medium text-success-700 bg-success-50 border border-success-200 px-2.5 py-1 rounded-full">
+                週期模式：委員發現已自動帶入
               </span>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 pr-2">
-            <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 mr-1">
-              <button onClick={handleUndo} disabled={!canUndo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 (Ctrl+Z)">
+            <div className="flex bg-surface-container p-1 rounded-full border border-outline-variant mr-1">
+              <button onClick={handleUndo} disabled={!canUndo} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="復原 （Ctrl+Z）">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                 復原
               </button>
-              <button onClick={handleRedo} disabled={!canRedo} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 (Ctrl+Y)">
+              <button onClick={handleRedo} disabled={!canRedo} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed" title="重做 （Ctrl+Y）">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
                 重做
               </button>
             </div>
 
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleImportJson} className="hidden" />
-            <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200">
-              <button onClick={() => fileInputRef.current?.click()} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+            <div className="flex bg-surface-container p-1 rounded-full border border-outline-variant">
+              <button onClick={() => fileInputRef.current?.click()} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 匯入
               </button>
-              <button onClick={handleExportJson} className="text-slate-600 hover:text-primary-600 hover:bg-white px-3 py-1.5 rounded-full font-bold transition-all text-xs flex items-center gap-1">
+              <button onClick={handleExportJson} className="text-on-surface-variant hover:text-primary-700 hover:bg-surface px-3 py-1.5 rounded-full font-medium transition-all text-xs flex items-center gap-1">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                 備份
               </button>
             </div>
 
-            <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
+            <div className="w-px h-6 bg-outline-variant mx-1 hidden sm:block" />
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
-              <span className="text-[10px] text-slate-400 font-bold">預覽比</span>
+            <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-1.5 rounded-full border border-outline-variant shadow-sm">
+              <span className="text-[10px] text-on-surface-variant font-medium">預覽比</span>
               <input type="range" min={40} max={200} step={5} value={previewZoom} onChange={(e) => setPreviewZoom(parseInt(e.target.value, 10))} className="w-16 cursor-pointer accent-primary-600" />
-              <span className="text-[10px] text-slate-600 w-7 text-right font-mono font-bold">{previewZoom}%</span>
+              <span className="text-[10px] text-on-surface-variant w-7 text-right font-mono font-medium">{previewZoom}%</span>
             </div>
 
             {cycleId && (
               <button
                 onClick={saveMetaToSystem}
                 disabled={syncBusy}
-                className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1 disabled:opacity-50"
-                title="把封面/基本資訊(日期、範圍、準則、稽核小組)存回系統,彙整報告頁同步"
+                className="text-success-700 bg-success-50 hover:bg-success-100 border border-success-200 px-3 py-1.5 rounded-full font-medium transition-all text-xs ml-1 disabled:opacity-50"
+                title="把封面/基本資訊（日期、範圍、準則、稽核小組）存回系統，彙整報告頁同步"
               >
                 {syncBusy ? '儲存中…' : '存回系統'}
               </button>
             )}
-            <button onClick={() => setResetOpen(true)} className="text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-full font-bold transition-all text-xs ml-1">
+            <button onClick={() => setResetOpen(true)} className="text-danger-600 bg-danger-50 hover:bg-danger-100 border border-danger-100 px-3 py-1.5 rounded-full font-medium transition-all text-xs ml-1">
               重置
             </button>
             <button onClick={exportToWord} className="btn-secondary px-4 py-1.5 text-xs ml-1 flex items-center gap-1">
@@ -633,15 +710,8 @@ export function AuditMergeTool({
               {/* 側邊導覽列 */}
               <nav className="w-48 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto p-3">
                 <div className="space-y-1">
-                  <button
-                    onClick={() => setClearFindingsOpen(true)}
-                    className="w-full text-center px-3 py-2 mb-3 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border border-red-200 rounded font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1"
-                    title="清空所有的稽核發現內容 (基本資料將保留)"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    一鍵清空所有發現
-                  </button>
-
+                  {/* 「一鍵清空所有發現」已移除:發現永遠取系統即時資料(重開即回填),清空只影響本機暫存、
+                      無持久效果卻外觀近似不可逆刪除,為避免誤觸與誤解而下架。 */}
                   {NAV_TABS.map((tab) => (
                     <button
                       key={tab.id}
@@ -729,7 +799,7 @@ export function AuditMergeTool({
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xl">📈</span>
                             <h3 className="font-black text-slate-700 text-lg tracking-wide">各項次開立次數統計</h3>
-                            <span className="text-xs text-slate-500 font-normal">(*僅統計待改善與建議事項)</span>
+                            <span className="text-xs text-slate-500 font-normal">（*僅統計待改善與建議事項）</span>
                           </div>
                           <button onClick={() => handleCopyStats('itemCounts')} className="btn-secondary px-3 py-1.5 text-xs flex items-center gap-1">
                             📋 複製表格
@@ -778,7 +848,7 @@ export function AuditMergeTool({
                               📋 複製分析表
                             </button>
                           </div>
-                          <span className="text-xs text-slate-500 font-normal md:ml-8">採用子集(Subset)運算與關聯法則(Association Rules)，發掘最常被合併開立的缺失。</span>
+                          <span className="text-xs text-slate-500 font-normal md:ml-8">採用子集（Subset）運算與關聯法則（Association Rules），發掘最常被合併開立的缺失。</span>
                         </div>
 
                         {stats.nonRedundantSubsets.length === 0 && stats.associationRules.length === 0 ? (
@@ -787,12 +857,12 @@ export function AuditMergeTool({
                           <div className="space-y-6">
                             {stats.nonRedundantSubsets.length > 0 && (
                               <div>
-                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">📦 完整複合組合 (自動濾除重疊子集)</h4>
+                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">📦 完整複合組合 （自動濾除重疊子集）</h4>
                                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                                   <table className="w-full text-sm text-left border-collapse">
                                     <thead>
                                       <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200">項次組合 (出現 2 次以上)</th>
+                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200">項次組合 （出現 2 次以上）</th>
                                         <th className="px-4 py-3 font-black text-primary-600 text-center bg-primary-50/30 w-48">共同出現次數</th>
                                       </tr>
                                     </thead>
@@ -818,13 +888,13 @@ export function AuditMergeTool({
 
                             {stats.associationRules.length > 0 && (
                               <div>
-                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">🎯 雙項次關聯強度 (伴隨機率 ≥ 50%)</h4>
+                                <h4 className="font-bold text-slate-700 mb-2 border-l-4 border-primary-400 pl-2">🎯 雙項次關聯強度 （伴隨機率 ≥ 50%）</h4>
                                 <div className="overflow-x-auto rounded-lg border border-slate-200">
                                   <table className="w-full text-sm text-left border-collapse">
                                     <thead>
                                       <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">前提項次 (若發生...)</th>
-                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">伴隨項次 (...則常伴隨發生)</th>
+                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">前提項次 （若發生...）</th>
+                                        <th className="px-4 py-3 font-bold text-slate-600 border-r border-slate-200 w-1/3">伴隨項次 （...則常伴隨發生）</th>
                                         <th className="px-4 py-3 font-black text-primary-600 text-center border-r border-slate-200">共同次數</th>
                                         <th className="px-4 py-3 font-black text-primary-600 text-center bg-primary-50/30">伴隨機率</th>
                                       </tr>
@@ -881,12 +951,16 @@ export function AuditMergeTool({
                           <div className="flex-1 min-w-[200px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">受稽醫院名稱</label>
                             <select className="input-elegant w-full" value={reportData.hospitalName} onChange={(e) => updateReportData((p) => ({ ...p, hospitalName: e.target.value }))} onFocus={() => handleSetFocus('hospitalName')}>
+                              {/* 週期機關名(如試用機構)不在固定清單時補當前值選項,避免下拉顯示第一家而與報告預覽不符(UAT) */}
+                              {reportData.hospitalName && !HOSPITALS.includes(reportData.hospitalName) && (
+                                <option value={reportData.hospitalName}>{reportData.hospitalName}</option>
+                              )}
                               {HOSPITALS.map((h) => <option key={h} value={h}>{h}</option>)}
                             </select>
                           </div>
                           {!reportData.hospitalName.includes('分院') && (
                             <div className="flex-1 min-w-[200px]">
-                              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">分院名稱 (選填)</label>
+                              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">分院名稱 （選填）</label>
                               <input className="input-elegant w-full" placeholder="如：台北分院" value={reportData.branchName} onChange={(e) => updateReportData((p) => ({ ...p, branchName: e.target.value }))} onFocus={() => handleSetFocus('branchName')} />
                             </div>
                           )}
@@ -1173,19 +1247,10 @@ export function AuditMergeTool({
         open={resetOpen}
         onOpenChange={setResetOpen}
         title="重置所有資料"
-        description="將清除暫存並恢復為預設值,目前輸入的所有內容都會消失,無法復原。確定重置?"
+        description="將清除暫存；您手動輸入的封面/文字都會消失，無法復原。（週期模式會恢復為剛進入時的狀態，含委員自動帶入的發現。）確定重置？"
         confirmLabel="重置"
         tone="danger"
         onConfirm={doReset}
-      />
-      <ConfirmDialog
-        open={clearFindingsOpen}
-        onOpenChange={setClearFindingsOpen}
-        title="清空所有稽核發現"
-        description="三構面的稽核發現將全數清空(基本資訊與委員名單保留)。確定清空?"
-        confirmLabel="全部清空"
-        tone="danger"
-        onConfirm={doClearFindings}
       />
       <ConfirmDialog
         open={forceState !== null}
@@ -1196,7 +1261,7 @@ export function AuditMergeTool({
             {forceState?.warnings.map((w) => (
               <span key={w} className="block">• {w}</span>
             ))}
-            <span className="block mt-2">確定要強制{forceState?.action === 'print' ? '列印' : '匯出 Word'}嗎?</span>
+            <span className="block mt-2">確定要強制{forceState?.action === 'print' ? '列印' : '匯出 Word'}嗎？</span>
           </span>
         }
         confirmLabel={forceState?.action === 'print' ? '強制列印' : '強制匯出'}

@@ -23,11 +23,11 @@ export async function POST(req: Request) {
     const tokenHash = RESET_TOKEN_HASH(body.token.trim());
     const rec = await prisma.passwordResetToken.findUnique({ where: { tokenHash }, include: { user: true } });
     if (!rec || rec.usedAt || rec.expiresAt.getTime() < Date.now()) {
-      return NextResponse.json({ error: '連結無效或已過期,請重新申請忘記密碼' }, { status: 400 });
+      return NextResponse.json({ error: '連結無效或已過期，請重新申請忘記密碼' }, { status: 400 });
     }
     const user = rec.user;
     if (!user.isActive) {
-      return NextResponse.json({ error: '此帳號已停用,無法重設密碼,請洽系統管理員' }, { status: 400 });
+      return NextResponse.json({ error: '此帳號已停用，無法重設密碼，請洽系統管理員' }, { status: 400 });
     }
 
     if (BASELINE.enabled) {
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     if ((e as Error).message === 'TOKEN_ALREADY_USED') {
-      return NextResponse.json({ error: '連結已被使用,請重新申請忘記密碼' }, { status: 400 });
+      return NextResponse.json({ error: '連結已被使用，請重新申請忘記密碼' }, { status: 400 });
     }
     return errorResponse(e);
   }

@@ -40,6 +40,13 @@ export function rocYear(gregorianYear: number): number {
   return gregorianYear - 1911;
 }
 
+/** 加 n 個月(批71 回報期限計算);月底溢位由 Date 自然進位(如 1/31 + 1 個月 → 3/3,可接受)。 */
+export function addMonths(base: Date, months: number): Date {
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
 /** 民國年點分隔日期:115.06.11(正式報告 / Excel 匯出用) */
 export function rocDateDotted(d: Date | string | null | undefined): string {
   const p = tpeParts(d);
@@ -56,4 +63,29 @@ export function fmtROCDateTime(d: Date | string | null | undefined): string {
 export function fmtROCDateTimeSec(d: Date | string | null | undefined): string {
   const p = tpeParts(d);
   return p ? `${p.y - 1911}年${p.mo}月${p.d}日 ${p.hh}:${p.mm}:${p.ss}` : '';
+}
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+/** 台北時區星期中文字(日/一/…/六);無效日期回 ''。 */
+function tpeWeekday(d: Date | string | null | undefined): string {
+  if (!d) return '';
+  const dt = new Date(d as Date | string);
+  if (Number.isNaN(dt.getTime())) return '';
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' }).format(dt);
+  const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(wd);
+  return idx >= 0 ? WEEKDAYS[idx] : '';
+}
+/** 民國年日期 + 星期:115年7月5日 星期六(儀表板等問候脈絡用;禁 UI 直呼 toLocaleDateString 顯西曆) */
+export function fmtROCWeekday(d: Date | string | null | undefined): string {
+  const p = tpeParts(d);
+  if (!p) return '';
+  const w = tpeWeekday(d);
+  return `${p.y - 1911}年${p.mo}月${p.d}日${w ? ` 星期${w}` : ''}`;
+}
+/** 民國年斜線日期 + 星期(場次意願等精簡脈絡):115/7/20（一）;無效日期回 ''。 */
+export function rocSlashWeekday(d: Date | string | null | undefined): string {
+  const p = tpeParts(d);
+  if (!p) return '';
+  const w = tpeWeekday(d);
+  return `${p.y - 1911}/${p.mo}/${p.d}${w ? `（${w}）` : ''}`;
 }

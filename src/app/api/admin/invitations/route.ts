@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
-    const { invitation, link } = await createInvitation({
+    const { invitation, link, delivered } = await createInvitation({
       email: body.email,
       name: body.name,
       role: body.role,
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       ...meta,
     });
 
-    return NextResponse.json({ invitation, link });
+    return NextResponse.json({ invitation, link, delivered });
   } catch (e) {
     return errorResponse(e);
   }

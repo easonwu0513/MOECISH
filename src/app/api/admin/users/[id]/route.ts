@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const target = await prisma.user.findUnique({ where: { id: params.id } });
     if (!target) return NextResponse.json({ error: '使用者不存在' }, { status: 404 });
     if (target.id === actor.id) {
-      return NextResponse.json({ error: '不可變更自己的帳號(避免自鎖),請由其他管理員操作' }, { status: 400 });
+      return NextResponse.json({ error: '不可變更自己的帳號（避免自鎖），請由其他管理員操作' }, { status: 400 });
     }
 
     const body = Body.parse(await req.json());
@@ -42,14 +42,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     if (body.role === 'ORG_ADMIN' && !target.organizationId) {
-      return NextResponse.json({ error: '此帳號未隸屬任何機關,不可改為機關管理員' }, { status: 400 });
+      return NextResponse.json({ error: '此帳號未隸屬任何機關，不可改為機關管理員' }, { status: 400 });
     }
 
     // 權責分立:停用帳號必須附理由(留存操作者與時間,供稽核軌跡)
     const disabling = body.isActive === false && target.isActive === true;
     const enabling = body.isActive === true && target.isActive === false;
     if (disabling && !body.reason) {
-      return NextResponse.json({ error: '停用帳號須填寫理由(權責分立要求)' }, { status: 400 });
+      return NextResponse.json({ error: '停用帳號須填寫理由（權責分立要求）' }, { status: 400 });
     }
 
     const lifecycle = disabling
@@ -63,9 +63,41 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ? { disabledAt: null, disabledById: null, disabledByName: null, disableReason: null }
       : {};
 
-    const updated = await prisma.user.update({
-      where: { id: target.id },
-      data: { isActive: body.isActive, role: body.role, ...lifecycle },
+    // 角色改為非機關管理員時一併清 organizationId(比照 promote/route:守 schema「role/organizationId=現用身分」不變式,
+    // 避免非機關身分殘留機關歸屬造成醫院頁誤列)
+    const orgClear = body.role && body.role !== 'ORG_ADMIN' ? { organizationId: null } : {};
+
+    // 選項A(批74):角色離開「機關管理員」時,保留「曾任該機關」的歷史軌跡。orgClear 會清掉
+    // organizationId,若不留痕,日後「曾任機關」利益迴避(選項2,見 lib/coi)無從查證。
+    // 作法:優先結束該機關現有的有效 ORG_ADMIN 授權(多重身分);若無(legacy 單一身分)則補建一筆
+    // endedAt 的歷史列。現行迴避判定(選項3)不變,此處僅補資料基礎。
+    const leavingOrgAdmin =
+      !!body.role && body.role !== 'ORG_ADMIN' && target.role === 'ORG_ADMIN' && !!target.organizationId;
+    const formerOrgId = target.organizationId;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: target.id },
+        data: { isActive: body.isActive, role: body.role, ...lifecycle, ...orgClear },
+      });
+      if (leavingOrgAdmin && formerOrgId) {
+        const ended = await tx.userRole.updateMany({
+          where: { userId: target.id, role: 'ORG_ADMIN', organizationId: formerOrgId, endedAt: null },
+          data: { endedAt: new Date() },
+        });
+        if (ended.count === 0) {
+          await tx.userRole.create({
+            data: {
+              userId: target.id,
+              role: 'ORG_ADMIN',
+              organizationId: formerOrgId,
+              createdById: actor.id,
+              endedAt: new Date(),
+            },
+          });
+        }
+      }
+      return u;
     });
 
     const meta = extractRequestMeta(req);
@@ -79,6 +111,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         isActive: updated.isActive,
         role: updated.role,
         ...(disabling ? { disableReason: body.reason } : {}),
+        ...(leavingOrgAdmin ? { formerOrgArchived: formerOrgId } : {}),
       },
       ...meta,
     });

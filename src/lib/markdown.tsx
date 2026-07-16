@@ -29,7 +29,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
             src={mm[2]}
             alt={mm[1]}
             loading="lazy"
-            className="my-3 max-w-full h-auto rounded-md border border-outline-variant/60"
+            className="my-3 max-w-full h-auto rounded-md border border-rule"
           />,
         );
       } else {
@@ -38,7 +38,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     } else if (tok.startsWith('**')) {
       out.push(<strong key={key}>{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith('`')) {
-      out.push(<code key={key} className="font-mono text-[0.92em] bg-surface-container px-1.5 py-0.5 rounded-sm">{tok.slice(1, -1)}</code>);
+      out.push(<code key={key} className="font-mono text-[0.92em] bg-paper-sunk px-1.5 py-0.5 rounded-sm">{tok.slice(1, -1)}</code>);
     } else if (tok.startsWith('*')) {
       out.push(<em key={key}>{tok.slice(1, -1)}</em>);
     } else if (tok.startsWith('[')) {
@@ -70,7 +70,7 @@ export function Markdown({ content }: { content: string }) {
     if (para.length === 0) return;
     const text = para.join('\n');
     blocks.push(
-      <p key={`p-${k++}`} className="text-body text-on-surface leading-relaxed whitespace-pre-wrap my-3">
+      <p key={`p-${k++}`} className="text-body text-ink-900 leading-relaxed whitespace-pre-wrap my-3">
         {renderInline(text, `p-${k}`)}
       </p>,
     );
@@ -81,11 +81,11 @@ export function Markdown({ content }: { content: string }) {
     const L = list;
     blocks.push(
       L.ordered ? (
-        <ol key={`l-${k++}`} className="list-decimal pl-6 my-3 space-y-1.5 text-body text-on-surface">
+        <ol key={`l-${k++}`} className="list-decimal pl-6 my-3 space-y-1.5 text-body text-ink-900">
           {L.items.map((it, idx) => <li key={idx}>{renderInline(it, `li-${k}-${idx}`)}</li>)}
         </ol>
       ) : (
-        <ul key={`l-${k++}`} className="list-disc pl-6 my-3 space-y-1.5 text-body text-on-surface">
+        <ul key={`l-${k++}`} className="list-disc pl-6 my-3 space-y-1.5 text-body text-ink-900">
           {L.items.map((it, idx) => <li key={idx}>{renderInline(it, `li-${k}-${idx}`)}</li>)}
         </ul>
       ),
@@ -104,9 +104,9 @@ export function Markdown({ content }: { content: string }) {
       flushPara(); flushList();
       const level = h[1].length;
       const txt = renderInline(h[2], `h-${k}`);
-      if (level === 1) blocks.push(<h2 key={`h-${k++}`} className="text-headline text-on-surface mt-7 mb-3">{txt}</h2>);
-      else if (level === 2) blocks.push(<h3 key={`h-${k++}`} className="text-title-lg text-on-surface mt-6 mb-2.5">{txt}</h3>);
-      else blocks.push(<h4 key={`h-${k++}`} className="text-title text-on-surface mt-5 mb-2">{txt}</h4>);
+      if (level === 1) blocks.push(<h2 key={`h-${k++}`} className="text-headline text-ink-900 mt-7 mb-3">{txt}</h2>);
+      else if (level === 2) blocks.push(<h3 key={`h-${k++}`} className="text-title-lg text-ink-900 mt-6 mb-2.5">{txt}</h3>);
+      else blocks.push(<h4 key={`h-${k++}`} className="text-title text-ink-900 mt-5 mb-2">{txt}</h4>);
     } else if (ul) {
       flushPara();
       if (!list || list.ordered) { flushList(); list = { ordered: false, items: [] }; }
@@ -118,7 +118,7 @@ export function Markdown({ content }: { content: string }) {
     } else if (bq) {
       flushPara(); flushList();
       blocks.push(
-        <blockquote key={`q-${k++}`} className="border-l-[3px] border-primary-300 pl-4 my-3 text-body text-on-surface-variant">
+        <blockquote key={`q-${k++}`} className="border-l-[3px] border-primary-300 pl-4 my-3 text-body text-ink-500">
           {renderInline(bq[1], `q-${k}`)}
         </blockquote>,
       );

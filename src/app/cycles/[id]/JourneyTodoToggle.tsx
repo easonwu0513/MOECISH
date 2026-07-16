@@ -42,7 +42,7 @@ export default function JourneyTodoToggle({
     if (!res || !res.ok) {
       setChecked(!next); // 失敗回復
       const j = res ? await res.json().catch(() => ({})) : {};
-      toast.error('更新失敗', (j as { error?: string }).error ?? '連線逾時,請稍後再試');
+      toast.error('更新失敗', (j as { error?: string }).error ?? '連線逾時，請稍後再試');
       return;
     }
     router.refresh();
@@ -57,7 +57,7 @@ export default function JourneyTodoToggle({
       aria-label={`${checked ? '取消勾選' : '勾選完成'}:${title}`}
       className={cn(
         'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors focus-ring disabled:opacity-50',
-        checked ? 'border-success-600 bg-success-600 text-white' : 'border-outline-variant hover:border-primary-400',
+        checked ? 'border-success-600 bg-success-600 text-white' : 'border-neutral-400 hover:border-neutral-500',
       )}
     >
       {checked && <Check size={12} />}

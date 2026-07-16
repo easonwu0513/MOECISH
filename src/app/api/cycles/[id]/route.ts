@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { notifyObserversOnReviewOpen } from '@/lib/notify';
+import { appBaseUrl } from '@/lib/baseUrl';
 
 const DateStr = z
   .string()
@@ -15,6 +17,12 @@ const PatchBody = z.object({
   prepDueTech: DateStr.nullable().optional(),
   techCheckDate: DateStr.nullable().optional(),
   onsiteDate: DateStr.nullable().optional(),
+  // 委員審閱時間區間(UAT 批67):日粒度,start 取當日 00:00、end 取當日 23:59:59(含當日)
+  reviewWindowStart: DateStr.nullable().optional(),
+  reviewWindowEnd: DateStr.nullable().optional(),
+  // 觀察員獨立審閱窗口(批30):語義同委員窗口
+  observerWindowStart: DateStr.nullable().optional(),
+  observerWindowEnd: DateStr.nullable().optional(),
 });
 
 /** 編輯週期日期(矯正截止/資料準備截止/實地稽核日)— SUPER_ADMIN 限定。 */
@@ -29,6 +37,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const body = PatchBody.parse(await req.json());
     const toDate = (s: string) => new Date(`${s}T00:00:00+08:00`);
+    const toDateEnd = (s: string) => new Date(`${s}T23:59:59+08:00`); // 審閱窗口迄=當日結束(含當日)
+
+    // 審閱時間區間順序驗證:兩端同時提供(且皆非清空)時,迄不可早於起
+    // (以「套用後的最終值」判定:未提供的沿用現值,提供 null=清空該端)
+    const finalWStart = body.reviewWindowStart === undefined ? cycle.reviewWindowStart : (body.reviewWindowStart ? toDate(body.reviewWindowStart) : null);
+    const finalWEnd = body.reviewWindowEnd === undefined ? cycle.reviewWindowEnd : (body.reviewWindowEnd ? toDateEnd(body.reviewWindowEnd) : null);
+    if (finalWStart && finalWEnd && finalWEnd.getTime() < finalWStart.getTime()) {
+      return NextResponse.json({ error: '審閱區間的截止不可早於開始' }, { status: 400 });
+    }
+    const finalOWStart = body.observerWindowStart === undefined ? cycle.observerWindowStart : (body.observerWindowStart ? toDate(body.observerWindowStart) : null);
+    const finalOWEnd = body.observerWindowEnd === undefined ? cycle.observerWindowEnd : (body.observerWindowEnd ? toDateEnd(body.observerWindowEnd) : null);
+    if (finalOWStart && finalOWEnd && finalOWEnd.getTime() < finalOWStart.getTime()) {
+      return NextResponse.json({ error: '觀察員審閱區間的截止不可早於開始' }, { status: 400 });
+    }
 
     const updated = await prisma.auditCycle.update({
       where: { id: cycle.id },
@@ -42,6 +64,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           body.techCheckDate === undefined ? undefined : body.techCheckDate ? toDate(body.techCheckDate) : null,
         onsiteDate:
           body.onsiteDate === undefined ? undefined : body.onsiteDate ? toDate(body.onsiteDate) : null,
+        reviewWindowStart:
+          body.reviewWindowStart === undefined ? undefined : body.reviewWindowStart ? toDate(body.reviewWindowStart) : null,
+        reviewWindowEnd:
+          body.reviewWindowEnd === undefined ? undefined : body.reviewWindowEnd ? toDateEnd(body.reviewWindowEnd) : null,
+        observerWindowStart:
+          body.observerWindowStart === undefined ? undefined : body.observerWindowStart ? toDate(body.observerWindowStart) : null,
+        observerWindowEnd:
+          body.observerWindowEnd === undefined ? undefined : body.observerWindowEnd ? toDateEnd(body.observerWindowEnd) : null,
       },
     });
 
@@ -55,6 +85,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       after: { dueDate: updated.dueDate, prepDueDate: updated.prepDueDate, onsiteDate: updated.onsiteDate },
       ...meta,
     });
+
+    // 觀察員審閱窗口設定/變更後(批66 M2):若週期已 ≥ 資料齊備(READY),補通知本週期「已配對」觀察員。
+    // (READY 轉換當下觀察員窗口可能尚未設,故此後才設定/變更時 READY 通知已過 → 於此補發;DRAFT/PREPARATION
+    //  尚未開放審閱,交由日後 READY 轉換通知。)notify 函式的 dedupeKey 含窗口值,防重複轟炸。失敗不影響存檔。
+    // 僅在窗口「完整設定」(起訖皆有)時才補發「資料已齊備、請於審閱時段檢視」通知(批73 專審 P2):
+    // 清空窗口(兩端皆 null)或只設一端 → 無有效審閱時段,不寄誤導性通知(避免觀察員收到「請審閱」卻無時段)。
+    const observerWindowTouched =
+      body.observerWindowStart !== undefined || body.observerWindowEnd !== undefined;
+    const observerWindowFullySet = Boolean(finalOWStart && finalOWEnd);
+    if (observerWindowTouched && observerWindowFullySet && updated.status !== 'DRAFT' && updated.status !== 'PREPARATION') {
+      try {
+        await notifyObserversOnReviewOpen({ cycleId: cycle.id, appBaseUrl: appBaseUrl(req) });
+      } catch (e) {
+        console.error('[cycles PATCH] 通知觀察員審閱窗口失敗：', (e as Error).message);
+      }
+    }
 
     return NextResponse.json({ item: updated });
   } catch (e) {
@@ -78,7 +124,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!cycle) return NextResponse.json({ error: '稽核週期不存在' }, { status: 404 });
     if (cycle.status !== 'DRAFT') {
       return NextResponse.json(
-        { error: '僅「開立中」的週期可刪除;已進入資料準備後不可刪(機關可能已有繳交紀錄)' },
+        { error: '僅「開立中」的週期可刪除；已進入資料準備後不可刪（機關可能已有繳交紀錄）' },
         { status: 409 },
       );
     }

@@ -22,6 +22,7 @@ import {
 } from '@/lib/types';
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { findRepeatDeficiencies } from '@/lib/deficiency-history';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import ActionForm from './ActionForm';
 import ReviewPanel from './ReviewPanel';
 import ReviewerAssign from './ReviewerAssign';
@@ -36,6 +37,8 @@ export default async function DeficiencyDetailPage({
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/deficiencies/${params.defId}`);
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
 
   const deficiency = await prisma.deficiency.findUnique({
     where: { id: params.defId },
@@ -53,11 +56,23 @@ export default async function DeficiencyDetailPage({
 
   // 存取控制
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
+  // 觀察員(批30):缺失與矯正管考不開放(需求一-2;對齊 access-policy deficiencies.view=一律 false)
+  if (user.role === 'OBSERVER') redirect('/dashboard');
   if (user.role === 'AUDITOR' && !cycle.assignments.some((a) => a.auditorId === user.id)) redirect('/dashboard');
+  // 委員只可檢視/審核「指派給本人審閱」的缺失(UAT 批66:不得以 URL 開他人審閱之缺失詳情);
+  // 未指派審閱委員(reviewerAuditorId=null)之缺失,任一委員皆不可見(對齊清單/計數的 reviewer-aware 過濾)。
+  if (user.role === 'AUDITOR' && deficiency.reviewerAuditorId !== user.id) redirect(`/cycles/${params.id}/deficiencies`);
 
   const action = deficiency.action;
   const status = (action?.status ?? 'PENDING') as ActionStatus;
+  // 缺失內容仍為佔位文字/空白:委員不可審核通過(批58,對齊 review route 後端閘)。
+  const descInvalid = isInvalidDeficiencyDescription(deficiency.description);
   const yearROC = cycle.year - 1911;
+  // 批71:此缺失是否已轉入持續列管(「辦理中」通過後自動拋轉)→ 顯示 chip 連往列管庫
+  const tracked = await prisma.trackedDeficiency.findUnique({
+    where: { deficiencyId: deficiency.id },
+    select: { status: true },
+  });
 
   const reviewerIds = Array.from(new Set((action?.reviews ?? []).map((r) => r.auditorId)));
   const reviewers = reviewerIds.length
@@ -67,6 +82,9 @@ export default async function DeficiencyDetailPage({
       })
     : [];
   const reviewerName = new Map(reviewers.map((u) => [u.id, u.name]));
+  // 機關管理員不需知道是哪位委員開立/審核缺失:審查歷程的委員姓名對機關遮蔽為通稱
+  //(中心 SUPER_ADMIN 與審閱委員本人 AUDITOR 仍見真名;對齊下方「審閱委員」整塊只對中心/委員顯示)。
+  const showAuditorNames = user.role === 'SUPER_ADMIN' || user.role === 'AUDITOR';
 
   // 批32/35:審閱委員 — 開立委員(顯示「由 X 開立」)、參與此次稽核的所有委員(供中心指派)、目前指派
   const relevantAuthors = await deficiencyAuthors(deficiency.id);
@@ -75,9 +93,6 @@ export default async function DeficiencyDetailPage({
     select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
-  const assignedReviewer = deficiency.reviewerAuditorId
-    ? assignedAuditors.find((a) => a.id === deficiency.reviewerAuditorId) ?? null
-    : null;
   const isDefReviewer =
     user.role === 'SUPER_ADMIN' ||
     (user.role === 'AUDITOR' && deficiency.reviewerAuditorId === user.id);
@@ -109,9 +124,9 @@ export default async function DeficiencyDetailPage({
   const historyNodes: TimelineNode[] = priorDeficiencies.map((h) => {
     const st = (h.action?.status ?? 'PENDING') as ActionStatus;
     const measures = [
-      h.action?.measureStrategy && `策略面:${h.action.measureStrategy}`,
-      h.action?.measureManagement && `管理面:${h.action.measureManagement}`,
-      h.action?.measureTechnical && `技術面:${h.action.measureTechnical}`,
+      h.action?.measureStrategy && `策略面：${h.action.measureStrategy}`,
+      h.action?.measureManagement && `管理面：${h.action.measureManagement}`,
+      h.action?.measureTechnical && `技術面：${h.action.measureTechnical}`,
     ].filter(Boolean) as string[];
     return {
       id: h.deficiencyId,
@@ -137,14 +152,14 @@ export default async function DeficiencyDetailPage({
         h.action?.rootCause || measures.length ? (
           <div className="space-y-1.5">
             {h.action?.rootCause && (
-              <p className="leading-relaxed"><span className="text-on-surface-variant">當年根因:</span>{h.action.rootCause}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年根因：</span>{h.action.rootCause}</p>
             )}
             {measures.length > 0 && (
-              <p className="leading-relaxed"><span className="text-on-surface-variant">當年矯正:</span>{measures.join('；')}</p>
+              <p className="leading-relaxed"><span className="text-ink-500">當年矯正：</span>{measures.join('；')}</p>
             )}
           </div>
         ) : (
-          <span className="text-on-surface-variant">當年未留存根因/矯正紀錄</span>
+          <span className="text-ink-500">當年未留存根因/矯正紀錄</span>
         ),
     };
   });
@@ -181,9 +196,34 @@ export default async function DeficiencyDetailPage({
   const nextDef = after ?? matching[0] ?? null;
   const nextHref = nextDef ? `/cycles/${cycle.id}/deficiencies/${nextDef.id}` : null;
 
-  // 上一筆/下一筆稽核缺失(依排序、不限狀態;免回列表逐筆點,所有角色皆可用)
-  const prevDefNav = myIdx > 0 ? siblings[myIdx - 1] : null;
-  const nextDefNav = myIdx >= 0 && myIdx < siblings.length - 1 ? siblings[myIdx + 1] : null;
+  // 上一筆/下一筆稽核缺失導覽(免回列表逐筆點)。
+  // ・委員:只在「指派給本人審閱」的缺失間移動——否則箭頭指向他人審閱之缺失,點了被上方 redirect 彈回=死連結、
+  //   且洩漏他人缺失存在/ID(UAT 批66 reviewer 隔離,對齊上方 matching 的過濾基準)。
+  // ・機關:限「同一工作分類」(待填 / 退回 / 已送審 / 已通過,對齊清單頁篩選)——退回補正時在待補正之間移動,
+  //   不跳到不相干的已通過缺失(UAT 批58)。
+  // ・中心:全部缺失(綜覽)。
+  const orgNavBucket = (s: ActionStatus): string =>
+    s === 'PENDING' || s === 'DRAFT' ? 'todo' : s === 'RETURNED' ? 'returned' : s === 'SUBMITTED' ? 'submitted' : 'passed';
+  const navPool =
+    user.role === 'AUDITOR'
+      ? siblings.filter((d) => d.reviewerAuditorId === user.id)
+      : user.role === 'ORG_ADMIN'
+      ? siblings.filter((d) => orgNavBucket((d.action?.status ?? 'PENDING') as ActionStatus) === orgNavBucket(status))
+      : siblings;
+  const navIdx = navPool.findIndex((d) => d.id === deficiency.id);
+  const prevDefNav = navIdx > 0 ? navPool[navIdx - 1] : null;
+  const nextDefNav = navIdx >= 0 && navIdx < navPool.length - 1 ? navPool[navIdx + 1] : null;
+  // 機關端導覽標籤反映當前工作分類,讓「上/下一筆」語意明確(不再像跳到隨機順序的缺失)
+  const navLabel =
+    user.role === 'ORG_ADMIN'
+      ? orgNavBucket(status) === 'returned'
+        ? '待補正'
+        : orgNavBucket(status) === 'todo'
+        ? '待填報'
+        : orgNavBucket(status) === 'submitted'
+        ? '已送審'
+        : '已通過'
+      : '缺失';
   const remaining = matching.length;
 
   // 最新一輪退回意見(機關視角置頂提示)
@@ -193,9 +233,9 @@ export default async function DeficiencyDetailPage({
   const orgReadonlyReason =
     user.role === 'ORG_ADMIN' && !canFill && status !== 'PASSED'
       ? cycle.status !== 'REMEDIATION'
-        ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」,尚未開放矯正填報;待中心開放後即可編輯。`
+        ? `目前週期狀態為「${CYCLE_STATUS_LABELS[cycle.status as CycleStatus]}」，尚未開放矯正填報；待中心開放後即可編輯。`
         : status === 'SUBMITTED'
-        ? '本項已送出審核,委員審查期間暫不可編輯;若被退回將重新開放。'
+        ? '本項已送出審核，委員審查期間暫不可編輯；若被退回將重新開放。'
         : null
       : null;
 
@@ -215,7 +255,7 @@ export default async function DeficiencyDetailPage({
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-headline text-on-surface">
+            <h1 className="text-headline text-ink-900">
               {DEFICIENCY_ASPECT_LABELS[deficiency.aspect as DeficiencyAspect]}・
               {DEFICIENCY_TYPE_LABELS[deficiency.type as DeficiencyType]} 第 {deficiency.itemNo} 項
             </h1>
@@ -225,8 +265,13 @@ export default async function DeficiencyDetailPage({
             {(action?.round ?? 1) > 1 && (
               <Chip tone="neutral" size="md">第 {action!.round} 輪</Chip>
             )}
+            {tracked?.status === 'TRACKING' && (
+              <Link href="/tracking" className="focus-ring rounded-full" title="此缺失以「辦理中」通過，已轉入持續列管；點擊前往列管庫">
+                <Chip tone="primary" size="md" dot>持續列管中</Chip>
+              </Link>
+            )}
           </div>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <p className="mt-1 text-body-sm text-ink-500">
             {yearROC} 年度 · {cycle.organization.name}
             {deficiency.checklistRef && (
               <> · 檢核項 <span className="font-mono">{deficiency.checklistRef}</span></>
@@ -253,7 +298,7 @@ export default async function DeficiencyDetailPage({
         <CardTitle>
           {deficiency.type === 'IMPROVE' ? '待改善事項' : '建議事項'}
         </CardTitle>
-        <p className="mt-3 text-body text-on-surface leading-relaxed whitespace-pre-wrap">
+        <p className="mt-3 text-body text-ink-900 leading-relaxed whitespace-pre-wrap">
           {deficiency.description}
         </p>
       </Card>
@@ -262,19 +307,18 @@ export default async function DeficiencyDetailPage({
       {sourceItem && (
         <Card className="mb-6" variant="outlined">
           <CardTitle>來源檢核項 {deficiency.checklistRef}</CardTitle>
-          <p className="mt-3 text-body-sm text-on-surface leading-relaxed">{sourceItem.content}</p>
+          <p className="mt-3 text-body-sm text-ink-900 leading-relaxed">{sourceItem.content}</p>
           {sourceResponse?.compliance && (
-            <p className="mt-2 text-caption text-on-surface-variant leading-relaxed">
-              機關當初填報:
-              <span className="font-medium text-on-surface">
+            <p className="mt-2 text-caption text-ink-500 leading-relaxed">
+              機關當初填報：
+              <span className="font-medium text-ink-900">
                 {COMPLIANCE_LABELS[sourceResponse.compliance as ComplianceLevel] ?? sourceResponse.compliance}
               </span>
               {sourceResponse.description && ` — ${sourceResponse.description}`}
             </p>
           )}
-          <Link href={`/cycles/${cycle.id}/checklist`} className="mt-2 inline-block text-caption text-primary-700 hover:underline focus-ring rounded-sm">
-            於檢核表查看 →
-          </Link>
+          {/* (UAT:移除「於檢核表查看→」連結——缺失矯正在 REPORT_ISSUED/REMEDIATION 階段,
+              檢核表審閱窗口通常止於實地稽核當天,此時委員已看不到檢核表=死連結;來源題目已就地顯示於上方) */}
         </Card>
       )}
 
@@ -288,10 +332,10 @@ export default async function DeficiencyDetailPage({
               <Chip size="sm" tone="warning">{historyNodes.length}</Chip>
             </span>
           </CardTitle>
-          <p className="mt-2 mb-4 text-caption text-on-surface-variant leading-relaxed">
-            本機關於往年(近 3 年)曾在
+          <p className="mt-2 mb-4 text-caption text-ink-500 leading-relaxed">
+            本機關於往年（近 3 年）曾在
             {deficiency.checklistRef ? <> 同一檢核項 <span className="font-mono">{deficiency.checklistRef}</span></> : <> 同一構面</>}
-            發生過下列缺失,供根因分析與矯正措施參考。重複出現代表問題未根治,請從源頭改善。
+            發生過下列缺失，供根因分析與矯正措施參考。重複出現代表問題未根治，請從源頭改善。
           </p>
           <Timeline nodes={historyNodes} />
         </Card>
@@ -305,7 +349,7 @@ export default async function DeficiencyDetailPage({
               <AlertTriangle size={18} />
             </span>
             <div className="min-w-0">
-              <p className="text-title text-danger-700">委員退回意見(第 {latestReturn.round} 輪)</p>
+              <p className="text-title text-danger-700">委員退回意見（第 {latestReturn.round} 輪）</p>
               <p className="mt-1.5 text-body-sm text-danger-700/90 leading-relaxed whitespace-pre-wrap">
                 {latestReturn.comment}
               </p>
@@ -319,26 +363,22 @@ export default async function DeficiencyDetailPage({
 
       {/* 機關唯讀原因說明 */}
       {orgReadonlyReason && (
-        <div className="mb-6 flex items-start gap-2.5 rounded-md bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+        <div className="mb-6 flex items-start gap-2.5 rounded-md bg-paper-sunk px-4 py-3 text-body-sm text-ink-500">
           <Info size={16} className="mt-0.5 shrink-0" />
           <span>{orgReadonlyReason}</span>
         </div>
       )}
 
-      {/* 批32:審閱委員(中心於相關開立委員中指派;審核權限=該委員或中心) */}
-      {(user.role === 'SUPER_ADMIN' || isDefReviewer || assignedReviewer) && (
-        <div className="mb-6 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-5 py-4">
-          <p className="text-title-md text-on-surface mb-1">審閱委員</p>
-          <p className="text-body-sm text-on-surface-variant mb-3">
-            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立;審核(通過/退回)由指派的審閱委員或中心進行。
+      {/* 審閱委員指派(僅中心 SUPER_ADMIN):中心於相關開立委員中指派審閱委員。
+          UAT:委員自己就是審閱委員(缺失清單本就只顯示指派給本人審閱者),顯示「審閱委員:自己」對委員無意義→
+          整塊僅中心可見(原 isDefReviewer 含委員本人,故委員也看到=贅餘,收為 SUPER_ADMIN)。機關端本就隱藏。 */}
+      {user.role === 'SUPER_ADMIN' && (
+        <div className="mb-6 rounded-lg border border-rule bg-card px-5 py-4">
+          <p className="text-title-md text-ink-900 mb-1">審閱委員</p>
+          <p className="text-body-sm text-ink-500 mb-3">
+            此缺失由 {relevantAuthors.map((a) => a.name).join('、') || '—'} 開立；審核（通過/退回）由指派的審閱委員或中心進行。
           </p>
-          {user.role === 'SUPER_ADMIN' ? (
-            <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
-          ) : (
-            <p className="text-body-sm text-on-surface">
-              {assignedReviewer ? `審閱委員:${assignedReviewer.name}` : '尚未指派審閱委員(由中心指派後方可審核)'}
-            </p>
-          )}
+          <ReviewerAssign deficiencyId={deficiency.id} authors={assignedAuditors} current={deficiency.reviewerAuditorId} />
         </div>
       )}
 
@@ -350,6 +390,8 @@ export default async function DeficiencyDetailPage({
           nextHref={nextHref}
           remaining={remaining}
           backHref={`/cycles/${cycle.id}/deficiencies`}
+          adminLock={user.role === 'SUPER_ADMIN'}
+          descInvalid={descInvalid}
         />
       )}
 
@@ -358,6 +400,7 @@ export default async function DeficiencyDetailPage({
         deficiencyId={deficiency.id}
         editable={canFill}
         viewOnly={user.role === 'AUDITOR'}
+        roundSubmit={user.role === 'ORG_ADMIN'}
         nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
         remaining={user.role === 'ORG_ADMIN' ? remaining : 0}
         backHref={`/cycles/${cycle.id}/deficiencies`}
@@ -384,39 +427,41 @@ export default async function DeficiencyDetailPage({
                   comment: r.comment,
                   snapshot: r.snapshot,
                   decidedAt: r.decidedAt.toISOString(),
-                  auditorName: reviewerName.get(r.auditorId) ?? '稽核委員',
+                  auditorName: showAuditorNames ? (reviewerName.get(r.auditorId) ?? '稽核委員') : '審閱委員',
                 })),
               }
             : null
         }
       />
 
-      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點) */}
-      {(prevDefNav || nextDefNav) && (
-        <nav className="mt-8 pt-5 border-t border-outline-variant/40 flex items-center justify-between gap-3">
+      {/* 上一筆/下一筆稽核缺失導覽(依項次順序,不限狀態;免回列表逐筆點)。
+          連續審查中(canReview)隱藏:與 ReviewPanel 的「下一筆待審」兩套「下一筆」語意不同易混(審計#12),
+          審查動線由面板獨任;純瀏覽(已通過/唯讀)才顯順序導覽。 */}
+      {!canReview && (prevDefNav || nextDefNav) && (
+        <nav className="mt-8 pt-5 border-t border-rule flex items-center justify-between gap-3">
           {prevDefNav ? (
             <Link
               href={`/cycles/${cycle.id}/deficiencies/${prevDefNav.id}`}
-              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+              className="inline-flex items-center gap-1 min-h-11 pl-2 pr-3.5 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
               <ChevronLeft size={17} aria-hidden />
-              上一筆缺失
+              上一筆{navLabel}
             </Link>
           ) : (
             <span />
           )}
           <Link
             href={`/cycles/${cycle.id}/deficiencies`}
-            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus-ring"
+            className="inline-flex items-center min-h-11 px-2 rounded-lg text-caption text-ink-500 hover:text-ink-900 hover:bg-paper-sunk transition-colors focus-ring"
           >
             回缺失與矯正列表
           </Link>
           {nextDefNav ? (
             <Link
               href={`/cycles/${cycle.id}/deficiencies/${nextDefNav.id}`}
-              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-surface-container transition-colors focus-ring"
+              className="inline-flex items-center gap-1 min-h-11 pl-3.5 pr-2 rounded-lg text-label-lg font-medium text-primary-700 hover:bg-paper-sunk transition-colors focus-ring"
             >
-              下一筆缺失
+              下一筆{navLabel}
               <ChevronRight size={17} aria-hidden />
             </Link>
           ) : (

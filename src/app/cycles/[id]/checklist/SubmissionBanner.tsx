@@ -20,12 +20,18 @@ export default function SubmissionBanner({
   submittedBy,
   reopenNote,
   canReopen,
+  hideModifyHint,
+  hideSubmitter,
 }: {
   cycleId: string;
   submittedAtISO: string | null;
   submittedBy: string | null;
   reopenNote: string | null;
   canReopen: boolean;
+  /** 委員審閱頁:隱藏「如需修改請洽中心退回」等機關向文案(委員只是檢視,不涉修改)。 */
+  hideModifyHint?: boolean;
+  /** 委員/觀察員視角:隱藏「由 {送出者}」——委員不需知道機關端由誰送出(中心/機關維持具名,供內部協作與監督)。 */
+  hideSubmitter?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -64,8 +70,8 @@ export default function SubmissionBanner({
           <div className="flex-1 min-w-0">
             <div className="text-title text-success-700">填報已完成送出</div>
             <div className="text-body-sm text-success-600 mt-0.5">
-              {submittedBy ? `由 ${submittedBy} ` : ''}於 {when} 送出,內容已鎖定
-              {canReopen ? ';如需請機關補正,可在下方退回重填。' : ';如需修改請洽中心退回。'}
+              {submittedBy && !hideSubmitter ? `由 ${submittedBy} ` : ''}於 {when} 送出，內容已鎖定
+              {hideModifyHint ? '。' : canReopen ? '；如需請機關補正，可點「退回重填」。' : '；如需修改請洽中心退回。'}
             </div>
           </div>
           {canReopen && (
@@ -78,7 +84,7 @@ export default function SubmissionBanner({
           open={reopenOpen}
           onOpenChange={(v) => !busy && setReopenOpen(v)}
           title="退回檢核表重填"
-          description="退回後機關即可再次編輯,並會收到通知信與下方原因說明。"
+          description="退回後機關即可再次編輯，並會收到通知信與下方原因說明。"
           footer={
             <>
               <Button variant="text" onClick={() => setReopenOpen(false)} disabled={busy}>取消</Button>
@@ -87,11 +93,11 @@ export default function SubmissionBanner({
           }
         >
           <Textarea
-            label="退回原因(機關會看到;留空將以系統預設說明通知機關)"
+            label="退回原因（機關會看到；留空將以系統預設說明通知機關）"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="請說明需要機關補正的事項或方向(機關僅能看到此退回原因,看不到委員逐題意見)。"
+            placeholder="請說明需要機關補正的事項或方向（機關僅能看到此退回原因，看不到委員逐題意見）。"
           />
         </Dialog>
       </>
@@ -105,9 +111,12 @@ export default function SubmissionBanner({
         className="mb-5 flex items-start gap-3 rounded-md border border-warning-200 bg-warning-50 px-5 py-3.5"
       >
         <AlertTriangle size={20} className="text-warning-700 shrink-0 mt-0.5" />
+        {/* 四級平滑遞降(批86):標題(warning 重)→ 退回原因(近中性 body,讀得清、非全黃染)→ 行動提示(caption)。
+            原本標題與正文皆 warning-700/600=兩級斷崖且整段黃染難讀。 */}
         <div className="min-w-0">
-          <div className="text-title text-warning-700">填報被退回,請補正後重新送出</div>
-          <p className="text-body-sm text-warning-600 mt-1 whitespace-pre-wrap">{reopenNote}</p>
+          <div className="text-title-md text-warning-800">填報被退回，請補正後重新送出</div>
+          <p className="mt-1.5 text-body text-ink-900 whitespace-pre-wrap leading-relaxed">{reopenNote}</p>
+          <p className="mt-1.5 text-caption text-ink-500">補正後於下方重新送出。</p>
         </div>
       </div>
     );

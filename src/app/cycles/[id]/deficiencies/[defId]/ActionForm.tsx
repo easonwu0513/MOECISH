@@ -52,11 +52,11 @@ function SnapshotDetails({ snapshot }: { snapshot: string }) {
       <summary className="text-caption text-primary-700 cursor-pointer hover:underline select-none">
         檢視該輪填報內容
       </summary>
-      <dl className="mt-1.5 rounded-sm bg-surface-container p-2.5 space-y-1">
+      <dl className="mt-1.5 rounded-sm bg-paper-sunk p-2.5 space-y-1">
         {rows.map((r) => (
           <div key={r.label} className="text-caption leading-relaxed">
-            <dt className="inline font-medium text-on-surface">{r.label}:</dt>{' '}
-            <dd className="inline text-on-surface-variant whitespace-pre-wrap">{r.value}</dd>
+            <dt className="inline font-medium text-ink-900">{r.label}:</dt>{' '}
+            <dd className="inline text-ink-500 whitespace-pre-wrap">{r.value}</dd>
           </div>
         ))}
       </dl>
@@ -64,7 +64,7 @@ function SnapshotDetails({ snapshot }: { snapshot: string }) {
   );
 }
 
-type ActionData = {
+export type ActionData = {
   id: string;
   status: ActionStatus;
   round: number;
@@ -99,6 +99,8 @@ export default function ActionForm({
   nextHref,
   remaining,
   backHref,
+  onMutated,
+  roundSubmit,
 }: {
   deficiencyId: string;
   action: ActionData | null;
@@ -109,6 +111,10 @@ export default function ActionForm({
   remaining?: number;
   /** 無下一筆時送出後跳回的「缺失與矯正」總覽 */
   backHref?: string | null;
+  /** 就地展開面板(批47):送出成功後通知外層重抓面板資料,讓可編輯性/狀態即時反映(詳情頁不傳=無副作用) */
+  onMutated?: () => void;
+  /** 一輪統一送審(批50):隱藏個別「送出審核」鈕,機關只存草稿,於缺失列表統一送出(避免每項一封信) */
+  roundSubmit?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -161,6 +167,25 @@ export default function ActionForm({
   const needExtended = exec === 'LATE_IN_PROGRESS';
   const needReason = exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS';
 
+  // 送出審核前端預檢(批36):鏡射 action/submit 後端必填規則——缺欄直接 toast 列出,
+  // 不開確認框(原本按了「送出」才由後端 400 報缺欄,得關框回捲找欄再來一次)。
+  function requestSubmit() {
+    const missing: string[] = [];
+    if (!rootCause.trim()) missing.push('發生原因（根因分析）');
+    if (!Object.values(measures).some((m) => m.on && m.text.trim())) missing.push('至少一項改善措施');
+    if (!plannedDate) missing.push('預計完成時程');
+    if (!trackingMethod.trim()) missing.push('進度追蹤方式');
+    if (!execStatus) missing.push('執行情形');
+    if (needActual && !actualDate) missing.push('實際完成日期');
+    if (needExtended && !extendedDate) missing.push('預計完成日期延長至');
+    if (needReason && !delayReason.trim()) missing.push('逾期原因');
+    if (missing.length > 0) {
+      toast.error('尚有必填未完成', `${missing.join('、')}。請補齊後再送出審核。`);
+      return;
+    }
+    setSubmitOpen(true);
+  }
+
   // 切換執行情形前,若新狀態會隱藏並清掉已填的日期/原因,先確認(防誤觸丟資料)
   function changeExecStatus(next: ExecStatus) {
     const nNeedActual = next === 'ON_TIME_DONE' || next === 'LATE_DONE';
@@ -211,6 +236,27 @@ export default function ActionForm({
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
   }, [editable]);
+
+  // 卸載搶救(批47):元件卸載時若有未儲存變更,盡力補送一筆草稿。
+  // 就地展開面板中「切換到其他缺失列」是本功能核心手勢,會直接卸載本表單——
+  // 這不觸發 beforeunload,且上面 30 秒自動儲存的 timer 會被 cleanup 清掉,
+  // 否則剛輸入且尚未達 30 秒的內容會靜默消失(而畫面正顯示「30 秒內自動儲存」的安心承諾)。
+  // 用 latest-ref 讓卸載時讀到最新的 editable/dirty/payload;keepalive 讓連同關分頁也能送達。
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!editable || !dirtyRef.current) return;
+    try {
+      fetch(`/api/deficiencies/${deficiencyId}/action`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payloadRef.current()),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      /* 盡力而為的搶救;失敗不阻斷卸載 */
+    }
+  };
+  useEffect(() => () => flushRef.current(), []);
 
   function buildPayload() {
     return {
@@ -266,18 +312,19 @@ export default function ActionForm({
     clearDirty();
     const t = TOAST.submittedAction();
     if (nextHref && remaining && remaining > 0) {
-      toast.success(t.title, `還有 ${remaining} 筆待處理,已為你開啟下一筆。`);
+      toast.success(t.title, `還有 ${remaining} 筆待處理，已為你開啟下一筆。`);
       router.push(nextHref);
       router.refresh();
     } else if (backHref) {
       // 已是最後一筆 → 回缺失與矯正總覽(不停在最後一張矯正單,讓使用者確知已填完)
-      toast.success(t.title, '已完成所有待處理的矯正單,已回到缺失與矯正總覽。');
+      toast.success(t.title, '已完成所有待處理的矯正單，已回到缺失與矯正總覽。');
       router.push(backHref);
       router.refresh();
     } else {
       toast.success(t.title, t.description);
       router.refresh();
     }
+    onMutated?.(); // 就地展開:狀態已變(→送審),通知外層重抓面板改為唯讀檢視(批47)
   }
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -367,7 +414,7 @@ export default function ActionForm({
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
         {/* 左:審查歷程 */}
         <div>
-          <p className="text-label text-on-surface-variant mb-3">審查歷程</p>
+          <p className="text-label text-ink-500 mb-3">審查歷程</p>
           <Timeline nodes={timelineNodes} />
         </div>
 
@@ -386,7 +433,7 @@ export default function ActionForm({
 
           {/* 改善措施(可複選,三類) */}
           <div>
-            <p className="text-label text-on-surface mb-2">改善措施（可複選）</p>
+            <p className="text-label text-ink-900 mb-2">改善措施（可複選）</p>
             <div className="flex flex-col gap-3">
               {MEASURE_DEFS.map((m) => {
                 const st = measures[m.key];
@@ -395,7 +442,7 @@ export default function ActionForm({
                     key={m.key}
                     className={cn(
                       'rounded-md border p-4 transition-colors',
-                      st.on ? 'border-primary-400 bg-primary-50/40' : 'border-outline-variant',
+                      st.on ? 'border-primary-400 bg-primary-50/40' : 'border-neutral-400',
                     )}
                   >
                     <label className="flex items-start gap-2.5 cursor-pointer">
@@ -413,8 +460,8 @@ export default function ActionForm({
                         className="mt-0.5 accent-primary-600"
                       />
                       <span className="min-w-0">
-                        <span className="text-body-sm font-medium text-on-surface">{m.label}</span>
-                        <span className="mt-0.5 block text-caption text-on-surface-variant leading-relaxed">{m.hint}</span>
+                        <span className="text-body-sm font-medium text-ink-900">{m.label}</span>
+                        <span className="mt-0.5 block text-caption text-ink-500 leading-relaxed">{m.hint}</span>
                       </span>
                     </label>
                     {st.on && (
@@ -460,14 +507,14 @@ export default function ActionForm({
 
           {/* 執行情形(範本四選一) */}
           <div>
-            <p className="text-label text-on-surface mb-2">執行情形</p>
+            <p className="text-label text-ink-900 mb-2">執行情形</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {EXEC_STATUSES.map((s) => (
                 <label
                   key={s}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md border px-4 py-3 cursor-pointer transition-colors',
-                    execStatus === s ? 'border-primary-400 bg-primary-50/40' : 'border-outline-variant hover:bg-surface-container',
+                    execStatus === s ? 'border-primary-400 bg-primary-50/40' : 'border-neutral-400 hover:bg-paper-sunk',
                     readonly && 'cursor-not-allowed opacity-70',
                   )}
                 >
@@ -479,13 +526,13 @@ export default function ActionForm({
                     onChange={() => changeExecStatus(s)}
                     className="accent-primary-600"
                   />
-                  <span className="text-body-sm text-on-surface">{EXEC_STATUS_LABELS[s]}</span>
+                  <span className="text-body-sm text-ink-900">{EXEC_STATUS_LABELS[s]}</span>
                 </label>
               ))}
             </div>
 
             {(needActual || needExtended || needReason) && (
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md bg-surface-container p-4">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md bg-paper-sunk p-4">
                 {needActual && (
                   <TextField
                     label="實際完成日期"
@@ -522,14 +569,14 @@ export default function ActionForm({
           {/* 佐證 */}
           {action && (
             <div>
-              <p className="text-label text-on-surface mb-2">佐證文件</p>
+              <p className="text-label text-ink-900 mb-2">佐證文件</p>
               {evLoading ? (
                 <div className="mb-2 space-y-1.5" aria-label="佐證載入中">
-                  <div className="h-4 w-48 rounded bg-surface-container-high animate-pulse" />
-                  <div className="h-4 w-36 rounded bg-surface-container-high animate-pulse" />
+                  <div className="h-4 w-48 rounded bg-paper-sunk animate-pulse" />
+                  <div className="h-4 w-36 rounded bg-paper-sunk animate-pulse" />
                 </div>
               ) : evidences.length === 0 ? (
-                <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-surface-container-low/50 px-3.5 py-2.5 text-body-sm text-on-surface-variant">
+                <div className="mb-2 flex items-center gap-2 rounded-md border border-dashed border-rule bg-paper-sunk/50 px-3.5 py-2.5 text-body-sm text-ink-500">
                   <Paperclip size={15} className="shrink-0 opacity-70" />
                   尚未上傳佐證{editable ? '，可使用下方按鈕新增' : ''}
                 </div>
@@ -542,7 +589,7 @@ export default function ActionForm({
                         <button
                           type="button"
                           onClick={() => setPendingEv({ id: f.id, name: f.originalName })}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-on-surface-variant hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 transition-colors focus-ring"
                           aria-label={`刪除佐證 ${f.originalName}`}
                           title="刪除這個佐證檔"
                         >
@@ -556,14 +603,14 @@ export default function ActionForm({
               {editable && (
                 <>
                   <FileUploadButton
-                    label="+ 上傳佐證(可多選)"
+                    label="+ 上傳佐證（可多選）"
                     busy={uploading}
                     onChange={upload}
                     multiple
                     accept={ORG_UPLOAD_ACCEPT}
                   />
-                  <p className="mt-1.5 text-caption text-on-surface-variant">
-                    僅接受 PDF / JPG / PNG(供委員審閱時加浮水印);Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
+                  <p className="mt-1.5 text-caption text-ink-500">
+                    僅接受 PDF / JPG / PNG（供委員審閱時加浮水印）；Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。單檔 ≤ 20MB
                   </p>
                 </>
               )}
@@ -573,17 +620,25 @@ export default function ActionForm({
           {/* 動作 */}
           {editable && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
-              <Button variant="tonal" loading={saving} onClick={saveDraft}>
+              <Button variant={roundSubmit ? 'filled' : 'tonal'} loading={saving} onClick={saveDraft}>
                 儲存草稿
               </Button>
-              <Button loading={saving} onClick={() => setSubmitOpen(true)}>
-                送出審核
-              </Button>
+              {/* 批50:一輪統一送審模式隱藏個別「送出審核」,改於缺失列表「送出本輪審核」統一送出 */}
+              {!roundSubmit && (
+                <Button loading={saving} onClick={requestSubmit}>
+                  送出審核
+                </Button>
+              )}
+              {roundSubmit && (
+                <span className="text-caption text-ink-500">
+                  填寫完成請「儲存草稿」；全部填妥後於缺失列表按「送出本輪審核」一次送出。
+                </span>
+              )}
               {/* 儲存狀態:dirty=琥珀點、saved=綠勾 — 核心安全感訊號要看得見 */}
               {dirty ? (
                 <span className="inline-flex items-center gap-1.5 text-caption text-warning-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-warning-500 shrink-0" aria-hidden />
-                  未儲存(30 秒內自動儲存)
+                  未儲存（30 秒內自動儲存）
                 </span>
               ) : autoSavedAt ? (
                 <span className="inline-flex items-center gap-1.5 text-caption text-success-700">
@@ -600,7 +655,7 @@ export default function ActionForm({
         open={submitOpen}
         onOpenChange={(o) => !saving && setSubmitOpen(o)}
         title="送出審核"
-        description="送出後將鎖定編輯,由稽核委員進行審查。"
+        description="送出後將鎖定編輯，由稽核委員進行審查。"
         confirmLabel="送出"
         tone="primary"
         onConfirm={submit}
@@ -612,7 +667,7 @@ export default function ActionForm({
         open={pendingEv !== null}
         onOpenChange={(o) => !o && setPendingEv(null)}
         title="刪除佐證"
-        description={pendingEv ? `確定刪除佐證「${pendingEv.name}」?刪除後無法復原。` : undefined}
+        description={pendingEv ? `確定刪除佐證「${pendingEv.name}」？刪除後無法復原。` : undefined}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={() => { if (pendingEv) doRemoveEvidence(pendingEv.id, pendingEv.name); }}
@@ -623,7 +678,7 @@ export default function ActionForm({
         open={pendingExec !== null}
         onOpenChange={(o) => !o && setPendingExec(null)}
         title="切換執行情形"
-        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」,確定切換?` : undefined}
+        description={pendingExec ? `切換後將清除已填的「${pendingExec.losing.join('、')}」，確定切換？` : undefined}
         confirmLabel="確定切換"
         tone="warning"
         onConfirm={() => { if (pendingExec) { touch(); setExecStatus(pendingExec.next); setPendingExec(null); } }}

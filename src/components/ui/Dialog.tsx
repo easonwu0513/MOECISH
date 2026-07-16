@@ -54,7 +54,7 @@ export function Dialog({
         tabIndex={-1}
         className={cn(
           // max-h + flex-col:長內容(或手機叫出鍵盤)時內容區捲動,標題/動作列恆可見,確認鈕不被推出畫面
-          'relative w-full bg-surface-container-high rounded-lg shadow-elev-5 outline-none max-h-[85dvh] flex flex-col',
+          'relative w-full bg-paper-sunk rounded-lg shadow-elev-5 outline-none max-h-[85dvh] flex flex-col',
           leaving ? 'animate-slide-down-out' : 'animate-slide-up',
           w,
         )}
@@ -62,14 +62,14 @@ export function Dialog({
         {(icon || title || description) && (
           <div className="px-6 pt-6 text-center sm:text-left shrink-0">
             {icon && (
-              <div className="mb-4 inline-flex w-10 h-10 rounded-full bg-primary-container text-on-primary-container items-center justify-center">
+              <div className="mb-4 inline-flex w-10 h-10 rounded-full bg-focus-wash text-primary-700 items-center justify-center">
                 {icon}
               </div>
             )}
-            {title && <h2 id={titleId} className="text-title-lg text-on-surface">{title}</h2>}
+            {title && <h2 id={titleId} className="text-title-lg text-ink-900">{title}</h2>}
             {description && (
               // div 而非 p:description 可為區塊級 ReactNode(如含勾選聲明),p 內含 div/label 為無效巢狀
-              <div id={descId} className="mt-2 text-body-sm text-on-surface-variant leading-relaxed">{description}</div>
+              <div id={descId} className="mt-2 text-body-sm text-ink-500 leading-relaxed">{description}</div>
             )}
           </div>
         )}

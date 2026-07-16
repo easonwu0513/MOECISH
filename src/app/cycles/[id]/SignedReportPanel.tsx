@@ -40,11 +40,15 @@ export default function SignedReportPanel({
   const [pendingSubmit, setPendingSubmit] = useState<string | null>(null);
   const [pendingReturn, setPendingReturn] = useState<string | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
   async function load() {
-    const res = await fetch(`/api/cycles/${cycleId}/signed-reports`);
-    if (!res.ok) return;
+    const res = await fetch(`/api/cycles/${cycleId}/signed-reports`).catch(() => null);
+    if (!res || !res.ok) { setLoadErr(true); setLoaded(true); return; }
     const j = await res.json();
     setItems(j.items ?? []);
+    setLoadErr(false);
+    setLoaded(true);
   }
   useEffect(() => { load(); }, [cycleId]);
 
@@ -52,7 +56,7 @@ export default function SignedReportPanel({
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 20 * 1024 * 1024) {
-      toast.error('檔案超過 20MB 上限', '掃描時建議解析度 200dpi、黑白或灰階,可大幅縮小檔案');
+      toast.error('檔案超過 20MB 上限', '掃描時建議解析度 200dpi、黑白或灰階，可大幅縮小檔案');
       e.target.value = '';
       return;
     }
@@ -62,7 +66,7 @@ export default function SignedReportPanel({
     const res = await fetch(`/api/cycles/${cycleId}/signed-reports`, { method: 'POST', body: fd });
     setBusy(false);
     if (res.ok) {
-      toast.success('已上傳用印掃描檔', '確認檔案無誤後,請按「確認繳交」鎖定版本並通知中心。');
+      toast.success('已上傳用印掃描檔', '確認檔案無誤後，請按「確認繳交」鎖定版本並通知中心。');
       await load();
       router.refresh();
     } else {
@@ -99,7 +103,7 @@ export default function SignedReportPanel({
     setBusy(false);
     setPendingReturn(null);
     if (res.ok) {
-      toast.success('已退回用印掃描檔', '已解除鎖定,並站內通知機關重新上傳。');
+      toast.success('已退回用印掃描檔', '已解除鎖定，並站內通知機關重新上傳。');
       await load();
       router.refresh();
     } else {
@@ -138,13 +142,17 @@ export default function SignedReportPanel({
         </CardDescription>
 
         <div className="mt-4 flex flex-col gap-3">
-          {items.length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant">尚未上傳</p>
+          {!loaded ? (
+            <p className="text-body-sm text-ink-500">載入中…</p>
+          ) : loadErr ? (
+            <p className="text-body-sm text-danger-700">無法載入掃描檔清單，請重新整理頁面再試。</p>
+          ) : items.length === 0 ? (
+            <p className="text-body-sm text-ink-500">尚未上傳</p>
           ) : (
             <ul className="flex flex-col gap-2">
               {items.map((it) => (
-                <li key={it.id} className="flex items-center gap-3 rounded-md border border-outline-variant/60 px-4 py-3">
-                  <FileText size={18} className="text-on-surface-variant shrink-0" />
+                <li key={it.id} className="flex items-center gap-3 rounded-md border border-rule px-4 py-3">
+                  <FileText size={18} className="text-ink-500 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <a
                       href={`/api/signed-reports/${it.id}/download`}
@@ -152,7 +160,7 @@ export default function SignedReportPanel({
                     >
                       {it.fileName}
                     </a>
-                    <p className="text-caption text-on-surface-variant">
+                    <p className="text-caption text-ink-500">
                       {it.submittedAt
                         ? `繳交於 ${fmtROCDateTime(it.submittedAt)}`
                         : `上傳於 ${fmtROCDateTime(it.uploadedAt)}`}
@@ -199,13 +207,13 @@ export default function SignedReportPanel({
             />
           )}
           {canUpload && (
-            <p className="text-caption text-on-surface-variant -mt-1">
-              單檔 ≤ 20MB;限 PDF 或圖片(PNG/JPG)。上傳後請按「確認繳交」通知中心。
+            <p className="text-caption text-ink-500 -mt-1">
+              單檔 ≤ 20MB;限 PDF 或圖片（PNG/JPG）。上傳後請按「確認繳交」通知中心。
             </p>
           )}
           {role === 'ORG_ADMIN' && locked && (
-            <p className="text-caption text-on-surface-variant -mt-1">
-              掃描檔已確認繳交(或週期已結案),不可再上傳;如需更換請聯繫中心退回。
+            <p className="text-caption text-ink-500 -mt-1">
+              掃描檔已確認繳交（或週期已結案），不可再上傳；如需更換請聯繫中心退回。
             </p>
           )}
         </div>
@@ -216,10 +224,10 @@ export default function SignedReportPanel({
           onOpenChange={(o) => !busy && !o && setPendingSubmit(null)}
           title="確認繳交用印掃描檔"
           description={
-            <ul className="mt-1 list-disc pl-5 space-y-1.5 text-body-sm text-on-surface-variant">
-              <li>此掃描檔將鎖定為<span className="font-medium text-on-surface">正式繳交版本</span>,不可再更換或重新上傳。</li>
-              <li>系統將以 Email 與站內通知請最高管理員確認,確認後即可結案。</li>
-              <li>如需更換版本,須聯繫中心「退回」解除鎖定後才能重新上傳。</li>
+            <ul className="mt-1 list-disc pl-5 space-y-1.5 text-body-sm text-ink-500">
+              <li>此掃描檔將鎖定為<span className="font-medium text-ink-900">正式繳交版本</span>，不可再更換或重新上傳。</li>
+              <li>系統將以 Email 與站內通知請最高管理員確認，確認後即可結案。</li>
+              <li>如需更換版本，須聯繫中心「退回」解除鎖定後才能重新上傳。</li>
             </ul>
           }
           confirmLabel="確認繳交"
@@ -232,7 +240,7 @@ export default function SignedReportPanel({
           open={pendingReturn !== null}
           onOpenChange={(o) => !busy && !o && setPendingReturn(null)}
           title="退回用印掃描檔"
-          description="退回後將解除此掃描檔的鎖定,機關可重新上傳並再次「確認繳交」;系統會以站內通知請機關重新處理。"
+          description="退回後將解除此掃描檔的鎖定，機關可重新上傳並再次「確認繳交」；系統會以站內通知請機關重新處理。"
           confirmLabel="退回"
           tone="danger"
           onConfirm={() => { if (pendingReturn) return returnReport(pendingReturn); }}

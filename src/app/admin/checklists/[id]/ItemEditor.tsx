@@ -88,7 +88,7 @@ export function ItemActions({ item }: { item: ItemData }) {
         onOpenChange={(v) => !busy && setEditOpen(v)}
         size="lg"
         title={`編輯項次 ${item.itemNo}`}
-        description={item.responseCount > 0 ? `已有 ${item.responseCount} 筆機關作答;修改視為勘誤,會記入稽核軌跡。` : '題文與法規對照皆可修改。'}
+        description={item.responseCount > 0 ? `已有 ${item.responseCount} 筆機關作答；修改視為勘誤，會記入稽核軌跡。` : '題文與法規對照皆可修改。'}
         footer={
           <>
             <Button variant="text" onClick={() => setEditOpen(false)} disabled={busy}>取消</Button>
@@ -97,23 +97,23 @@ export function ItemActions({ item }: { item: ItemData }) {
         }
       >
         <div className="flex flex-col gap-4 pt-2 max-h-[72vh] overflow-y-auto pr-1">
-          <Textarea label="檢核項目(題文)" value={content} onChange={(e) => setContent(e.target.value)} rows={7} />
+          <Textarea label="檢核項目（題文）" value={content} onChange={(e) => setContent(e.target.value)} rows={7} />
           <Textarea
-            label="稽核依據(法規條文;「一、法規名稱」起頭、「1. 條文」逐條)"
+            label="稽核依據（法規條文；「一、法規名稱」起頭、「1. 條文」逐條）"
             value={auditBasis}
             onChange={(e) => setAuditBasis(e.target.value)}
             rows={14}
             placeholder={'一、資通安全管理法施行細則\n1. 第九條第一項…'}
           />
           <Textarea
-            label="稽核重點(每行一點)"
+            label="稽核重點（每行一點）"
             value={auditFocus}
             onChange={(e) => setAuditFocus(e.target.value)}
             rows={7}
             placeholder={'1. 應界定核心業務…\n2. …'}
           />
           <Textarea
-            label="佐證資料(機關應備文件,每行一項)"
+            label="應備文件（每行一項）"
             value={expectedEvidence}
             onChange={(e) => setExpectedEvidence(e.target.value)}
             rows={5}
@@ -126,7 +126,7 @@ export function ItemActions({ item }: { item: ItemData }) {
         open={delOpen}
         onOpenChange={(o) => !busy && !o && setDelOpen(false)}
         title="刪除檢核項目"
-        description={`確定刪除項次 ${item.itemNo}?無法復原。`}
+        description={`確定刪除項次 ${item.itemNo}？無法復原。`}
         confirmLabel="刪除"
         tone="danger"
         onConfirm={doDelete}
@@ -146,7 +146,7 @@ export function AddItemButton({ versionId }: { versionId: string }) {
   const [content, setContent] = useState('');
 
   async function create() {
-    if (!/^\d+\.\d+$/.test(itemNo.trim())) { toast.error('項次格式須為「構面.序號」,例 4.6'); return; }
+    if (!/^\d+\.\d+$/.test(itemNo.trim())) { toast.error('項次格式須為「構面。序號」，例 4.6'); return; }
     if (content.trim().length < 5) { toast.error('題目內容太短'); return; }
     setBusy(true);
     const res = await fetch(`/api/admin/checklist-versions/${versionId}/items`, {
@@ -175,7 +175,7 @@ export function AddItemButton({ versionId }: { versionId: string }) {
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
         title="新增檢核項目"
-        description="構面依項次主號(1-9)自動歸屬;法規對照可於新增後再編輯補上。"
+        description="構面依項次主號（1-9）自動歸屬；法規對照可於新增後再編輯補上。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
@@ -184,8 +184,8 @@ export function AddItemButton({ versionId }: { versionId: string }) {
         }
       >
         <div className="flex flex-col gap-4 pt-2">
-          <TextField label="項次(例 4.6)" value={itemNo} onChange={(e) => setItemNo(e.target.value)} placeholder="4.6" />
-          <Textarea label="檢核項目(題文)" value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
+          <TextField label="項次（例 4.6）" value={itemNo} onChange={(e) => setItemNo(e.target.value)} placeholder="4.6" />
+          <Textarea label="檢核項目（題文）" value={content} onChange={(e) => setContent(e.target.value)} rows={4} />
         </div>
       </Dialog>
     </>

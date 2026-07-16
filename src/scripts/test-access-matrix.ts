@@ -7,6 +7,9 @@
  *
  * 這正是 2026-06 一連串「委員資料準備中看到機關檢核表 / 機關開立中能上傳 / 委員看到彙整報告」
  * 之類階段權限破口該有的回歸網——把人工逐格肉眼抓,變成編譯期/CI 自動抓。
+ *
+ * 批30 起含 OBSERVER(觀察員)整欄:Record<Surface, Record<Role, ...>> 型別使「新增角色卻漏填
+ * 規格」直接編譯失敗——這正是防「新角色 fail-open」的第一道網。
  */
 import { canAccess, CYCLE_PHASE_ORDER, type Surface, type CyclePhase } from '../lib/access-policy';
 import { ROLES, type Role } from '../lib/types';
@@ -16,59 +19,98 @@ const NONE: CyclePhase[] = [];
 
 // 預期真值表(規格;與 canAccess 實作彼此獨立,兩者相符才算對)。每格 = 該 surface×role「允許」的階段。
 const EXPECT: Record<Surface, Record<Role, CyclePhase[]>> = {
-  // 委員只在離開「開立中(DRAFT)」後才可見/可進入週期;結案後對委員鎖定(2026-07 UAT);機關/中心全程
+  // 委員/觀察員只在離開「開立中(DRAFT)」後才可見/可進入週期;結案後鎖定(2026-07 UAT);機關/中心全程
   'cycle.access': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ALL,
     AUDITOR: ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    OBSERVER: ['PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
   },
-  // 委員一律「資料齊備(READY)」後才可見機關檢核表、結案後鎖定;機關看自家、中心全程(租戶/指派另由 rbac 管)
+  // 委員/觀察員一律「資料齊備(READY)」後才可見機關檢核表、結案後鎖定;機關看自家、中心全程
+  // (租戶/指派/配對另由 rbac 管;觀察員另受觀察員窗口時間閘,由呼叫端 reviewWindowOpenForRole 管)
   'checklist.view': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ALL,
     AUDITOR: ['READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    OBSERVER: ['READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
   },
   // 機關填寫/送出檢核表僅限資料準備中;開立中尚不可(避免中心尚未開放就被填報)
   'checklist.orgEdit': {
     SUPER_ADMIN: NONE,
     ORG_ADMIN: ['PREPARATION'],
     AUDITOR: NONE,
+    OBSERVER: NONE,
   },
   // 機關上傳/填說明僅限資料準備中;開立中尚不可
   'prep.orgEdit': {
     SUPER_ADMIN: NONE,
     ORG_ADMIN: ['PREPARATION'],
     AUDITOR: NONE,
+    OBSERVER: NONE,
   },
-  // 委員實地稽核評分與發現:進入「實地稽核」階段才開放(資料齊備僅供熟悉背景);結案後鎖定
+  // 委員實地稽核評分與發現:進入「實地稽核」階段才開放(資料齊備僅供熟悉背景);結案後鎖定。
+  // 觀察員完全移除評分(需求二-1)→ 一律 NONE,改走 practice.access。
   'audit.score': {
     SUPER_ADMIN: NONE,
     ORG_ADMIN: NONE,
     AUDITOR: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    OBSERVER: NONE,
   },
-  // 缺失與矯正管考:中心全程;機關待矯正執行(REMEDIATION)後才填報(結案後仍可看自家紀錄);委員待缺失發布後可審、結案後鎖定
+  // 觀察員「稽核發現撰寫練習」(批30):階段閘比照委員評分;僅觀察員本人這個粗閘為真
+  // (指導委員/中心檢視屬細粒度 assertPracticeAccess,不在此表)。
+  'practice.access': {
+    SUPER_ADMIN: NONE,
+    ORG_ADMIN: NONE,
+    AUDITOR: NONE,
+    // 結案後仍開放(批49 圖2):練習為觀察員學習素材、結構性隔離,不隨結案鎖定。
+    OBSERVER: ['ONSITE', 'REPORT_ISSUED', 'REMEDIATION', 'CLOSED'],
+  },
+  // 缺失與矯正管考:中心全程;機關待矯正執行(REMEDIATION)後才填報(結案後仍可看自家紀錄);
+  // 委員待缺失發布後可審、結案後鎖定;觀察員一律不可(需求一-2)。
   'deficiencies.view': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: ['REMEDIATION', 'CLOSED'],
     AUDITOR: ['REPORT_ISSUED', 'REMEDIATION'],
+    OBSERVER: NONE,
   },
-  // 用印掃描檔整段:機關/中心於矯正執行中之後可見;委員不參與
+  // 用印掃描檔整段:機關/中心於矯正執行中之後可見;委員/觀察員不參與
   'signedReport.section': {
     SUPER_ADMIN: ['REMEDIATION', 'CLOSED'],
     ORG_ADMIN: ['REMEDIATION', 'CLOSED'],
     AUDITOR: NONE,
+    OBSERVER: NONE,
   },
-  // 上傳用印掃描檔:僅機關,結案後不可(已確認鎖定屬項目狀態,另判)
+  // 上傳用印掃描檔:僅機關,且須到達「矯正執行(REMEDIATION)」階段方可(用印掃描檔為矯正收尾產物);
+  // 結案後不可(已確認鎖定屬項目狀態,另判)。
   'signedReport.upload': {
     SUPER_ADMIN: NONE,
-    ORG_ADMIN: ['DRAFT', 'PREPARATION', 'READY', 'ONSITE', 'REPORT_ISSUED', 'REMEDIATION'],
+    ORG_ADMIN: ['REMEDIATION'],
     AUDITOR: NONE,
+    OBSERVER: NONE,
   },
-  // 彙整報告:中心專用
+  // 彙整報告:中心專用(觀察員練習資料另有獨立資料表,結構性不可能進入報告)
   'auditReport.view': {
     SUPER_ADMIN: ALL,
     ORG_ADMIN: NONE,
     AUDITOR: NONE,
+    OBSERVER: NONE,
+  },
+  // 缺失持續列管工作區(批71):跨年度滾動,不綁週期階段 → 允許者於「所有階段」皆允許(ALL),
+  // 未允許者於所有階段皆拒絕(NONE)。中心/機關/委員可見(細粒度自家機關·協審委員閘由 API 另管);
+  // 觀察員一律不可(缺失管考不對觀察員開放,對齊 deficiencies.view)。
+  'tracking.view': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: ALL,
+    AUDITOR: ALL,
+    OBSERVER: NONE,
+  },
+  // 事前場次調查(批A):年度制,不綁週期階段 → 允許者全階段允許(ALL)、拒絕者全階段拒絕(NONE)。
+  // ⚠️與 tracking 相反:觀察員為第一線受調者故 ALL;機關(ORG_ADMIN)不涉入場次調查故 NONE(細粒度「僅本人」由 API 另管)。
+  'presurvey.view': {
+    SUPER_ADMIN: ALL,
+    ORG_ADMIN: NONE,
+    AUDITOR: ALL,
+    OBSERVER: ALL,
   },
 };
 

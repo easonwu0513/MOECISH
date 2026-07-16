@@ -47,29 +47,30 @@ const variantStyles: Record<Variant, string> = {
     'hover:bg-primary-700 hover:shadow-elev-2 ' +
     'active:bg-primary-800 active:shadow-elev-1',
   tonal:
-    'bg-primary-container text-on-primary-container ' +
+    'bg-focus-wash text-primary-700 ' +
     'hover:bg-primary-200 active:bg-primary-300',
   outlined:
-    'bg-transparent text-primary-700 border border-outline-variant ' +
-    'hover:bg-primary-50/60 hover:border-outline active:bg-primary-100',
+    'bg-transparent text-primary-700 border border-neutral-400 ' +
+    'hover:bg-primary-50/60 hover:border-neutral-500 active:bg-primary-100',
   text:
     'bg-transparent text-primary-700 ' +
     'hover:bg-primary-50/80 active:bg-primary-100',
   ghost:
-    'bg-transparent text-on-surface-variant ' +
-    'hover:bg-surface-container active:bg-surface-container-high',
+    'bg-transparent text-ink-500 ' +
+    'hover:bg-paper-sunk active:bg-rule-strong',
   elevated:
-    'bg-surface-container-low text-primary-700 shadow-elev-1 ' +
-    'hover:bg-surface-container hover:shadow-elev-2 active:shadow-elev-1',
+    'bg-paper-sunk text-primary-700 shadow-elev-1 ' +
+    'hover:bg-rule-strong hover:shadow-elev-2 active:shadow-elev-1',
+  // 語意實心鈕對齊 TONE.solid=600 單一深淺基準(批72 filled 已 600,此三色補齊;批75 消最後色階漂移)
   danger:
-    'bg-danger-500 text-white shadow-elev-1 ' +
-    'hover:bg-danger-600 hover:shadow-elev-2 active:bg-danger-700',
+    'bg-danger-600 text-white shadow-elev-1 ' +
+    'hover:bg-danger-700 hover:shadow-elev-2 active:bg-danger-800',
   success:
-    'bg-success-500 text-white shadow-elev-1 ' +
-    'hover:bg-success-600 hover:shadow-elev-2 active:bg-success-700',
+    'bg-success-600 text-white shadow-elev-1 ' +
+    'hover:bg-success-700 hover:shadow-elev-2 active:bg-success-800',
   warning:
-    'bg-warning-500 text-white shadow-elev-1 ' +
-    'hover:bg-warning-600 hover:shadow-elev-2 active:bg-warning-700',
+    'bg-warning-600 text-white shadow-elev-1 ' +
+    'hover:bg-warning-700 hover:shadow-elev-2 active:bg-warning-800',
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -104,6 +105,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     '[@media(pointer:coarse)]:min-h-11',
     'transition-all duration-200 ease-standard focus-ring',
     'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
+    // loading:維持滿色 + 進行游標,讀作「處理中」而非「停用」(批77:優於原本一律降 40% 像失效)
+    loading && 'disabled:!opacity-90 disabled:!cursor-progress disabled:!shadow-elev-1',
     '[&:active:not(:disabled)]:scale-[0.985]',
     variantStyles[variant],
     sizeStyles[size],
@@ -138,6 +141,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <button
       ref={ref}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={classes}
       {...rest}
     >

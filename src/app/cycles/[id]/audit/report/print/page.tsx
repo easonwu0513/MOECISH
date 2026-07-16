@@ -15,6 +15,7 @@ export default async function AuditReportPrintPage({ params }: { params: { id: s
   // 彙整報告為中心(最高管理員)專用;機關回週期、委員回自己的評分頁(與 report 頁一致)
   if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
   if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}/audit`);
+  if (user.role === 'OBSERVER') redirect(`/cycles/${params.id}/practice`);
 
   const data = await loadAuditReport(params.id);
   if (!data) notFound();
@@ -22,7 +23,7 @@ export default async function AuditReportPrintPage({ params }: { params: { id: s
   const report = buildReportData(data);
 
   return (
-    <main className="mx-auto max-w-[210mm] print:max-w-none bg-white px-[20mm] py-[15mm] print:px-0 print:py-0 text-black">
+    <main className="mx-auto max-w-[210mm] print:max-w-none bg-card px-[20mm] py-[15mm] print:px-0 print:py-0 text-black">
       <PrintTrigger />
       <AssembledReport data={report} />
     </main>

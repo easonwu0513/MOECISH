@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     // 系統自動項(autoKey)與純提醒項不接受手動勾選(CYCLE/PROGRAMME 皆同,避免 UI 隱藏但 API 可寫的幽靈進度);
     // 「必做・手動勾選」項(無 autoKey 且非純提醒,由編輯器設定)開放手動勾選。
     if (item.autoKey != null || item.informational) {
-      throw new AuthError(400, '此項目由系統自動判定或為純提醒,無法手動勾選');
+      throw new AuthError(400, '此項目由系統自動判定或為純提醒，無法手動勾選');
     }
     if (!canToggleJourneyItem(user.role, scope, item.role)) {
       throw new AuthError(403, '此項目非您可勾選');
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       const { cycle } = await assertCycleAccess(body.cycleId);
       // 未到達的階段不可先勾(與週期頁「尚未開放」鎖定一致;避免 ?stage=all 檢視時預勾未來任務)
       if (!cycleStageReached(item.stage.stageKey, cycle.status as CycleStatus)) {
-        throw new AuthError(400, '該階段尚未開始,無法勾選');
+        throw new AuthError(400, '該階段尚未開始，無法勾選');
       }
       progress = await prisma.journeyProgress.upsert({
         where: { itemId_cycleId: { itemId: item.id, cycleId: body.cycleId } },

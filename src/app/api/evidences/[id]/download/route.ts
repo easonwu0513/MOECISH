@@ -6,6 +6,8 @@ import { errorResponse } from '@/lib/api';
 
 /** 圖片與 PDF 可用 ?inline=1 於瀏覽器內預覽(委員審查比對用);其餘一律下載。 */
 const INLINE_MIME = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/i;
+/** 圖片一律 inline、不回 attachment(UAT 批40:圖片佐證關閉下載;UI 端 ProtectedFileLink 同步只給檢視器)。 */
+const FORCE_INLINE_MIME = /^image\//i;
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -16,7 +18,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const buf = await readFileByKey(e.storageKey);
     const wantInline = new URL(req.url).searchParams.get('inline') === '1';
     const disposition =
-      wantInline && INLINE_MIME.test(e.mimeType || '') ? 'inline' : 'attachment';
+      FORCE_INLINE_MIME.test(e.mimeType || '') || (wantInline && INLINE_MIME.test(e.mimeType || ''))
+        ? 'inline'
+        : 'attachment';
     return new NextResponse(new Uint8Array(buf), {
       status: 200,
       headers: {

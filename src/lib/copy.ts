@@ -28,6 +28,11 @@ export const EMPTY = {
     title: '建立第一個稽核週期',
     description: '先在「醫院管理」建立受稽機關，即可開立年度稽核週期，啟動稽核管考流程。',
   },
+  // 委員/觀察員視角:卡住多是「尚未被指派/配對」,非「週期不存在」,避免誤導去等中心開週期
+  noCyclesAssignee: {
+    title: '尚無您的稽核任務',
+    description: '您尚未被指派或配對至任何稽核週期，請洽中心確認。',
+  },
   noDeficiencies: {
     title: '尚未發布稽核缺失',
     description: '實地稽核後由最高管理員發布缺失清單；目前沒有需要處理的項目。',

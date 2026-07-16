@@ -13,14 +13,14 @@ import { CYCLE_STATUS_MESSAGES } from '../lib/notify';
 import type { CycleStatus } from '../lib/types';
 
 // 預期真值表(規格;與 notify-policy 實作彼此獨立,相符才算對)。
-const EXPECT: Record<CycleStatus, { org: boolean; committee: boolean }> = {
-  DRAFT: { org: false, committee: false }, // 不會 forward 進 DRAFT
-  PREPARATION: { org: true, committee: false }, // 機關上傳資料
-  READY: { org: true, committee: true }, // 機關:已齊備;委員:可開始審閱
-  ONSITE: { org: false, committee: false }, // 雙方此階段於系統內無可操作項目(第十三批)
-  REPORT_ISSUED: { org: true, committee: false },
-  REMEDIATION: { org: true, committee: false },
-  CLOSED: { org: true, committee: false },
+const EXPECT: Record<CycleStatus, { org: boolean; committee: boolean; observer: boolean }> = {
+  DRAFT: { org: false, committee: false, observer: false }, // 不會 forward 進 DRAFT
+  PREPARATION: { org: true, committee: false, observer: false }, // 機關上傳資料
+  READY: { org: true, committee: true, observer: true }, // 機關:已齊備;委員/觀察員:可開始審閱(批66 M2)
+  ONSITE: { org: false, committee: false, observer: false }, // 各方此階段於系統內無可操作項目(第十三批)
+  REPORT_ISSUED: { org: true, committee: false, observer: false },
+  REMEDIATION: { org: true, committee: false, observer: false },
+  CLOSED: { org: true, committee: false, observer: false },
 };
 
 const STATUSES = Object.keys(EXPECT) as CycleStatus[];
@@ -30,7 +30,7 @@ const failures: string[] = [];
 
 for (const status of STATUSES) {
   const got = cycleTransitionNotify(status);
-  for (const role of ['org', 'committee'] as const) {
+  for (const role of ['org', 'committee', 'observer'] as const) {
     const expected = EXPECT[status][role];
     if (got[role] === expected) {
       pass++;

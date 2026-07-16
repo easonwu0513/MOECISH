@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { POST_CATEGORIES } from '@/lib/types';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { postScheduleField, parsePostScheduleDT } from '@/lib/posts';
 
 const Body = z.object({
   title: z.string().min(2, '請輸入標題'),
@@ -13,6 +14,10 @@ const Body = z.object({
   slug: z.string().regex(/^[a-z0-9-]*$/, 'slug 僅限小寫英數與連字號').optional(),
   important: z.boolean().optional(),
   pinned: z.boolean().optional(),
+  // 排程上下架(UAT 批43):建立草稿時一併保存——原本只有 PATCH 收此二欄,
+  // 「新增公告+儲存草稿」排程默默丟棄,之後按「發布」讀不到排程就變立即上架。
+  publishAt: postScheduleField,
+  unpublishAt: postScheduleField,
 });
 
 export async function POST(req: Request) {
@@ -24,6 +29,13 @@ export async function POST(req: Request) {
     const dup = await prisma.post.findUnique({ where: { slug } });
     if (dup) return NextResponse.json({ error: '此 slug 已存在' }, { status: 400 });
 
+    // 排程時間隨草稿保存(status 仍為 DRAFT,不會提前見前台;lifecycle 由 status+時間窗判定)
+    const publishedAt = body.publishAt ? parsePostScheduleDT(body.publishAt) : null;
+    const unpublishAt = body.unpublishAt ? parsePostScheduleDT(body.unpublishAt) : null;
+    if (publishedAt && unpublishAt && unpublishAt.getTime() <= publishedAt.getTime()) {
+      return NextResponse.json({ error: '排定下架時間須晚於上架時間' }, { status: 400 });
+    }
+
     const item = await prisma.post.create({
       data: {
         slug,
@@ -33,6 +45,8 @@ export async function POST(req: Request) {
         important: body.important ?? false,
         pinned: body.pinned ?? false,
         status: 'DRAFT',
+        publishedAt,
+        unpublishAt,
         authorId: user.id,
       },
     });

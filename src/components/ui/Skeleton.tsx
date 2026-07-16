@@ -5,7 +5,7 @@ export function Skeleton({ className, style }: { className?: string; style?: CSS
   return (
     <div
       className={cn(
-        'animate-pulse bg-surface-container-high rounded-md',
+        'animate-pulse bg-paper-sunk rounded-md',
         className,
       )}
       style={style}

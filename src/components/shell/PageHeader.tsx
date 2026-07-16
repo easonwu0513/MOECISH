@@ -25,11 +25,11 @@ export function PageHeader({
     <header className={cn('mb-6 flex items-start justify-between gap-4 flex-wrap', className)}>
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-headline text-on-surface">{title}</h1>
+          <h1 className="text-headline text-ink-900">{title}</h1>
           {chips}
         </div>
         {subtitle && (
-          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">{subtitle}</p>
+          <p className="mt-1 text-body-sm text-ink-500 leading-relaxed">{subtitle}</p>
         )}
       </div>
       {actions && <div className="flex gap-2 flex-wrap shrink-0">{actions}</div>}

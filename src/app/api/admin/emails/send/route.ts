@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     const input = Body.parse(await req.json());
     const base = appBaseUrl(req);
 
+    // 群發以「收件人自身機關」代入 {{orgName}},故按主要身分綁機關查(刻意不套 orgAdminWhere:
+    // 多重身分授權帳號的現用主機關可能非所選機關,套用會使 {{orgName}} 錯置。自動逾期催繳由 run-tracking 覆蓋多重身分)。
     const recipients = await prisma.user.findMany({
       where: {
         organizationId: { in: input.organizationIds },
@@ -43,7 +45,9 @@ export async function POST(req: Request) {
       await sendEmail({
         to: r.email,
         toName: r.name,
-        subject: input.subject,
+        subject: input.subject
+          .replaceAll('{{orgName}}', r.organization?.name ?? '')
+          .replaceAll('{{loginUrl}}', `${base}/login`),
         body,
         kind: 'tracking',
         context: { organizationId: r.organizationId, triggeredBy: user.id },
@@ -61,7 +65,14 @@ export async function POST(req: Request) {
       ...meta,
     });
 
-    return NextResponse.json({ sent });
+    // 批36:被選取但「無啟用中機關管理員」的機關會被靜默略過——回傳名單讓前端警示,
+    // 避免中心以為全數催辦到了(最該催的往往正是沒人維運的那家)。
+    const coveredOrgIds = new Set(recipients.map((r) => r.organizationId));
+    const skippedOrgIds = input.organizationIds.filter((id) => !coveredOrgIds.has(id));
+    const skippedOrgs = skippedOrgIds.length
+      ? (await prisma.organization.findMany({ where: { id: { in: skippedOrgIds } }, select: { name: true } })).map((o) => o.name)
+      : [];
+    return NextResponse.json({ sent, skippedOrgs });
   } catch (e) {
     return errorResponse(e);
   }

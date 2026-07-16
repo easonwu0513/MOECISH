@@ -55,7 +55,7 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
       return;
     }
     const j = await res.json();
-    toast.success('批次指派完成', `已指派 ${j.assigned} 個週期${j.skipped?.length ? `,略過 ${j.skipped.length}(已指派/迴避)` : ''}。`);
+    toast.success('批次指派完成', `已指派 ${j.assigned} 個週期${j.skipped?.length ? `，略過 ${j.skipped.length}（已指派/迴避）` : ''}。`);
     setOpen(false);
     setChecked(new Set());
     setAuditorId('');
@@ -69,11 +69,11 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
         open={open}
         onOpenChange={(v) => !busy && setOpen(v)}
         title="批次指派委員"
-        description="選一位委員,勾選要指派的週期一次套用;委員服務之機關會自動迴避(不可勾)。"
+        description="選一位委員，勾選要指派的週期一次套用；委員服務之機關會自動迴避（不可勾）。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={busy}>取消</Button>
-            <Button variant="filled" onClick={submit} loading={busy}>確認指派({checked.size})</Button>
+            <Button variant="filled" onClick={submit} loading={busy}>確認指派（{checked.size})</Button>
           </>
         }
       >
@@ -86,19 +86,19 @@ export default function BatchAssignAuditors({ auditors, cycles }: { auditors: Au
           {auditorId && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-label text-on-surface">週期({checked.size} 已選)</p>
+                <p className="text-label text-ink-900">週期（{checked.size} 已選）</p>
                 <button type="button" onClick={selectAllAssignable} className="text-caption text-primary-700 hover:underline">全選可指派</button>
               </div>
-              <div className="max-h-72 overflow-y-auto rounded-md border border-outline-variant/60 divide-y divide-outline-variant/50">
+              <div className="max-h-72 overflow-y-auto rounded-md border border-rule divide-y divide-rule">
                 {cycles.map((c) => {
                   const r = recuse(c);
                   const fz = frozen(c);
                   const disabled = r || fz;
                   return (
-                    <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2.5 text-body-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-container'}`}>
+                    <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2.5 text-body-sm ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-paper-sunk'}`}>
                       <input type="checkbox" disabled={disabled} checked={checked.has(c.id)} onChange={() => toggle(c.id)} className="accent-primary-600" />
-                      <span className="flex-1 text-on-surface">{c.label}</span>
-                      {r ? <span className="text-caption text-warning-700 shrink-0">迴避</span> : fz && <span className="text-caption text-on-surface-variant shrink-0">已凍結</span>}
+                      <span className="flex-1 text-ink-900">{c.label}</span>
+                      {r ? <span className="text-caption text-warning-700 shrink-0">迴避</span> : fz && <span className="text-caption text-ink-500 shrink-0">已凍結</span>}
                     </label>
                   );
                 })}

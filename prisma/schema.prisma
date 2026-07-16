@@ -14,8 +14,8 @@ datasource db {
 // ════════════════════════════════════════════
 
 model Organization {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String         @id @default(cuid())
+  code        String         @unique
   name        String
   shortName   String?
   parentId    String?
@@ -24,42 +24,78 @@ model Organization {
   users       User[]
   cycles      AuditCycle[]
   invitations Invitation[]
-  createdAt   DateTime @default(now())
+  trackedDeficiencies TrackedDeficiency[]
+  createdAt   DateTime       @default(now())
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
+  id             String        @id @default(cuid())
+  email          String        @unique
   name           String
   passwordHash   String
-  role           String   // Role: SUPER_ADMIN | ORG_ADMIN | AUDITOR
+  role           String // Role: SUPER_ADMIN | ORG_ADMIN | AUDITOR
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  isActive       Boolean  @default(true)
+  isActive       Boolean       @default(true)
   lastLoginAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 
   // 帳號生命週期 + 權責分立:停用須附理由與操作者(快照,無關聯;比照 JourneyProgress.doneById)
   disabledAt     DateTime?
-  disabledById   String?   // 停用操作者 id 快照
-  disabledByName String?   // 停用操作者姓名快照
-  disableReason  String?   // 停用理由(權責分立稽核軌跡)
+  disabledById   String? // 停用操作者 id 快照
+  disabledByName String? // 停用操作者姓名快照
+  disableReason  String? // 停用理由(權責分立稽核軌跡)
 
   // 資通系統防護基準(中級)— SECURITY_BASELINE 旗標啟用後生效
-  failedLoginCount   Int       @default(0)   // 連續登入失敗次數(成功即歸零)
-  lockedUntil        DateTime?                // 鎖定截止(失敗 5 次鎖 15 分鐘)
-  passwordChangedAt  DateTime?                // 密碼最後變更時間(效期計算)
+  failedLoginCount   Int       @default(0) // 連續登入失敗次數(成功即歸零)
+  lockedUntil        DateTime? // 鎖定截止(失敗 5 次鎖 15 分鐘)
+  passwordChangedAt  DateTime? // 密碼最後變更時間(效期計算)
   mustChangePassword Boolean   @default(false) // 強制變更(初始密碼/逾效期)
-  passwordHistory    String?                  // JSON:最近 3 個 bcrypt 雜湊(禁止重用)
+  passwordHistory    String? // JSON:最近 3 個 bcrypt 雜湊(禁止重用)
 
-  auditorAssignments AuditorAssignment[]
-  auditScores        AuditScore[]
-  auditFindings      AuditFinding[]
-  cycleTransitions   CycleStateTransition[]
-  auditLogs          AuditLog[]
-  notifications      Notification[]
-  passwordResetTokens PasswordResetToken[]
-  reviewedDeficiencies Deficiency[] @relation("DeficiencyReviewer")
+  auditorAssignments   AuditorAssignment[]
+  auditScores          AuditScore[]
+  auditFindings        AuditFinding[]
+  cycleTransitions     CycleStateTransition[]
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  passwordResetTokens  PasswordResetToken[]
+  reviewedDeficiencies Deficiency[]           @relation("DeficiencyReviewer")
+  // 觀察員(批30):被配對之週期 / 擔任指導委員之配對 / 練習發現 / 指導回饋
+  observerAssignments  CycleObserver[]        @relation("ObserverAssignments")
+  mentorAssignments    CycleObserver[]        @relation("MentorAssignments")
+  practiceFindings     PracticeFinding[]      @relation("PracticeFindings")
+  practiceFeedbacks    PracticeFeedback[]     @relation("PracticeFeedbacks")
+  practiceScores       PracticeScore[]        @relation("PracticeScores")
+  practiceComments     PracticeComment[]      @relation("PracticeComments")
+  // 缺失持續列管(批71):受指派協審之列管缺失(在職委員,一筆至多一位)
+  trackedAssignments   TrackedDeficiency[]    @relation("TrackedAuditor")
+  // 事前場次調查(批A):此帳號受調的年度參與紀錄(綁帳號,委員/觀察員)
+  surveyParticipations SurveyParticipant[]    @relation("SurveyParticipations")
+  // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
+  roleGrants           UserRole[]
+}
+
+// ════════════════════════════════════════════
+// 多重身分授權(批31):同一人可兼「機關管理員+觀察員+稽核委員」。
+// UserRole = 此帳號可切換的身分集合;User.role/organizationId = 「現用身分」。
+// 切換(POST /api/identity/switch)= 驗證授權後改寫 User.role/organizationId,
+// 騎乘 auth.ts jwt callback「每請求回查 DB」機制,下一請求 session 即生效(零 NextAuth 改造)。
+// 相容:無任何 UserRole 列的既有帳號 = 單一身分(視 User.role 為隱含授權),不顯示切換選單。
+// 收回不硬刪(endedAt 蓋章留歷史,權責分立);晉升觀察員→委員 = 結束 OBSERVER 授權+新增 AUDITOR 授權。
+// ════════════════════════════════════════════
+
+model UserRole {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String // SUPER_ADMIN | ORG_ADMIN | AUDITOR | OBSERVER
+  organizationId String? // ORG_ADMIN 必填(機關綁定);其餘角色 null
+  createdAt      DateTime  @default(now())
+  createdById    String // 授予者 id 快照(權責分立)
+  endedAt        DateTime? // 收回/晉升結束時間(null=有效)
+
+  @@index([userId, endedAt])
 }
 
 // 忘記密碼/管理員重設:一次性重設 token(存 SHA-256 雜湊,明文只放連結);單次使用、有期限。
@@ -67,11 +103,12 @@ model PasswordResetToken {
   id               String    @id @default(cuid())
   userId           String
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash        String    @unique          // SHA-256(明文 token);查詢用雜湊比對,DB 不存明文
-  expiresAt        DateTime                    // 自助 1h / 管理員 24h
-  usedAt           DateTime?                   // 消費後蓋章,單次使用
-  createdByAdminId String?                     // 管理員手動觸發時記錄操作者;自助則 null
+  tokenHash        String    @unique // SHA-256(明文 token);查詢用雜湊比對,DB 不存明文
+  expiresAt        DateTime // 自助 1h / 管理員 24h
+  usedAt           DateTime? // 消費後蓋章,單次使用
+  createdByAdminId String? // 管理員手動觸發時記錄操作者;自助則 null
   createdAt        DateTime  @default(now())
+
   @@index([userId])
 }
 
@@ -80,10 +117,10 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind      String                  // 對應 EmailKind
-  title     String                  // = 信件主旨(去 [MOECISH] 前綴)
-  body      String?                 // 摘要(信件主要內容段)
-  link      String?                 // 站內連結(多為 /cycles/...)
+  kind      String // 對應 EmailKind
+  title     String // = 信件主旨(去 [MOECISH] 前綴)
+  body      String? // 摘要(信件主要內容段)
+  link      String? // 站內連結(多為 /cycles/...)
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -92,11 +129,11 @@ model Notification {
 }
 
 model Invitation {
-  id             String    @id @default(cuid())
-  token          String    @unique
+  id             String        @id @default(cuid())
+  token          String        @unique
   email          String
   name           String
-  role           String    // Role
+  role           String // Role
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   createdById    String
@@ -104,7 +141,7 @@ model Invitation {
   usedAt         DateTime?
   userId         String?
   revokedAt      DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime      @default(now())
 
   @@index([email])
   @@index([organizationId])
@@ -115,20 +152,21 @@ model Invitation {
 // ════════════════════════════════════════════
 
 model Post {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  category    String    // PostCategory: ANNOUNCEMENT | INTEL | VULN_ALERT | EVENT
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  category    String // PostCategory: ANNOUNCEMENT | INTEL | VULN_ALERT | EVENT
   title       String
   contentMd   String
   coverKey    String?
-  important   Boolean   @default(false)
-  pinned      Boolean   @default(false)
-  status      String    @default("DRAFT") // PostStatus: DRAFT | PUBLISHED | ARCHIVED
-  publishedAt DateTime?
+  important   Boolean          @default(false)
+  pinned      Boolean          @default(false)
+  status      String           @default("DRAFT") // PostStatus: DRAFT | PUBLISHED | ARCHIVED
+  publishedAt DateTime? // 上架時間(批33:可排程未來=「待發布」;visible 需 status=PUBLISHED 且 publishedAt<=now)
+  unpublishAt DateTime? // 排定下架時間(批33:到時自動下架=查詢時間窗判定,免排程器;null=不自動下架)
   authorId    String
   attachments PostAttachment[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([status, category, publishedAt])
 }
@@ -148,29 +186,36 @@ model PostAttachment {
 // ════════════════════════════════════════════
 
 model AuditCycle {
-  id                 String   @id @default(cuid())
-  year               Int
-  organizationId     String
-  organization       Organization @relation(fields: [organizationId], references: [id])
-  checklistVersionId String                 // 沿用（檢核表模組保留為選用功能）
-  checklistVersion   ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
-  status             String   @default("DRAFT") // CycleStatus 2.0
-  startDate          DateTime
-  dueDate            DateTime?             // 矯正填報截止(實地稽核/發文後再設;可不填)
-  prepDueDate        DateTime?             // 資料準備(實地稽核區)繳交截止
-  prepDueTech        DateTime?             // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
-  techCheckDate      DateTime?             // 技術檢測日(執行技術檢測之日期;通常早於實地稽核日)
-  onsiteDate         DateTime?
-  closedAt           DateTime?
-  version            Int @default(0)
+  id                  String           @id @default(cuid())
+  year                Int
+  organizationId      String
+  organization        Organization     @relation(fields: [organizationId], references: [id])
+  checklistVersionId  String // 沿用（檢核表模組保留為選用功能）
+  checklistVersion    ChecklistVersion @relation(fields: [checklistVersionId], references: [id])
+  status              String           @default("DRAFT") // CycleStatus 2.0
+  startDate           DateTime
+  dueDate             DateTime? // 矯正填報截止(實地稽核/發文後再設;可不填)
+  prepDueDate         DateTime? // 資料準備(實地稽核區)繳交截止
+  prepDueTech         DateTime? // 資料準備(技術檢測區)繳交截止(可與實地稽核不同)
+  techCheckDate       DateTime? // 技術檢測日(執行技術檢測之日期;通常早於實地稽核日)
+  onsiteDate          DateTime?
+  // 委員審閱時間區間(UAT 批67):中心設定「開放委員檢視機關資料(資料準備+檢核表審閱)」的時段。
+  // 未設(任一端 null)→ 委員一律不可見(使用者裁定「沒設區間就不開放」);設了 → 僅 [start,end] 內開放。
+  reviewWindowStart   DateTime?
+  reviewWindowEnd     DateTime?
+  // 觀察員獨立審閱窗口(批30 需求一-1):與委員窗口平行的第二組區間,語義相同(未設=不開放)。
+  observerWindowStart DateTime?
+  observerWindowEnd   DateTime?
+  closedAt            DateTime?
+  version             Int              @default(0)
 
   // 檢核表填報閉環:機關送出後鎖定,委員/管理員可退回重填
   checklistSubmittedAt DateTime?
-  checklistSubmittedBy String?   // 送出者姓名快照
-  checklistReopenNote  String?   // 最近一次退回原因(重新送出時清空)
+  checklistSubmittedBy String? // 送出者姓名快照
+  checklistReopenNote  String? // 最近一次退回原因(重新送出時清空)
 
   // 實地稽核報告頁首設定(JSON:稽核日期/範圍/準則/領隊/副領隊/三面團隊)
-  auditReportMeta      String?
+  auditReportMeta String?
 
   responses        ChecklistResponse[]
   deficiencies     Deficiency[]
@@ -181,8 +226,12 @@ model AuditCycle {
   auditScores      AuditScore[]
   auditFindings    AuditFinding[]
   journeyProgress  JourneyProgress[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  observers        CycleObserver[]
+  practiceFindings PracticeFinding[]
+  practiceScores   PracticeScore[]
+  trackedDeficiencies TrackedDeficiency[] // 批71:此週期缺失拋轉之持續列管項(來源週期)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
 
   @@unique([organizationId, year])
 }
@@ -193,20 +242,20 @@ model AuditCycle {
 
 // 委員實地稽核評分:每委員 × 每週期 × 九稽核項目(= 檢核表九構面)一筆
 model AuditScore {
-  id        String @id @default(cuid())
-  cycleId   String
-  cycle     AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  auditorId String
-  auditor   User @relation(fields: [auditorId], references: [id])
-  dimension String   // Dimension(一~九,七配分 20 其餘 10)
-  score     Int?     // 委員評分(null=尚未評;可僅填檢核數量)
+  id           String     @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  auditorId    String
+  auditor      User       @relation(fields: [auditorId], references: [id])
+  dimension    String // Dimension(一~九,七配分 20 其餘 10)
+  score        Int? // 委員評分(null=尚未評;可僅填檢核數量)
   // 委員手動判定之檢核結果數量(預設空白;彙整/列印依此呈現,不再自動帶機關自評)
-  cntComply    Int?  // 符合
-  cntPartial   Int?  // 部分符合
-  cntNonComply Int?  // 不符合
-  cntNa        Int?  // 不適用
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  cntComply    Int? // 符合
+  cntPartial   Int? // 部分符合
+  cntNonComply Int? // 不符合
+  cntNa        Int? // 不適用
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@unique([cycleId, auditorId, dimension])
   @@index([cycleId])
@@ -214,18 +263,18 @@ model AuditScore {
 
 // 委員稽核發現(稽核當天逐條輸入;自動彙整;待改善/建議可一鍵轉入缺失管考)
 model AuditFinding {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   cycleId      String
   cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   auditorId    String
-  auditor      User @relation(fields: [auditorId], references: [id])
-  aspect       String   // STRATEGY | MANAGEMENT | TECHNICAL
-  kind         String   // COMPLIANCE(法遵符合)| IMPROVE(待改善)| SUGGEST(建議)
+  auditor      User       @relation(fields: [auditorId], references: [id])
+  aspect       String // STRATEGY | MANAGEMENT | TECHNICAL
+  kind         String // COMPLIANCE(法遵符合)| IMPROVE(待改善)| SUGGEST(建議)
   content      String
-  checklistRef String?  // 對應檢核項次(選填,如 "7.4")
-  deficiencyId String?  // 轉入缺失管考後回填(鎖定編輯)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  checklistRef String? // 對應檢核項次(選填,如 "7.4")
+  deficiencyId String? // 轉入缺失管考後回填(鎖定編輯)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@index([cycleId, aspect, kind])
 }
@@ -245,33 +294,128 @@ model FindingSnippet {
 }
 
 model AuditorAssignment {
-  id        String   @id @default(cuid())
-  cycleId   String
-  cycle     AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  auditorId String
-  auditor   User @relation(fields: [auditorId], references: [id])
-  role      String   @default("MEMBER") // LEAD / MEMBER
+  id            String     @id @default(cuid())
+  cycleId       String
+  cycle         AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  auditorId     String
+  auditor       User       @relation(fields: [auditorId], references: [id])
+  role          String     @default("MEMBER") // LEAD / MEMBER
   // 指派負責稽核構面(JSON 陣列;AssignAspect:STRATEGY/MANAGEMENT/MANAGEMENT_OT/TECHNICAL)。
   // 純指派標籤,不更動附件17 的 9 項評分結構;null/空=未指定(視同全構面)。
-  dimensions String?
-  reviewDoneAt DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
+  dimensions    String?
+  reviewDoneAt  DateTime? // 委員按「檢核表意見填寫完成」的時間(供中心掌握審閱進度)
   // 委員按「確認填寫完畢」鎖定其評分與稽核發現的時間;鎖定後不可改,解除鎖定會通知最高管理員。
   scoreLockedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt     DateTime   @default(now())
 
   @@unique([cycleId, auditorId])
 }
 
+// ════════════════════════════════════════════
+// 觀察員(批30):師徒制實習。觀察員配對「絕不」進 AuditorAssignment
+// (全站以「在指派表中」判定委員權力,混入即繼承委員權限;此表為顯式授予,fail-closed)。
+// ════════════════════════════════════════════
+
+model CycleObserver {
+  id               String     @id @default(cuid())
+  cycleId          String
+  cycle            AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  observerId       String
+  observer         User       @relation("ObserverAssignments", fields: [observerId], references: [id])
+  // 指導委員(師徒制,需求二-3):必須是本週期 AuditorAssignment 中的正式委員(API 驗證;
+  // 委員被抽換前需先改配對)。指導委員可檢視「自己帶的」觀察員練習並回饋。
+  mentorId         String
+  mentor           User       @relation("MentorAssignments", fields: [mentorId], references: [id])
+  // 觀察員負責構面(比照 AuditorAssignment.dimensions;JSON 陣列 AssignAspect)。
+  // 純練習聚焦標籤(練習工作台標示負責構面),不影響任何授權;null/空=未指定(視同全構面)。
+  dimensions       String?
+  // 觀察員練習「確認填寫完畢(送出)」鎖定時間(批45;比照 AuditorAssignment.scoreLockedAt)。
+  // 鎖定後練習評分/發現編輯一律擋下;解除鎖定會提醒觀察員告知工作人員與指導委員。第二階段作委員評分依據。
+  practiceLockedAt DateTime?
+  createdAt        DateTime   @default(now())
+
+  @@unique([cycleId, observerId])
+  @@index([cycleId, mentorId])
+}
+
+// 練習發現(需求二-2 硬隔離):獨立資料表=結構性保證「絕不代入彙整工具/正式報告/缺失管考」——
+// buildReportData/彙整/列印/Word/缺失匯入全部只讀 AuditFinding,本表無 deficiencyId、無任何報告端消費者。
+// 可見範圍:觀察員本人(讀寫own)/指導委員(讀+回饋)/中心(唯讀監督);機關完全不可見。
+model PracticeFinding {
+  id           String             @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  observerId   String
+  observer     User               @relation("PracticeFindings", fields: [observerId], references: [id])
+  aspect       String // STRATEGY | MANAGEMENT | TECHNICAL(與正式發現同結構,練習才有意義)
+  kind         String // COMPLIANCE | IMPROVE | SUGGEST
+  content      String
+  checklistRef String? // 對應檢核項次(選填,如 "7.4")
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  feedbacks    PracticeFeedback[]
+
+  @@index([cycleId, observerId])
+}
+
+// 指導委員對單條練習發現的回饋(文字);刪除練習發現時級聯刪除。
+model PracticeFeedback {
+  id                String          @id @default(cuid())
+  practiceFindingId String
+  practiceFinding   PracticeFinding @relation(fields: [practiceFindingId], references: [id], onDelete: Cascade)
+  mentorId          String
+  mentor            User            @relation("PracticeFeedbacks", fields: [mentorId], references: [id])
+  content           String
+  createdAt         DateTime        @default(now())
+}
+
+// 練習評分(批42):觀察員練習用附件17評分,獨立表硬隔離——彙整/列印/報告消費端只讀 AuditScore,
+// 本表無任何報告端消費者,結構性保證絕不進正式結果(比照 PracticeFinding)。
+model PracticeScore {
+  id           String     @id @default(cuid())
+  cycleId      String
+  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  observerId   String
+  observer     User       @relation("PracticeScores", fields: [observerId], references: [id])
+  dimension    String // Dimension(一~九;與 AuditScore 同結構)
+  score        Int?
+  cntComply    Int?
+  cntPartial   Int?
+  cntNonComply Int?
+  cntNa        Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([cycleId, observerId, dimension])
+  @@index([cycleId])
+}
+
+// 觀察員意見(批42):檢核表逐題「練習意見」,獨立表硬隔離——僅觀察員本人/其指導者/中心可見,
+// 機關與委員完全不可見(委員意見走 AuditorComment,機關補正回應等下游僅掛該表,本表無此耦合)。
+model PracticeComment {
+  id         String            @id @default(cuid())
+  responseId String
+  response   ChecklistResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  observerId String
+  observer   User              @relation("PracticeComments", fields: [observerId], references: [id])
+  content    String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([responseId])
+  @@index([observerId])
+}
+
 model CycleStateTransition {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   cycleId    String
   cycle      AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   fromStatus String?
   toStatus   String
   actorId    String
-  actor      User @relation(fields: [actorId], references: [id])
+  actor      User       @relation(fields: [actorId], references: [id])
   reason     String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime   @default(now())
 }
 
 // ════════════════════════════════════════════
@@ -279,21 +423,21 @@ model CycleStateTransition {
 // ════════════════════════════════════════════
 
 model PrepTemplate {
-  id    String @id @default(cuid())
-  name  String
-  items PrepTemplateItem[]
-  createdAt DateTime @default(now())
+  id        String             @id @default(cuid())
+  name      String
+  items     PrepTemplateItem[]
+  createdAt DateTime           @default(now())
 }
 
 model PrepTemplateItem {
-  id          String  @id @default(cuid())
+  id          String             @id @default(cuid())
   templateId  String
-  template    PrepTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  template    PrepTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  required    Boolean @default(true)
-  category    String  @default("ONSITE") // 同 PrepCategory(TECH/ONSITE/CENTER)
-  year        Int?    // 年度分類(西元,同 AuditCycle.year;null=通用逐年皆帶)。套用時取「該年度+通用」,年度同名優先
+  required    Boolean            @default(true)
+  category    String             @default("ONSITE") // 同 PrepCategory(TECH/ONSITE/CENTER)
+  year        Int? // 年度分類(西元,同 AuditCycle.year;null=通用逐年皆帶)。套用時取「該年度+通用」,年度同名優先
   orderIndex  Int
   files       PrepTemplateFile[]
 }
@@ -301,7 +445,7 @@ model PrepTemplateItem {
 // 資料準備清單「文件範本」:中心上傳供機關下載依式填寫(僅此處允許 Word/Excel 等可編輯格式;
 // 機關佐證上傳仍限 PDF/JPG/PNG)。掛在年度化的清單項目上=歷年範本隨年度項目自然保存。
 model PrepTemplateFile {
-  id           String @id @default(cuid())
+  id           String           @id @default(cuid())
   itemId       String
   item         PrepTemplateItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   originalName String
@@ -310,37 +454,37 @@ model PrepTemplateFile {
   storageKey   String
   sha256       String
   uploadedById String
-  uploadedAt   DateTime @default(now())
+  uploadedAt   DateTime         @default(now())
 
   @@index([itemId])
 }
 
 model PrepRequirement {
-  id          String  @id @default(cuid())
+  id          String          @id @default(cuid())
   cycleId     String
-  cycle       AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  cycle       AuditCycle      @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  required    Boolean @default(true)
+  required    Boolean         @default(true)
   // PrepCategory:TECH(技術檢測)| ONSITE(實地稽核)| CENTER(中心匯入,中心上傳、無機關繳交)
-  category    String  @default("ONSITE")
+  category    String          @default("ONSITE")
   orderIndex  Int
   submission  PrepSubmission?
 }
 
 model PrepSubmission {
-  id            String  @id @default(cuid())
-  requirementId String  @unique
+  id            String          @id @default(cuid())
+  requirementId String          @unique
   requirement   PrepRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
   // PrepStatus: EMPTY(未處理) | UPLOADED(待繳交/草稿) | SUBMITTED(機關已確定繳交,鎖定) | CONFIRMED(中心確認齊備) | INSUFFICIENT(中心退回補正)
-  status        String  @default("EMPTY")
+  status        String          @default("EMPTY")
   note          String?
-  noFileReason  String?   // 無相關文件時的敘述理由(與檔案二擇一即視為已處理)
+  noFileReason  String? // 無相關文件時的敘述理由(與檔案二擇一即視為已處理)
   submittedAt   DateTime? // 機關「確定繳交」時間
   reviewNote    String?
   reviewedById  String?
   reviewedAt    DateTime?
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime        @updatedAt
 }
 
 // ════════════════════════════════════════════
@@ -349,73 +493,75 @@ model PrepSubmission {
 // ════════════════════════════════════════════
 
 model Deficiency {
-  id           String  @id @default(cuid())
-  cycleId      String
-  cycle        AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  aspect       String  // DeficiencyAspect: STRATEGY | MANAGEMENT | TECHNICAL（構面）
-  type         String  // DeficiencyType: IMPROVE（待改善事項）| SUGGEST（建議事項）
-  itemNo       Int     // 構面 × 類型內之項次
-  description  String  // 缺失全文（含法源引用）
-  checklistRef String? // 檢核項參照，如 "9.10"
-  action       CorrectiveAction?
-  createdById  String
+  id                String            @id @default(cuid())
+  cycleId           String
+  cycle             AuditCycle        @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  aspect            String // DeficiencyAspect: STRATEGY | MANAGEMENT | TECHNICAL（構面）
+  type              String // DeficiencyType: IMPROVE（待改善事項）| SUGGEST（建議事項）
+  itemNo            Int // 構面 × 類型內之項次
+  description       String // 缺失全文（含法源引用）
+  checklistRef      String? // 檢核項參照，如 "9.10"
+  action            CorrectiveAction?
+  createdById       String
   // 審閱委員:由中心(SUPER_ADMIN)於「相關開立委員」中指派;null=尚未指派。
   // 審核權限(審核通過/退回補正)= 此委員 或 SUPER_ADMIN(見 action/review)。
   reviewerAuditorId String?
-  reviewerAuditor   User?   @relation("DeficiencyReviewer", fields: [reviewerAuditorId], references: [id])
-  createdAt    DateTime @default(now())
+  reviewerAuditor   User?             @relation("DeficiencyReviewer", fields: [reviewerAuditorId], references: [id])
+  // 批71:此缺失若因「辦理中」通過而拋轉持續列管,關聯其列管項(一缺失至多一列管項)
+  tracked           TrackedDeficiency?
+  createdAt         DateTime          @default(now())
 
   @@unique([cycleId, aspect, type, itemNo])
   @@index([cycleId, aspect])
 }
 
 model CorrectiveAction {
-  id                String  @id @default(cuid())
-  deficiencyId      String  @unique
+  id                String     @id @default(cuid())
+  deficiencyId      String     @unique
   deficiency        Deficiency @relation(fields: [deficiencyId], references: [id], onDelete: Cascade)
-  status            String  @default("PENDING")
+  status            String     @default("PENDING")
   // ActionStatus: PENDING（待填報）| DRAFT（填寫中）| SUBMITTED（已送審）| RETURNED（退回補正）| PASSED（審核通過）
-  round             Int     @default(1)
+  round             Int        @default(1)
   rootCause         String? // 發生原因（根因分析）
   measureStrategy   String? // 改善措施 — 策略面調整說明（null = 未勾選）
   measureManagement String? // 改善措施 — 管理面調整說明
   measureTechnical  String? // 改善措施 — 技術面調整說明
   plannedDate       DateTime? // 預計完成時程
-  trackingMethod    String?   // 進度追蹤方式
-  execStatus        String?   // ExecStatus: ON_TIME_DONE | IN_PROGRESS | LATE_DONE | LATE_IN_PROGRESS
+  trackingMethod    String? // 進度追蹤方式
+  execStatus        String? // ExecStatus: ON_TIME_DONE | IN_PROGRESS | LATE_DONE | LATE_IN_PROGRESS
   actualDate        DateTime? // 實際完成日期（如期完成/逾期完成）
   extendedDate      DateTime? // 預計完成日期延長至（逾期辦理中）
-  delayReason       String?   // 逾期原因
+  delayReason       String? // 逾期原因
   submittedAt       DateTime?
-  updatedAt         DateTime @updatedAt
+  updatedAt         DateTime   @updatedAt
 
   reviews ReviewRecord[]
 }
 
 model ReviewRecord {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   actionId  String
   action    CorrectiveAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
   round     Int
-  decision  String   // ReviewDecisionValue: PASS | RETURN
+  decision  String // ReviewDecisionValue: PASS | RETURN
   comment   String?
-  snapshot  String?  // 審查當下機關填報內容快照(JSON 字串,多輪比對用)
+  snapshot  String? // 審查當下機關填報內容快照(JSON 字串,多輪比對用)
   auditorId String
-  decidedAt DateTime @default(now())
+  decidedAt DateTime         @default(now())
 
   @@index([actionId, round])
 }
 
 model SignedReport {
-  id            String   @id @default(cuid())
+  id            String     @id @default(cuid())
   cycleId       String
   cycle         AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   fileKey       String
   fileName      String
   sha256        String
   uploadedById  String
-  uploadedAt    DateTime @default(now())
-  submittedById String?   // 機關「確認繳交」鎖定此掃描檔為正式繳交版本;null=草稿(可換版/再上傳)
+  uploadedAt    DateTime   @default(now())
+  submittedById String? // 機關「確認繳交」鎖定此掃描檔為正式繳交版本;null=草稿(可換版/再上傳)
   submittedAt   DateTime?
   confirmedById String?
   confirmedAt   DateTime?
@@ -424,15 +570,207 @@ model SignedReport {
 }
 
 // ════════════════════════════════════════════
+// 批71:歷年未完成缺失「持續列管」(跨年度滾動管考)
+//   機關填「未逾期辦理中/逾期辦理中」且委員審核通過 → 週期照常結案(零卡控,不動結案流),
+//   但該缺失自動拋轉此庫,由中心為主(可指派一位在職委員協審)滾動追蹤,直到真正完成。
+//   與 Deficiency/CorrectiveAction 解耦:originCycle 可能已結案,列管「不隨週期階段」鎖定
+//   (授權走 lib/access-policy tracking.view + 自家機關/協審委員細粒度閘,非週期階段閘)。
+//   快照缺失樣貌 → 列管庫獨立呈現,免回溯原週期。deficiencyId @unique = 拋轉冪等鍵。
+// ════════════════════════════════════════════
+
+model TrackedDeficiency {
+  id                String        @id @default(cuid())
+  deficiencyId      String        @unique // 一缺失至多一列管項(拋轉 upsert 冪等鍵)
+  deficiency        Deficiency    @relation(fields: [deficiencyId], references: [id], onDelete: Cascade)
+  organizationId    String
+  organization      Organization  @relation(fields: [organizationId], references: [id])
+  originCycleId     String
+  originCycle       AuditCycle    @relation(fields: [originCycleId], references: [id])
+  // 缺失快照(拋轉當下樣貌;列管庫獨立呈現)
+  aspect            String // DeficiencyAspect
+  type              String // DeficiencyType
+  itemNo            Int
+  description       String
+  checklistRef      String?
+  originYear        Int // 來源西元年(= originCycle.year)
+  status            String        @default("TRACKING") // TrackedStatus: TRACKING | COMPLETED
+  cadenceMonths     Int           @default(6) // 回報週期(月);逐筆可調
+  nextReportDue     DateTime // 下次回報期限(拋轉=now+6 個月;每次通過續列管=now+cadence)
+  // 協審委員(在職 AUDITOR,迴避該機關服務者);null=僅中心審核。可改指派。
+  assignedAuditorId String?
+  assignedAuditor   User?         @relation("TrackedAuditor", fields: [assignedAuditorId], references: [id])
+  reports           TrackedReport[]
+  createdAt         DateTime      @default(now())
+  closedAt          DateTime? // status=COMPLETED(認可完成)蓋章時間
+  closedById        String? // 認可完成之操作者 id 快照
+
+  @@index([organizationId, status])
+  @@index([assignedAuditorId, status])
+}
+
+model TrackedReport {
+  id            String            @id @default(cuid())
+  trackedId     String
+  tracked       TrackedDeficiency @relation(fields: [trackedId], references: [id], onDelete: Cascade)
+  content       String // 進度說明
+  execStatus    String // 沿用 ExecStatus(如期完成/未逾期辦理中/逾期完成/逾期辦理中)
+  submittedAt   DateTime          @default(now())
+  submittedById String // 送出者 id 快照
+  // 三態滾動審核決議:PENDING(待審)| CONTINUE(通過續列管)| COMPLETE(認可完成)| RETURNED(退回補正)
+  reviewStatus  String            @default("PENDING")
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedById  String? // 審核者 id 快照
+  createdAt     DateTime          @default(now())
+
+  @@index([trackedId])
+}
+
+// ════════════════════════════════════════════
+// 批A：事前場次調查（年度制,非 per-hospital）
+//   中心規劃某年度的稽核場次(地點/日期/必參加/目標委員與觀察員數),委員/觀察員自助填逐場次意願
+//   (地名對受調者隱藏,以序號呈現),中心於管考總表看意願矩陣、指派最終場次、催辦。
+//   角色:SUPER_ADMIN 管理 / AUDITOR(委員)·OBSERVER(觀察員)自助;ORG_ADMIN 不涉入(見 access-policy presurvey.view)。
+//   附件(cv/切結書)、差旅二階(交通/飲食)、公版檔案、匯出、自訂欄位=批B additive 疊加。
+// ════════════════════════════════════════════
+
+model SurveySession {
+  id                  String   @id @default(cuid())
+  year                Int // 西元(顯示 -1911);對齊全庫主流,勿存民國
+  date                DateTime? // 場次日期(可空=待定)
+  name                String // 地點/場次名稱(依 anonymizeFor* 決定對委員/觀察員是否以序號匿名呈現)
+  // UAT:每場次可各自決定是否對委員/觀察員匿名地點(預設 true=匿名,維持原行為;如委員共識會議可關閉,自助頁顯真實地名)
+  anonymizeForMember   Boolean  @default(true)
+  anonymizeForObserver Boolean  @default(true)
+  // D UAT:此場次是否為委員與觀察員「共同場次」(預設 true);false=委員專屬(如委員共識會議),觀察員自助頁與達標卡不含此場次
+  sharedWithObserver   Boolean  @default(true)
+  isRequired          Boolean  @default(false) // 必參加
+  remark              String? // 給受調者看的備註
+  targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)
+  targetObserverCount Int      @default(0) // 目標觀察員數
+  orderIndex          Int      @default(0) // 穩定排序 → 決定受調者看到的匿名序號
+  createdById         String // 建立者快照(權責分立)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  availabilities      SessionAvailability[]
+  finalAssignments    SurveyFinalAssignment[]
+
+  @@index([year, orderIndex])
+}
+
+model SurveyParticipant {
+  id            String    @id @default(cuid())
+  year          Int
+  userId        String
+  user          User      @relation("SurveyParticipations", fields: [userId], references: [id])
+  kind          String // MEMBER | OBSERVER(決定分表 / cv 需求 / 達標分母)
+  committeeType String? // 管理面 / 策略面 / 技術面 / 管理面-OT(委員細分;觀察員為 null)
+  phone         String? // 主要聯絡電話(可異於帳號)
+  email         String? // 主要聯絡信箱(自助頁預設代入帳號 email,本人可改)
+  phone2        String? // 次要聯絡電話(UAT:本人可自行新增另一組聯絡)
+  email2        String? // 次要聯絡信箱(UAT:另一組聯絡帳號)
+  note          String? // 中心對受調者的內部管理註記(自助頁不顯示;僅中心可改)
+  replyStatus   String    @default("NO") // 意願回信:YES | NO
+  docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED
+  submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
+  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更意願」;true=可無視填報時窗編修/送出意願(逾窗補填或變更用)
+  // ── 批B:文件繳交審核(cv/切結書經 Evidence 上傳,狀態機於此) ──
+  docStatus     String    @default("NONE") // NONE 未繳交 | SUBMITTED 已繳交 | RETURNED 待補件
+  rejectReason  String? // 退補理由(docStatus=RETURNED 時有意義)
+  docSubmittedAt DateTime? // 文件送審時間
+  docReviewedAt DateTime? // 中心核可時間(null=待審或已退補;有值=已核可,供區分「待審 vs 已核可」)
+  // ── 批B:差旅二階(指派最終場次後解鎖;本人填,與中心 note 分離) ──
+  transport     String? // JSON string[]:交通方式(可複選)
+  diet          String? // JSON string[]:飲食需求(可複選)
+  travelNote    String? // 差旅特殊備註(本人填)
+  // ── mockup 改版:中心自訂欄位的值(JSON Record<columnId,string>;欄位定義見 SurveyCustomColumn。僅中心可改) ──
+  customValues  String?
+  invitedById   String // 中心加入者快照
+  invitedAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  availabilities   SessionAvailability[]
+  finalAssignments SurveyFinalAssignment[]
+
+  @@unique([year, userId, kind]) // 一年度一帳號一身分至多一列(允許同人同年度兼委員與觀察員)
+  @@index([year, kind])
+}
+
+// 批B:公版範本檔案(年度制;中心上傳,受調者下載。實體檔走 Evidence targetType=SURVEY_TEMPLATE)
+model SurveyTemplate {
+  id           String   @id @default(cuid())
+  year         Int
+  slot         String // CV_SAMPLE(舊版經歷說明書參考) | CV_BLANK(空白經歷說明書) | NDA_BLANK(空白切結書)
+  label        String
+  uploadedById String // 上傳者快照
+  createdAt    DateTime @default(now())
+
+  @@unique([year, slot]) // 一年度一槽至多一範本(防並發重傳產生重複列)
+  @@index([year])
+}
+
+// mockup 改版:中心可為管考表自訂欄位(年度制)。欄位「值」存於 SurveyParticipant.customValues JSON(以本表 id 為鍵),
+// 刪除欄位後 JSON 內殘鍵於渲染/匯出時忽略(無害),故不需連動清值。
+model SurveyCustomColumn {
+  id           String    @id @default(cuid())
+  year         Int
+  title        String
+  orderIndex   Int       @default(0)
+  selfEditable Boolean   @default(false) // true=開放受調者於自助頁自行填寫(否則為中心內部欄,受調者看不到)
+  dueDate      DateTime? // 受調者填報到期日(僅 selfEditable 有意義);設定後 timer 對值仍空者催辦本人
+  createdById  String // 建立者快照
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([year, orderIndex])
+}
+
+// UAT:意願填報開放時窗(年度制;中心設定,用於「安排好時間、避免安排後又變動」)。
+// openAt/closeAt 皆可為 null=該端不限;兩者皆 null 或無此列=永遠開放(向後相容)。
+// 逾窗後受調者不可改/送出意願;中心(SUPER_ADMIN)代填不受限;中心亦可對個別受調者開放補填(SurveyParticipant.editUnlocked)。
+model SurveyFillWindow {
+  year        Int       @id
+  openAt      DateTime?
+  closeAt     DateTime?
+  updatedById String // 最後設定者快照
+  updatedAt   DateTime  @updatedAt
+}
+
+model SessionAvailability {
+  id            String            @id @default(cuid())
+  participantId String
+  participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status        String // OK | NA(UAT 已移除 PENDING/待定;未填=無此列,送出時未答場次擋下要求補齊)
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([participantId, sessionId]) // 一人對一場次一票(upsert)
+  @@index([sessionId])
+}
+
+model SurveyFinalAssignment {
+  id            String            @id @default(cuid())
+  participantId String
+  participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignedById  String // 指派者快照
+  assignedAt    DateTime          @default(now())
+
+  @@unique([participantId, sessionId])
+  @@index([participantId])
+}
+
+// ════════════════════════════════════════════
 // 檢核表模組（保留為選用功能，2.0 預設不顯示於導航）
 // ════════════════════════════════════════════
 
 model ChecklistVersion {
-  id          String   @id @default(cuid())
-  year        Int      // 同年度可有多版本(如行政院公務機關版/醫療深度版)
+  id          String          @id @default(cuid())
+  year        Int // 同年度可有多版本(如行政院公務機關版/醫療深度版)
   name        String
   publishedAt DateTime?
-  isActive    Boolean  @default(false)
+  isActive    Boolean         @default(false)
   items       ChecklistItem[]
   cycles      AuditCycle[]
 
@@ -440,45 +778,46 @@ model ChecklistVersion {
 }
 
 model ChecklistItem {
-  id         String   @id @default(cuid())
-  versionId  String
-  version    ChecklistVersion @relation(fields: [versionId], references: [id])
-  dimension  String
-  itemNo     String
-  content    String
+  id               String              @id @default(cuid())
+  versionId        String
+  version          ChecklistVersion    @relation(fields: [versionId], references: [id])
+  dimension        String
+  itemNo           String
+  content          String
   // 法規對照(教育部醫療資安推動中心彙整;逐字法條引錄)
-  auditBasis       String?  // 稽核依據:法規條文逐字
-  auditFocus       String?  // 稽核重點
-  expectedEvidence String?  // 佐證資料(機關應備文件)
-  orderIndex Int
-  responses  ChecklistResponse[]
+  auditBasis       String? // 稽核依據:法規條文逐字
+  auditFocus       String? // 稽核重點
+  expectedEvidence String? // 佐證資料(機關應備文件)
+  orderIndex       Int
+  responses        ChecklistResponse[]
 
   @@unique([versionId, itemNo])
   @@index([versionId, dimension])
 }
 
 model ChecklistResponse {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   cycleId         String
-  cycle           AuditCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  cycle           AuditCycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   checklistItemId String
   checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id])
   compliance      String?
-  description     String?  // 簡述規範內容、執行方式、執行結果
-  recordDocs      String?  // 紀錄文件(如規範、紀錄、公文等)
-  orgRevisionNote String?  // 機關對委員意見的「補正回應」(與原填答區隔;有委員意見時可填)
-  version         Int      @default(0)
+  description     String? // 簡述規範內容、執行方式、執行結果
+  recordDocs      String? // 紀錄文件(如規範、紀錄、公文等)
+  orgRevisionNote String? // 機關對委員意見的「補正回應」(與原填答區隔;有委員意見時可填)
+  version         Int           @default(0)
   lastEditorId    String?
   lastEditedAt    DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime      @default(now())
 
-  comments AuditorComment[]
+  comments         AuditorComment[]
+  practiceComments PracticeComment[]
 
   @@unique([cycleId, checklistItemId])
 }
 
 model AuditorComment {
-  id           String   @id @default(cuid())
+  id           String            @id @default(cuid())
   responseId   String
   response     ChecklistResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   auditorId    String
@@ -486,7 +825,7 @@ model AuditorComment {
   round        Int
   resolvedAt   DateTime?
   resolvedById String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime          @default(now())
 
   @@index([responseId, round])
 }
@@ -496,31 +835,51 @@ model AuditorComment {
 // ════════════════════════════════════════════
 
 model EmailTemplate {
-  id      String  @id @default(cuid())
-  key     String  @unique // prep-insufficient | action-returned | due-soon | overdue | quarterly | invitation
-  subject String
-  bodyMd  String
-  enabled Boolean @default(true)
+  id        String   @id @default(cuid())
+  key       String   @unique // prep-insufficient | action-returned | due-soon | overdue | quarterly | invitation
+  subject   String
+  bodyMd    String
+  enabled   Boolean  @default(true)
   updatedAt DateTime @updatedAt
 }
 
+// 信件範本庫（LetterTemplate）：後台可編輯的公文/通知底稿，供產生器帶入變數→複製富文字貼到外部郵件用戶端寄送。
+// 移植自「信件範本工具」；templateKey 對應工具原編號（seed 冪等鍵）。不接管平台 HTML 寄信管線。
+model LetterTemplate {
+  id            String   @id @default(cuid())
+  templateKey   String   @unique // 對應工具原 id（如 "7"），seed 冪等鍵
+  category      String // 逗號分隔雙標籤，如「委員作業, 稽核-準備作業」
+  workflowOrder Int      @default(99) // 作業流程排序（1X 準備 / 2X 實地 / 3X 檢討 / 4XX 研討）
+  subGroup      String? // 子分組（如「稽核委員共識會議」）
+  title         String
+  attachment    String   @default("無") // 附件說明（非實體檔，供承辦備忘）
+  audience      String   @default("") // 收件對象說明
+  subject       String   @db.Text // 主旨（含 {{變數}}）
+  content       String   @db.Text // 內文（純文字 + 內嵌 HTML + {{變數}} + {{表格_XXX}}）
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([workflowOrder])
+}
+
 model EmailLog {
-  id        String   @id @default(cuid())
-  toEmail   String
-  toName    String?
-  subject   String
-  body      String
-  kind      String   // "invitation" | "cycle-notify" | "tracking" | "password-reset" | "other"
-  context   String?  // JSON
+  id                  String    @id @default(cuid())
+  toEmail             String
+  toName              String?
+  subject             String
+  body                String
+  kind                String // "invitation" | "cycle-notify" | "tracking" | "password-reset" | "other"
+  context             String? // JSON
   // 投遞狀態(可查詢欄;與 context.delivery 同步,供死信補寄 timer 掃描):
   // sent | failed | simulated | skipped | dead-letter(自動重試達上限)
-  status      String   @default("sent")
-  retryCount  Int      @default(0)   // 自動補寄已嘗試次數
-  lastRetryAt DateTime?               // 最近一次補寄時間(冷卻計算)
+  status              String    @default("sent")
+  retryCount          Int       @default(0) // 自動補寄已嘗試次數
+  lastRetryAt         DateTime? // 最近一次補寄時間(冷卻計算)
   templateKey         String?
   relatedInvitationId String?
   relatedCycleId      String?
-  sentAt    DateTime @default(now())
+  sentAt              DateTime  @default(now())
 
   @@index([sentAt])
   @@index([toEmail])
@@ -536,19 +895,19 @@ model EmailLog {
 // ════════════════════════════════════════════
 
 model JourneyTemplate {
-  id        String   @id @default(cuid())
-  scope     String   @unique // JourneyScope: CYCLE | PROGRAMME（每 scope 單一啟用範本）
+  id        String         @id @default(cuid())
+  scope     String         @unique // JourneyScope: CYCLE | PROGRAMME（每 scope 單一啟用範本）
   title     String
   stages    JourneyStage[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 }
 
 model JourneyStage {
-  id         String  @id @default(cuid())
+  id         String          @id @default(cuid())
   templateId String
   template   JourneyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  stageKey   String  // CYCLE：CycleStatus（DRAFT..CLOSED）；PROGRAMME：自訂 key
+  stageKey   String // CYCLE：CycleStatus（DRAFT..CLOSED）；PROGRAMME：自訂 key
   title      String
   summary    String?
   startDate  DateTime? // 開始日期(中心年度計畫執行 PROGRAMME 排程用;週期各階段 CYCLE 不使用)
@@ -561,37 +920,37 @@ model JourneyStage {
 }
 
 model JourneyItem {
-  id         String  @id @default(cuid())
-  stageId    String
-  stage      JourneyStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
-  title      String
-  hint       String?  // 附註 / 文件位置 / 提示
-  role       String?  // CYCLE：限定角色（null = 全體）；PROGRAMME：null
+  id            String            @id @default(cuid())
+  stageId       String
+  stage         JourneyStage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  title         String
+  hint          String? // 附註 / 文件位置 / 提示
+  role          String? // CYCLE：限定角色（null = 全體）；PROGRAMME：null
   // CYCLE 專用:此項對應的「系統動作」鍵 → 由 lib/journey-auto.ts 規則依週期實況自動判定完成。
   // 完成判定三型:autoKey 非空=系統自動;autoKey 空+informational=false=必做・手動勾選(JourneyProgress);
   // informational=true=純提醒(不勾選不計分)。PROGRAMME 的 informational 亦適用。
-  autoKey    String?
-  informational Boolean @default(false) // 純提醒項:不顯示勾選框、不計入進度
-  href       String?  // CYCLE 快捷跳轉覆寫(相對週期子路徑或錨點;null=依 journeyItemHref 系統推導)
-  orderIndex Int
-  progress   JourneyProgress[]
+  autoKey       String?
+  informational Boolean           @default(false) // 純提醒項:不顯示勾選框、不計入進度
+  href          String? // CYCLE 快捷跳轉覆寫(相對週期子路徑或錨點;null=依 journeyItemHref 系統推導)
+  orderIndex    Int
+  progress      JourneyProgress[]
 
   @@index([stageId])
 }
 
 model JourneyProgress {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   itemId        String
   item          JourneyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  cycleId       String?     // CYCLE scope 綁定
+  cycleId       String? // CYCLE scope 綁定
   cycle         AuditCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  programmeYear Int?        // PROGRAMME scope 綁定（一律存民國年 ROC，例 115；由 API 驗證 101–199）
-  done          Boolean  @default(false)
+  programmeYear Int? // PROGRAMME scope 綁定（一律存民國年 ROC，例 115；由 API 驗證 101–199）
+  done          Boolean     @default(false)
   doneAt        DateTime?
-  doneById      String?  // 勾選者 id（快照，無關聯）
-  doneByName    String?  // 勾選者姓名快照
+  doneById      String? // 勾選者 id（快照，無關聯）
+  doneByName    String? // 勾選者姓名快照
   note          String?
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime    @updatedAt
 
   @@unique([itemId, cycleId])
   @@unique([itemId, programmeYear])
@@ -605,7 +964,7 @@ model JourneyProgress {
 
 model Evidence {
   id           String   @id @default(cuid())
-  targetType   String   // EvidenceTargetType: CHECKLIST_RESPONSE | CORRECTIVE_ACTION | PREP_SUBMISSION | AUDIT_CYCLE
+  targetType   String // EvidenceTargetType: CHECKLIST_RESPONSE | CORRECTIVE_ACTION | PREP_SUBMISSION | AUDIT_CYCLE
   targetId     String
   fileName     String
   originalName String
@@ -630,7 +989,7 @@ model AuditLog {
   afterJson  String?
   ipAddress  String?
   userAgent  String?
-  chainHash  String?  // 雜湊鏈(防護基準中級:日誌完整性)= sha256(前筆 chainHash + 本筆內容)
+  chainHash  String? // 雜湊鏈(防護基準中級:日誌完整性)= sha256(前筆 chainHash + 本筆內容)
   createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])

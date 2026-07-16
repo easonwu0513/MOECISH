@@ -1,13 +1,14 @@
 import { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { TONE, type Tone } from '@/lib/tone';
 
 /**
  * Material 3 chips:
  *  - assist / suggestion → outlined
- *  - filter (selected)   → filled (primary-container)
+ *  - filter (selected)   → filled(實心 solid)
  *  - input (with dot)    → soft
+ * 色調一律取自 lib/tone 的單一來源 TONE(批72),不再於本檔手抄對照表。
  */
-type Tone = 'neutral' | 'primary' | 'sage' | 'success' | 'warning' | 'danger';
 type Size = 'xs' | 'sm' | 'md';
 type Variant = 'soft' | 'outlined' | 'filled';
 
@@ -17,42 +18,6 @@ type Props = HTMLAttributes<HTMLSpanElement> & {
   variant?: Variant;
   dot?: boolean;
   icon?: ReactNode;
-};
-
-const softTones: Record<Tone, string> = {
-  neutral: 'bg-surface-container-high text-on-surface',
-  primary: 'bg-primary-50 text-primary-800 ring-1 ring-inset ring-primary-200',
-  sage:    'bg-sage-50    text-sage-800    ring-1 ring-inset ring-sage-200',
-  success: 'bg-success-50 text-success-700 ring-1 ring-inset ring-success-200',
-  warning: 'bg-warning-50 text-warning-700 ring-1 ring-inset ring-warning-200',
-  danger:  'bg-danger-50  text-danger-700  ring-1 ring-inset ring-danger-200',
-};
-
-const outlinedTones: Record<Tone, string> = {
-  neutral: 'bg-transparent text-on-surface-variant border border-outline-variant',
-  primary: 'bg-transparent text-primary-700 border border-primary-300',
-  sage:    'bg-transparent text-sage-700    border border-sage-300',
-  success: 'bg-transparent text-success-700 border border-success-300',
-  warning: 'bg-transparent text-warning-700 border border-warning-300',
-  danger:  'bg-transparent text-danger-700  border border-danger-300',
-};
-
-const filledTones: Record<Tone, string> = {
-  neutral: 'bg-neutral-800 text-white',
-  primary: 'bg-primary-container text-on-primary-container',
-  sage:    'bg-sage-100 text-sage-800',
-  success: 'bg-success-600 text-white',
-  warning: 'bg-warning-500 text-white',
-  danger:  'bg-danger-600 text-white',
-};
-
-const dotColor: Record<Tone, string> = {
-  neutral: 'bg-neutral-500',
-  primary: 'bg-primary-500',
-  sage:    'bg-sage-500',
-  success: 'bg-success-500',
-  warning: 'bg-warning-500',
-  danger:  'bg-danger-500',
 };
 
 const sizes: Record<Size, string> = {
@@ -72,9 +37,9 @@ export function Chip({
   ...rest
 }: Props) {
   const palette =
-    variant === 'outlined' ? outlinedTones[tone] :
-    variant === 'filled'   ? filledTones[tone]   :
-    softTones[tone];
+    variant === 'outlined' ? TONE[tone].outlined :
+    variant === 'filled'   ? TONE[tone].solid    :
+    TONE[tone].soft;
 
   return (
     <span
@@ -86,7 +51,7 @@ export function Chip({
       )}
       {...rest}
     >
-      {dot && <span className={cn('w-1.5 h-1.5 rounded-full', dotColor[tone])} />}
+      {dot && <span className={cn('w-1.5 h-1.5 rounded-full', TONE[tone].dot)} />}
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </span>

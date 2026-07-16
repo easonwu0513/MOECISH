@@ -138,7 +138,7 @@ export function ReportContent({
   const rocNum = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'];
 
   return (
-    <div className="report-content" style={{ fontFamily: "'Times New Roman', '標楷體', 'BiauKai', 'DFKai-SB', serif", fontSize: '12pt', lineHeight: '24pt', color: 'black' }}>
+    <div className="report-content" style={{ fontFamily: "'Times New Roman'， '標楷體'， 'BiauKai'， 'DFKai-SB'， serif", fontSize: '12pt', lineHeight: '24pt', color: 'black' }}>
       {/* 封面 */}
       <div id="preview-basic" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'center', minHeight: '225mm', paddingTop: '36pt', paddingBottom: '36pt', boxSizing: 'border-box' }}>
         <div style={{ marginTop: '24pt' }}>

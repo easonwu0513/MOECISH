@@ -21,6 +21,7 @@ export default function TransitionButton({
   rollback = false,
   disabled = false,
   disabledHint,
+  warn,
 }: {
   cycleId: string;
   target: CycleStatus;
@@ -28,6 +29,8 @@ export default function TransitionButton({
   /** 前置條件未滿足時鎖定按鈕並顯示原因(後端 transition API 為權威閘,此為 UX 提示層) */
   disabled?: boolean;
   disabledHint?: string;
+  /** 前進推進的「軟性提醒」(UAT 批68):非阻擋,確認框顯警示、委員/中心可確認後仍推進(如未設矯正截止日) */
+  warn?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -37,7 +40,7 @@ export default function TransitionButton({
 
   async function run() {
     if (rollback && reason.trim().length < 5) {
-      toast.error('請填寫回退理由', '至少 5 個字,將記入稽核軌跡');
+      toast.error('請填寫回退理由', '至少 5 個字，將記入稽核軌跡');
       return;
     }
     setLoading(true);
@@ -59,7 +62,7 @@ export default function TransitionButton({
     router.refresh();
     // 進入資料齊備:轉換 API 已自動寄信並於站內通知受指派委員開始審閱(委員此時起可檢視機關資料)
     if (!rollback && target === 'READY') {
-      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員,委員現在起可檢視機關檢核表與已齊備之資料');
+      toast.info('已通知委員審閱', '系統已自動寄信並於站內通知受指派委員，委員現在起可檢視機關檢核表與已齊備之資料');
     }
   }
 
@@ -71,7 +74,7 @@ export default function TransitionButton({
           size="sm"
           onClick={() => { setReason(''); setOpen(true); }}
           leadingIcon={<ChevronLeft size={14} />}
-          className="text-on-surface-variant"
+          className="text-ink-500"
         >
           回退至{CYCLE_STATUS_LABELS[target]}
         </Button>
@@ -81,16 +84,16 @@ export default function TransitionButton({
           title="回退週期狀態"
           description={
             <div className="mt-2 flex flex-col gap-3">
-              <p className="text-body-sm text-on-surface-variant">
-                將狀態回退至「{CYCLE_STATUS_LABELS[target]}」。回退不會刪除任何已填資料,
+              <p className="text-body-sm text-ink-500">
+                將狀態回退至「{CYCLE_STATUS_LABELS[target]}」。回退不會刪除任何已填資料，
                 但機關與委員看到的階段會跟著改變。理由將記入稽核軌跡。
               </p>
               <Textarea
-                label="回退理由(必填,至少 5 字)"
+                label="回退理由（必填，至少 5 字）"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="例:誤按推進,實地稽核尚未完成"
+                placeholder="例：誤按推進，實地稽核尚未完成"
               />
             </div>
           }
@@ -110,7 +113,7 @@ export default function TransitionButton({
         <Button variant="filled" size="sm" disabled trailingIcon={<ChevronRight size={14} />}>
           {CYCLE_STATUS_LABELS[target]}
         </Button>
-        {disabledHint && <span className="text-caption text-on-surface-variant">{disabledHint}</span>}
+        {disabledHint && <span className="text-caption text-ink-500">{disabledHint}</span>}
       </span>
     );
   }
@@ -128,9 +131,21 @@ export default function TransitionButton({
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="確認狀態轉換"
-        description={`確定要將稽核週期狀態推進至「${CYCLE_STATUS_LABELS[target]}」？`}
-        confirmLabel="確定推進"
+        title={warn ? '尚未設定矯正截止日期，仍要推進？' : '確認狀態轉換'}
+        description={
+          warn ? (
+            <div className="mt-2 flex flex-col gap-3">
+              <div className="rounded-md border border-warning-200 bg-warning-50 px-3.5 py-3 text-body-sm text-warning-800">
+                <p className="font-medium">矯正截止日尚未設定</p>
+                <p className="mt-1 text-caption text-warning-700 leading-relaxed">{warn}</p>
+              </div>
+              <p className="text-body-sm text-ink-500">確定要將稽核週期狀態推進至「{CYCLE_STATUS_LABELS[target]}」?</p>
+            </div>
+          ) : (
+            `確定要將稽核週期狀態推進至「${CYCLE_STATUS_LABELS[target]}」？`
+          )
+        }
+        confirmLabel={warn ? '仍要推進' : '確定推進'}
         onConfirm={run}
         loading={loading}
       />

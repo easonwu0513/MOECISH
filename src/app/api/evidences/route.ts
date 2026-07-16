@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assertEvidenceAccess } from '@/lib/rbac';
+import { assertEvidenceAccess, requireUser } from '@/lib/rbac';
 import { saveBuffer } from '@/lib/storage';
 import { applyWatermark, isWatermarkable } from '@/lib/watermark';
 import { prepOrgCanEdit, checklistOrgCanEdit, isOrgUploadAllowed } from '@/lib/types';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { rocDateDotted } from '@/lib/date';
 
 /**
  * 以檔案開頭 magic bytes 判定真實型別(僅認可加浮水印的三種),不信任副檔名 / Content-Type。
@@ -39,6 +40,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    // 上傳=寫入官方紀錄:僅機關(自家佐證)與中心(匯入區)可上傳。委員/觀察員(批30)為唯讀,
+    // 於解析檔案前即擋下(assertEvidenceAccess 是「讀取」授權,已放行委員/觀察員的線上檢視;寫入須另擋
+    // ——否則觀察員可對機關檢核表/資料準備附加佐證,污染官方紀錄;批30 對抗審查 P2)。
+    const actor = await requireUser();
+    if (actor.role === 'AUDITOR' || actor.role === 'OBSERVER') {
+      return NextResponse.json({ error: '委員與觀察員為唯讀，不可上傳佐證' }, { status: 403 });
+    }
+
     const fd = await req.formData();
     const file = fd.get('file') as File | null;
     const targetType = String(fd.get('targetType') ?? '');
@@ -49,15 +58,27 @@ export async function POST(req: Request) {
     // 驗證存取權 + targetId 為合法 cuid(同時阻擋路徑穿越)
     const { user, cycle } = await assertEvidenceAccess(targetType, targetId);
 
+    // 持續列管回報佐證(批71):機關僅能對「本人送出、尚待審核(PENDING)」的回報補充佐證;
+    // 一旦審結(續列管/認可完成/退回)即鎖定,不可再附加(退回後由機關另建新回報)。
+    if (targetType === 'TRACKED_REPORT' && user.role === 'ORG_ADMIN') {
+      const report = await prisma.trackedReport.findUnique({
+        where: { id: targetId },
+        select: { reviewStatus: true },
+      });
+      if (!report || report.reviewStatus !== 'PENDING') {
+        return NextResponse.json({ error: '此回報已審核或不存在，無法再上傳佐證' }, { status: 400 });
+      }
+    }
+
     // 檢核表佐證:機關僅「資料準備中」可上傳(開立中尚未開放;送出鎖定後 checklistSubmittedAt 另擋)
     if (targetType === 'CHECKLIST_RESPONSE' && user.role === 'ORG_ADMIN' && !checklistOrgCanEdit(cycle.status)) {
-      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證(開立中尚未開放)' }, { status: 400 });
+      return NextResponse.json({ error: '需於「資料準備中」階段才能上傳檢核表佐證（開立中尚未開放）' }, { status: 400 });
     }
 
     // 準備文件:資料準備階段結束後凍結;機關已繳交/中心已確認後鎖定,不可再上傳(需中心退回);中心覆寫不受限
     if (targetType === 'PREP_SUBMISSION' && user.role === 'ORG_ADMIN') {
       if (!prepOrgCanEdit(cycle.status)) {
-        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳(開立中尚未開放、資料準備結束後凍結)' }, { status: 400 });
+        return NextResponse.json({ error: '需於「資料準備中」階段才能上傳（開立中尚未開放、資料準備結束後凍結）' }, { status: 400 });
       }
       const sub = await prisma.prepSubmission.findUnique({
         where: { id: targetId },
@@ -65,10 +86,10 @@ export async function POST(req: Request) {
       });
       // 中心匯入區由中心上傳,機關不可上傳
       if (sub?.requirement?.category === 'CENTER') {
-        return NextResponse.json({ error: '中心匯入區由中心上傳,機關無法上傳此區資料' }, { status: 403 });
+        return NextResponse.json({ error: '中心匯入區由中心上傳，機關無法上傳此區資料' }, { status: 403 });
       }
       if (sub && (sub.status === 'SUBMITTED' || sub.status === 'CONFIRMED')) {
-        return NextResponse.json({ error: '資料已繳交或已確認齊備,如需修改請洽中心退回' }, { status: 400 });
+        return NextResponse.json({ error: '資料已繳交或已確認齊備，如需修改請洽中心退回' }, { status: 400 });
       }
     }
 
@@ -86,7 +107,7 @@ export async function POST(req: Request) {
       // 友善前檢:副檔名與 Content-Type 皆明顯不符 → 直接擋,訊息清楚。
       if (!isOrgUploadAllowed(file.name, mime)) {
         return NextResponse.json(
-          { error: '僅接受 PDF / JPG / PNG 檔(供委員審閱時加浮水印);Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
+          { error: '僅接受 PDF / JPG / PNG 檔（供委員審閱時加浮水印）；Word、Excel、簡報等可編輯檔請先另存為 PDF 再上傳。' },
           { status: 400 },
         );
       }
@@ -95,7 +116,7 @@ export async function POST(req: Request) {
       const realMime = sniffWatermarkableType(buf);
       if (!realMime) {
         return NextResponse.json(
-          { error: '檔案內容不是有效的 PDF / JPG / PNG(可能是改了副檔名的 Word/Excel 等);請以原程式「另存為 PDF」後再上傳。' },
+          { error: '檔案內容不是有效的 PDF / JPG / PNG（可能是改了副檔名的 Word/Excel 等）；請以原程式「另存為 PDF」後再上傳。' },
           { status: 400 },
         );
       }
@@ -110,7 +131,9 @@ export async function POST(req: Request) {
         select: { name: true, shortName: true },
       });
       const orgName = org?.name || org?.shortName || '受稽機關';
-      const dateStr = new Date().toLocaleDateString('zh-TW');
+      // 民國點分隔(全掃 P2):原 toLocaleDateString 產西曆「2026/6/11」與同註記 ${yr}年度(民國)矛盾,
+      // 且無時區→UTC 主機近午夜偏日;rocDateDotted 走台北時區,產「115.06.11」。此為蓋在佐證檔上的永久註記。
+      const dateStr = rocDateDotted(new Date());
       const yr = cycle.year - 1911;
       const out = await applyWatermark(buf, mime, {
         tile: `${yr}年度資安稽核佐證・請勿外流`,
@@ -138,12 +161,14 @@ export async function POST(req: Request) {
     });
 
     const meta = extractRequestMeta(req);
+    // 以 AuditCycle/cycleId 定址(批67 專審):活動流以「本週期」撈事件——若以 Evidence id 定址,
+    // 佐證被硬刪後 id 查不回本週期,上傳/刪除事件會從活動流永久消失;佐證明細保留於 after payload。
     await writeAuditLog({
       actorId: user.id,
       action: 'EVIDENCE_UPLOAD',
-      entityType: 'Evidence',
-      entityId: item.id,
-      after: { ...item, watermarked },
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
+      after: { evidenceId: item.id, ...item, watermarked, targetType, targetId },
       ...meta,
     });
 

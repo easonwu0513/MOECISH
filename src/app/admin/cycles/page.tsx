@@ -3,21 +3,29 @@ import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { fmtROC } from '@/lib/date';
 import { AppShell } from '@/components/shell/AppShell';
-import { PageHeader } from '@/components/shell/PageHeader';
-import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { TableScroll } from '@/components/ui/TableScroll';
-import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
+import { Menu } from '@/components/ui/Menu';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
-import { StatTopBar } from '@/components/ui/StatTopBar';
-import { ClipboardCheck, AlertTriangle, CheckCircle } from '@/components/icons';
+import { FileText } from '@/components/icons';
+import { TONE } from '@/lib/tone';
 import { CYCLE_STATUS_LABELS, cycleStatusTone } from '@/lib/state-machine';
 import type { CycleStatus } from '@/lib/types';
 import BatchCreateCycles from './BatchCreateCycles';
 import BatchAssignAuditors from './BatchAssignAuditors';
+import RemindButton from '@/components/cycle/RemindButton';
+
+/* 靜謐文件工作坊(批 B2)——跨院巡檢台重塑為活文件:襯線大標 + calm 讀數卡 + 髮絲帳冊表。
+   落後列以實心左緣規線 + 文字雙載(逾期/停滯 N 天)秒辨,不再靠 chip 海。功能與 IA 全保留、不新增端點。 */
+function Readout({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: 'danger' | 'success' }) {
+  const valueColor = tone === 'danger' ? 'text-danger-600' : tone === 'success' ? 'text-success-700' : 'text-ink-900';
+  return (
+    <div className="rounded-md border border-rule bg-card px-5 py-4">
+      <div className="text-body-sm text-ink-500">{label}</div>
+      <div className={`mt-1.5 text-headline font-semibold tabular-nums ${valueColor}`}>{value}</div>
+      <div className="mt-1 text-caption text-ink-500 tabular-nums">{sub}</div>
+    </div>
+  );
+}
 
 export default async function AdminCyclesPage({
   searchParams,
@@ -52,7 +60,24 @@ export default async function AdminCyclesPage({
     }),
   ]);
 
-  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => b - a);
+  // 催辦軌跡:各週期已寄出(sent/simulated)之「一鍵催辦」信封數與最近一次寄送時間(供落後列就地顯示)。
+  // 用獨立 kind='track-remind' 查詢,不混入一般 tracking 追蹤信 / 自動催繳排程 / 手動群發。
+  const trailRows = await prisma.emailLog.groupBy({
+    by: ['relatedCycleId'],
+    where: {
+      relatedCycleId: { in: cycles.map((c) => c.id) },
+      kind: 'track-remind',
+      status: { in: ['sent', 'simulated'] },
+    },
+    _count: { _all: true },
+    _max: { sentAt: true },
+  });
+  const trailMap = new Map(
+    trailRows.map((r) => [r.relatedCycleId, { count: r._count._all, last: r._max.sentAt }]),
+  );
+
+  // 年度籤升冪(全部 → 115 → 116…,由舊到新如時間軸;列表本身仍最新年在前)
+  const years = Array.from(new Set(cycles.map((c) => c.year))).sort((a, b) => a - b);
   const yearFilter = searchParams.year ? parseInt(searchParams.year, 10) : null;
   const filtered = yearFilter ? cycles.filter((c) => c.year === yearFilter) : cycles;
   const now = new Date();
@@ -91,7 +116,8 @@ export default async function AdminCyclesPage({
     ? Math.round((withDef.reduce((a, r) => a + r.passed / r.total, 0) / withDef.length) * 100)
     : 0;
 
-  const defaultYear = years[0] ?? new Date().getFullYear();
+  // 批次開立預設年=最大年(顯式取 max,不依賴 years 排序方向)
+  const defaultYear = years.length ? Math.max(...years) : new Date().getFullYear();
   const cycleOptions = cycles.map((c) => ({
     id: c.id,
     label: `${c.year - 1911} 年度 · ${c.organization.name}`,
@@ -99,142 +125,164 @@ export default async function AdminCyclesPage({
     status: c.status as CycleStatus,
   }));
 
+  const behindLede = behindOnly
+    ? '只列逾期或停滯超過 14 天的週期。逾期以實心紅左緣、停滯以琥珀左緣標示，右方「開啟」進入該週期辦理。'
+    : '跨機關進度一覽。逾期與停滯的週期以左緣色條與文字標出，右方「開啟」進入辦理。';
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '跨院週期總覽' }]}
     >
-      <PageHeader
-        title="跨院週期總覽"
-        subtitle="跨機關進度總覽:矯正通過率與逾期一目了然。"
-        actions={
-          <>
-            <BatchCreateCycles
-              orgs={orgs.map((o) => ({ id: o.id, name: o.name, years: o.cycles.map((c) => c.year) }))}
-              versions={versions}
-              defaultYear={defaultYear}
-            />
-            <BatchAssignAuditors auditors={auditors} cycles={cycleOptions} />
-            <Button size="sm" variant="tonal" href="/admin/scores">
-              跨院評分比較
-            </Button>
-            <Button
-              size="sm"
-              variant="text"
-              href={yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary'}
-            >
-              下載彙整表(Excel)
-            </Button>
-            <Button
-              size="sm"
-              variant="text"
-              href={yearFilter ? `/api/admin/export/repeat-offender?year=${yearFilter}` : '/api/admin/export/repeat-offender'}
-            >
-              下載歷年重複缺失(Excel)
-            </Button>
-          </>
-        }
-      />
-
-      {/* 跨院 KPI:中心一眼掌握在辦 / 落後 / 矯正完成率 */}
-      <div className="grid gap-3 sm:grid-cols-3 mb-5">
-        <StatTopBar tone="primary" icon={<ClipboardCheck size={20} />} primary={String(activeCount)} label="進行中週期" sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
-        <StatTopBar tone="danger" muted={behindCount === 0} icon={<AlertTriangle size={20} />} primary={String(behindCount)} label="落後(逾期 / 停滯)" sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} />
-        <StatTopBar tone="success" icon={<CheckCircle size={20} />} primary={`${avgPass}%`} label="平均矯正完成率" sub={`${withDef.length} 個週期已發布缺失`} />
-      </div>
-
-      {/* 年度篩選 */}
-      {years.length > 1 && (
-        <div className="mb-5 flex items-center gap-2 flex-wrap">
-          <FilterChipLink href="/admin/cycles" selected={!yearFilter}>全部年度</FilterChipLink>
-          {years.map((y) => (
-            <FilterChipLink key={y} href={`/admin/cycles?year=${y}`} selected={yearFilter === y}>
-              <span className="tabular-nums">{y - 1911} 年度</span>
-            </FilterChipLink>
-          ))}
+      {/* ── 文件大標(襯線)+ 動作;公文式底規線 ── */}
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">跨院週期總覽</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-xl leading-relaxed">
+            跨機關年度稽核進度總覽：一眼掌握誰在辦、誰落後、矯正完成率。
+          </p>
         </div>
-      )}
-
-      {/* 落後篩選:中心核心是「誰落後、催誰」 */}
-      <div className="mb-5 flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
-        <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
-        <FilterChipLink href={behindHref(true)} selected={behindOnly}>
-          只看落後(逾期/停滯) <FilterChipCount selected={behindOnly}>{behindCount}</FilterChipCount>
-        </FilterChipLink>
-      </div>
-
-      {shown.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={<ClipboardCheck size={28} />}
-            title={behindOnly ? '目前沒有落後的週期' : '尚無稽核週期'}
-            description={behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立,或到醫院管理逐家開立。'}
+        <div className="flex gap-2 flex-wrap shrink-0">
+          <BatchCreateCycles
+            orgs={orgs.map((o) => ({ id: o.id, name: o.name, years: o.cycles.map((c) => c.year) }))}
+            versions={versions}
+            defaultYear={defaultYear}
           />
-        </Card>
-      ) : (
-        <Card padded={false} variant="outlined">
-          <TableScroll>
-          <Table>
-            <THead>
-              <Th>年度</Th>
-              <Th>機關</Th>
-              <Th>狀態</Th>
-              <Th className="w-56">矯正進度</Th>
-              <Th numeric>委員</Th>
-              <Th numeric>截止</Th>
-              <Th numeric>停滯</Th>
-              <Th numeric>開啟</Th>
-            </THead>
-            <tbody>
-              {shown.map((r) => {
-                const { c, total, passed, returned, allPassed, overdue, stalled, stallDays } = r;
-                return (
-                  <Tr key={c.id}>
-                    <Td className="tabular-nums font-medium">{c.year - 1911}</Td>
-                    <Td>{c.organization.name}</Td>
-                    <Td>
-                      <span className="inline-flex items-center gap-1.5 flex-wrap">
-                        <Chip size="sm" tone={cycleStatusTone(c.status as CycleStatus)} dot>
-                          {CYCLE_STATUS_LABELS[c.status as CycleStatus]}
-                        </Chip>
-                        {overdue && <Chip size="sm" tone="danger">逾期</Chip>}
-                      </span>
-                    </Td>
-                    <Td>
-                      {total === 0 ? (
-                        <span className="text-caption text-on-surface-variant">尚未發布缺失</span>
-                      ) : (
-                        <div className="min-w-40">
-                          <ProgressBar value={passed} max={total} tone={allPassed ? 'success' : 'primary'} size="sm" />
-                          <p className="mt-1 text-caption text-on-surface-variant tabular-nums">
-                            通過 {passed}/{total}
-                            {returned > 0 && <span className="text-danger-600"> · 退回 {returned}</span>}
-                          </p>
-                        </div>
-                      )}
-                    </Td>
-                    <Td numeric>{c.assignments.length}</Td>
-                    <Td className={'text-right tabular-nums ' + (overdue ? 'text-danger-600 font-medium' : 'text-on-surface-variant')}>
-                      {fmtROC(c.dueDate)}
-                    </Td>
-                    <Td className="text-right">
-                      {stalled ? (
-                        <Chip size="sm" tone={stallDays >= STALL_DANGER ? 'danger' : 'warning'}>停滯 {stallDays} 天</Chip>
-                      ) : (
-                        <span className="text-on-surface-variant">—</span>
-                      )}
-                    </Td>
-                    <Td className="text-right">
-                      <Link href={`/cycles/${c.id}`} className="text-primary-700 hover:underline">開啟</Link>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Table>
-          </TableScroll>
-        </Card>
-      )}
+          <BatchAssignAuditors auditors={auditors} cycles={cycleOptions} />
+          <Button size="sm" variant="tonal" href="/admin/scores">跨院評分比較</Button>
+          <Menu
+            label="下載 Excel"
+            variant="outlined"
+            size="sm"
+            items={[
+              { label: '彙整表', icon: <FileText size={15} />, href: yearFilter ? `/api/admin/export/summary?year=${yearFilter}` : '/api/admin/export/summary' },
+              { label: '歷年重複缺失', icon: <FileText size={15} />, href: yearFilter ? `/api/admin/export/repeat-offender?year=${yearFilter}` : '/api/admin/export/repeat-offender' },
+            ]}
+          />
+        </div>
+      </header>
+
+      {/* ── 當前態勢:三讀數卡 ── */}
+      <section className="mb-8">
+        <div className="mb-3 text-title text-ink-500">當前態勢</div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Readout label="進行中週期" value={String(activeCount)} sub={yearFilter ? `${yearFilter - 1911} 年度` : '全部年度'} />
+          <Readout label="落後（逾期 / 停滯）" value={String(behindCount)} sub={behindCount > 0 ? '需介入催辦' : '都在進度內'} tone={behindCount > 0 ? 'danger' : undefined} />
+          <Readout label="平均矯正完成率" value={`${avgPass}%`} sub={`${withDef.length} 個週期已發布缺失`} tone="success" />
+        </div>
+      </section>
+
+      {/* ── 週期清單:篩選 + 髮絲帳冊表 ── */}
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-3 flex-wrap">
+          <div className="text-title text-ink-500">{behindOnly ? '落後段落' : '週期清單'}</div>
+          <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="篩選落後">
+            <FilterChipLink href={behindHref(false)} selected={!behindOnly}>全部</FilterChipLink>
+            <FilterChipLink href={behindHref(true)} selected={behindOnly}>
+              只看落後（逾期/停滯） <FilterChipCount selected={behindOnly}>{behindCount}</FilterChipCount>
+            </FilterChipLink>
+          </div>
+        </div>
+
+        {years.length > 1 && (
+          <div className="mb-3 flex items-center gap-2 flex-wrap">
+            <FilterChipLink href="/admin/cycles" selected={!yearFilter}>全部年度</FilterChipLink>
+            {years.map((y) => (
+              <FilterChipLink key={y} href={`/admin/cycles?year=${y}`} selected={yearFilter === y}>
+                <span className="tabular-nums">{y - 1911} 年度</span>
+              </FilterChipLink>
+            ))}
+          </div>
+        )}
+
+        <p className="mb-3 text-caption text-ink-500 leading-relaxed max-w-2xl">{behindLede}</p>
+
+        {shown.length === 0 ? (
+          <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
+            <p className="text-title text-ink-700">{behindOnly ? '目前沒有落後的週期' : '尚無稽核週期'}</p>
+            <p className="mt-1.5 text-body-sm text-ink-500">
+              {behindOnly ? '所有進行中的週期都在進度內。' : '用右上角「批次開立年度週期」一次建立，或到醫院管理逐家開立。'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-rule bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-body-sm">
+                <thead>
+                  <tr className="border-b border-rule-strong bg-paper-sunk text-left text-caption text-ink-500">
+                    <th className="px-4 py-2.5 font-medium">年度</th>
+                    <th className="px-4 py-2.5 font-medium">機關</th>
+                    <th className="px-4 py-2.5 font-medium">狀態</th>
+                    <th className="px-4 py-2.5 font-medium w-56">矯正進度</th>
+                    <th className="px-4 py-2.5 font-medium text-right">委員</th>
+                    <th className="px-4 py-2.5 font-medium text-right">截止</th>
+                    <th className="px-4 py-2.5 font-medium text-right">停滯</th>
+                    <th className="px-4 py-2.5 font-medium text-right">開啟</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((r) => {
+                    const { c, total, passed, returned, allPassed, overdue, stalled, stallDays } = r;
+                    const trail = trailMap.get(c.id);
+                    const leftRule = overdue ? 'border-l-[3px] border-l-danger-600' : stalled ? 'border-l-[3px] border-l-warning-600' : 'border-l-[3px] border-l-transparent';
+                    return (
+                      <tr key={c.id} className="border-b border-rule last:border-b-0 hover:bg-paper-sunk transition-colors">
+                        <td className={`px-4 py-3 tabular-nums font-medium text-ink-900 ${leftRule}`}>{c.year - 1911}</td>
+                        <td className="px-4 py-3 text-ink-900">{c.organization.name}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${TONE[cycleStatusTone(c.status as CycleStatus)].dot}`} aria-hidden />
+                            <span className="text-ink-700">{CYCLE_STATUS_LABELS[c.status as CycleStatus]}</span>
+                            {overdue && <span className="text-danger-600 font-medium">· 已逾期</span>}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {total === 0 ? (
+                            <span className="text-caption text-ink-500">尚未發布缺失</span>
+                          ) : (
+                            <div className="min-w-40">
+                              <div className="h-1.5 rounded-full bg-paper-sunk overflow-hidden">
+                                <div className={`h-full rounded-full ${allPassed ? 'bg-success-500' : 'bg-primary-500'}`} style={{ width: `${Math.round((passed / total) * 100)}%` }} />
+                              </div>
+                              <p className="mt-1 text-caption text-ink-500 tabular-nums">
+                                通過 {passed}/{total}
+                                {returned > 0 && <span className="text-danger-600"> · 退回 {returned}</span>}
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-ink-700">{c.assignments.length}</td>
+                        <td className={`px-4 py-3 text-right tabular-nums ${overdue ? 'text-danger-600 font-medium' : 'text-ink-500'}`}>{fmtROC(c.dueDate)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {stalled ? (
+                            <span className={`tabular-nums font-medium ${stallDays >= STALL_DANGER ? 'text-danger-600' : 'text-warning-700'}`}>停滯 {stallDays} 天</span>
+                          ) : (
+                            <span className="text-ink-500">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right align-top">
+                          <div className="inline-flex flex-col items-end gap-2">
+                            {r.behind && (
+                              <RemindButton
+                                cycleId={c.id}
+                                orgName={c.organization.name}
+                                yearLabel={String(c.year - 1911)}
+                                lastLabel={trail?.last ? fmtROC(trail.last) : null}
+                                remindCount={trail?.count ?? 0}
+                              />
+                            )}
+                            <Link href={`/cycles/${c.id}`} className="font-medium text-primary-700 hover:underline">開啟</Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
     </AppShell>
   );
 }

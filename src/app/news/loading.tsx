@@ -3,9 +3,9 @@ import { Skeleton } from '@/components/ui/Skeleton';
 /** 公告列表載入骨架(force-dynamic 頁面,慢查詢時不再整頁空白)。 */
 export default function NewsLoading() {
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-paper-sunk">
       {/* 頂欄佔位 */}
-      <div className="h-16 border-b border-outline-variant/60 bg-surface/90" />
+      <div className="h-16 border-b border-rule bg-card/90" />
       <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Skeleton className="h-9 w-40" />
         <Skeleton className="mt-3 h-4 w-72" />
@@ -16,7 +16,7 @@ export default function NewsLoading() {
         </div>
         <div className="mt-6 flex flex-col gap-2.5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[60px] rounded-lg border border-outline-variant/50 bg-surface-container-lowest p-4">
+            <div key={i} className="h-[60px] rounded-lg border border-rule bg-card p-4">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-6 w-16 rounded-full" />
                 <Skeleton className="h-4 flex-1 max-w-md" />

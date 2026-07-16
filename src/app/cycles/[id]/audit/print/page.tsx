@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { DIMENSION_LABELS } from '@/lib/dimension';
-import { DEFICIENCY_ASPECT_LABELS, auditorCanViewChecklistContent, type DeficiencyAspect, type Dimension } from '@/lib/types';
+import { DEFICIENCY_ASPECT_LABELS, auditorCanScore, type DeficiencyAspect, type Dimension } from '@/lib/types';
 import {
   ASPECT_DIMENSIONS, DIMENSION_MAX_SCORE,
   computeDimStats, gradeHint, compareChecklistRef, sortRefsString,
@@ -29,7 +29,9 @@ export default async function Att17PrintPage({
   const session = await auth();
   if (!session) redirect(`/login?callbackUrl=/cycles/${params.id}/audit/print`);
   const user = session.user;
-  if (user.role === 'ORG_ADMIN') redirect(`/cycles/${params.id}`);
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
+  if (user.role === 'ORG_ADMIN' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
 
   const cycle = await prisma.auditCycle.findUnique({
     where: { id: params.id },
@@ -46,8 +48,11 @@ export default async function Att17PrintPage({
 
   const isAssigned = cycle.assignments.some((a) => a.auditor.id === user.id);
   if (user.role === 'AUDITOR' && !isAssigned) redirect('/dashboard');
-  // 委員於「資料齊備」前不可列印(評分表含機關檢核結果統計)
-  if (user.role === 'AUDITOR' && !auditorCanViewChecklistContent(cycle.status)) redirect('/dashboard');
+  // 委員於「實地稽核」前不可列印評分表(全掃 P2:與評分輸入頁 /audit 的 auditorCanScore 同一分界,
+  // 避免 READY 階段可印出全空白附件17=名實不符;維持不加窗口閘的既有裁定不變)
+  if (user.role === 'AUDITOR' && !auditorCanScore(cycle.status)) redirect('/dashboard');
+  // 註(UAT 批67):實地稽核評分/附件17 屬委員 ONSITE 自身產出與工作台(來源頁 /audit 亦以 auditorCanScore 階段閘把關),
+  // 不納入「委員審閱時間區間」(該窗口僅管制資料準備 + 檢核表審閱兩區,對齊使用者裁定範圍),故此處不加窗口閘。
 
   // 要印哪些委員
   let targets: { id: string; name: string }[];
@@ -67,7 +72,7 @@ export default async function Att17PrintPage({
   const stats = computeDimStats(cycle.checklistVersion.items, cycle.responses);
 
   return (
-    <main className="mx-auto max-w-[210mm] bg-white px-[16mm] py-[12mm] text-black">
+    <main className="mx-auto max-w-[210mm] bg-card px-[16mm] py-[12mm] text-black">
       <PrintTrigger />
       <style>{`@media print { .att17-break { page-break-before: always; } }`}</style>
       {targets.map((auditor, idx) => (
@@ -96,7 +101,7 @@ export default async function Att17PrintPage({
   );
 }
 
-const FONT = "'Times New Roman', '標楷體', 'KaiU', 'DFKai-SB', serif";
+const FONT = "'Times New Roman'， '標楷體'， 'KaiU'， 'DFKai-SB'， serif";
 const B = '1px solid #000';
 
 type SheetCounts = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
@@ -134,7 +139,7 @@ function Att17Sheet({
         實地稽核評分表
       </div>
       <div style={{ fontSize: '12pt', marginBottom: '8pt' }}>
-        受稽機關:{orgName}　　年度:{yearROC} 年度
+        受稽機關：{orgName}　　年度：{yearROC} 年度
       </div>
 
       {/* 稽核評分(整表不跨頁:break-inside avoid + 緊縮列高,塞於同一頁) */}
@@ -170,7 +175,7 @@ function Att17Sheet({
                   )}
                   <td style={td}>
                     {/* DIMENSION_LABELS 已含「一、」前綴 */}
-                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分):
+                    {DIMENSION_LABELS[dim]}({DIMENSION_MAX_SCORE[dim]}分）：
                     <div style={{ fontSize: '8.5pt', lineHeight: 1.2 }}>{gradeHint(dim)}</div>
                   </td>
                   <td style={{ ...td, textAlign: 'center' }}>{st.total}</td>
@@ -187,7 +192,7 @@ function Att17Sheet({
           )}
           <tr>
             <td style={{ ...td, textAlign: 'right', fontWeight: 'bold' }} colSpan={7}>
-              得　　分(滿分100分)
+              得　　分（滿分100分）
             </td>
             <td style={{ ...td, textAlign: 'center', fontWeight: 'bold', fontSize: '12pt' }}>
               {scored ? total : ''}
@@ -229,11 +234,11 @@ function Att17Sheet({
       </table>
 
       <div style={{ fontSize: '12pt', marginTop: '18pt', lineHeight: 2 }}>
-        <div>稽核日期:{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
-        <div>受稽機關:{orgName}</div>
+        <div>稽核日期：{onsiteDateROC ?? '中華民國　　　年　　月　　日'}</div>
+        <div>受稽機關：{orgName}</div>
         {/* 服務機關／職稱欄移除:部分委員不願公布(依使用者回饋) */}
         <div style={{ marginTop: '14pt' }}>
-          <span>委員簽名:{auditorName ? `${auditorName}　` : ''}________________</span>
+          <span>委員簽名：{auditorName ? `${auditorName}　` : ''}________________</span>
         </div>
       </div>
     </div>

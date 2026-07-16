@@ -65,11 +65,50 @@
   --tertiary-300: #fcbd57; --tertiary-400: #eea23a; --tertiary-500: #d9892b;
   --tertiary-600: #b26d1f; --tertiary-700: #89541a;
 
+  /* Auth 頁 ambient 漸層(login/invite 共用單一來源;以現行 primary-600 #2b57a6=rgb(43,87,166) 為基,
+     批72 修:原各頁硬編 rgba(40,82,160)=精緻化前舊 primary,晨霧藍換色後脫鉤) */
+  /* 批77:0.11/0.055 在晨霧藍低彩度底上近乎不可辨 → 拉到 0.15/0.06 並收成一道有方向性的結構光(左上→),
+     讓登入頁從灰白平面變有記憶點的品牌面(firstImpression 最大單點);甜蜜點窄,勿過 0.18 滑向消費級 hero。 */
+  --auth-ambient:
+    radial-gradient(ellipse 72% 62% at 12% 6%, rgba(43, 87, 166, 0.15), transparent 64%),
+    radial-gradient(ellipse 55% 46% at 90% 94%, rgba(43, 87, 166, 0.06), transparent 70%);
+
+  /* ── 深藍憲章招牌 token(設計精緻化 #14;批74)——收編前台/映象面最大版面的手抄漸層與規線 ──
+     用意:讓「每個像素都有 token 依據」。三者皆對齊既有 primary 色階,非新色相。 */
+  /* CTA 收尾/深藍實心面(取代 page.tsx 手抄 #1a334a→#2f5b88 三段漸層) */
+  --cta-surface: linear-gradient(135deg, var(--primary-800), var(--primary-900));
+  /* Hero 環境覆層(取代 rgba(40,82,160,0.07) 精緻化前舊 primary 徑向;改綁深藍權威色 primary-900) */
+  --hero-ambient: radial-gradient(ellipse 78% 60% at 50% -8%, rgba(17, 38, 78, 0.06), transparent 60%);
+  /* Ledger 規線色:資料表欄分隔與 Hero 內框「編輯級細分隔線」專用(⚠️勿全域取代 outline-variant,
+     僅用於資料表/Hero 內框,否則全站偏藍疲勞;見 DESIGN-SYSTEM.md 區域規則) */
+  --navy-ledger-line: var(--primary-200);
+
   /* Role accent */
   --role-admin:      var(--primary-500);
   --role-auditor:    var(--sage-500);
   --role-respondent: var(--outline-variant);
   --role-supervisor: var(--tertiary-500);
+
+  /* ── 靜謐文件工作坊 token 層(後台三角色重新設計「全新設計語言」目標語彙;批 B1)──
+     方向 B:把後台重構為「逐步完成的活文件」——留白與排印承載階層,而非色彩與框線。
+     這些是後台頁的「遷移目標」token;過渡期與既有 --surface/--outline-* 並存
+     (映象前台與尚未遷移的後台頁續用舊 token),後台頁逐批(B2 起)改吃下列 token,遷移完成後舊 token 於後台退場。
+     凡與既有色階等值者一律以 var() 別名,值只在此 :root 定義一次(避免色彩雙 SoT 不同步雷區)。
+     tailwind.config.ts 對應 colors(paper/ink/rule/…)全部 var() 引用本區塊,不重抄字面值。 */
+  --paper:        #fcfdfe;               /* 後台 app 底:近白紙面(較 --surface #f7f8fa 再白一階) */
+  --paper-sunk:   #f6f8fa;               /* 凹陷 / 表格斑馬 / 軌道底 */
+  --card:         #ffffff;               /* 卡面 / 文件面 */
+  /* 墨階:須讀文字一律用 ink-900/700/500(對 calm 三底皆 ≥4.5:1 過 WCAG AA);
+     ink-400/300 對白底僅 ~2.9/1.8:1 未達 AA,**僅供裝飾/停用/分隔**,禁綁 text-* 於任何須讀文字(B1–B3 審查修)。 */
+  --ink-900:      #101826;               /* 文件大標 / 一級文字(AA) */
+  --ink-700:      #2b3a4e;               /* 正文(AA) */
+  --ink-500:      #5b6a7d;               /* 次要 / 說明文字(≥5.2:1 過 AA;次要文字下限,勿再淺) */
+  --ink-400:      #8a97a8;               /* ⚠️裝飾 / 停用邊框專用(~2.9:1 未達 AA,勿用於文字) */
+  --ink-300:      #b7c0cc;               /* ⚠️分隔 / 停用態裝飾(低對比,勿綁 text-*) */
+  --rule:         #e7ecf1;               /* 髮絲行線(一般分隔;較 --outline-variant 更淺的編輯級細線) */
+  --rule-strong:  #d4dbe3;               /* 章節 / 強分隔 */
+  --rule-active:  var(--primary-600);    /* 當前文件左緣規線 / 焦點(=晨霧藍 primary-600 #2b57a6) */
+  --focus-wash:   var(--primary-50);     /* 段落聚焦極淡藍底(=primary-50 #f0f5fc) */
 }
 
 /* ============================================================
@@ -201,6 +240,19 @@ a:focus-visible {
 /* ============================================================
    Motion
    ============================================================ */
+/* 首頁 Hero 六張醫療照片交錯輪播(批76 由 page.tsx inline <style> 收進此處統一治理):
+   36s 一輪、每張 ~6s、交疊 1s;第 1 張常駐底層,2–6 張輪流淡入淡出。reduced-motion 降級見下方。 */
+@keyframes medfade2 { 0%, 13.9% { opacity: 0 } 16.7%, 30.5% { opacity: 1 } 33.4%, 100% { opacity: 0 } }
+@keyframes medfade3 { 0%, 30.5% { opacity: 0 } 33.4%, 47.2% { opacity: 1 } 50.1%, 100% { opacity: 0 } }
+@keyframes medfade4 { 0%, 47.2% { opacity: 0 } 50.1%, 63.9% { opacity: 1 } 66.8%, 100% { opacity: 0 } }
+@keyframes medfade5 { 0%, 63.9% { opacity: 0 } 66.8%, 80.5% { opacity: 1 } 83.4%, 100% { opacity: 0 } }
+@keyframes medfade6 { 0%, 80.5% { opacity: 0 } 83.4%, 97.2% { opacity: 1 } 100% { opacity: 0 } }
+.medfade-2 { animation: medfade2 36s ease-in-out infinite }
+.medfade-3 { animation: medfade3 36s ease-in-out infinite }
+.medfade-4 { animation: medfade4 36s ease-in-out infinite }
+.medfade-5 { animation: medfade5 36s ease-in-out infinite }
+.medfade-6 { animation: medfade6 36s ease-in-out infinite }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

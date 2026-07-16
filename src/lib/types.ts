@@ -1,23 +1,29 @@
 import { canAccess } from './access-policy';
 
 // ════════════════════════════════════════════
-// 角色（2.0：四角色簡化為三角色）
+// 角色(2.0 三角色;觀察員批30 增為四角色)
 // ════════════════════════════════════════════
 
-export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR'] as const;
+// OBSERVER(觀察員):基礎權限對標稽核委員但「學習與練習」定位——獨立審閱窗口、
+// 不開放缺失與矯正管考、以「稽核發現撰寫練習」取代評分模組(練習資料硬隔離,
+// 絕不進正式報告)。⚠️ 新增角色時,所有 switch(user.role)/角色三元條件必須顯式
+// 處理並預設拒絕(歷史上 rbac/access-policy 對未知角色 fail-open,批30 已收斂)。
+export const ROLES = ['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   SUPER_ADMIN: '最高管理員',
   ORG_ADMIN: '機關管理員',
   AUDITOR: '稽核委員',
+  OBSERVER: '觀察員',
 };
 
 /** 角色 → Chip 色調(單一來源,確保同角色跨頁同色;以 UserMenu 既有對應為準) */
-export const ROLE_TONE: Record<Role, 'primary' | 'sage' | 'warning'> = {
+export const ROLE_TONE: Record<Role, 'primary' | 'sage' | 'warning' | 'neutral'> = {
   SUPER_ADMIN: 'primary',
   AUDITOR: 'sage',
   ORG_ADMIN: 'warning',
+  OBSERVER: 'neutral',
 };
 
 // ════════════════════════════════════════════
@@ -62,6 +68,13 @@ export const DEFICIENCY_ASPECT_LABELS: Record<DeficiencyAspect, string> = {
   TECHNICAL: '技術面',
 };
 
+/** 構面公文序號(一/二/三)——缺失清單頁與列印版共用(原兩頁各自定義,減法批 dup#9 合併)。 */
+export const DEFICIENCY_ASPECT_NUM: Record<DeficiencyAspect, string> = {
+  STRATEGY: '一',
+  MANAGEMENT: '二',
+  TECHNICAL: '三',
+};
+
 export const DEFICIENCY_TYPES = ['IMPROVE', 'SUGGEST'] as const;
 export type DeficiencyType = (typeof DEFICIENCY_TYPES)[number];
 
@@ -104,6 +117,115 @@ export const EXEC_STATUS_LABELS: Record<ExecStatus, string> = {
 };
 
 export const REVIEW_DECISIONS = ['PASS', 'RETURN'] as const;
+
+// ════════════════════════════════════════════
+// 批71:歷年未完成缺失「持續列管」
+// ════════════════════════════════════════════
+
+/** 觸發拋轉持續列管的執行情形:機關填「辦理中」(未逾期/逾期皆然)而委員仍審核通過 → 週期照常結案,
+ *  但事項未真正完成,須跨年度滾動追蹤。「如期完成 / 逾期完成」視為已完成,不拋轉。 */
+export const TRACKING_TRIGGER_EXEC: readonly ExecStatus[] = ['IN_PROGRESS', 'LATE_IN_PROGRESS'];
+export function isUnfinishedExec(execStatus: string | null | undefined): boolean {
+  return !!execStatus && (TRACKING_TRIGGER_EXEC as readonly string[]).includes(execStatus);
+}
+
+/** 列管狀態:追蹤中 / 已完成(認可結案)。 */
+export const TRACKED_STATUSES = ['TRACKING', 'COMPLETED'] as const;
+export type TrackedStatus = (typeof TRACKED_STATUSES)[number];
+export const TRACKED_STATUS_LABELS: Record<TrackedStatus, string> = {
+  TRACKING: '持續列管中',
+  COMPLETED: '已完成結案',
+};
+
+/** 單筆回報的審核狀態(送出後由中心/協審委員裁決三態)。 */
+export const TRACKED_REVIEW_STATUSES = ['PENDING', 'CONTINUE', 'COMPLETE', 'RETURNED'] as const;
+export type TrackedReviewStatus = (typeof TRACKED_REVIEW_STATUSES)[number];
+export const TRACKED_REVIEW_STATUS_LABELS: Record<TrackedReviewStatus, string> = {
+  PENDING: '待審核',
+  CONTINUE: '通過・續列管',
+  COMPLETE: '認可完成',
+  RETURNED: '退回補正',
+};
+
+/** 滾動審核決議(送出時的三選一;對應 TrackedReport.reviewStatus 的三個終態)。 */
+export const TRACKED_REVIEW_DECISIONS = ['CONTINUE', 'COMPLETE', 'RETURN'] as const;
+export type TrackedReviewDecision = (typeof TRACKED_REVIEW_DECISIONS)[number];
+
+/** 回報週期(月)可選值:逐筆可調,預設 6 個月。 */
+export const TRACKING_CADENCE_OPTIONS = [3, 6, 9, 12] as const;
+export const DEFAULT_TRACKING_CADENCE = 6;
+
+// ════════════════════════════════════════════
+// 批A:事前場次調查
+// ════════════════════════════════════════════
+
+/** 受調人員類別:委員 / 觀察員(決定分表、cv 需求、達標分母)。 */
+export const SURVEY_PARTICIPANT_KINDS = ['MEMBER', 'OBSERVER'] as const;
+export type SurveyParticipantKind = (typeof SURVEY_PARTICIPANT_KINDS)[number];
+export const SURVEY_PARTICIPANT_KIND_LABELS: Record<SurveyParticipantKind, string> = {
+  MEMBER: '委員',
+  OBSERVER: '觀察員',
+};
+
+/** 委員細分構面(觀察員不適用;可於管考表調整)。 */
+export const SURVEY_COMMITTEE_TYPES = ['管理面', '策略面', '技術面', '管理面-OT'] as const;
+export type SurveyCommitteeType = (typeof SURVEY_COMMITTEE_TYPES)[number];
+
+/** 逐場次意願二態(UAT:移除「待定」;N/A 顯示為「NO」)。值 'NA' 保留(未勾＝不可出席),僅顯示改 NO。 */
+export const SURVEY_AVAILABILITY_STATUSES = ['OK', 'NA'] as const;
+export type SurveyAvailabilityStatus = (typeof SURVEY_AVAILABILITY_STATUSES)[number];
+export const SURVEY_AVAILABILITY_LABELS: Record<SurveyAvailabilityStatus, string> = {
+  OK: 'OK',
+  NA: 'NO',
+};
+
+/** 意願回信(管考表欄位)。 */
+export const SURVEY_REPLY_STATUSES = ['YES', 'NO'] as const;
+export type SurveyReplyStatus = (typeof SURVEY_REPLY_STATUSES)[number];
+export const SURVEY_REPLY_STATUS_LABELS: Record<SurveyReplyStatus, string> = {
+  YES: '是',
+  NO: '否',
+};
+
+/** 文件交接狀態(管考表欄位)。 */
+export const SURVEY_DOC_HANDOVER_STATUSES = ['PENDING', 'WAITING', 'UPDATED'] as const;
+export type SurveyDocHandover = (typeof SURVEY_DOC_HANDOVER_STATUSES)[number];
+export const SURVEY_DOC_HANDOVER_LABELS: Record<SurveyDocHandover, string> = {
+  PENDING: '未處理',
+  WAITING: '等待回傳',
+  UPDATED: '更新文件已上傳',
+};
+
+// ── 批B:文件繳交審核 + 差旅二階 ──
+
+/** 文件繳交狀態(cv/切結書):未繳交 → 已繳交(送審) → 待補件(退回)。 */
+export const SURVEY_DOC_STATUSES = ['NONE', 'SUBMITTED', 'RETURNED'] as const;
+export type SurveyDocStatus = (typeof SURVEY_DOC_STATUSES)[number];
+export const SURVEY_DOC_STATUS_LABELS: Record<SurveyDocStatus, string> = {
+  NONE: '未繳交',
+  SUBMITTED: '已繳交',
+  RETURNED: '待補件',
+};
+
+/** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員;切結書委員與觀察員各一份(UAT:觀察員切結書不同,分開)。 */
+export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER'] as const;
+export type SurveyTemplateSlot = (typeof SURVEY_TEMPLATE_SLOTS)[number];
+export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
+  CV_SAMPLE: '舊版經歷說明書（參考）',
+  CV_BLANK: '空白經歷說明書',
+  NDA_BLANK: '空白保密切結書（委員）',
+  NDA_BLANK_OBSERVER: '空白保密切結書（觀察員）',
+};
+/** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
+export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
+  MEMBER: ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'],
+  OBSERVER: ['NDA_BLANK_OBSERVER'],
+};
+
+/** 交通方式(差旅二階,可複選)。 */
+export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸', '接駁'] as const;
+/** 飲食需求(差旅二階,可複選)。 */
+export const SURVEY_DIET_OPTIONS = ['葷', '素', '不吃豬', '不吃牛', '不吃家禽', '不吃海鮮'] as const;
 
 // ════════════════════════════════════════════
 // 模組 B：資料準備（P2）
@@ -203,6 +325,72 @@ export function auditorCanSeeDeficiencies(cycleStatus: string): boolean {
   return canAccess('deficiencies.view', 'AUDITOR', cycleStatus);
 }
 
+/**
+ * 委員審閱時間區間閘(UAT 批67):中心設定的 reviewWindowStart/End 限制委員檢視機關資料
+ * (資料準備 + 資通安全檢核表審閱)的時段。此為「階段閘之外的額外時間閘」,僅作用於委員(AUDITOR):
+ *  - 未設區間(任一端為 null)→ 一律不開放(使用者裁定「沒設區間就不開放」,強制中心明確設定審閱時段);
+ *  - 設了 → 僅在 [start, end] 內開放,未到不可看、已過不可看。
+ * 中心/機關不受此限。與階段閘(auditorCanSeePrep / auditorCanViewChecklistContent)為「且」關係:兩者皆過才可見。
+ */
+export function auditorReviewWindowOpen(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!start || !end) return false;
+  const s = start instanceof Date ? start : new Date(start);
+  const e = end instanceof Date ? end : new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
+  return now.getTime() >= s.getTime() && now.getTime() <= e.getTime();
+}
+
+/** 實地稽核階段是否已結束(缺失發布起):委員審閱窗口的鎖定提示於此後改顯
+ *  「實地稽核階段已結束,非審閱時段」——此時再提「中心尚未設定審閱時段」已不合情境(稽核已結束,無需再設)。 */
+export function onsiteStageEnded(cycleStatus: string): boolean {
+  return cycleStatus === 'REPORT_ISSUED' || cycleStatus === 'REMEDIATION' || cycleStatus === 'CLOSED';
+}
+
+/** 委員審閱窗口狀態(供 UI 顯示「尚未開始 / 已結束 / 未設定」的鎖定提示訊息)。 */
+export type ReviewWindowState = 'open' | 'before' | 'after' | 'unset';
+export function auditorReviewWindowState(
+  start: Date | string | null | undefined,
+  end: Date | string | null | undefined,
+  now: Date = new Date(),
+): ReviewWindowState {
+  if (!start || !end) return 'unset';
+  const s = start instanceof Date ? start : new Date(start);
+  const e = end instanceof Date ? end : new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 'unset';
+  if (now.getTime() < s.getTime()) return 'before';
+  if (now.getTime() > e.getTime()) return 'after';
+  return 'open';
+}
+
+/**
+ * 觀察員獨立審閱窗口(批30):與委員窗口平行的第二組區間(AuditCycle.observerWindowStart/End),
+ * 語義完全比照委員窗口(未設=不開放)。以下兩個 ForRole 包裝讓呼叫端「依角色取對的欄位」,
+ * 避免觀察員誤走委員窗口。observerWindow* 為 optional:呼叫端 select 漏帶欄位時視同未設
+ * (fail-closed,寧可鎖住也不誤開)。中心/機關不受窗口管制(回 open/true)。
+ */
+export type ReviewWindowFields = {
+  reviewWindowStart: Date | string | null;
+  reviewWindowEnd: Date | string | null;
+  observerWindowStart?: Date | string | null;
+  observerWindowEnd?: Date | string | null;
+};
+
+export function reviewWindowOpenForRole(role: Role, c: ReviewWindowFields, now: Date = new Date()): boolean {
+  if (role === 'AUDITOR') return auditorReviewWindowOpen(c.reviewWindowStart, c.reviewWindowEnd, now);
+  if (role === 'OBSERVER') return auditorReviewWindowOpen(c.observerWindowStart ?? null, c.observerWindowEnd ?? null, now);
+  return true;
+}
+
+export function reviewWindowStateForRole(role: Role, c: ReviewWindowFields, now: Date = new Date()): ReviewWindowState {
+  if (role === 'AUDITOR') return auditorReviewWindowState(c.reviewWindowStart, c.reviewWindowEnd, now);
+  if (role === 'OBSERVER') return auditorReviewWindowState(c.observerWindowStart ?? null, c.observerWindowEnd ?? null, now);
+  return 'open';
+}
+
 // ════════════════════════════════════════════
 // 前台公告（P3）
 // ════════════════════════════════════════════
@@ -229,6 +417,11 @@ export const EVIDENCE_TARGET_TYPES = [
   'CORRECTIVE_ACTION',
   'PREP_SUBMISSION',
   'AUDIT_CYCLE',
+  'TRACKED_REPORT', // 批71:持續列管缺失之滾動回報佐證
+  'SURVEY_CV', // 批B:事前場次調查——委員經歷說明書(targetId=participantId)
+  'SURVEY_NDA', // 批B:事前場次調查——聘任同意暨保密切結書(targetId=participantId)
+  'SURVEY_TEMPLATE', // 批B:事前場次調查——公版範本(targetId=SurveyTemplate.id;受調者可下載)
+  'SURVEY_CV_PRIOR', // mockup 改版:個別委員「去年舊版經歷說明書」(中心上傳給特定委員參考;targetId=participantId,本人可下載)
 ] as const;
 export type EvidenceTargetType = (typeof EVIDENCE_TARGET_TYPES)[number];
 

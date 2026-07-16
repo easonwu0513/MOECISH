@@ -20,23 +20,22 @@ export default async function PrepTemplatePage() {
         include: { files: { orderBy: { uploadedAt: 'asc' }, select: { id: true, originalName: true, sizeBytes: true } } },
       })
     : [];
-  // 年度歷史檢視的年度來源之一:已開立週期的年度(讓歷史年度即使無年度專屬項目也看得到當年清單)
-  const cycleYears = (await prisma.auditCycle.findMany({ select: { year: true }, distinct: ['year'] })).map((c) => c.year);
-
   return (
     <AppShell
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '資料準備清單' }]}
     >
-      <header className="mb-6">
-        <h1 className="text-headline text-on-surface">資料準備標準清單</h1>
-        <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-          依年度檢視「套用標準清單」帶入的完整項目(分技術檢測 / 實地稽核 / 中心匯入三區):
-          每個年度頁籤顯示該年度週期實際會帶入的清單=「通用」項目+該年度專屬項目(同名時年度項優先=逐年覆寫)。
-          通用項目每年都帶入,修改會影響所有年度;各週期套用後仍可逐案調整。清單為空時,系統會帶入內建預設清單。
-          各項目可上傳「文件範本」(僅此處接受 Word/Excel 等可編輯格式)供機關於資料準備頁下載依式填寫;
-          範本掛在年度項目上即隨年度保存(歷年範本紀錄)。
-        </p>
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">資料準備標準清單</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+            本頁維護「本年度」與「下一年度（預備）」的標準清單（分技術檢測 / 實地稽核 / 中心匯入三區）：
+            各年度週期「套用標準清單」帶入該年度項目，套用後仍可逐案調整；清單為空時帶入系統內建預設。
+            本年度清單即為當年確定版本，翌年自動轉入「歷年清單」唯讀留存（近五年）；修改任一年度都不會動到歷年紀錄。
+            年底可於「下一年度（預備）」預先建置明年清單（一鍵代入本年度再小幅修正）。
+            各項目可上傳「文件範本」（僅此處接受 Word/Excel 等可編輯格式）供機關於資料準備頁下載依式填寫。
+          </p>
+        </div>
       </header>
       <PrepTemplateManager
         initialItems={items.map((i) => ({
@@ -48,7 +47,6 @@ export default async function PrepTemplatePage() {
           year: i.year,
           files: i.files,
         }))}
-        cycleYears={cycleYears}
       />
     </AppShell>
   );

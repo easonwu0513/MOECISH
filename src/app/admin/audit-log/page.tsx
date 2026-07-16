@@ -2,13 +2,10 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
-import { Card } from '@/components/ui/Card';
+import { FilterBar, FilterField, FilterSelect, FilterInput } from '@/components/ui/FilterField';
 import { Chip } from '@/components/ui/Chip';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
-import { Table, THead, Th, Tr, Td } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { History } from '@/components/icons';
 import { EMPTY } from '@/lib/copy';
 import { fmtROCDateTimeSec } from '@/lib/date';
 
@@ -21,7 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   DEFICIENCY_DELETE: '刪除缺失',
   DEFICIENCY_IMPORT: 'Excel 匯入缺失',
   ACTION_SAVE: '儲存矯正草稿',
-  ACTION_SUBMIT: '提交矯正送審',
+  ACTION_SUBMIT: '送出矯正送審',
   ACTION_PASS: '審核通過',
   ACTION_RETURN: '退回補正',
   AUDITOR_ASSIGN: '指派委員',
@@ -39,7 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   PREP_SUBMIT: '機關確定繳交資料',
   PREP_CONFIRM: '確認資料齊備',
   PREP_RETURN: '退回補正',
-  PREP_INSUFFICIENT: '退回補正(舊)',
+  PREP_INSUFFICIENT: '退回補正（舊）',
   AUDITOR_COMMENT_CREATE: '委員意見',
   AUDITOR_COMMENT_RESOLVE: '意見補正',
   CHECKLIST_REVIEW_DONE: '委員完成檢核表意見',
@@ -47,6 +44,8 @@ const ACTION_LABELS: Record<string, string> = {
   INVITATION_CREATE: '建立邀請',
   INVITATION_ACCEPT: '接受邀請',
   TRACKING_SEND: '寄送追蹤信',
+  ORG_CREATE: '建立機關',
+  ORG_UPDATE: '編輯機關資料',
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -65,7 +64,9 @@ export default async function AuditLogPage({
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/admin/audit-log');
   const user = session.user;
-  if (user.role !== 'SUPER_ADMIN' && user.role !== 'AUDITOR') redirect('/dashboard');
+  // 稽核軌跡=中心專用鑑識台(全掃 P2:委員本有週期頁「最近活動」看自己軌跡,不需全域台;
+  // admin/layout 已擋非 SUPER_ADMIN,此為對齊而非唯一防線)。
+  if (user.role !== 'SUPER_ADMIN') redirect('/dashboard');
 
   const entity = searchParams.entity || undefined;
   const actorId = searchParams.actor || undefined;
@@ -80,12 +81,15 @@ export default async function AuditLogPage({
     ...(actorId ? { actorId } : {}),
     ...(createdAt ? { createdAt } : {}),
   };
-  const logs = await prisma.auditLog.findMany({
+  // 取 201 筆:多取 1 筆作「已截斷」訊號(批36:量大時使用者可能誤以為某操作「沒有紀錄」)
+  const logsRaw = await prisma.auditLog.findMany({
     where,
     include: { actor: { select: { name: true, email: true, role: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 200,
+    take: 201,
   });
+  const truncated = logsRaw.length > 200;
+  const logs = truncated ? logsRaw.slice(0, 200) : logsRaw;
 
   const entityTypes = await prisma.auditLog.groupBy({
     by: ['entityType'],
@@ -106,109 +110,111 @@ export default async function AuditLogPage({
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '管理' }, { label: '稽核軌跡' }]}
     >
-      <header className="mb-6 flex items-baseline justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-headline text-on-surface">稽核軌跡</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant leading-relaxed">
-            所有寫入操作之不可否認紀錄;顯示最近 200 筆。
+      <header className="mb-9 pb-5 border-b border-rule flex items-end justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-headline-lg text-ink-900 tracking-tight">稽核軌跡</h1>
+          <p className="mt-2.5 text-body-sm text-ink-500 max-w-2xl leading-relaxed">
+            所有寫入操作之不可否認紀錄；{truncated ? '結果超過 200 筆，僅顯示最近 200 筆——請以日期區間或操作者縮小範圍後再查。' : '顯示最近 200 筆。'}
           </p>
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          <a href="/admin/audit-log">
-            <Chip tone={!entity ? 'primary' : 'neutral'} size="sm">全部</Chip>
-          </a>
-          {entityTypes.map((t) => (
-            <a key={t.entityType} href={`/admin/audit-log?entity=${encodeURIComponent(t.entityType)}`}>
-              <Chip tone={entity === t.entityType ? 'primary' : 'neutral'} size="sm">
-                {entityLabel(t.entityType)}({t._count})
-              </Chip>
-            </a>
-          ))}
         </div>
       </header>
 
-      {/* 操作者 / 日期區間篩選(面對教育部稽核或院方申訴時快速舉證) */}
-      <form method="get" className="mb-5 flex items-end gap-2 flex-wrap">
-        {entity && <input type="hidden" name="entity" value={entity} />}
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          操作者
-          <select name="actor" defaultValue={actorId ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring">
-            <option value="">全部</option>
-            {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          起
-          <input type="date" name="from" defaultValue={from ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
-        </label>
-        <label className="flex flex-col gap-1 text-caption text-on-surface-variant">
-          迄
-          <input type="date" name="to" defaultValue={to ?? ''} className="h-9 rounded-md border border-outline-variant bg-surface px-2 text-body-sm focus-ring" />
-        </label>
-        <button type="submit" className="h-9 px-4 rounded-md bg-primary-600 text-white text-body-sm focus-ring hover:bg-primary-700">套用</button>
-        {(actorId || from || to) && (
-          <a href={entity ? `/admin/audit-log?entity=${encodeURIComponent(entity)}` : '/admin/audit-log'} className="h-9 inline-flex items-center px-3 text-body-sm text-on-surface-variant hover:text-on-surface">清除</a>
-        )}
-      </form>
+      {/* 篩選單列化(UAT:上方區塊太亂):原「16 種物件類型 chips 牆 + 另一排表單」兩層
+          → 物件類型收成下拉,與操作者/日期併為單一篩選列,掃視負擔大減 */}
+      <FilterBar>
+        <form method="get" className="flex items-end gap-2 flex-wrap">
+          <FilterField label="物件類型">
+            <FilterSelect name="entity" defaultValue={entity ?? ''}>
+              <option value="">全部類型</option>
+              {entityTypes.map((t) => (
+                <option key={t.entityType} value={t.entityType}>
+                  {entityLabel(t.entityType)}({t._count})
+                </option>
+              ))}
+            </FilterSelect>
+          </FilterField>
+          {/* 操作者 / 日期區間(面對教育部稽核或院方申訴時快速舉證) */}
+          <FilterField label="操作者">
+            <FilterSelect name="actor" defaultValue={actorId ?? ''}>
+              <option value="">全部</option>
+              {actorList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </FilterSelect>
+          </FilterField>
+          <FilterField label="起">
+            <FilterInput type="date" name="from" defaultValue={from ?? ''} />
+          </FilterField>
+          <FilterField label="迄">
+            <FilterInput type="date" name="to" defaultValue={to ?? ''} />
+          </FilterField>
+          <Button type="submit" size="sm">套用</Button>
+          {(entity || actorId || from || to) && (
+            <Button href="/admin/audit-log" variant="ghost" size="sm">清除</Button>
+          )}
+        </form>
+      </FilterBar>
 
       {logs.length === 0 ? (
-        <Card>
+        <div className="rounded-md border border-rule bg-card px-6 py-14 text-center">
           {entity || actorId || from || to ? (
-            <EmptyState
-              icon={<History size={28} />}
-              title={EMPTY.noResults.title}
-              description="此條件區間查無操作紀錄;請調整或清除篩選後再試。"
-              action={<Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button>}
-            />
+            <>
+              <p className="text-title text-ink-700">{EMPTY.noResults.title}</p>
+              <p className="mt-1.5 text-body-sm text-ink-500">此條件區間查無操作紀錄；請調整或清除篩選後再試。</p>
+              <div className="mt-4"><Button href="/admin/audit-log" variant="tonal" size="sm">清除篩選</Button></div>
+            </>
           ) : (
-            <EmptyState icon={<History size={28} />} title="尚無紀錄" description="系統操作後將自動留存軌跡。" />
+            <>
+              <p className="text-title text-ink-700">尚無紀錄</p>
+              <p className="mt-1.5 text-body-sm text-ink-500">系統操作後將自動留存軌跡。</p>
+            </>
           )}
-        </Card>
+        </div>
       ) : (
-        <Card padded={false} variant="outlined">
-          <TableScroll>
-          <Table>
-            <THead>
-                <Th>時間</Th>
-                <Th>操作者</Th>
-                <Th>動作</Th>
-                <Th>對象</Th>
-                <Th>IP</Th>
-            </THead>
-            <tbody>
-              {logs.map((l) => (
-                <Tr key={l.id} className="align-top">
-                  <Td className="text-on-surface-variant whitespace-nowrap tabular-nums">
-                    {fmtROCDateTimeSec(l.createdAt)}
-                  </Td>
-                  <Td>
-                    {l.actor ? (
-                      <>
-                        <span className="text-on-surface">{l.actor.name}</span>
-                        <span className="block text-caption font-mono text-on-surface-variant">{l.actor.email}</span>
-                      </>
-                    ) : (
-                      <span className="text-on-surface-variant">系統</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
-                  </Td>
-                  <Td>
-                    <span className="text-on-surface">{entityLabel(l.entityType)}</span>
-                    <span className="block text-caption font-mono text-on-surface-variant truncate max-w-[180px]">
-                      {l.entityId}
-                    </span>
-                  </Td>
-                  <Td className="text-caption font-mono text-on-surface-variant">
-                    {l.ipAddress ?? '—'}
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
+          <TableScroll maxHeight="70vh">
+            <table className="w-full text-body-sm">
+              <thead>
+                <tr className="border-b border-rule-strong bg-paper-sunk text-left text-caption text-ink-500 [&_th]:sticky [&_th]:top-0 [&_th]:bg-paper-sunk">
+                  <th className="px-4 py-2.5 font-medium">時間</th>
+                  <th className="px-4 py-2.5 font-medium">操作者</th>
+                  <th className="px-4 py-2.5 font-medium">動作</th>
+                  <th className="px-4 py-2.5 font-medium">對象</th>
+                  <th className="px-4 py-2.5 font-medium">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => (
+                  <tr key={l.id} className="border-b border-rule last:border-b-0 align-top hover:bg-paper-sunk transition-colors">
+                    <td className="px-4 py-3 text-ink-500 whitespace-nowrap tabular-nums">
+                      {fmtROCDateTimeSec(l.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {l.actor ? (
+                        <>
+                          <span className="text-ink-900">{l.actor.name}</span>
+                          <span className="block text-caption font-mono text-ink-500">{l.actor.email}</span>
+                        </>
+                      ) : (
+                        <span className="text-ink-500">系統</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Chip tone="neutral" size="sm">{ACTION_LABELS[l.action] ?? l.action}</Chip>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-ink-900">{entityLabel(l.entityType)}</span>
+                      <span className="block truncate text-caption font-mono text-ink-500 max-w-[180px]">
+                        {l.entityId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-caption font-mono text-ink-500">
+                      {l.ipAddress ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </TableScroll>
-        </Card>
+        </div>
       )}
     </AppShell>
   );

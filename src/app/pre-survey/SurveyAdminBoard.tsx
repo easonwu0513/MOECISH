@@ -1,0 +1,1559 @@
+'use client';
+
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Chip } from '@/components/ui/Chip';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { TextField } from '@/components/ui/TextField';
+import { Textarea } from '@/components/ui/Textarea';
+import { Dialog, ConfirmDialog } from '@/components/ui/Dialog';
+import { Segmented } from '@/components/ui/Segmented';
+import { useToast } from '@/components/ui/Toast';
+import { FileUploadButton } from '@/components/ui/FileUploadButton';
+import { Plus, Settings, Bell, Trash2, MapPin, FileText, Paperclip, User, CalendarDays, ChevronDown } from '@/components/icons';
+import { targetTone, surveyDocDisplay, availabilityTone } from '@/lib/pre-survey';
+import {
+  SURVEY_AVAILABILITY_LABELS,
+  SURVEY_COMMITTEE_TYPES,
+  SURVEY_REPLY_STATUS_LABELS,
+  SURVEY_DOC_HANDOVER_LABELS,
+  SURVEY_REPLY_STATUSES,
+  SURVEY_DOC_HANDOVER_STATUSES,
+  SURVEY_TEMPLATE_SLOT_LABELS,
+  SURVEY_TEMPLATE_SLOTS_BY_KIND,
+  type SurveyParticipantKind,
+} from '@/lib/types';
+
+export type AdminSessionDTO = {
+  id: string;
+  name: string; // 真實地名(中心可見)
+  dateLabel: string;
+  dateInput: string | null; // YYYY-MM-DD 供編輯
+  isRequired: boolean;
+  remark: string | null;
+  targetMemberCount: number;
+  targetObserverCount: number;
+  anonymizeForMember: boolean; // 對委員是否匿名地點
+  anonymizeForObserver: boolean; // 對觀察員是否匿名地點
+  sharedWithObserver: boolean; // 是否委員與觀察員共同場次(false=委員專屬,如委員共識會議)
+};
+export type AdminParticipantDTO = {
+  id: string;
+  userId: string; // 綁定帳號 id(去重以此為鍵,非顯示姓名——同名不同帳號)
+  name: string;
+  kind: SurveyParticipantKind;
+  committeeType: string | null;
+  phone: string | null;
+  email: string | null;
+  phone2: string | null;
+  email2: string | null;
+  note: string | null;
+  replyStatus: string;
+  docHandover: string;
+  submittedAt: string | null;
+  editUnlocked: boolean; // 中心已對此人開放補填/變更意願(逾填報時窗仍可編修)
+  docStatus: string;
+  docReviewed: boolean;
+  rejectReason: string | null;
+  cvFile: { id: string; name: string } | null;
+  ndaFile: { id: string; name: string } | null;
+  priorCvFile: { id: string; name: string } | null; // 中心提供的舊版經歷說明書參考
+  transport: string[];
+  diet: string[];
+  travelNote: string | null;
+  customValues: Record<string, string>; // columnId → 值
+  availability: Record<string, string>; // sessionId → status
+  finalSessionIds: string[];
+};
+export type PoolUser = { id: string; name: string; email: string };
+export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
+export type AdminColumnDTO = { id: string; title: string; selfEditable: boolean; dueDate: string | null };
+
+export default function SurveyAdminBoard({
+  yearROC,
+  sessions,
+  participants,
+  memberPool,
+  observerPool,
+  templates,
+  customColumns,
+  fillWindow,
+  initialKind = 'MEMBER',
+}: {
+  yearROC: number;
+  sessions: AdminSessionDTO[];
+  participants: AdminParticipantDTO[];
+  memberPool: PoolUser[];
+  observerPool: PoolUser[];
+  templates: AdminTemplateDTO[];
+  customColumns: AdminColumnDTO[];
+  fillWindow: { openAt: string | null; closeAt: string | null } | null; // 該年度意願填報時窗(中心設定)
+  initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [kind, setKind] = useState<SurveyParticipantKind>(initialKind);
+  const [sessionMgrOpen, setSessionMgrOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [assignFor, setAssignFor] = useState<AdminParticipantDTO | null>(null);
+  const [removeFor, setRemoveFor] = useState<AdminParticipantDTO | null>(null);
+  const [reviewFor, setReviewFor] = useState<AdminParticipantDTO | null>(null);
+  const [profileFor, setProfileFor] = useState<AdminParticipantDTO | null>(null);
+  const [colSettingsFor, setColSettingsFor] = useState<AdminColumnDTO | null>(null);
+  const [templateMgrOpen, setTemplateMgrOpen] = useState(false);
+  const [fillWindowOpen, setFillWindowOpen] = useState(false);
+  const [sortSessionId, setSortSessionId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const rows = useMemo(() => {
+    const list = participants.filter((p) => p.kind === kind);
+    if (!sortSessionId) return list;
+    // 一鍵分組(UAT):依「最終指派該場次」者排前(非委員 OK 意願),穩定排序不改其餘相對序。
+    return [...list].sort((a, b) => {
+      const av = a.finalSessionIds.includes(sortSessionId) ? 0 : 1;
+      const bv = b.finalSessionIds.includes(sortSessionId) ? 0 : 1;
+      return av - bv;
+    });
+  }, [participants, kind, sortSessionId]);
+
+  // D UAT:觀察員分頁不顯示「委員專屬」場次(sharedWithObserver=false,如委員共識會議);委員分頁顯示全部。
+  const visibleSessions = useMemo(
+    () => (kind === 'OBSERVER' ? sessions.filter((s) => s.sharedWithObserver) : sessions),
+    [sessions, kind],
+  );
+
+  const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
+  const colCount = visibleSessions.length + customColumns.length + 10 + (kind === 'MEMBER' ? 1 : 0);
+
+  async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
+    setBusy(true);
+    const res = await fetch(url, {
+      method,
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '操作失敗' }));
+      toast.error('操作失敗', j.error);
+      router.refresh(); // 還原樂觀 UI
+      return false;
+    }
+    if (okMsg) toast.success(okMsg);
+    router.refresh();
+    return true;
+  }
+
+  const setAvailability = (pid: string, sessionId: string, status: string) =>
+    call(`/api/pre-survey/participants/${pid}/availability`, 'PUT', { sessionId, status });
+  const patchParticipant = (pid: string, data: Record<string, unknown>) =>
+    call(`/api/pre-survey/participants/${pid}`, 'PATCH', data);
+  const setCustomValue = (pid: string, columnId: string, value: string) =>
+    call(`/api/pre-survey/participants/${pid}`, 'PATCH', { customValue: { columnId, value } });
+
+  async function remind(p: AdminParticipantDTO, stage: 1 | 2) {
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/remind?stage=${stage}`, { method: 'POST' });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '催辦失敗' }));
+      toast.error('催辦失敗', j.error);
+      return;
+    }
+    const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false }));
+    if (j.recipientCount > 0) toast.success(`已寄出催辦（${stage === 2 ? '差旅' : '意願'}）`, p.name);
+    else if (j.skipped) toast.warning('今日已催辦過', '24 小時內同一階段僅寄一次，避免重複打擾。');
+    else if (stage === 2) toast.warning('未寄送', '該人員尚未被指派最終場次，或帳號已停用。');
+    else toast.warning('未寄送', '該帳號已停用或查無收件人。');
+  }
+
+  async function addColumn() {
+    await call('/api/pre-survey/columns', 'POST', { year: yearROC + 1911, title: '新欄位' }, '已新增欄位');
+  }
+  const renameColumn = (id: string, title: string) => call('/api/pre-survey/columns', 'PATCH', { id, title });
+
+  return (
+    <div className="space-y-6">
+      {/* 系統檔案管理區(公版範本 + 個別委員舊版經歷說明書) */}
+      <FileManagementCard
+        kind={kind}
+        templates={templates}
+        members={participants.filter((p) => p.kind === 'MEMBER')}
+        onManageTemplates={() => setTemplateMgrOpen(true)}
+      />
+
+      {/* 工具列 */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Segmented
+          value={kind}
+          onChange={(v) => {
+            setKind(v); // 即時切換內容;同步 ?kind 讓側欄樹高亮跟著走(避免側欄停在舊身分)
+            const params = new URLSearchParams(window.location.search);
+            params.set('kind', v);
+            router.replace(`/pre-survey?${params.toString()}`, { scroll: false });
+          }}
+          options={[
+            { value: 'MEMBER', label: '委員' },
+            { value: 'OBSERVER', label: '觀察員' },
+          ]}
+        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" variant="outlined" leadingIcon={<Plus size={15} />} onClick={addColumn} disabled={busy}>
+            新增欄位
+          </Button>
+          <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
+            管理場次
+          </Button>
+          <Button size="sm" variant="outlined" leadingIcon={<CalendarDays size={15} />} onClick={() => setFillWindowOpen(true)}>
+            填報時間
+          </Button>
+          <Button href={`/api/pre-survey/export?year=${yearROC + 1911}&kind=${kind}`} size="sm" variant="outlined" download>
+            匯出 CSV
+          </Button>
+          <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setAddOpen(true)}>
+            新增{kind === 'OBSERVER' ? '觀察員' : '委員'}
+          </Button>
+        </div>
+      </div>
+
+      {/* 達標儀表卡 */}
+      {visibleSessions.length > 0 && (
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          {visibleSessions.map((s) => {
+            const target = s[targetField];
+            // UAT:分母是「最終指派目標人數」,分子應為「已指派該場次人數」(非意願 OK 人數)
+            const assigned = rows.filter((p) => p.finalSessionIds.includes(s.id)).length;
+            return (
+              <Card key={s.id} variant="outlined" className="!p-3.5">
+                <p className="text-caption text-ink-500 truncate">{s.dateLabel} · {s.name}</p>
+                <p className="mt-1 text-title-md text-ink-900 tabular-nums">
+                  {assigned}<span className="text-body-sm text-ink-500"> / {target} 人</span>
+                </p>
+                <p className="text-[10px] text-ink-400 leading-tight">已指派 / 目標</p>
+                <div className="mt-2 h-1.5 rounded-full bg-paper-sunk overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${targetTone(assigned, target) === 'success' ? 'bg-success-500' : 'bg-primary-500'}`}
+                    style={{ width: `${target > 0 ? Math.min(100, (assigned / target) * 100) : 0}%` }}
+                  />
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 管考矩陣 */}
+      <Card variant="outlined" className="!p-0 overflow-hidden">
+        <div className="overflow-auto max-h-[70vh]">
+          <table className="w-full text-body-sm border-collapse">
+            <thead>
+              <tr className="bg-paper-sunk text-caption text-ink-500">
+                <th className="sticky left-0 top-0 z-30 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
+                {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[124px]">類型</th>}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
+                {/* 左群組:最終場次 / 意願回信 */}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">意願回信</th>
+                {/* 場次意願(點表頭一鍵分組) */}
+                {visibleSessions.map((s, i) => {
+                  const active = sortSessionId === s.id;
+                  return (
+                    <th
+                      key={s.id}
+                      className={`sticky top-0 z-20 px-2 py-2.5 text-center font-medium min-w-[108px] cursor-pointer select-none hover:text-ink-700 ${active ? 'bg-primary-50 text-primary-700' : 'bg-paper-sunk'}`}
+                      title={`${s.dateLabel} ${s.name}（點擊依此場次最終指派分組）`}
+                      onClick={() => setSortSessionId(active ? null : s.id)}
+                    >
+                      <div className="text-ink-700">{s.dateLabel}</div>
+                      <div className="text-ink-900 truncate max-w-[104px] inline-flex items-center gap-0.5">
+                        {s.name}{active && <ChevronDown size={11} />}
+                      </div>
+                      <div className="text-[10px] text-ink-500">（場次 {i + 1})</div>
+                    </th>
+                  );
+                })}
+                {/* 右群組:文件交接 / 交通 / 飲食 / 電話 / 備註 */}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">文件交接</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">聯絡電話</th>
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">備註</th>
+                {/* 自訂欄位(可改名 / 刪除) */}
+                {customColumns.map((c) => (
+                  <th key={c.id} className="sticky top-0 z-20 bg-paper-sunk px-2 py-2 text-left font-medium min-w-[120px]">
+                    <div className="flex items-center gap-1">
+                      <input
+                        defaultValue={c.title}
+                        onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== c.title) renameColumn(c.id, t); else if (!t) e.target.value = c.title; }}
+                        className="w-full min-w-[52px] rounded bg-transparent px-1 py-0.5 text-caption font-medium text-ink-700 focus-ring hover:bg-paper"
+                        aria-label="自訂欄位標題"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setColSettingsFor(c)}
+                        className="shrink-0 text-ink-400 hover:text-primary-600 focus-ring rounded"
+                        title="欄位設定（開放受調者填寫／到期日）"
+                      >
+                        <Settings size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => call('/api/pre-survey/columns', 'DELETE', { id: c.id }, '已刪除欄位')}
+                        className="shrink-0 text-ink-400 hover:text-danger-600 focus-ring rounded"
+                        title="刪除欄位"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                    {(c.selfEditable || c.dueDate) && (
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-normal leading-tight text-ink-500">
+                        {c.selfEditable && (
+                          <span className="inline-flex items-center gap-0.5 text-primary-700"><User size={9} />受調者填</span>
+                        )}
+                        {c.dueDate && <span>到期 {c.dueDate.slice(5)}</span>}
+                      </div>
+                    )}
+                  </th>
+                ))}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-right font-medium min-w-[80px]">動作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-rule">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={colCount} className="px-3 py-10 text-center text-ink-500">
+                    尚無{kind === 'OBSERVER' ? '觀察員' : '委員'}。點右上「新增」從帳號池加入。
+                  </td>
+                </tr>
+              ) : (
+                rows.map((p) => (
+                  <tr key={p.id} className="hover:bg-paper-sunk/40">
+                    {/* 姓名(點擊開個人資料彈窗) */}
+                    <td className="sticky left-0 z-10 bg-card px-3 py-2 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setProfileFor(p)}
+                        className="inline-flex items-center gap-2 font-medium text-ink-900 hover:text-primary-700 focus-ring rounded"
+                        title="檢視個人資料"
+                      >
+                        <span className="inline-flex w-6 h-6 rounded-full bg-paper-sunk items-center justify-center text-caption text-ink-600 shrink-0">
+                          {p.name.charAt(0)}
+                        </span>
+                        {p.name}
+                      </button>
+                    </td>
+                    {kind === 'MEMBER' && (
+                      <td className="px-3 py-2">
+                        <Select
+                          value={p.committeeType ?? ''}
+                          onChange={(e) => patchParticipant(p.id, { committeeType: e.target.value || null })}
+                          dense
+                        >
+                          <option value="">未分類</option>
+                          {SURVEY_COMMITTEE_TYPES.map((t) => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </Select>
+                      </td>
+                    )}
+                    {/* 資料繳交(狀態 chip → 審核;催1/2階) */}
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col items-start gap-1.5">
+                        <button type="button" onClick={() => setReviewFor(p)} className="focus-ring rounded" title="檢視/審核文件">
+                          {(() => {
+                            const d = surveyDocDisplay(p.docStatus, p.docReviewed);
+                            return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
+                          })()}
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => remind(p, 1)}
+                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring"
+                            title="催辦一階：出席意願與文件"
+                          >
+                            催1階
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || p.finalSessionIds.length === 0}
+                            onClick={() => remind(p, 2)}
+                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring disabled:opacity-40"
+                            title={p.finalSessionIds.length === 0 ? '未指派最終場次，無法催二階' : '催辦二階：差旅與飲食'}
+                          >
+                            催2階
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                    {/* 最終場次(E UAT:內嵌下拉多選,免點進彈窗直接指派) */}
+                    <td className="px-3 py-2">
+                      <FinalSessionCell p={p} sessions={visibleSessions} />
+                    </td>
+                    {/* 意願回信 */}
+                    <td className="px-3 py-2">
+                      <Select
+                        value={p.replyStatus}
+                        onChange={(e) => patchParticipant(p.id, { replyStatus: e.target.value })}
+                        dense
+                      >
+                        {SURVEY_REPLY_STATUSES.map((r) => (
+                          <option key={r} value={r}>{SURVEY_REPLY_STATUS_LABELS[r]}</option>
+                        ))}
+                      </Select>
+                    </td>
+                    {/* 場次意願 */}
+                    {visibleSessions.map((s) => (
+                      <td key={s.id} className="px-2 py-2 text-center">
+                        <Select
+                          value={p.availability[s.id] ?? ''}
+                          onChange={(e) => setAvailability(p.id, s.id, e.target.value || 'NA')}
+                          dense
+                          aria-label={`${p.name} 對 ${s.name} 意願`}
+                        >
+                          <option value="">未填</option>
+                          <option value="OK">{SURVEY_AVAILABILITY_LABELS.OK}</option>
+                          <option value="NA">{SURVEY_AVAILABILITY_LABELS.NA}</option>
+                        </Select>
+                      </td>
+                    ))}
+                    {/* 文件交接 */}
+                    <td className="px-3 py-2">
+                      <Select
+                        value={p.docHandover}
+                        onChange={(e) => patchParticipant(p.id, { docHandover: e.target.value })}
+                        dense
+                      >
+                        {SURVEY_DOC_HANDOVER_STATUSES.map((d) => (
+                          <option key={d} value={d}>{SURVEY_DOC_HANDOVER_LABELS[d]}</option>
+                        ))}
+                      </Select>
+                    </td>
+                    {/* 交通 / 飲食(唯讀;本人填) */}
+                    <td className="px-3 py-2 text-caption text-ink-700">
+                      {p.transport.length > 0 ? p.transport.join('、') : <span className="text-ink-400">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-caption text-ink-700">
+                      {p.diet.length > 0 ? p.diet.join('、') : <span className="text-ink-400">—</span>}
+                      {p.travelNote && <span className="block text-ink-400" title={p.travelNote}>備註…</span>}
+                    </td>
+                    {/* 聯絡電話(中心可改;key 綁 p.phone → 個人資料彈窗改電話後 refresh 令此格重掛吃到新值) */}
+                    <td className="px-3 py-2">
+                      <input
+                        key={p.phone ?? ''}
+                        defaultValue={p.phone ?? ''}
+                        onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.phone ?? null)) patchParticipant(p.id, { phone: e.target.value.trim() || null }); }}
+                        placeholder="—"
+                        className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                      />
+                    </td>
+                    {/* 備註 */}
+                    <td className="px-3 py-2">
+                      <input
+                        defaultValue={p.note ?? ''}
+                        onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.note ?? null)) patchParticipant(p.id, { note: e.target.value.trim() || null }); }}
+                        placeholder="—"
+                        className="w-full min-w-[110px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                      />
+                    </td>
+                    {/* 自訂欄位值 */}
+                    {customColumns.map((c) => (
+                      <td key={c.id} className="px-2 py-2">
+                        <input
+                          defaultValue={p.customValues[c.id] ?? ''}
+                          onBlur={(e) => { if ((e.target.value.trim()) !== (p.customValues[c.id] ?? '')) setCustomValue(p.id, c.id, e.target.value.trim()); }}
+                          placeholder="—"
+                          className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                        />
+                      </td>
+                    ))}
+                    {/* 動作:移除 */}
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setRemoveFor(p)}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 focus-ring"
+                          title="移除"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <SessionManagerDialog open={sessionMgrOpen} onOpenChange={setSessionMgrOpen} yearROC={yearROC} sessions={sessions} />
+      <FillWindowDialog open={fillWindowOpen} onOpenChange={setFillWindowOpen} yearROC={yearROC} fillWindow={fillWindow} />
+      <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} kind={kind} />
+      <AddParticipantDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        yearROC={yearROC}
+        kind={kind}
+        pool={kind === 'OBSERVER' ? observerPool : memberPool}
+        existingUserIds={new Set(participants.filter((p) => p.kind === kind).map((p) => p.userId))}
+      />
+      <AssignDialog participant={assignFor} sessions={sessions} onClose={() => setAssignFor(null)} />
+      <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} />
+      <AdminProfileDialog participant={profileFor} sessions={sessions} onClose={() => setProfileFor(null)} />
+      <ColumnSettingsDialog column={colSettingsFor} onClose={() => setColSettingsFor(null)} />
+      <ConfirmDialog
+        open={removeFor !== null}
+        onOpenChange={(o) => { if (!o) setRemoveFor(null); }}
+        title="移除受調人員"
+        description={removeFor ? `確定將「${removeFor.name}」自本年度調查名單移除？其意願與指派將一併刪除。` : ''}
+        confirmLabel="移除"
+        tone="danger"
+        onConfirm={async () => { if (removeFor) { await call(`/api/pre-survey/participants/${removeFor.id}`, 'DELETE', undefined, '已移除'); setRemoveFor(null); } }}
+      />
+    </div>
+  );
+}
+
+// ── 系統檔案管理區(公版範本入口 + 個別委員舊版經歷說明書上傳) ──
+function FileManagementCard({
+  kind, templates, members, onManageTemplates,
+}: {
+  kind: SurveyParticipantKind;
+  templates: AdminTemplateDTO[];
+  members: AdminParticipantDTO[];
+  onManageTemplates: () => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [selectedId, setSelectedId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const kindSlots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] as readonly string[];
+  const uploadedCount = templates.filter((t) => t.fileId && kindSlots.includes(t.slot)).length;
+  const selected = members.find((m) => m.id === selectedId) ?? null;
+
+  async function uploadPriorCv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!selectedId) { toast.error('請先選擇一位委員'); return; }
+    if (file.size > 20 * 1024 * 1024) { toast.error('檔案超過 20MB 上限'); return; }
+    setBusy(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`/api/pre-survey/participants/${selectedId}/prior-cv`, { method: 'POST', body: fd });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '上傳失敗' })); toast.error('上傳失敗', j.error); return; }
+    toast.success('已上傳舊版經歷說明書', selected?.name);
+    router.refresh();
+  }
+  async function removePriorCv() {
+    if (!selectedId) return;
+    const res = await fetch(`/api/pre-survey/participants/${selectedId}/prior-cv`, { method: 'DELETE' });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除舊版參考件');
+    router.refresh();
+  }
+
+  return (
+    <Card variant="outlined">
+      <div className="flex items-center gap-2 mb-4">
+        <FileText size={16} className="text-primary-700" />
+        <h3 className="text-label text-ink-900">系統檔案管理區</h3>
+      </div>
+      <div className={`grid gap-4 ${kind === 'MEMBER' ? 'md:grid-cols-2' : ''}`}>
+        {/* 公版空白範本 */}
+        <div className="rounded-md border border-rule bg-paper-sunk/40 p-4">
+          <p className="text-body-sm font-medium text-ink-900">公版空白範本（{kind === 'OBSERVER' ? '觀察員' : '委員'}）</p>
+          <p className="mt-1 text-caption text-ink-500">
+            {kind === 'OBSERVER' ? '觀察員專用的空白保密切結書' : '委員通用的空白保密切結書與經歷說明書'}等。目前已上傳 {uploadedCount} / {kindSlots.length} 槽。
+          </p>
+          <div className="mt-3">
+            <Button size="sm" variant="outlined" leadingIcon={<Paperclip size={14} />} onClick={onManageTemplates}>
+              管理公版範本
+            </Button>
+          </div>
+        </div>
+        {/* 個別委員舊版經歷說明書(僅委員) */}
+        {kind === 'MEMBER' && (
+          <div className="rounded-md border border-primary-100 bg-primary-50/40 p-4">
+            <p className="text-body-sm font-medium text-ink-900">個別委員舊版經歷說明書</p>
+            <p className="mt-1 text-caption text-ink-500">選擇委員，上傳其「去年舊版」經歷說明書供本人參考填寫。</p>
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <Select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className="!py-1.5 text-caption min-w-[140px]">
+                <option value="">選擇委員…</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}{m.priorCvFile ? '（已上傳）' : ''}</option>
+                ))}
+              </Select>
+              <FileUploadButton size="sm" label="上傳" busy={busy} onChange={uploadPriorCv} />
+            </div>
+            {selected?.priorCvFile && (
+              <p className="mt-2 text-caption text-ink-600 break-all">
+                現有：
+                <a href={`/api/pre-survey/files/${selected.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline">
+                  {selected.priorCvFile.name}
+                </a>
+                <button type="button" onClick={removePriorCv} className="ml-2 text-danger-600 hover:underline focus-ring rounded">刪除</button>
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ── 個人資料彈窗(中心視角詳情:聯絡/文件/意願/差旅一覽,真實地名) ──
+function AdminProfileDialog({
+  participant, sessions, onClose,
+}: { participant: AdminParticipantDTO | null; sessions: AdminSessionDTO[]; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone2, setPhone2] = useState('');
+  const [email2, setEmail2] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [reviewReason, setReviewReason] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+
+  useEffect(() => {
+    setPhone(participant?.phone ?? '');
+    setEmail(participant?.email ?? '');
+    setPhone2(participant?.phone2 ?? '');
+    setEmail2(participant?.email2 ?? '');
+    setReviewReason(participant?.rejectReason ?? '');
+  }, [participant]);
+
+  if (!participant) return null;
+  const p = participant;
+  const isObserver = p.kind === 'OBSERVER';
+  const assignedNames = sessions.filter((s) => p.finalSessionIds.includes(s.id)).map((s) => `${s.dateLabel} ${s.name}`);
+
+  async function saveContact() {
+    setSaving(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        phone2: phone2.trim() || null,
+        email2: email2.trim() || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已儲存聯絡資訊');
+    router.refresh();
+  }
+
+  // G UAT:個人資料彈窗也能審核文件(核可/退補);與管考表「資料繳交」欄的 DocReviewDialog 同一後端閘。
+  async function review(decision: 'APPROVE' | 'RETURN') {
+    if (decision === 'RETURN' && !reviewReason.trim()) { toast.error('退補必須填寫理由'); return; }
+    setReviewing(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/docs/review`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision, reason: reviewReason.trim() || undefined }),
+    });
+    setReviewing(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '審核失敗' })); toast.error('審核失敗', j.error); return; }
+    toast.success(decision === 'APPROVE' ? '文件已核可' : '已退補，將通知受調者補件');
+    onClose(); // 關窗 + refresh 使管考表狀態同步(彈窗持舊 DTO,不重掛)
+    router.refresh();
+  }
+
+  // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願;供受調者逾期補填或申請變更)
+  async function toggleUnlock() {
+    setUnlocking(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ editUnlocked: !p.editUnlocked }),
+    });
+    setUnlocking(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '設定失敗' })); toast.error('設定失敗', j.error); return; }
+    toast.success(!p.editUnlocked ? '已開放此人補填/變更意願' : '已關閉此人補填權限');
+    onClose(); // 關窗 + refresh 使狀態同步(彈窗持舊 DTO,不重掛)
+    router.refresh();
+  }
+
+  const docDisp = surveyDocDisplay(p.docStatus, p.docReviewed);
+
+  return (
+    <Dialog
+      open={participant !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      size="lg"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <User size={18} /> {p.name}
+          <Chip size="sm" tone="neutral">{isObserver ? '觀察員' : p.committeeType ?? '委員'}</Chip>
+          <Chip size="sm" tone={docDisp.tone}>{docDisp.label}</Chip>
+        </span>
+      }
+    >
+      <div className="space-y-5">
+        {/* 聯絡資訊 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">聯絡資訊</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <TextField label="電子郵件（次要）" value={email2} onChange={(e) => setEmail2(e.target.value)} placeholder="—" />
+            <TextField label="聯絡電話（次要）" value={phone2} onChange={(e) => setPhone2(e.target.value)} placeholder="—" />
+          </div>
+          <div className="mt-2">
+            <Button size="sm" variant="tonal" onClick={saveContact} loading={saving} disabled={saving}>儲存聯絡資訊</Button>
+          </div>
+        </section>
+
+        {/* 個人文件 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">個人文件</h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {!isObserver && <ProfileFileRow label="經歷說明書" file={p.cvFile} />}
+            <ProfileFileRow label="保密切結書" file={p.ndaFile} />
+            {!isObserver && <ProfileFileRow label="舊版經歷說明書（中心提供）" file={p.priorCvFile} />}
+          </div>
+          {p.docStatus === 'RETURNED' && p.rejectReason && (
+            <p className="mt-2 text-caption text-danger-600">退補理由：{p.rejectReason}</p>
+          )}
+          {/* G UAT:已送審 → 中心可於此直接核可/退補(免另尋管考表「資料繳交」欄) */}
+          {p.docStatus === 'SUBMITTED' && (
+            <div className="mt-3 rounded-md border border-rule bg-paper-sunk/40 p-3">
+              <p className="text-caption text-ink-600 mb-2">
+                {p.docReviewed ? '文件已核可；如需重審可退補。' : '受調者已送審文件，請審核：'}
+              </p>
+              <Textarea label="退補理由（退補時必填）" value={reviewReason} onChange={(e) => setReviewReason(e.target.value)} rows={2} />
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" onClick={() => review('APPROVE')} loading={reviewing} disabled={reviewing}>核可</Button>
+                <Button size="sm" variant="danger" onClick={() => review('RETURN')} loading={reviewing} disabled={reviewing}>退補</Button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 最終場次 */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">最終場次</h4>
+          {assignedNames.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {assignedNames.map((n) => <Chip key={n} size="sm" tone="primary">{n}</Chip>)}
+            </div>
+          ) : (
+            <p className="text-caption text-ink-400">尚未指派（於管考表「最終場次」欄指派）</p>
+          )}
+        </section>
+
+        {/* 場次意願(真實地名) */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">場次意願</h4>
+          {sessions.length === 0 ? (
+            <p className="text-caption text-ink-400">此年度尚無場次。</p>
+          ) : (
+            <ul className="divide-y divide-rule rounded-md border border-rule">
+              {sessions.map((s) => {
+                const st = p.availability[s.id];
+                return (
+                  <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                    <span className="text-caption text-ink-700 inline-flex items-center gap-1.5">
+                      <CalendarDays size={13} className="text-ink-400" /> {s.dateLabel} {s.name}
+                      {s.isRequired && <Chip size="sm" tone="danger">必參加</Chip>}
+                    </span>
+                    {st ? (
+                      <Chip size="sm" tone={availabilityTone(st)}>{SURVEY_AVAILABILITY_LABELS[st as keyof typeof SURVEY_AVAILABILITY_LABELS] ?? st}</Chip>
+                    ) : (
+                      <span className="text-caption text-ink-400">未填</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {/* UAT:逾填報時窗開放此人補填/變更意願(供逾期補填或申請變更) */}
+          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-caption font-medium text-ink-700">開放補填／變更意願</p>
+              <p className="text-caption text-ink-500">
+                {p.editUnlocked
+                  ? '已開放：此人可無視填報時窗編修並重新送出意願。'
+                  : '逾填報時窗後此人不可再改意願；開放後可補填或變更。'}
+              </p>
+            </div>
+            <Button size="sm" variant={p.editUnlocked ? 'danger' : 'tonal'} onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
+              {p.editUnlocked ? '關閉補填' : '開放補填'}
+            </Button>
+          </div>
+        </section>
+
+        {/* 差旅與飲食(本人填,唯讀) */}
+        <section>
+          <h4 className="text-label text-ink-900 mb-2">差旅與飲食（第二階段）</h4>
+          <div className="grid gap-3 sm:grid-cols-2 text-caption text-ink-700">
+            <div><span className="text-ink-500">交通：</span> {p.transport.length > 0 ? p.transport.join('、') : '—'}</div>
+            <div><span className="text-ink-500">飲食：</span> {p.diet.length > 0 ? p.diet.join('、') : '—'}</div>
+          </div>
+          {p.travelNote && <p className="mt-2 text-caption text-ink-700"><span className="text-ink-500">差旅備註：</span> {p.travelNote}</p>}
+        </section>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 自訂欄位設定對話框(#5:開放受調者填寫 + 填報到期日) ──
+function ColumnSettingsDialog({ column, onClose }: { column: AdminColumnDTO | null; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [selfEditable, setSelfEditable] = useState(false);
+  const [dueDate, setDueDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSelfEditable(column?.selfEditable ?? false);
+    setDueDate(column?.dueDate ?? '');
+  }, [column]);
+
+  if (!column) return null;
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch('/api/pre-survey/columns', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      // 未開放受調者填寫時,到期日一併清除(避免殘留誤導 timer 設定判讀)
+      body: JSON.stringify({ id: column!.id, selfEditable, dueDate: selfEditable ? (dueDate || null) : null }),
+    });
+    setSaving(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新欄位設定');
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog
+      open={column !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={`欄位設定：${column.title}`}
+      description="可開放受調者於自助頁自行填寫，並設定填報到期日；逾期未填，系統排程將自動催辦受調者本人。"
+      footer={<><Button variant="text" onClick={onClose}>取消</Button><Button onClick={save} loading={saving} disabled={saving}>儲存</Button></>}
+    >
+      <div className="space-y-4 pt-2">
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selfEditable}
+            onChange={(e) => setSelfEditable(e.target.checked)}
+            className="mt-0.5 rounded border-rule"
+          />
+          <span>
+            <span className="block text-body-sm font-medium text-ink-900">由受調者自行填寫</span>
+            <span className="block text-caption text-ink-500">
+              開啟後，此欄位會出現在委員/觀察員的自助頁供其填寫；關閉則僅中心於管考表填寫（受調者看不到）。
+            </span>
+          </span>
+        </label>
+        <div>
+          <TextField
+            label="填報到期日（選填）"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            disabled={!selfEditable}
+          />
+          <p className="mt-1 text-caption text-ink-500">
+            {selfEditable
+              ? '設定後，對到期仍未填寫的受調者，系統每日排程將自動寄信＋站內催辦本人（到期前 7 日內一次、逾期每 7 天一次）。留空＝不催辦。'
+              : '需先開啟「由受調者自行填寫」才能設定到期日。'}
+          </p>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function ProfileFileRow({ label, file }: { label: string; file: { id: string; name: string } | null }) {
+  return (
+    <div className="rounded-md border border-rule bg-card p-2.5">
+      <p className="text-caption text-ink-500">{label}</p>
+      {file ? (
+        <a href={`/api/pre-survey/files/${file.id}/download?inline=1`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-caption text-primary-700 hover:underline break-all">
+          <Paperclip size={12} /> {file.name}
+        </a>
+      ) : (
+        <p className="mt-1 text-caption text-ink-400">未上傳</p>
+      )}
+    </div>
+  );
+}
+
+// ── 場次管理對話框 ──
+/** ISO(UTC)→ datetime-local input 值,固定以台北時區呈現(不隨管理員瀏覽器時區偏移);null/空/無效回 ''。 */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const o: Record<string, string> = {};
+  for (const p of f.formatToParts(d)) if (p.type !== 'literal') o[p.type] = p.value;
+  return `${o.year}-${o.month}-${o.day}T${o.hour}:${o.minute}`;
+}
+
+// ── 意願填報時窗設定(中心設定 openAt/closeAt;逾窗受調者鎖定,除非個別開放補填) ──
+function FillWindowDialog({
+  open, onOpenChange, yearROC, fillWindow,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  yearROC: number;
+  fillWindow: { openAt: string | null; closeAt: string | null } | null;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [openAt, setOpenAt] = useState('');
+  const [closeAt, setCloseAt] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // 每次開啟以最新 prop 重置(避免關窗後再開仍顯舊值)
+  useEffect(() => {
+    if (open) {
+      setOpenAt(isoToLocalInput(fillWindow?.openAt ?? null));
+      setCloseAt(isoToLocalInput(fillWindow?.closeAt ?? null));
+    }
+  }, [open, fillWindow?.openAt, fillWindow?.closeAt]);
+
+  async function save() {
+    // datetime-local 一律解讀為台北時間(+08:00),不隨管理員瀏覽器時區偏移;空=null(該端不限)
+    const openIso = openAt ? new Date(`${openAt.slice(0, 16)}:00+08:00`).toISOString() : null;
+    const closeIso = closeAt ? new Date(`${closeAt.slice(0, 16)}:00+08:00`).toISOString() : null;
+    if (openIso && closeIso && new Date(openIso) > new Date(closeIso)) {
+      toast.error('開放起始時間不得晚於截止時間');
+      return;
+    }
+    setBusy(true);
+    const res = await fetch('/api/pre-survey/fill-window', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: yearROC + 1911, openAt: openIso, closeAt: closeIso }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新填報時間');
+    onOpenChange(false);
+    router.refresh();
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`${yearROC} 年度意願填報時間`}
+      description="設定受調者可填寫／送出意願的時間區間；逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
+    >
+      <div className="space-y-3 pt-2">
+        <div>
+          <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
+          <input
+            type="datetime-local"
+            value={openAt}
+            onChange={(e) => setOpenAt(e.target.value)}
+            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+          />
+        </div>
+        <div>
+          <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
+          <input
+            type="datetime-local"
+            value={closeAt}
+            onChange={(e) => setCloseAt(e.target.value)}
+            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+          />
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button size="sm" onClick={save} loading={busy} disabled={busy}>儲存</Button>
+          <Button size="sm" variant="text" onClick={() => { setOpenAt(''); setCloseAt(''); }} disabled={busy}>清除限制</Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function SessionManagerDialog({
+  open, onOpenChange, yearROC, sessions,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; sessions: AdminSessionDTO[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const year = yearROC + 1911;
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+  const [tm, setTm] = useState('4');
+  const [to, setTo] = useState('1');
+  const [required, setRequired] = useState(false);
+  const [remark, setRemark] = useState('');
+  const [anonM, setAnonM] = useState(true);
+  const [anonO, setAnonO] = useState(true);
+  const [shared, setShared] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // B UAT:一鍵把該年度已排定實地稽核日的稽核週期建成場次(去重;與手動新增並存)
+  async function importCycles() {
+    setImporting(true);
+    const res = await fetch('/api/pre-survey/sessions/import-cycles', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year }),
+    });
+    setImporting(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '帶入失敗' })); toast.error('帶入失敗', j.error); return; }
+    const j = await res.json().catch(() => ({ created: 0, skipped: 0 }));
+    if (j.created > 0) toast.success(`已帶入 ${j.created} 個稽核場次`, j.skipped > 0 ? `另有 ${j.skipped} 個已存在略過` : undefined);
+    else toast.warning('無新場次可帶入', j.message ?? (j.skipped > 0 ? `${j.skipped} 個已存在` : undefined));
+    router.refresh();
+  }
+
+  async function add() {
+    if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
+    setBusy(true);
+    const res = await fetch('/api/pre-survey/sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
+    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true); setShared(true);
+    toast.success('已新增場次');
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={`管理 ${yearROC} 年度場次`} description="新增或就地編輯稽核場次；地點預設對受調者以序號匿名（可逐場次關閉）；目標人數為達標儀表卡分母。">
+      <div className="space-y-4 pt-2">
+        {/* B UAT:帶入當年度稽核場次 */}
+        <div className="rounded-md border border-primary-100 bg-primary-50/40 p-3.5">
+          <p className="text-body-sm font-medium text-ink-900">帶入當年度稽核場次</p>
+          <p className="mt-0.5 text-caption text-ink-500">將本年度已排定實地稽核日的稽核週期一鍵建成場次（日期＝實地稽核日、名稱＝受稽機關；已存在者略過）。仍可於下方手動新增。</p>
+          <div className="mt-2">
+            <Button size="sm" variant="outlined" onClick={importCycles} loading={importing} disabled={importing}>帶入當年度稽核場次</Button>
+          </div>
+        </div>
+        <div className="rounded-md border border-rule bg-card p-3.5">
+          <p className="text-label text-ink-900 mb-2">新增場次</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：總院、斗六" />
+            <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
+            <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <div className="mt-3">
+            <TextField
+              label="備註（受調者可見，勿含地點）"
+              value={remark}
+              onChange={(e) => setRemark(e.target.value)}
+              placeholder="如：請至少勾選 2 場、上午 09:30 簽到"
+            />
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="rounded border-rule" /> 必參加
+            </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
+            </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+            </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
+            </label>
+          </div>
+          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱；取消「共同場次」則此場次為委員專屬，觀察員不列入調查。</p>
+          <div className="mt-3">
+            <Button size="sm" onClick={add} loading={busy} disabled={busy}>新增場次</Button>
+          </div>
+        </div>
+
+        {sessions.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-label text-ink-500">既有場次（可直接修改，免刪除重建）</p>
+            {sessions.map((s) => <SessionEditRow key={s.id} s={s} />)}
+          </div>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 單一場次就地編輯列(#3 UAT:日期/名稱/目標人數/匿名等直接改,免刪除重建) ──
+function SessionEditRow({ s }: { s: AdminSessionDTO }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [name, setName] = useState(s.name);
+  const [date, setDate] = useState(s.dateInput ?? '');
+  const [tm, setTm] = useState(String(s.targetMemberCount));
+  const [to, setTo] = useState(String(s.targetObserverCount));
+  const [required, setRequired] = useState(s.isRequired);
+  const [remark, setRemark] = useState(s.remark ?? '');
+  const [anonM, setAnonM] = useState(s.anonymizeForMember);
+  const [anonO, setAnonO] = useState(s.anonymizeForObserver);
+  const [shared, setShared] = useState(s.sharedWithObserver);
+  const [busy, setBusy] = useState(false);
+
+  const dirty =
+    name.trim() !== s.name ||
+    (date || null) !== (s.dateInput ?? null) ||
+    (Number(tm) || 0) !== s.targetMemberCount ||
+    (Number(to) || 0) !== s.targetObserverCount ||
+    required !== s.isRequired ||
+    (remark.trim() || '') !== (s.remark ?? '') ||
+    anonM !== s.anonymizeForMember ||
+    anonO !== s.anonymizeForObserver ||
+    shared !== s.sharedWithObserver;
+
+  async function save() {
+    if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/sessions/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || null,
+        targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0,
+        anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
+    toast.success('已更新場次');
+    router.refresh();
+  }
+  async function del() {
+    if (!window.confirm(`確定刪除場次「${s.dateLabel} ${s.name}」？其意願與指派將一併刪除。`)) return;
+    const res = await fetch(`/api/pre-survey/sessions/${s.id}`, { method: 'DELETE' });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除場次');
+    router.refresh();
+  }
+
+  return (
+    <div className="rounded-md border border-rule bg-card p-3.5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
+        <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
+      </div>
+      <div className="mt-3">
+        <TextField label="備註（受調者可見，勿含地點）" value={remark} onChange={(e) => setRemark(e.target.value)} />
+      </div>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="rounded border-rule" /> 必參加
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
+        </label>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <Button size="sm" onClick={save} loading={busy} disabled={busy || !dirty}>儲存變更</Button>
+        {!dirty && <span className="text-caption text-ink-400">尚未修改</span>}
+        <button type="button" onClick={del} className="ml-auto text-caption text-danger-600 hover:underline focus-ring rounded">刪除場次</button>
+      </div>
+    </div>
+  );
+}
+
+// ── 新增受調人員對話框 ──
+function AddParticipantDialog({
+  open, onOpenChange, yearROC, kind, pool, existingUserIds,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; kind: SurveyParticipantKind; pool: PoolUser[]; existingUserIds: Set<string> }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [userId, setUserId] = useState('');
+  const [committeeType, setCommitteeType] = useState('');
+  const [busy, setBusy] = useState(false);
+  const label = kind === 'OBSERVER' ? '觀察員' : '委員';
+
+  async function add() {
+    if (!userId) { toast.error(`請選擇${label}`); return; }
+    setBusy(true);
+    const res = await fetch('/api/pre-survey/participants', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: yearROC + 1911, userId, kind, committeeType: kind === 'MEMBER' ? committeeType || null : null }),
+    });
+    setBusy(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
+    setUserId(''); setCommitteeType('');
+    onOpenChange(false);
+    toast.success(`已加入${label}`);
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={`新增受調${label}`} description={`從平台${label}帳號池選人加入 ${yearROC} 年度調查；若需新人，請先於「使用者管理」以既有邀請流程建立帳號。`}
+      footer={<><Button variant="text" onClick={() => onOpenChange(false)}>取消</Button><Button onClick={add} loading={busy} disabled={busy}>加入</Button></>}>
+      <div className="space-y-3 pt-2">
+        <Select label={`選擇${label}`} value={userId} onChange={(e) => setUserId(e.target.value)}>
+          <option value="">請選擇…</option>
+          {pool.map((u) => (
+            <option key={u.id} value={u.id} disabled={existingUserIds.has(u.id)}>
+              {u.name}（{u.email}）{existingUserIds.has(u.id) ? '· 已加入' : ''}
+            </option>
+          ))}
+        </Select>
+        {kind === 'MEMBER' && (
+          <Select label="委員類型（選填）" value={committeeType} onChange={(e) => setCommitteeType(e.target.value)}>
+            <option value="">未分類</option>
+            {SURVEY_COMMITTEE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </Select>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+// ── E UAT:管考表「最終場次」內嵌下拉多選(顯示已指派 + 直接勾選指派,免點進彈窗) ──
+// 用 fixed 定位讓下拉逃出管考矩陣的 overflow-auto 內捲容器(否則會被裁切)。
+function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // 本地樂觀勾選集:連續勾選以此為準,避免 router.refresh() 回填新 props 前第二次 toggle 讀到舊 prop,
+  // 又因後端整批覆寫語意而吃掉剛指派的場次。伺服器回填(assignedKey 變動)時再同步。
+  const [selected, setSelected] = useState<string[]>(p.finalSessionIds);
+  const assignedKey = p.finalSessionIds.join(',');
+  useEffect(() => {
+    setSelected(p.finalSessionIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedKey]);
+
+  // 可指派場次=該人勾「OK」∪ 已指派(與指派原則一致,免逐場對照)
+  const options = sessions.filter((s) => p.availability[s.id] === 'OK' || selected.includes(s.id));
+  const assigned = sessions.filter((s) => selected.includes(s.id));
+
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left });
+    setOpen(true);
+  }
+
+  async function toggle(sessionId: string) {
+    if (busy) return;
+    const has = selected.includes(sessionId);
+    const next = has ? selected.filter((id) => id !== sessionId) : [...selected, sessionId];
+    setSelected(next); // 樂觀更新:連點多格以本地集合累積,不依賴尚未回填的 prop
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/assign`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionIds: next }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '指派失敗' }));
+      setSelected(p.finalSessionIds); // 失敗還原本地狀態
+      toast.error('指派失敗', j.error);
+      return;
+    }
+    router.refresh(); // 伺服器狀態同步回 finalSessionIds(達標卡/催二階/排序一併更新)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        className="inline-flex max-w-[160px] items-center gap-1 text-left text-caption text-primary-700 hover:underline focus-ring rounded"
+        title="指派最終場次"
+      >
+        <MapPin size={13} className="shrink-0" />
+        <span className="truncate">
+          {assigned.length > 0 ? assigned.map((s) => `${s.dateLabel} ${s.name}`).join('、') : '指派'}
+        </span>
+        <ChevronDown size={12} className="shrink-0" />
+      </button>
+      {open && pos && (
+        <>
+          <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 min-w-[200px] max-h-64 overflow-auto rounded-md border border-rule bg-card p-1 shadow-lg"
+            style={{ top: pos.top, left: pos.left }}
+          >
+            {options.length === 0 ? (
+              <p className="px-2 py-1.5 text-caption text-ink-400">此人尚無勾選「OK」的場次可指派。</p>
+            ) : (
+              options.map((s) => {
+                const on = selected.includes(s.id);
+                return (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-caption text-ink-700 hover:bg-paper-sunk cursor-pointer"
+                  >
+                    <input type="checkbox" checked={on} disabled={busy} onChange={() => toggle(s.id)} className="rounded border-rule" />
+                    <span className="truncate">{s.dateLabel} · {s.name}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ── 指派最終場次對話框(多選,toggle-pill) ──
+function AssignDialog({
+  participant, sessions, onClose,
+}: { participant: AdminParticipantDTO | null; sessions: AdminSessionDTO[]; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // 開啟(participant 變更)時,以此人既有指派初始化本地選擇
+  useEffect(() => {
+    if (participant) setSelected(new Set(participant.finalSessionIds));
+  }, [participant]);
+
+  async function toggle(sessionId: string) {
+    if (!participant || busy) return;
+    const next = new Set(selected);
+    if (next.has(sessionId)) next.delete(sessionId);
+    else next.add(sessionId);
+    setSelected(next); // 樂觀
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${participant.id}/assign`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionIds: [...next] }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      setSelected(new Set(participant.finalSessionIds)); // 回滾
+      const j = await res.json().catch(() => ({ error: '指派失敗' }));
+      toast.error('指派失敗', j.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  // #1 UAT:只列此受調者勾選「OK」（或已指派）的場次,免逐場對照。以原始 finalSessionIds 判定,
+  // 使可見集在對話框開啟期間穩定(切換勾選不會讓已指派但非 OK 的場次消失)。
+  const visibleSessions = participant
+    ? sessions.filter((s) => participant.availability[s.id] === 'OK' || participant.finalSessionIds.includes(s.id))
+    : [];
+
+  return (
+    <Dialog
+      open={participant !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={participant ? `指派「${participant.name}」的最終場次` : ''}
+      description="僅列出此受調者勾選「OK」（或已指派）的場次；指派 ≥1 場即解鎖其差旅與飲食調查（第二階段）。"
+    >
+      <div className="flex flex-wrap gap-2 pt-2">
+        {visibleSessions.map((s) => {
+          const on = selected.has(s.id);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              disabled={busy}
+              onClick={() => toggle(s.id)}
+              aria-pressed={on}
+              className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors focus-ring ${
+                on ? 'bg-primary-600 text-white border-transparent' : 'bg-card border-rule text-ink-600 hover:bg-paper-sunk'
+              }`}
+            >
+              {s.dateLabel} · {s.name}
+            </button>
+          );
+        })}
+        {visibleSessions.length === 0 && (
+          <p className="text-body-sm text-ink-500">
+            {sessions.length === 0
+              ? '此年度尚無場次可指派。'
+              : '此受調者尚無勾選「OK」的場次可指派；可於管考表該人列改其場次意願後再指派。'}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+// ── 文件審核對話框(檢視 cv/切結書 + 核可/退補) ──
+function DocReviewDialog({ participant, onClose }: { participant: AdminParticipantDTO | null; onClose: () => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setReason(participant?.rejectReason ?? '');
+  }, [participant]);
+
+  async function review(decision: 'APPROVE' | 'RETURN') {
+    if (!participant) return;
+    if (decision === 'RETURN' && !reason.trim()) {
+      toast.error('退補必須填寫理由');
+      return;
+    }
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${participant.id}/docs/review`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision, reason: reason.trim() || undefined }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '審核失敗' }));
+      toast.error('審核失敗', j.error);
+      return;
+    }
+    toast.success(decision === 'APPROVE' ? '文件已核可' : '已退補，通知受調者補件');
+    onClose();
+    router.refresh();
+  }
+
+  const canReview = participant?.docStatus === 'SUBMITTED';
+  return (
+    <Dialog
+      open={participant !== null}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={participant ? `${participant.name} 的文件審核` : ''}
+      description="檢視受調者繳交的文件；送審（已繳交）狀態可核可或退補。"
+    >
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {participant && (() => {
+            const d = surveyDocDisplay(participant.docStatus, participant.docReviewed);
+            return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
+          })()}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <FileRow label="經歷說明書" file={participant?.cvFile ?? null} hidden={participant?.kind === 'OBSERVER'} />
+          <FileRow label="保密切結書" file={participant?.ndaFile ?? null} />
+        </div>
+        {canReview ? (
+          <>
+            <Textarea label="退補理由（退補時必填）" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => review('APPROVE')} loading={busy} disabled={busy}>核可</Button>
+              <Button size="sm" variant="danger" onClick={() => review('RETURN')} loading={busy} disabled={busy}>退補</Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-caption text-ink-500">
+            {participant?.docStatus === 'RETURNED'
+              ? '已退補，待受調者補件並重新送審後再審核。'
+              : '受調者尚未送審文件。'}
+          </p>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function FileRow({ label, file, hidden }: { label: string; file: { id: string; name: string } | null; hidden?: boolean }) {
+  if (hidden) return null;
+  return (
+    <div className="rounded-md border border-rule bg-card p-2.5">
+      <p className="text-caption text-ink-500">{label}</p>
+      {file ? (
+        <a href={`/api/pre-survey/files/${file.id}/download?inline=1`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-caption text-primary-700 hover:underline break-all">
+          <Paperclip size={12} /> {file.name}
+        </a>
+      ) : (
+        <p className="mt-1 text-caption text-ink-400">未上傳</p>
+      )}
+    </div>
+  );
+}
+
+// ── 公版範本管理對話框(逐槽上傳/替換/刪除) ──
+function TemplateManagerDialog({
+  open, onOpenChange, yearROC, templates, kind,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[]; kind: SurveyParticipantKind }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busySlot, setBusySlot] = useState<string | null>(null);
+  const bySlot = new Map(templates.map((t) => [t.slot, t]));
+  const slots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind];
+
+  async function upload(slot: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) { toast.error('檔案超過 20MB 上限'); return; }
+    setBusySlot(slot);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('year', String(yearROC + 1911));
+    fd.append('slot', slot);
+    fd.append('label', SURVEY_TEMPLATE_SLOT_LABELS[slot as keyof typeof SURVEY_TEMPLATE_SLOT_LABELS] ?? slot);
+    const res = await fetch('/api/pre-survey/templates', { method: 'POST', body: fd });
+    setBusySlot(null);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '上傳失敗' })); toast.error('上傳失敗', j.error); return; }
+    toast.success('已上傳範本');
+    router.refresh();
+  }
+  async function del(id: string) {
+    if (!window.confirm('確定刪除此公版範本？')) return;
+    const res = await fetch('/api/pre-survey/templates', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) });
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '刪除失敗' })); toast.error('刪除失敗', j.error); return; }
+    toast.success('已刪除範本');
+    router.refresh();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title={`${yearROC} 年度公版範本（${kind === 'OBSERVER' ? '觀察員' : '委員'}）`} description="上傳空白經歷說明書/切結書等範本，供受調者下載填寫。觀察員切結書與委員分開。可為 Word 或 PDF。一槽一檔，重傳取代。">
+      <div className="space-y-3 pt-2">
+        {slots.map((slot) => {
+          const t = bySlot.get(slot);
+          return (
+            <div key={slot} className="flex items-center justify-between gap-3 rounded-md border border-rule bg-card p-3">
+              <div className="min-w-0">
+                <p className="text-body-sm font-medium text-ink-900">{SURVEY_TEMPLATE_SLOT_LABELS[slot]}</p>
+                {t?.fileId ? (
+                  <a href={`/api/pre-survey/files/${t.fileId}/download`} className="text-caption text-primary-700 hover:underline break-all">{t.fileName}</a>
+                ) : (
+                  <p className="text-caption text-ink-400">尚未上傳</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <FileUploadButton size="sm" label={t ? '替換' : '上傳'} busy={busySlot === slot} onChange={(e) => upload(slot, e)} />
+                {t && (
+                  <button type="button" onClick={() => del(t.id)} className="text-caption text-danger-600 hover:underline focus-ring rounded">刪除</button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Dialog>
+  );
+}

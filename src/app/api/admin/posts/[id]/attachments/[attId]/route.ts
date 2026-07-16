@@ -19,7 +19,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string; a
       await deleteFileByKey(att.storageKey);
     } catch (err) {
       // DB 紀錄已刪=功能上已完成;實體檔清理失敗只記 log
-      console.error('[posts] 刪除附件實體檔失敗:', (err as Error).message);
+      console.error('[posts] 刪除附件實體檔失敗：', (err as Error).message);
     }
 
     await writeAuditLog({

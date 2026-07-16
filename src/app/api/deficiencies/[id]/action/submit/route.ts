@@ -3,7 +3,9 @@ import { prisma } from '@/lib/db';
 import { assertDeficiencyAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { actionEditable } from '@/lib/state-machine';
-import type { ActionStatus, ExecStatus } from '@/lib/types';
+import type { ActionStatus } from '@/lib/types';
+import { missingActionFields } from '@/lib/corrective-action';
+import { isInvalidDeficiencyDescription } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyAuditorsOnSubmit } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -13,7 +15,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     const { user, deficiency } = await assertDeficiencyAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
-      return NextResponse.json({ error: '僅機關管理員可提交' }, { status: 403 });
+      return NextResponse.json({ error: '僅機關管理員可送出' }, { status: 403 });
     }
     if (deficiency.cycle.status !== 'REMEDIATION') {
       return NextResponse.json({ error: '此週期目前未開放填報' }, { status: 400 });
@@ -24,33 +26,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '此項目已送審或已通過' }, { status: 400 });
     }
 
-    // 必填驗證(對齊範本)
-    const missing: string[] = [];
-    if (!action.rootCause?.trim()) missing.push('發生原因（根因分析）');
-    if (!action.measureStrategy?.trim() && !action.measureManagement?.trim() && !action.measureTechnical?.trim()) {
-      missing.push('至少一項改善措施');
-    }
-    if (!action.plannedDate) missing.push('預計完成時程');
-    if (!action.trackingMethod?.trim()) missing.push('進度追蹤方式');
-    if (!action.execStatus) missing.push('執行情形');
-    const exec = action.execStatus as ExecStatus | null;
-    if ((exec === 'ON_TIME_DONE' || exec === 'LATE_DONE') && !action.actualDate) {
-      missing.push('實際完成日期');
-    }
-    if (exec === 'LATE_IN_PROGRESS' && !action.extendedDate) {
-      missing.push('預計完成日期延長至');
-    }
-    if ((exec === 'LATE_DONE' || exec === 'LATE_IN_PROGRESS') && !action.delayReason?.trim()) {
-      missing.push('逾期原因');
-    }
+    // 必填驗證(對齊範本;與批次一輪送審共用 missingActionFields)
+    const missing = missingActionFields(action);
     if (missing.length > 0) {
       return NextResponse.json({ error: `尚未填寫：${missing.join('、')}` }, { status: 400 });
     }
+    // 缺失描述仍為佔位/空白 → 機關無從據以填報矯正,擋送審並提示由中心補述(批51;對齊 submit-round 同閘)
+    if (isInvalidDeficiencyDescription(deficiency.description)) {
+      return NextResponse.json({ error: '此缺失描述尚未補述具體內容，請中心補述後再送審' }, { status: 400 });
+    }
 
-    const updated = await prisma.correctiveAction.update({
-      where: { id: action.id },
+    // 樂觀鎖(批73 專審 P1):以「仍可編輯」為條件式更新,防雙擊/重試並發重複送審——輸掉競態者
+    // 影響 0 筆 → 不重複寫稽核軌跡、不重複寄委員通知(對齊 submit-round 的 updateMany 手法)。
+    const res = await prisma.correctiveAction.updateMany({
+      where: { id: action.id, status: { in: ['PENDING', 'DRAFT', 'RETURNED'] } },
       data: { status: 'SUBMITTED', submittedAt: new Date() },
     });
+    if (res.count === 0) {
+      return NextResponse.json({ error: '此項目已送審或已通過' }, { status: 400 });
+    }
+    const updated = await prisma.correctiveAction.findUnique({ where: { id: action.id } });
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({

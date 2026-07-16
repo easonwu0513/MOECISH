@@ -99,7 +99,7 @@ export default function AdminDefActions({
         open={editOpen}
         onOpenChange={(v) => !saving && setEditOpen(v)}
         title="編輯缺失內容"
-        description="機關開始填報後將鎖定,屆時不可再修改。"
+        description="機關開始填報後將鎖定，屆時不可再修改。"
         footer={
           <>
             <Button variant="text" onClick={() => setEditOpen(false)} disabled={saving}>取消</Button>
@@ -127,10 +127,10 @@ export default function AdminDefActions({
             rows={5}
           />
           <TextField
-            label="對應檢核項(選填)"
+            label="對應檢核項（選填）"
             value={checklistRef}
             onChange={(e) => setChecklistRef(e.target.value)}
-            placeholder="例:4.2"
+            placeholder="例：4.2"
           />
         </div>
       </Dialog>
@@ -139,7 +139,7 @@ export default function AdminDefActions({
         open={delOpen}
         onOpenChange={(o) => !saving && !o && setDelOpen(false)}
         title="刪除缺失"
-        description="將一併刪除其矯正措施紀錄,且無法復原。確定刪除這項缺失?"
+        description="將一併刪除其矯正措施紀錄，且無法復原。確定刪除這項缺失？"
         confirmLabel="刪除"
         tone="danger"
         onConfirm={doDelete}

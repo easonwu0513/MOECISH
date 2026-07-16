@@ -8,17 +8,15 @@ import {
   type DeficiencyAspect,
   type DeficiencyType,
   type ExecStatus,
+  DEFICIENCY_ASPECT_NUM,
 } from '@/lib/types';
 import PrintTrigger from './PrintTrigger';
+import { fmtROC } from '@/lib/date';
 
-const ASPECT_NUM: Record<DeficiencyAspect, string> = {
-  STRATEGY: '一', MANAGEMENT: '二', TECHNICAL: '三',
-};
-
+// 民國年日期:走 date.ts(Asia/Taipei)——原裸 getFullYear/getMonth 依伺服器時區,近午夜會 off-by-8h
+// 使具法律效力的稽核報告日期少一天。fmtROC(null) 回 ''。
 function rocDate(d: Date | null): string {
-  if (!d) return '';
-  const dt = new Date(d);
-  return `${dt.getFullYear() - 1911} 年 ${dt.getMonth() + 1} 月 ${dt.getDate()} 日`;
+  return fmtROC(d);
 }
 
 export default async function PrintPage({ params }: { params: { id: string } }) {
@@ -39,28 +37,30 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
   if (!cycle) notFound();
 
   const user = session.user;
+  // 未列舉角色預設拒絕(批30 雷區:新角色落過各 role redirect 即 fail-open 繼承視野)
+  if (!['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER'].includes(user.role)) redirect('/dashboard');
   if (user.role === 'ORG_ADMIN' && cycle.organizationId !== user.organizationId) redirect('/dashboard');
   // 委員不需列印/匯出改善報告(僅於系統內檢視機關填報的矯正措施)→ 導回週期頁
-  if (user.role === 'AUDITOR') redirect(`/cycles/${params.id}`);
+  if (user.role === 'AUDITOR' || user.role === 'OBSERVER') redirect(`/cycles/${params.id}`);
 
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
 
   return (
     <>
       <PrintTrigger />
-      <div className="print-report mx-auto max-w-[210mm] bg-white text-slate-900 p-10 print:p-0 print:max-w-none">
+      <div className="print-report mx-auto max-w-[210mm] bg-card text-slate-900 p-10 print:p-0 print:max-w-none">
         <style>{`
-          /* 公文字體:與彙整工具報告同一套(標楷體 + Times New Roman),
+          /* 公文字體：與彙整工具報告同一套（標楷體 + Times New Roman），
              同一份正式報告不能一邊標楷一邊黑體 */
-          .print-report {
-            font-family: 'Times New Roman', '標楷體', 'BiauKai', 'DFKai-SB', serif;
+          。print-report {
+            font-family: 'Times New Roman'， '標楷體'， 'BiauKai'， 'DFKai-SB'， serif;
           }
           @media print {
             @page { size: A4; margin: 2.54cm; }
-            body { background: white !important; }
-            .no-print { display: none !important; }
+            body { background: white ！important; }
+            。no-print { display: none ！important; }
             h2 { page-break-after: avoid; }
-            .def-block { page-break-inside: avoid; }
+            。def-block { page-break-inside: avoid; }
           }
         `}</style>
 
@@ -88,7 +88,7 @@ export default async function PrintPage({ params }: { params: { id: string } }) 
           return (
             <section key={aspect} className="mb-8">
               <h2 className="text-base font-bold border-b-2 border-slate-700 pb-1 mb-3">
-                {ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
+                {DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
               </h2>
               {types.map((type) => {
                 const items = inAspect.filter((d) => d.type === type);

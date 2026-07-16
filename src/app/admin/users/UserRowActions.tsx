@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { copyText } from '@/lib/clipboard';
 import { ROLE_LABELS, type Role } from '@/lib/types';
+import IdentityGrantsDialog from './IdentityGrantsDialog';
 
 /** 使用者列操作:停用/啟用、變更角色(不可操作自己,後端另有最後管理員防呆)。 */
 export default function UserRowActions({
@@ -18,6 +19,7 @@ export default function UserRowActions({
   isActive,
   hasOrganization,
   isSelf,
+  orgs,
 }: {
   userId: string;
   name: string;
@@ -25,6 +27,8 @@ export default function UserRowActions({
   isActive: boolean;
   hasOrganization: boolean;
   isSelf: boolean;
+  /** 身分授權(批31)ORG_ADMIN 授予時的機關清單 */
+  orgs: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -38,9 +42,12 @@ export default function UserRowActions({
   const [resetLink, setResetLink] = useState('');
   const [resetDelivered, setResetDelivered] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [grantsOpen, setGrantsOpen] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [promoting, setPromoting] = useState(false);
 
   if (isSelf) {
-    return <span className="text-caption text-on-surface-variant">本人</span>;
+    return <span className="text-caption text-ink-500">本人</span>;
   }
 
   async function patch(data: { isActive?: boolean; role?: Role; reason?: string }, okMsg: string) {
@@ -76,13 +83,35 @@ export default function UserRowActions({
     setResetOpen(true);
   }
 
+  async function promote() {
+    setPromoting(true);
+    const res = await fetch(`/api/admin/users/${userId}/promote`, { method: 'POST' });
+    setPromoting(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '晉升失敗' }));
+      toast.error('晉升失敗', j.error);
+      return;
+    }
+    setPromoteOpen(false);
+    toast.success('已晉升為稽核委員', `${name} 的實習紀錄完整留存；可開始指派稽核週期。`);
+    router.refresh();
+  }
+
   const roleOptions: Role[] = hasOrganization
-    ? ['ORG_ADMIN', 'AUDITOR', 'SUPER_ADMIN']
-    : ['AUDITOR', 'SUPER_ADMIN'];
+    ? ['ORG_ADMIN', 'AUDITOR', 'OBSERVER', 'SUPER_ADMIN']
+    : ['AUDITOR', 'OBSERVER', 'SUPER_ADMIN'];
 
   return (
     <>
       <div className="flex items-center justify-end gap-1">
+        {role === 'OBSERVER' && isActive && (
+          <Button size="sm" variant="text" className="text-primary-700" onClick={() => setPromoteOpen(true)}>
+            晉升為委員
+          </Button>
+        )}
+        <Button size="sm" variant="text" onClick={() => setGrantsOpen(true)}>
+          身分授權
+        </Button>
         <Button size="sm" variant="text" onClick={() => { setNewRole(role); setRoleOpen(true); }}>
           改角色
         </Button>
@@ -106,7 +135,7 @@ export default function UserRowActions({
           open={toggleOpen}
           onOpenChange={(o) => !saving && setToggleOpen(o)}
           title="停用帳號"
-          description={`停用後「${name}」將無法登入系統;歷史紀錄保留。權責分立要求須填寫停用理由,並留存操作者與時間。`}
+          description={`停用後「${name}」將無法登入系統；歷史紀錄保留。權責分立要求須填寫停用理由，並留存操作者與時間。`}
           footer={
             <>
               <Button variant="text" onClick={() => setToggleOpen(false)} disabled={saving}>取消</Button>
@@ -126,7 +155,7 @@ export default function UserRowActions({
         >
           <Textarea
             label="停用理由"
-            placeholder="例:人員離職、職務調整、帳號疑似遭冒用…"
+            placeholder="例：人員離職、職務調整、帳號疑似遭冒用…"
             value={reason}
             onChange={(e) => { setReason(e.target.value); if (reasonErr) setReasonErr(undefined); }}
             errorText={reasonErr}
@@ -139,7 +168,7 @@ export default function UserRowActions({
           open={toggleOpen}
           onOpenChange={(o) => !saving && setToggleOpen(o)}
           title="啟用帳號"
-          description={`確定重新啟用「${name}」的帳號?`}
+          description={`確定重新啟用「${name}」的帳號？`}
           confirmLabel="啟用"
           tone="primary"
           onConfirm={async () => {
@@ -153,7 +182,7 @@ export default function UserRowActions({
         open={roleOpen}
         onOpenChange={(v) => !saving && setRoleOpen(v)}
         title="變更角色"
-        description={`調整「${name}」的系統角色;權限立即生效。`}
+        description={`調整「${name}」的系統角色；權限立即生效。`}
         footer={
           <>
             <Button variant="text" onClick={() => setRoleOpen(false)} disabled={saving}>取消</Button>
@@ -176,8 +205,15 @@ export default function UserRowActions({
             ))}
           </Select>
           {!hasOrganization && (
-            <p className="mt-1.5 text-caption text-on-surface-variant">
-              此帳號未隸屬機關,不可改為機關管理員。
+            <p className="mt-1.5 text-caption text-ink-500">
+              此帳號未隸屬機關，不可改為機關管理員。
+            </p>
+          )}
+          {/* 選項C(批74):離開機關管理員的誤操作警示——避免無意中抹除機關歸屬與迴避關聯 */}
+          {role === 'ORG_ADMIN' && newRole !== 'ORG_ADMIN' && (
+            <p className="mt-2 rounded-md bg-warning-50 border border-warning-100 px-3 py-2 text-caption text-ink-700">
+              「{name}」目前為機關管理員。轉為其他角色後，系統將解除其機關歸屬並留存「曾任」歷史；
+              請留意：日後若指派其稽核原機關，利益迴避檢核目前不會自動偵測此「曾任」關聯。
             </p>
           )}
         </div>
@@ -189,8 +225,8 @@ export default function UserRowActions({
         title={`重設「${name}」的密碼`}
         description={
           resetDelivered
-            ? '已寄出密碼重設連結至該使用者 Email(24 小時內有效)。如未收到,可複製下方連結另行轉交。'
-            : 'Email 未實際寄出(未設定寄信服務);請複製下方連結,以其他管道轉交該使用者(24 小時內有效)。'
+            ? '已寄出密碼重設連結至該使用者 Email（24 小時內有效）。如未收到，可複製下方連結另行轉交。'
+            : 'Email 未實際寄出（未設定寄信服務）；請複製下方連結，以其他管道轉交該使用者（24 小時內有效）。'
         }
         footer={<Button onClick={() => setResetOpen(false)}>關閉</Button>}
       >
@@ -200,7 +236,7 @@ export default function UserRowActions({
               readOnly
               value={resetLink}
               onFocus={(e) => e.currentTarget.select()}
-              className="flex-1 min-w-0 rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-caption font-mono"
+              className="flex-1 min-w-0 rounded-md border border-neutral-400 bg-paper-sunk px-3 py-2 text-caption font-mono"
             />
             <Button
               size="sm"
@@ -213,9 +249,26 @@ export default function UserRowActions({
               複製
             </Button>
           </div>
-          <p className="text-caption text-on-surface-variant">此連結單次使用、24 小時內有效;使用者設定新密碼後即失效。</p>
+          <p className="text-caption text-ink-500">此連結單次使用、24 小時內有效；使用者設定新密碼後即失效。</p>
         </div>
       </Dialog>
+      <IdentityGrantsDialog
+        userId={userId}
+        name={name}
+        open={grantsOpen}
+        onOpenChange={setGrantsOpen}
+        orgs={orgs}
+      />
+
+      <ConfirmDialog
+        open={promoteOpen}
+        onOpenChange={(o) => !promoting && setPromoteOpen(o)}
+        title={`晉升「${name}」為稽核委員？`}
+        description="觀察員授權將結束（留歷史）、改持稽核委員授權；其實習紀錄（練習發現與指導回饋）完整留存，可於實習紀錄頁回顧。晉升後即可被指派為正式稽核委員。"
+        confirmLabel="晉升"
+        loading={promoting}
+        onConfirm={() => void promote()}
+      />
     </>
   );
 }

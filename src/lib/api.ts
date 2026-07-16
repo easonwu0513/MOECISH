@@ -26,11 +26,11 @@ export function errorResponse(e: unknown, context?: string): NextResponse {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
   if (e instanceof ZodError) {
-    return NextResponse.json({ error: '輸入格式不正確,請檢查必填與格式' }, { status: 400 });
+    return NextResponse.json({ error: '輸入格式不正確，請檢查必填與格式' }, { status: 400 });
   }
   if (e instanceof Prisma.PrismaClientKnownRequestError) {
     if (e.code === 'P2002') {
-      return NextResponse.json({ error: '資料重複,違反唯一性限制' }, { status: 409 });
+      return NextResponse.json({ error: '資料重複，違反唯一性限制' }, { status: 409 });
     }
     if (e.code === 'P2025') {
       return NextResponse.json({ error: '找不到對象資料' }, { status: 404 });
@@ -38,5 +38,5 @@ export function errorResponse(e: unknown, context?: string): NextResponse {
   }
   // 未預期錯誤:伺服器端留記錄,對外只回通用訊息(避免洩漏資料表/欄位/約束名)
   console.error(`[api]${context ? ` ${context}` : ''}`, e);
-  return NextResponse.json({ error: '伺服器發生錯誤,請稍後再試' }, { status: 500 });
+  return NextResponse.json({ error: '伺服器發生錯誤，請稍後再試' }, { status: 500 });
 }

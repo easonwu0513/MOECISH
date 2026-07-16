@@ -15,8 +15,9 @@
   --amt-surface-50: #f8fafc;
   --amt-surface-100: #f1f5f9;
   --amt-surface-200: #e2e8f0;
-  --amt-text-main: #334155;
-  --amt-text-muted: #64748b;
+  /* 對齊系統 on-surface ink（原為 slate-700/500,文字與全站斷裂;#14 邊界縫合） */
+  --amt-text-main: var(--on-surface, #1a2332);
+  --amt-text-muted: var(--on-surface-variant, #57647a);
   background-color: var(--amt-surface-100);
   color: var(--amt-text-main);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -68,7 +69,8 @@
 .amt-app .input-elegant:focus {
   background-color: white;
   border-color: var(--amt-primary-500);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  /* 批80:亮藍 focus glow rgba(59,130,246) → 系統 focus ring 色(primary 43,87,166) */
+  box-shadow: 0 0 0 3px rgba(43, 87, 166, 0.22);
   outline: none;
 }
 
@@ -90,12 +92,13 @@
   border-radius: 9999px;
   font-weight: 600;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  /* 批80:亮藍 gloss 陰影 rgba(37,99,235) → 系統中性 elev(去消費級) */
+  box-shadow: 0 1px 2px 0 rgba(24, 36, 56, 0.08), 0 2px 6px 2px rgba(24, 36, 56, 0.05);
 }
 .amt-app .btn-primary:hover {
   background-color: var(--amt-primary-700);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-  transform: translateY(-1px);
+  box-shadow: 0 1px 3px 0 rgba(24, 36, 56, 0.10), 0 4px 10px 3px rgba(24, 36, 56, 0.06);
+  /* 移除 translateY(-1px) 上浮:機構調性用色深即回饋,不做消費級彈跳 */
 }
 .amt-app .btn-secondary {
   background-color: white;
@@ -142,8 +145,9 @@
 
 /* ═══ 螢幕模式 ═══ */
 @media screen {
-  .amt-app .page-break { page-break-before: always; margin-top: 2rem; border-top: 2px dashed #ccc; padding-top: 2rem; position: relative; }
-  .amt-app .page-break::before { content: '✂ --- 換頁線 ---'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #e2e8f0; padding: 0 10px; color: #64748b; font-size: 12px; font-family: sans-serif; }
+  /* 批80:換頁線 slate + 剪刀 emoji → 系統中性規線 + 純文字標(去消費級) */
+  .amt-app .page-break { page-break-before: always; margin-top: 2rem; border-top: 1px dashed var(--outline-variant, #ccd2da); padding-top: 2rem; position: relative; }
+  .amt-app .page-break::before { content: '— 換頁線 —'; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--surface-container, #edf0f3); padding: 0 10px; color: var(--on-surface-variant, #57647a); font-size: 11px; letter-spacing: 0.05em; font-family: sans-serif; }
   .amt-app .print-only.hidden { display: none; }
   .amt-app ::-webkit-scrollbar { width: 6px; height: 6px; }
   .amt-app ::-webkit-scrollbar-track { background: transparent; }
@@ -163,9 +167,10 @@
     background-image: linear-gradient(135deg, transparent 50%, #94a3b8 50%);
   }
 
+  /* 批80:編輯中發現高亮 #fef08a 螢光黃 → 系統 primary 淡藍(去消費級,克制可辨) */
   .amt-app .highlight-active {
-    background-color: #fef08a !important;
-    outline: 3px solid #fef08a;
+    background-color: #dde8f8 !important;
+    outline: 2px solid #bcd2ef;
     border-radius: 2px;
     transition: background-color 0.2s ease, outline 0.2s ease;
   }
@@ -173,7 +178,8 @@
     display: inline-block;
     width: 2px;
     height: 1.1em;
-    background-color: #ef4444;
+    /* 批80:游標 #ef4444 亮紅 → primary-600 深藍(對齊系統墨色) */
+    background-color: #2b57a6;
     vertical-align: text-bottom;
     margin-left: 1px;
     margin-right: -3px;
@@ -183,9 +189,10 @@
 
   .amt-app .custom-page-break-indicator { position: absolute; top: -16px; left: 0; right: 0; display: flex; align-items: center; justify-content: center; z-index: 10; }
   .amt-app .custom-page-break-indicator::before { content: ''; position: absolute; width: 100%; border-top: 2px dashed var(--amt-primary-500); }
-  .amt-app .custom-page-break-label { position: relative; background-color: #f0fdf4; color: var(--amt-primary-700); font-size: 10px; padding: 2px 10px; border-radius: 999px; border: 1px solid #dbeafe; font-weight: bold; letter-spacing: 0.05em; }
-  .amt-app .custom-page-break-indicator-lg::before { border-top: 2px dashed #8b5cf6; }
-  .amt-app .custom-page-break-label-lg { background-color: #f5f3ff; color: #6d28d9; border-color: #ede9fe; }
+  /* 批80:自訂換頁標 綠底/紫色大標 → 系統 primary 淡藍(去消費級雜色) */
+  .amt-app .custom-page-break-label { position: relative; background-color: #f0f5fc; color: var(--amt-primary-700); font-size: 10px; padding: 2px 10px; border-radius: 999px; border: 1px solid #dde8f8; font-weight: bold; letter-spacing: 0.05em; }
+  .amt-app .custom-page-break-indicator-lg::before { border-top: 2px dashed var(--amt-primary-500); }
+  .amt-app .custom-page-break-label-lg { background-color: #dde8f8; color: var(--amt-primary-700); border-color: #bcd2ef; }
 
   .amt-app .resizer-y {
     cursor: row-resize;

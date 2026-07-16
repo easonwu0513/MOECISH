@@ -116,7 +116,7 @@ export default function ChecklistShell({
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('填報已送出', '已通知中心審核;內容已鎖定,如需修改請洽中心退回。');
+    toast.success('填報已送出', '已通知中心審核；內容已鎖定，如需修改請洽中心退回。');
     router.refresh();
   }
 
@@ -137,7 +137,7 @@ export default function ChecklistShell({
     }
     const j = await res.json();
     const label = mode === 'COMPLIANT' ? '符合' : '不適用';
-    toast.success('已批次標記', `${j.updated} 題標為「${label}」;請逐題確認並調整例外。`);
+    toast.success('已批次標記', `${j.updated} 題標為「${label}」；請逐題確認並調整例外。`);
     router.refresh();
   }
 
@@ -189,10 +189,15 @@ export default function ChecklistShell({
   }
 
   function expandUnanswered() {
-    const unans = visible
-      .filter((i) => !responsesByItem.get(i.id)?.compliance)
-      .map((i) => i.id);
-    setExpanded(new Set(unans));
+    const unansItems = visible.filter((i) => !responsesByItem.get(i.id)?.compliance);
+    setExpanded(new Set(unansItems.map((i) => i.id)));
+    // 同步展開(取消收合)含未作答題的構面:收合構面的題卡已從 DOM 卸載(見 flatIds 註解),
+    // 只設題卡 expanded 仍看不到→須先把這些構面從 collapsedDims 移除,才會渲染其未作答題卡。
+    setCollapsedDims((prev) => {
+      const next = new Set(prev);
+      for (const i of unansItems) next.delete(i.dimension);
+      return next;
+    });
   }
 
   function toggleDim(dim: string) {
@@ -265,7 +270,7 @@ export default function ChecklistShell({
         open={submitOpen}
         onOpenChange={(o) => !submitBusy && setSubmitOpen(o)}
         title="完成填報並送出"
-        description={`將送出全部 ${total} 題填報結果。送出後內容鎖定;中心會收到通知進行審核,稽核委員待資料齊備後才檢視(不會立即收到通知)。如需再修改,須由中心退回重填。確定送出?`}
+        description={`將送出全部 ${total} 題填報結果。確認送出後檢核表內容將鎖定，鎖定後如需再修改，請通知中心工作人員，由中心退回重填。`}
         confirmLabel="確認送出"
         tone="primary"
         onConfirm={submitChecklist}
@@ -277,8 +282,8 @@ export default function ChecklistShell({
         title={bulkMode === 'COMPLIANT' ? '未作答全部標為符合' : '未作答全部標為不適用'}
         description={
           bulkMode === 'COMPLIANT'
-            ? `將把 ${total - filled} 題未作答標為「符合」(已作答不覆寫)。注意:應據實填報,沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行?`
-            : `將把 ${total - filled} 題未作答標為「不適用」(已作答不覆寫)。適用於本機關無此項作為者;有作為的請逐題改回符合/部分符合並補充說明。確定執行?`
+            ? `將把 ${total - filled} 題未作答標為「符合」（已作答不覆寫）。注意：應據實填報，沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行？`
+            : `將把 ${total - filled} 題未作答標為「不適用」（已作答不覆寫）。適用於本機關無此項作為者；有作為的請逐題改回符合/部分符合並補充說明。確定執行？`
         }
         confirmLabel={bulkMode === 'COMPLIANT' ? '全部標為符合' : '全部標為不適用'}
         tone="primary"
@@ -286,7 +291,7 @@ export default function ChecklistShell({
         loading={bulkBusy}
       />
       {/* Sticky toolbar */}
-      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/60 mb-6">
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-card/95 backdrop-blur-sm border-b border-rule mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1 max-w-md">
             <TextField
@@ -313,8 +318,8 @@ export default function ChecklistShell({
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
               展開未作答
             </Button>
-            <span className="mx-2 h-4 w-px bg-outline-variant hidden lg:inline-block" aria-hidden />
-            <span className="text-caption text-on-surface-variant mr-1 hidden lg:inline">構面</span>
+            <span className="mx-2 h-4 w-px bg-rule-strong hidden lg:inline-block" aria-hidden />
+            <span className="text-caption text-ink-500 mr-1 hidden lg:inline">構面</span>
             <Button size="sm" variant="text" onClick={expandAllDims} leadingIcon={<ChevronDown size={14} />}>
               展開
             </Button>
@@ -340,10 +345,10 @@ export default function ChecklistShell({
           <div className="flex-1">
             <ProgressBar value={filled} max={total} tone="primary" size="sm" />
           </div>
-          <div className="text-body-sm text-on-surface-variant tabular-nums">
-            <span className="font-semibold text-on-surface">{filled}</span> / {total} <span className="text-on-surface-variant">({pct}%)</span>
+          <div className="text-body-sm text-ink-500 tabular-nums">
+            <span className="font-semibold text-ink-900">{filled}</span> / {total} <span className="text-ink-500">({pct}%)</span>
             {search || filter !== 'all' ? (
-              <span className="ml-2 text-caption text-on-surface-variant">· 顯示 {visible.length} 題</span>
+              <span className="ml-2 text-caption text-ink-500">· 顯示 {visible.length} 題</span>
             ) : null}
           </div>
           {/* 僅「已全數作答」才於 sticky 顯精簡送出 CTA;未答阻擋說明交底部收尾卡,不在此重述 */}
@@ -377,14 +382,14 @@ export default function ChecklistShell({
                 aria-expanded={!dimCollapsed}
                 className={cn(
                   'group w-full flex items-center gap-4 text-left rounded-md border transition-all duration-200 ease-standard focus-ring scroll-mt-40',
-                  'bg-surface-container-lowest hover:bg-surface-container-low',
-                  dimCollapsed ? 'border-outline-variant/60' : 'border-outline-variant/60 shadow-xs',
+                  'bg-card hover:bg-paper-sunk',
+                  dimCollapsed ? 'border-rule' : 'border-rule shadow-xs',
                   'px-5 py-3.5',
                 )}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-title-md text-on-surface">
+                    <h2 className="text-title-md text-ink-900">
                       {DIMENSION_LABELS[dim as Dimension]}
                     </h2>
                     <Chip size="sm" tone="neutral">{items.length}</Chip>
@@ -397,15 +402,15 @@ export default function ChecklistShell({
                   <div className="flex-1">
                     <ProgressBar value={dimDone} max={items.length} size="sm" tone={dimPct === 100 ? 'success' : 'primary'} />
                   </div>
-                  <span className="text-caption text-on-surface-variant tabular-nums w-14 text-right">
-                    <span className="font-semibold text-on-surface">{dimDone}</span>
-                    <span className="text-on-surface-variant"> / {items.length}</span>
+                  <span className="text-caption text-ink-500 tabular-nums w-14 text-right">
+                    <span className="font-semibold text-ink-900">{dimDone}</span>
+                    <span className="text-ink-500"> / {items.length}</span>
                   </span>
                 </div>
                 <ChevronDown
                   size={18}
                   className={cn(
-                    'text-on-surface-variant shrink-0 transition-transform duration-200',
+                    'text-ink-500 shrink-0 transition-transform duration-200',
                     !dimCollapsed && 'rotate-180',
                   )}
                 />
@@ -440,13 +445,13 @@ export default function ChecklistShell({
 
       {/* 底部收尾行動卡:給長表單一個物理終點,免捲回頂端找送出鈕 */}
       {canSubmit && !submittedAtISO && !noResult && (
-        <div className="mt-8 rounded-md border border-outline-variant/60 bg-surface-container-lowest p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mt-8 rounded-md border border-rule bg-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-title-md text-on-surface tabular-nums">已完成 {filled} / {total} 題</p>
-            <p className="text-body-sm text-on-surface-variant mt-0.5">
+            <p className="text-title-md text-ink-900 tabular-nums">已完成 {filled} / {total} 題</p>
+            <p className="text-body-sm text-ink-500 mt-0.5">
               {filled < total
-                ? `尚餘 ${total - filled} 題未作答,沒有的項目請選「不適用」後即可送出。`
-                : '全部題目已作答,可送出給稽核委員審閱。送出後將鎖定,需中心退回才能修改。'}
+                ? `尚餘 ${total - filled} 題未作答，沒有的項目請選「不適用」後即可送出。`
+                : '全部題目已作答，可送出給稽核委員審閱。送出後將鎖定，需中心退回才能修改。'}
             </p>
           </div>
           {filled < total ? (

@@ -34,7 +34,7 @@ export type AssignAspect = (typeof ASSIGN_ASPECTS)[number];
 export const ASSIGN_ASPECT_LABELS: Record<AssignAspect, string> = {
   STRATEGY: '策略面',
   MANAGEMENT: '管理面',
-  MANAGEMENT_OT: '管理面(OT)',
+  MANAGEMENT_OT: '管理面（OT）',
   TECHNICAL: '技術面',
 };
 
@@ -91,8 +91,8 @@ export function gradeOf(dimension: Dimension, score: number): Grade {
 /** 等第說明字串(顯示於評分輸入旁) */
 export function gradeHint(dimension: Dimension): string {
   return DIMENSION_MAX_SCORE[dimension] === 20
-    ? '優(20-17)、良(16-13)、佳(12-9)、可(8)、待改進(7 以下)'
-    : '優(10-9)、良(8-7)、佳(6-5)、可(4)、待改進(3 以下)';
+    ? '優（20-17）、良（16-13）、佳（12-9）、可（8）、待改進（7 以下）'
+    : '優（10-9）、良（8-7）、佳（6-5）、可（4）、待改進（3 以下）';
 }
 
 export const GRADE_TONE: Record<Grade, 'success' | 'sage' | 'primary' | 'warning' | 'danger'> = {
@@ -115,8 +115,8 @@ export const FINDING_KIND_LABELS: Record<FindingKind, string> = {
 
 export const FINDING_KIND_HINTS: Record<FindingKind, string> = {
   COMPLIANCE: '符合且優於法規要求的良好實踐',
-  IMPROVE: '未辦理或未有效執行法規要求事項,需改善',
-  SUGGEST: '無法規要求但存有資安風險,建議改善',
+  IMPROVE: '未辦理或未有效執行法規要求事項，需改善',
+  SUGGEST: '無法規要求但存有資安風險，建議改善',
 };
 
 /**
@@ -181,4 +181,90 @@ export function computeDimStats(
     else if (c === 'NOT_APPLICABLE') s.c4++;
   }
   return stats;
+}
+
+// ── 委員「確認填寫完畢」送出完整性閘(純函式;供 UI 即時回饋 + 單元測試) ──
+// (原內嵌於 AuditPad.tsx 的 ScoreSection render 閉包,無法納入真值表測試;R7 抽出為純函式。)
+
+/** 委員判定數量四格輸入(null=未填) */
+export type DimCountsInput = { c1: number | null; c2: number | null; c3: number | null; c4: number | null };
+
+/** 全 9 稽核項目(策略→管理→技術序) */
+export const ALL_DIMENSIONS: Dimension[] = (['STRATEGY', 'MANAGEMENT', 'TECHNICAL'] as DeficiencyAspect[]).flatMap(
+  (a) => ASPECT_DIMENSIONS[a],
+);
+
+/** 一列委員評分(對某構面)的資料庫形狀,供「是否完整」判定(lock 閘 + 完成年度稽核閘共用)。 */
+export type ScoreCountRow = {
+  dimension: string;
+  score: number | null;
+  cntComply: number | null;
+  cntPartial: number | null;
+  cntNonComply: number | null;
+  cntNa: number | null;
+};
+
+/** 單一構面評分列是否「完整」= 有評分 + 委員判定數量四格有填且合計===該構面題數。 */
+export function isScoreRowComplete(row: ScoreCountRow, totalByDim: Map<string, number>): boolean {
+  const total = totalByDim.get(row.dimension) ?? 0;
+  const touched = row.cntComply != null || row.cntPartial != null || row.cntNonComply != null || row.cntNa != null;
+  const sum = (row.cntComply ?? 0) + (row.cntPartial ?? 0) + (row.cntNonComply ?? 0) + (row.cntNa ?? 0);
+  return row.score != null && touched && sum === total;
+}
+
+/** 委員責任構面(AssignAspect)對應「應完整評分」的稽核項目;無責任構面(通用委員)回全 9 項。 */
+export function requiredDimensionsFor(assigned: AssignAspect[]): Dimension[] {
+  if (assigned.length === 0) return ALL_DIMENSIONS;
+  return [...new Set(assigned.flatMap((a) => ASPECT_DIMENSIONS[ASSIGN_TO_ASPECT[a]]))];
+}
+
+/**
+ * 委員「應評構面是否已完成評分」單一真值(供①委員定稿閘 lock ②中心完成年度稽核閘 auditorsFinalized 共用):
+ *  - 有責任構面:責任構面對應的每個稽核項目都須「完整」(擋掉被指派策略面卻只湊技術面一格、或責任構面 0 評分)。
+ *  - 無責任構面(通用委員):維持既有軟下限「至少一個構面完整」,不對通用委員過度收嚴。
+ * 註:scoreLockedAt(定稿時戳)只代表「按過確認鍵」,與評分內容脫鉤;此函式重新從評分列驗算真的評了分。
+ */
+export function auditorScoringComplete(
+  assigned: AssignAspect[],
+  myScores: ScoreCountRow[],
+  totalByDim: Map<string, number>,
+): boolean {
+  const dimComplete = (dim: Dimension) => myScores.some((s) => s.dimension === dim && isScoreRowComplete(s, totalByDim));
+  if (assigned.length === 0) return ALL_DIMENSIONS.some(dimComplete);
+  return requiredDimensionsFor(assigned).every(dimComplete);
+}
+
+/** 某構面判定數量四格合計:全空回 null(區分「還沒動筆」與「合計 0」)。 */
+export function dimCountSum(c: DimCountsInput | undefined): number | null {
+  if (!c || (c.c1 == null && c.c2 == null && c.c3 == null && c.c4 == null)) return null;
+  return (c.c1 ?? 0) + (c.c2 ?? 0) + (c.c3 ?? 0) + (c.c4 ?? 0);
+}
+
+/**
+ * 送出完整性閘:硬性下限=至少一個構面「完整」(有評分 + 判定數量四格合計===該構面題數);
+ * 其餘「動過但沒填完」列軟性提示(送出前確認視窗詢問);完全沒動筆的構面(分工下非本次職責)略過。
+ * 後端 lock API 另有權威硬擋「無任何完整構面」;此為即時回饋 + 軟性提示清單的單一來源。
+ */
+export function validateScoreCompleteness(
+  scores: Record<string, number | null>,
+  counts: Record<string, DimCountsInput | undefined>,
+  totalByDim: Record<string, { total: number } | undefined>,
+): { hardBlock: boolean; problems: string[]; byDim: Record<string, string> } {
+  const problems: string[] = [];
+  const byDim: Record<string, string> = {};
+  let completeCount = 0;
+  for (const d of ALL_DIMENSIONS) {
+    const total = totalByDim[d]?.total ?? 0;
+    const sum = dimCountSum(counts[d]);
+    const scoreOk = scores[d] != null;
+    const countOk = sum !== null && sum === total;
+    if (scoreOk && countOk) { completeCount++; continue; }
+    if (scores[d] == null && sum === null) continue; // 沒動筆 → 分工下略過
+    const issues: string[] = [];
+    if (!scoreOk) issues.push('未填評分');
+    if (!countOk) issues.push(sum === null ? `未填判定數量（應合計 ${total})` : `判定數量合計 ${sum}，應為 ${total}`);
+    problems.push(`構面${DIMENSION_NUM[d]} ${issues.join('、')}`);
+    byDim[d] = issues.join('、');
+  }
+  return { hardBlock: completeCount === 0, problems, byDim };
 }

@@ -28,7 +28,7 @@ export async function GET(req: Request) {
       { header: '重複年度數', key: 'count', width: 12 },
       { header: '首次年度', key: 'first', width: 10 },
       { header: '最近年度', key: 'last', width: 10 },
-      { header: '各年度出現(年度→最近矯正狀態)', key: 'detail', width: 50 },
+      { header: '各年度出現（年度→最近矯正狀態）', key: 'detail', width: 50 },
     ];
     ws.getRow(1).font = { bold: true };
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F3F5' } };
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
     ws.getColumn('detail').alignment = { wrapText: true, vertical: 'top' };
 
     if (offenders.length === 0) {
-      ws.addRow({ org: '(無跨年度重複缺失)' });
+      ws.addRow({ org: '（無跨年度重複缺失）' });
     }
 
     const buf = await wb.xlsx.writeBuffer();

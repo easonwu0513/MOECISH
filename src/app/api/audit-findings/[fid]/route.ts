@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireUser, AuthError, assertAuditorScoreUnlocked } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { DEFICIENCY_ASPECTS } from '@/lib/types';
+import { DEFICIENCY_ASPECTS, auditorCanScore } from '@/lib/types';
 import { FINDING_KINDS } from '@/lib/audit-score';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
@@ -16,11 +16,17 @@ async function loadAndGuard(fid: string) {
     throw new AuthError(403, '只能編輯自己的稽核發現');
   }
   if (finding.deficiencyId) {
-    throw new AuthError(409, '此條已轉入缺失管考,鎖定不可再編輯');
+    throw new AuthError(409, '此條已轉入缺失管考，鎖定不可再編輯');
   }
   // 委員本人已「確認填寫完畢」鎖定 → 擋下(SUPER 覆核不受限)
   if (user.role === 'AUDITOR') {
     await assertAuditorScoreUnlocked(finding.cycleId, user.id);
+    // 階段閘下沉(與 findings/scores/lock 一致;R1 follow-up):委員僅於實地稽核(ONSITE 起)可改/刪發現,
+    // 封「結案後仍可改歷史發現」與「非評分階段直打」的縫。SUPER 覆核不受此限。
+    const cycle = await prisma.auditCycle.findUnique({ where: { id: finding.cycleId }, select: { status: true } });
+    if (!cycle || !auditorCanScore(cycle.status)) {
+      throw new AuthError(403, '目前非實地稽核階段，不可編輯稽核發現');
+    }
   }
   return { user, finding };
 }

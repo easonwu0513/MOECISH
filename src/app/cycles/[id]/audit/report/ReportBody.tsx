@@ -46,6 +46,22 @@ export type ReportMeta = {
   lead?: { name: string; title: string };
   subLead?: { name: string; title: string; org: string };
   team?: { strategy: string[]; management: string[]; technical: string[] };
+  /** 彙整工具存回的版面換頁設定(構面/區段層級);正式報告列印據此同步顯示分頁。 */
+  sectionSettings?: ReportData['sectionSettings'];
+  /** 逐則發現「此前換頁」(以 AuditFinding.id 為鍵)。 */
+  findingBreaks?: Record<string, boolean>;
+  /** 中心撰寫覆蓋層:有此覆蓋層則正式報告取此、取代該(構面×區段)委員即時發現。
+   *  批28 僅「法遵符合情形」;批34 圖4 擴及「待改善/建議」——中心於彙整工具改的三區段文字皆同步正式列印。
+   *  仍以「僅覆蓋中心實際編輯過的構面」為原則(彙整工具 touched-set),未編輯者續取委員即時資料。 */
+  complianceOverride?: OverrideCat;
+  improvementsOverride?: OverrideCat;
+  suggestionsOverride?: OverrideCat;
+};
+
+type OverrideCat = {
+  strategy?: { code: string; text: string; pageBreakBefore?: boolean }[];
+  management?: { code: string; text: string; pageBreakBefore?: boolean }[];
+  technical?: { code: string; text: string; pageBreakBefore?: boolean }[];
 };
 
 export function parseReportMeta(raw: string | null): ReportMeta {
@@ -67,12 +83,20 @@ export function buildReportData(data: AuditReportData): ReportData {
   const leadDefault =
     data.assignments.find((a) => a.role === 'LEAD')?.auditor.name ?? '';
 
+  // 委員名冊單一真值 = 現存指派(AuditorAssignment)。已移除委員留下的孤兒發現/評分一律不帶入正式報告,
+  // 與 ScoreOverview 同源(避免彙整工具/列印出現「幽靈委員」的發現與掛名)。
+  const activeAuditorIds = new Set(data.assignments.map((a) => a.auditor.id));
+  const activeNames = new Set(
+    data.assignments.map((a) => a.auditor?.name).filter((n): n is string => !!n),
+  );
+
   const findings: ReportData['findings'] = {
     strategy: { compliance: [], improvements: [], suggestions: [] },
     management: { compliance: [], improvements: [], suggestions: [] },
     technical: { compliance: [], improvements: [], suggestions: [] },
   };
   for (const f of data.auditFindings) {
+    if (!activeAuditorIds.has(f.auditorId)) continue; // 過濾已移除委員的孤兒發現
     const cat = ASPECT_TO_CATEGORY[f.aspect as DeficiencyAspect];
     const sec = KIND_TO_SECTION[f.kind];
     if (!cat || !sec) continue;
@@ -80,7 +104,8 @@ export function buildReportData(data: AuditReportData): ReportData {
       id: f.id,
       code: sortRefsString(f.checklistRef),
       text: f.content,
-      pageBreakBefore: false,
+      // 套用彙整工具存回的逐則換頁設定(以 AuditFinding.id 為鍵),正式報告列印同步顯示分頁。
+      pageBreakBefore: !!meta.findingBreaks?.[f.id],
       duplicateAcknowledged: true,
     });
   }
@@ -88,6 +113,30 @@ export function buildReportData(data: AuditReportData): ReportData {
   for (const cat of Object.keys(findings) as Category[]) {
     for (const sec of Object.keys(findings[cat]) as SectionKey[]) {
       findings[cat][sec].sort((x, y) => compareChecklistRef(x.code, y.code));
+    }
+  }
+  // 發現覆蓋層(UAT 批28 法遵→批34 圖4 擴及三區段;僅覆蓋中心編輯過的「構面×區段」):有覆蓋版則取代
+  // 該(構面×區段)委員即時發現,未編輯者續取委員即時資料。列印/Word/預覽共用此 buildReportData,三處同步。
+  // 註:此處項次順序僅為中間值,下游 renderFindingBlock 一律依 code 重排(與委員發現同規則),故最終輸出穩定。
+  // id 前綴各區段互異(co-/io-/so-),避免 findingBreaks(以 id 為鍵)與 React key 相撞。
+  const OVERRIDE_BY_SECTION: { sec: SectionKey; ov?: OverrideCat; prefix: string }[] = [
+    { sec: 'compliance', ov: meta.complianceOverride, prefix: 'co' },
+    { sec: 'improvements', ov: meta.improvementsOverride, prefix: 'io' },
+    { sec: 'suggestions', ov: meta.suggestionsOverride, prefix: 'so' },
+  ];
+  for (const { sec, ov: secOv, prefix } of OVERRIDE_BY_SECTION) {
+    if (!secOv) continue;
+    for (const cat of ['strategy', 'management', 'technical'] as Category[]) {
+      const ov = secOv[cat];
+      if (ov) {
+        findings[cat][sec] = ov.map((o, i) => ({
+          id: `${prefix}-${cat}-${i}`,
+          code: o.code,
+          text: o.text,
+          pageBreakBefore: !!o.pageBreakBefore,
+          duplicateAcknowledged: true,
+        }));
+      }
     }
   }
 
@@ -102,10 +151,16 @@ export function buildReportData(data: AuditReportData): ReportData {
       if (!assignedTeam[cat].includes(name)) assignedTeam[cat].push(name);
     }
   }
+  // meta.team 是管理員手改並凍結的名單,可能仍留著已移除委員;以現存指派委員名字為白名單過濾,
+  // 過濾後為空則回退到由現存指派派生的 assignedTeam,確保稽核小組名冊不含已移除委員。
+  const pickTeam = (metaList: string[] | undefined, derived: string[]): string[] => {
+    const filtered = (metaList ?? []).filter((n) => activeNames.has(n));
+    return filtered.length ? filtered : derived;
+  };
   const team: Record<Category, string[]> = {
-    strategy: meta.team?.strategy?.length ? meta.team.strategy : assignedTeam.strategy,
-    management: meta.team?.management?.length ? meta.team.management : assignedTeam.management,
-    technical: meta.team?.technical?.length ? meta.team.technical : assignedTeam.technical,
+    strategy: pickTeam(meta.team?.strategy, assignedTeam.strategy),
+    management: pickTeam(meta.team?.management, assignedTeam.management),
+    technical: pickTeam(meta.team?.technical, assignedTeam.technical),
   };
 
   return {
@@ -124,6 +179,8 @@ export function buildReportData(data: AuditReportData): ReportData {
     subLead: meta.subLead ?? { name: '', title: '', org: '' },
     team,
     findings,
+    // 版面換頁:套用彙整工具存回系統的構面/區段換頁設定(無則沿用全 false 預設)。
+    sectionSettings: meta.sectionSettings ?? base.sectionSettings,
   };
 }
 
@@ -131,16 +188,16 @@ export function buildReportData(data: AuditReportData): ReportData {
 export function ScoreOverview({ data }: { data: AuditReportData }) {
   const stats = computeDimStats(data.checklistVersion.items, data.responses);
 
-  const auditorById = new Map(data.assignments.map((a) => [a.auditor.id, a.auditor.name]));
-  for (const s of data.auditScores) {
-    if (!auditorById.has(s.auditorId)) auditorById.set(s.auditorId, '(已移除委員)');
-  }
-  const auditors = Array.from(auditorById.entries()).map(([id, name]) => ({ id, name }));
+  // 只採「現存指派委員」:已移除委員留下的孤兒評分不列入,亦不污染各構面平均與正式週期得分
+  // (與 buildReportData 的發現過濾同源;取代原「(已移除委員)」附記欄)。
+  const auditors = data.assignments.map((a) => ({ id: a.auditor.id, name: a.auditor.name }));
+  const activeAuditorIds = new Set(auditors.map((a) => a.id));
+  const activeScores = data.auditScores.filter((s) => activeAuditorIds.has(s.auditorId));
 
   const scoreOf = (auditorId: string, dim: Dimension): number | null =>
-    data.auditScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
+    activeScores.find((s) => s.auditorId === auditorId && s.dimension === dim)?.score ?? null;
   const totalOf = (auditorId: string): number | null => {
-    const mine = data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null);
+    const mine = activeScores.filter((s) => s.auditorId === auditorId && s.score !== null);
     return mine.length > 0 ? mine.reduce((a, s) => a + (s.score ?? 0), 0) : null;
   };
   const avgOf = (dim: Dimension): number | null => {
@@ -159,26 +216,26 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
   // 九構面是否評滿;未滿者其總分有誤導性,需明示「(已填/9)」
   const TOTAL_DIMS = ASPECTS.reduce((n, a) => n + ASPECT_DIMENSIONS[a].length, 0);
   const filledOf = (auditorId: string): number =>
-    data.auditScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
+    activeScores.filter((s) => s.auditorId === auditorId && s.score !== null).length;
 
   return (
-    <div className="overflow-x-auto rounded-md border border-outline-variant/60">
+    <div className="overflow-x-auto rounded-md border border-rule">
       <table className="w-full text-body-sm border-collapse">
         <thead>
-          <tr className="bg-surface-container-low text-label-sm text-on-surface-variant">
-            <th className="px-3 py-2.5 text-left font-medium border-b border-outline-variant/60">構面</th>
-            <th className="px-3 py-2.5 text-left font-medium border-b border-outline-variant/60">稽核項目(配分)</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">題數</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">符合</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">部分</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">不符</th>
-            <th className="px-2 py-2.5 text-center font-medium border-b border-outline-variant/60">不適</th>
+          <tr className="bg-paper-sunk text-label-sm text-ink-500">
+            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">構面</th>
+            <th className="px-3 py-2.5 text-left font-medium border-b border-rule">稽核項目（配分）</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">題數</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">符合</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">部分</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">不符</th>
+            <th className="px-2 py-2.5 text-center font-medium border-b border-rule">不適</th>
             {auditors.map((a) => (
-              <th key={a.id} className="px-3 py-2.5 text-center font-medium border-b border-outline-variant/60 whitespace-nowrap">
+              <th key={a.id} className="px-3 py-2.5 text-center font-medium border-b border-rule whitespace-nowrap">
                 {a.name}
               </th>
             ))}
-            <th className="px-3 py-2.5 text-center font-medium border-b border-outline-variant/60">平均</th>
+            <th className="px-3 py-2.5 text-center font-medium border-b border-rule">平均</th>
           </tr>
         </thead>
         <tbody>
@@ -187,16 +244,16 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               const st = stats[dim] ?? { total: 0, c1: 0, c2: 0, c3: 0, c4: 0 };
               const avg = avgOf(dim);
               return (
-                <tr key={dim} className="border-b border-outline-variant/40 last:border-b-0">
+                <tr key={dim} className="border-b border-rule last:border-b-0">
                   {i === 0 && (
-                    <td rowSpan={3} className="px-3 py-2.5 align-middle text-on-surface font-medium border-r border-outline-variant/40 whitespace-nowrap">
+                    <td rowSpan={3} className="px-3 py-2.5 align-middle text-ink-900 font-medium border-r border-rule whitespace-nowrap">
                       {DEFICIENCY_ASPECT_LABELS[aspect]}
                     </td>
                   )}
-                  <td className="px-3 py-2.5 text-on-surface">
+                  <td className="px-3 py-2.5 text-ink-900">
                     {/* DIMENSION_LABELS 已含「一、」前綴,勿再加 DIMENSION_NUM(原本重複成「一、一、」) */}
                     {DIMENSION_LABELS[dim]}
-                    <span className="text-on-surface-variant">({DIMENSION_MAX_SCORE[dim]})</span>
+                    <span className="text-ink-500">({DIMENSION_MAX_SCORE[dim]})</span>
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.total}</td>
                   <td className="px-2 py-2.5 text-center tabular-nums">{st.c1}</td>
@@ -212,7 +269,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
                   <td className="px-3 py-2.5 text-center tabular-nums font-medium">
                     {avg ?? '—'}
                     {avg !== null && (
-                      <span className="ml-1 text-caption text-on-surface-variant">
+                      <span className="ml-1 text-caption text-ink-500">
                         {gradeOf(dim, Math.round(avg))}
                       </span>
                     )}
@@ -221,8 +278,8 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               );
             }),
           )}
-          <tr className="bg-surface-container-low font-medium">
-            <td colSpan={7} className="px-3 py-2.5 text-right">得分(滿分 100)</td>
+          <tr className="bg-paper-sunk font-medium">
+            <td colSpan={7} className="px-3 py-2.5 text-right">得分（滿分 100）</td>
             {auditors.map((a) => {
               const t = totalOf(a.id);
               const filled = filledOf(a.id);
@@ -231,7 +288,7 @@ export function ScoreOverview({ data }: { data: AuditReportData }) {
               return (
                 <td key={a.id} className="px-3 py-2.5 text-center tabular-nums">
                   {t}
-                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-on-surface-variant">({filled} 構面)</span>}
+                  {filled < TOTAL_DIMS && <span className="ml-1 text-caption text-ink-500">({filled} 構面）</span>}
                 </td>
               );
             })}
@@ -275,7 +332,7 @@ export function AuditorStateChangeLog({
   events: StateChange[];
 }) {
   if (assignments.length === 0) {
-    return <p className="text-body-sm text-on-surface-variant">尚無受指派委員。</p>;
+    return <p className="text-body-sm text-ink-500">尚無受指派委員。</p>;
   }
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -286,11 +343,11 @@ export function AuditorStateChangeLog({
         let label: string;
         let when: Date | null;
         if (a.scoreLockedAt) {
-          tone = 'locked'; label = '已確認填寫完畢(評分與發現定稿)'; when = a.scoreLockedAt;
+          tone = 'locked'; label = '已確認填寫完畢（評分與發現定稿）'; when = a.scoreLockedAt;
         } else if (latest?.action === 'audit.score.return') {
           tone = 'warning'; label = '已被退件 — 待重新編輯後再次確認'; when = latest.createdAt;
         } else if (latest?.action === 'audit.score.unlock') {
-          tone = 'warning'; label = '已解除鎖定 — 內容可能已異動,請複核'; when = latest.createdAt;
+          tone = 'warning'; label = '已解除鎖定 — 內容可能已異動，請複核'; when = latest.createdAt;
         } else {
           tone = 'neutral'; label = '未確認填寫完畢'; when = latest?.createdAt ?? null;
         }
@@ -302,21 +359,21 @@ export function AuditorStateChangeLog({
                 ? 'border-primary-200 bg-primary-50'
                 : tone === 'warning'
                   ? 'border-warning-200 bg-warning-50'
-                  : 'border-outline-variant bg-surface-container'
+                  : 'border-rule bg-paper-sunk'
             }`}
           >
             <div className="flex items-center gap-2">
               <span className="shrink-0">
                 {tone === 'locked'
                   ? <Check size={15} className="text-primary-700" />
-                  : <AlertTriangle size={15} className={tone === 'warning' ? 'text-warning-700' : 'text-on-surface-variant'} />}
+                  : <AlertTriangle size={15} className={tone === 'warning' ? 'text-warning-700' : 'text-ink-500'} />}
               </span>
-              <span className="font-medium text-on-surface">{a.auditor?.name ?? '稽核委員'} 委員</span>
+              <span className="font-medium text-ink-900">{a.auditor?.name ?? '稽核委員'} 委員</span>
             </div>
             <p className={`mt-0.5 text-body-sm ${
-              tone === 'locked' ? 'text-primary-800' : tone === 'warning' ? 'text-warning-800' : 'text-on-surface-variant'
+              tone === 'locked' ? 'text-primary-800' : tone === 'warning' ? 'text-warning-800' : 'text-ink-500'
             }`}>{label}</p>
-            <p className="mt-0.5 text-caption text-on-surface-variant tabular-nums">{when ? fmtROCDateTime(when) : '—'}</p>
+            <p className="mt-0.5 text-caption text-ink-500 tabular-nums">{when ? fmtROCDateTime(when) : '—'}</p>
           </div>
         );
       })}

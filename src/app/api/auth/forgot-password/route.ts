@@ -35,15 +35,15 @@ export async function POST(req: Request) {
               toName: user.name,
               subject: '[MOECISH] 重設您的密碼',
               body:
-                `${user.name} 您好,\n\n` +
-                '我們收到您的密碼重設要求。請於 1 小時內點擊以下連結設定新密碼:\n\n' +
+                `${user.name} 您好，\n\n` +
+                '我們收到您的密碼重設要求。請於 1 小時內點擊以下連結設定新密碼：\n\n' +
                 `${link}\n\n` +
-                '若非您本人操作,請忽略此信,您的密碼不會被變更。\n\n' +
+                '若非您本人操作，請忽略此信，您的密碼不會被變更。\n\n' +
                 '— MOECISH 資通安全稽核管考平台',
               kind: 'password-reset',
             });
           } catch (e) {
-            console.error('[forgot-password] 寄信失敗:', (e as Error).message);
+            console.error('[forgot-password] 寄信失敗：', (e as Error).message);
           }
           await writeAuditLog({
             actorId: user.id,

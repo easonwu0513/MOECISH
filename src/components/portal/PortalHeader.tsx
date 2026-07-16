@@ -10,7 +10,7 @@ export function PortalHeader({ authed }: { authed: boolean }) {
   const enterHref = authed ? '/dashboard' : '/login';
   const enterLabel = authed ? '進入系統' : '登入系統';
   return (
-    <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-outline-variant/60">
+    <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-rule/60">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/" className="focus-ring rounded-md shrink-0">
           <Wordmark />
@@ -18,13 +18,13 @@ export function PortalHeader({ authed }: { authed: boolean }) {
         <nav className="flex items-center gap-1">
           <Link
             href="/news"
-            className="min-h-[44px] inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
+            className="min-h-[44px] inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-ink-500 hover:text-ink-900 transition-colors focus-ring rounded-full"
           >
             資安資訊
           </Link>
           <Link
             href="/news?category=EVENT"
-            className="min-h-[44px] inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors focus-ring rounded-full"
+            className="min-h-[44px] inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 text-body-sm text-ink-500 hover:text-ink-900 transition-colors focus-ring rounded-full"
           >
             課程報名
           </Link>

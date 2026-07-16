@@ -25,9 +25,9 @@ export function FileUploadButton({
   return (
     <label
       className={cn(
-        'inline-flex items-center gap-2 rounded-md bg-surface border border-dashed border-primary-400 text-primary-700',
+        'inline-flex items-center gap-2 rounded-md bg-card border border-dashed border-primary-400 text-primary-700',
         'hover:bg-primary-50 cursor-pointer transition-colors duration-200 ease-standard',
-        'focus-within:ring-2 focus-within:ring-primary-500/60 focus-within:ring-offset-2 focus-within:ring-offset-surface',
+        'focus-within:ring-2 focus-within:ring-primary-500/60 focus-within:ring-offset-2 focus-within:ring-offset-card',
         size === 'sm' ? 'h-9 px-3' : 'h-10 px-4',
         busy && 'opacity-60 cursor-wait',
         className,

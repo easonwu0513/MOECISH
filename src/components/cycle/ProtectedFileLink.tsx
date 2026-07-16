@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Paperclip, X } from '@/components/icons';
 
 /**
@@ -8,7 +9,11 @@ import { Paperclip, X } from '@/components/icons';
  * - 委員(viewOnly=true):以站內檢視器開啟 —— 禁右鍵/禁拖曳,PDF 隱藏工具列下載鈕,不提供下載連結。
  *   (檔案本身已燒入機關浮水印 lib/watermark.ts,畫面另有 ScreenWatermark;瀏覽器無法 100% 防截圖,
  *    但移除「右鍵另存圖片/另存新檔」的便捷途徑,且留存可溯源浮水印。)
- * - 其餘角色(機關/中心):維持新分頁預覽連結(可另存自家文件/工作底稿)。
+ * - 圖片檔:**所有角色一律僅站內檢視,不提供下載**(UAT 批40 裁定:機關上傳的圖片佐證不開放下載,
+ *   與頁面「禁止外流」浮水印姿態一致)。
+ * - PDF 檔:**比照圖片,所有角色一律僅站內檢視,不提供新分頁/下載**(批65:機關/中心先前為新分頁開原始檔,
+ *   瀏覽器 PDF 工具列可下載/列印;現全角色走站內 iframe 檢視器並隱藏工具列,與委員一致)。
+ * - 其餘非圖片非 PDF 檔(機關/中心的 Word/Excel 等 Office 檔):維持新分頁預覽連結(可另存自家文件/工作底稿)。
  */
 export function ProtectedFileLink({
   fileId,
@@ -28,21 +33,30 @@ export function ProtectedFileLink({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // 鎖背景捲動:檢視中頁面不在後方滑動(關閉即還原)
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open]);
   const url = `/api/evidences/${fileId}/download?inline=1`;
   const isPdf = /\.pdf$/i.test(name);
+  const isImage = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name);
+  // 圖片與 PDF 一律視為僅檢視(關閉下載;批65 PDF 全角色比照圖片),其餘檔型(Office)依呼叫端角色決定
+  const effectiveViewOnly = viewOnly || isImage || isPdf;
   const base = className ?? 'inline-flex items-center gap-1.5 text-body-sm text-primary-700 hover:underline focus-ring rounded-sm';
 
   const label = (
     <>
       <Paperclip size={14} className="shrink-0" />
       <span className="truncate">{name}</span>
-      {sizeKB != null && <span className="text-caption text-on-surface-variant tabular-nums shrink-0">({sizeKB} KB)</span>}
+      {sizeKB != null && <span className="text-caption text-ink-500 tabular-nums shrink-0">({sizeKB} KB)</span>}
     </>
   );
 
-  if (!viewOnly) {
+  if (!effectiveViewOnly) {
     return (
       <a href={url} target="_blank" rel="noopener" className={base}>
         {label}
@@ -52,12 +66,14 @@ export function ProtectedFileLink({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={base} title="僅供線上檢視(禁止下載/外流)">
+      <button type="button" onClick={() => setOpen(true)} className={base} title="僅供線上檢視（禁止下載/外流）">
         {label}
       </button>
-      {open && (
+      {/* Portal 掛 body:跳脫評分頁等深層版面的 stacking context(UAT 批43:檢視器被頂帶/表單標籤
+          蓋住、關閉鈕看不到);z 高於 TopStrip(30)/浮水印(40)、低於 Dialog(90)/Toast(100)。 */}
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex flex-col bg-black/85"
+          className="fixed inset-0 z-[80] flex flex-col bg-black/85"
           role="dialog"
           aria-modal="true"
           aria-label={`檢視 ${name}`}
@@ -65,7 +81,7 @@ export function ProtectedFileLink({
           onDragStart={(e) => e.preventDefault()}
         >
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-white shrink-0">
-            <span className="text-body-sm truncate min-w-0">{name} · 僅供線上檢視,禁止下載與外流</span>
+            <span className="text-body-sm truncate min-w-0">{name} · 僅供線上檢視，禁止下載與外流</span>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -80,10 +96,13 @@ export function ProtectedFileLink({
             onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           >
             {isPdf ? (
+              // #toolbar=0&navpanes=0&statusbar=0:Chrome/Edge 內建 PDF viewer 隱藏工具列(含下載/列印鈕)。
+              // ⚠️誠實限制:此為 UI 層盡力移除便捷途徑,非密碼學防護——位元組已送達瀏覽器,無法絕對禁存;
+              // 且 Firefox 用自家 pdf.js viewer 不理會 #toolbar=0(仍顯示其工具列)。檔案本身已燒浮水印可溯源。
               <iframe
-                src={`${url}#toolbar=0&navpanes=0&scrollbar=0`}
+                src={`${url}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0`}
                 title={name}
-                className="w-full h-full min-h-[82vh] rounded-sm bg-white"
+                className="w-full h-full min-h-[82vh] rounded-sm bg-card"
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -92,11 +111,12 @@ export function ProtectedFileLink({
                 alt={name}
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
-                className="max-w-full h-auto select-none rounded-sm bg-white"
+                className="max-w-full h-auto select-none rounded-sm bg-card"
               />
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

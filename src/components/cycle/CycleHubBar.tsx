@@ -18,7 +18,7 @@ export function CycleHubBar({
   nextHint?: string;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-2.5">
+    <div className="mb-5 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border border-rule bg-card px-4 py-2.5">
       <Link
         href={`/cycles/${cycleId}`}
         className="inline-flex items-center gap-1 min-h-9 text-label-lg font-medium text-primary-700 hover:underline focus-ring rounded"
@@ -26,7 +26,7 @@ export function CycleHubBar({
         <ChevronLeft size={16} aria-hidden />
         回週期工作台
       </Link>
-      <span className="text-caption text-on-surface-variant">
+      <span className="text-caption text-ink-500">
         {label}
         {nextHint ? ` · ${nextHint}` : ''}
       </span>

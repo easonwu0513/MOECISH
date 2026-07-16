@@ -1,4 +1,5 @@
 import { cn } from '@/lib/cn';
+import type { Tone } from '@/lib/tone';
 
 export function ProgressRing({
   value,
@@ -14,7 +15,7 @@ export function ProgressRing({
   max?: number;
   size?: number;
   strokeWidth?: number;
-  tone?: 'primary' | 'sage' | 'success' | 'warning' | 'danger';
+  tone?: Exclude<Tone, 'neutral'>;
   label?: string;
   sublabel?: string;
   className?: string;
@@ -24,12 +25,13 @@ export function ProgressRing({
   const c = 2 * Math.PI * r;
   const offset = c - (pct / 100) * c;
 
+  // stroke 是 ProgressRing 專屬面向(TONE 為 bg/text 語彙);深淺基準對齊批72 統一實心 600
   const color = {
     primary: 'stroke-primary-600',
-    sage: 'stroke-sage-500',
-    success: 'stroke-success-500',
-    warning: 'stroke-warning-500',
-    danger: 'stroke-danger-500',
+    sage: 'stroke-sage-600',
+    success: 'stroke-success-600',
+    warning: 'stroke-warning-600',
+    danger: 'stroke-danger-600',
   }[tone];
 
   return (
@@ -44,7 +46,7 @@ export function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={r}
-          className="stroke-surface-container-highest"
+          className="stroke-rule"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -61,8 +63,8 @@ export function ProgressRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {label && <span className="text-title-md text-on-surface leading-none tabular-nums">{label}</span>}
-        {sublabel && <span className="text-caption text-on-surface-variant mt-1 tabular-nums">{sublabel}</span>}
+        {label && <span className="text-title-md text-ink-900 leading-none tabular-nums">{label}</span>}
+        {sublabel && <span className="text-caption text-ink-500 mt-1 tabular-nums">{sublabel}</span>}
       </div>
     </div>
   );

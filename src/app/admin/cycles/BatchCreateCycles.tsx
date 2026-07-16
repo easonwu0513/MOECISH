@@ -67,7 +67,6 @@ export default function BatchCreateCycles({
   async function submit() {
     if (Number.isNaN(yearNum)) { toast.error('年度格式有誤'); return; }
     if (!versionId) { toast.error('請選擇題庫版本'); return; }
-    if (!dueDate) { toast.error('請設定矯正填報截止日'); return; }
     if (selected.size === 0) { toast.error('請至少勾選一個機關'); return; }
     setSaving(true);
     const res = await fetch('/api/admin/cycles/batch', {
@@ -77,7 +76,7 @@ export default function BatchCreateCycles({
         year: yearNum,
         checklistVersionId: versionId,
         organizationIds: Array.from(selected),
-        dueDate,
+        dueDate: dueDate || null,
         prepDueDate: prepDueDate || null,
         prepDueTech: prepDueTech || null,
         onsiteDate: onsiteDate || null,
@@ -93,7 +92,7 @@ export default function BatchCreateCycles({
     const j = await res.json();
     toast.success(
       `已建立 ${j.created.length} 個週期`,
-      j.skipped.length > 0 ? `略過已存在:${j.skipped.join('、')}` : applyPrep ? '已套用標準資料準備清單' : undefined,
+      j.skipped.length > 0 ? `略過已存在：${j.skipped.join('、')}` : applyPrep ? '已套用標準資料準備清單' : undefined,
     );
     setOpen(false);
     router.refresh();
@@ -108,7 +107,7 @@ export default function BatchCreateCycles({
         open={open}
         onOpenChange={(v) => !saving && setOpen(v)}
         title="批次開立年度週期"
-        description="勾選機關後一鍵建立該年度週期(狀態為開立中);已有該年度週期的機關會自動略過。"
+        description="勾選機關後一鍵建立該年度週期（狀態為開立中）；已有該年度週期的機關會自動略過。"
         footer={
           <>
             <Button variant="text" onClick={() => setOpen(false)} disabled={saving}>取消</Button>
@@ -118,29 +117,29 @@ export default function BatchCreateCycles({
       >
         <div className="flex flex-col gap-4 pt-2">
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="年度(西元)" value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026" />
+            <TextField label="年度（西元）" value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026" />
             <Select label="題庫版本" value={versionId} onChange={(e) => setVersionId(e.target.value)}>
               {versions.map((v) => (
-                <option key={v.id} value={v.id}>{v.name}({v.year - 1911} 年度)</option>
+                <option key={v.id} value={v.id}>{v.name}({v.year - 1911} 年度）</option>
               ))}
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <TextField label="矯正填報截止(必填)" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            <TextField label="資料準備截止 · 實地稽核區(選填)" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
-            <TextField label="資料準備截止 · 技術檢測區(選填)" type="date" value={prepDueTech} onChange={(e) => setPrepDueTech(e.target.value)} />
-            <TextField label="實地稽核日期(選填,可開立時先訂)" type="date" value={onsiteDate} onChange={(e) => setOnsiteDate(e.target.value)} />
+            <TextField label="矯正填報截止（選填）" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <TextField label="資料準備截止 · 實地稽核區（選填）" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
+            <TextField label="資料準備截止 · 技術檢測區（選填）" type="date" value={prepDueTech} onChange={(e) => setPrepDueTech(e.target.value)} />
+            <TextField label="實地稽核日期（選填，可開立時先訂）" type="date" value={onsiteDate} onChange={(e) => setOnsiteDate(e.target.value)} />
           </div>
 
           <div>
-            <p className="text-label text-on-surface mb-2">機關({selected.size} 已選)</p>
-            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md border border-outline-variant p-2">
+            <p className="text-label text-ink-900 mb-2">機關（{selected.size} 已選）</p>
+            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md border border-rule p-2">
               {eligible.map((o) => (
                 <label
                   key={o.id}
                   className={cn(
                     'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-body-sm transition-colors',
-                    o.has ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-surface-container',
+                    o.has ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-paper-sunk',
                   )}
                 >
                   <input
@@ -150,21 +149,21 @@ export default function BatchCreateCycles({
                     disabled={o.has}
                     onChange={() => toggle(o.id)}
                   />
-                  <span className="flex-1 min-w-0 truncate text-on-surface">{o.name}</span>
-                  {o.has && <span className="text-caption text-on-surface-variant shrink-0">已有該年度</span>}
+                  <span className="flex-1 min-w-0 truncate text-ink-900">{o.name}</span>
+                  {o.has && <span className="text-caption text-ink-500 shrink-0">已有該年度</span>}
                 </label>
               ))}
             </div>
           </div>
 
-          <label className="flex items-center gap-2.5 cursor-pointer text-body-sm text-on-surface">
+          <label className="flex items-center gap-2.5 cursor-pointer text-body-sm text-ink-900">
             <input
               type="checkbox"
               className="accent-primary-600"
               checked={applyPrep}
               onChange={(e) => setApplyPrep(e.target.checked)}
             />
-            同時套用標準資料準備清單(6 項)
+            同時套用標準資料準備清單（6 項）
           </label>
         </div>
       </Dialog>

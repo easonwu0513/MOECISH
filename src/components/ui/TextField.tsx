@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 
 /**
  * Material 3 filled TextField with floating label.
- * - Base state: bg-surface-container, underline 1px
+ * - Base state: bg-paper-sunk, underline 1px
  * - Focus:      underline 2px primary, label floats
  * - Error:      underline danger
  */
@@ -55,29 +55,29 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
       <div className={cn('flex flex-col gap-1.5', className)}>
         <div
           className={cn(
-            'relative flex items-center rounded-sm bg-surface transition-all duration-200 ease-standard',
+            'relative flex items-center rounded-sm bg-card transition-all duration-200 ease-standard',
             'border',
             hasError
               ? 'border-danger-500 shadow-focus-danger'
               : focused
               ? 'border-primary-600 border-2 shadow-focus'
-              : 'border-outline-variant hover:border-outline',
+              : 'border-neutral-400 hover:border-neutral-500',
             disabled && 'opacity-50',
           )}
         >
           {leadingIcon && (
-            <span className="pl-3.5 text-on-surface-variant shrink-0 flex items-center">{leadingIcon}</span>
+            <span className="pl-3.5 text-ink-500 shrink-0 flex items-center">{leadingIcon}</span>
           )}
           {label && (
             <label
               htmlFor={inputId}
               className={cn(
-                'absolute pointer-events-none transition-all duration-200 ease-standard bg-surface px-1',
+                'absolute pointer-events-none transition-all duration-200 ease-standard bg-card px-1',
                 raised
                   ? 'top-0 -translate-y-1/2 text-caption'
                   : 'top-1/2 -translate-y-1/2 text-body',
-                raised && (hasError ? 'text-danger-700' : focused ? 'text-primary-700' : 'text-on-surface-variant'),
-                !raised && 'text-on-surface-variant',
+                raised && (hasError ? 'text-danger-700' : focused ? 'text-primary-700' : 'text-ink-500'),
+                !raised && 'text-ink-500',
                 leadingIcon ? 'left-10' : 'left-3',
               )}
             >
@@ -103,13 +103,13 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
             {...rest}
           />
           {trailingIcon && (
-            <span className="pr-3.5 text-on-surface-variant shrink-0 flex items-center">{trailingIcon}</span>
+            <span className="pr-3.5 text-ink-500 shrink-0 flex items-center">{trailingIcon}</span>
           )}
         </div>
         {hasError ? (
           <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
         ) : helperText ? (
-          <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+          <p id={descId} className="text-caption text-ink-500 px-3.5">{helperText}</p>
         ) : null}
       </div>
     );
@@ -121,18 +121,18 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
       <div
         className={cn(
           'relative flex items-center rounded-t-md overflow-hidden transition-all duration-200 ease-standard',
-          'bg-surface-container',
+          'bg-paper-sunk',
           hasError
             ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-danger-500'
             : focused
             ? 'shadow-[inset_0_-2px_0_0_var(--tw-shadow-color)] shadow-primary-600'
-            : 'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-outline',
-          !focused && !hasError && 'hover:bg-surface-container-high',
+            : 'shadow-[inset_0_-1px_0_0_var(--tw-shadow-color)] shadow-neutral-400',
+          !focused && !hasError && 'hover:bg-rule',
           disabled && 'opacity-50',
         )}
       >
         {leadingIcon && (
-          <span className="pl-3.5 text-on-surface-variant shrink-0 flex items-center">{leadingIcon}</span>
+          <span className="pl-3.5 text-ink-500 shrink-0 flex items-center">{leadingIcon}</span>
         )}
         {label && (
           <label
@@ -142,7 +142,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
               raised
                 ? 'top-2 text-caption'
                 : 'top-1/2 -translate-y-1/2 text-body',
-              hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-on-surface-variant',
+              hasError ? 'text-danger-700' : raised && focused ? 'text-primary-700' : 'text-ink-500',
               leadingIcon ? 'left-10' : 'left-3.5',
             )}
           >
@@ -169,13 +169,13 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
           {...rest}
         />
         {trailingIcon && (
-          <span className="pr-3.5 text-on-surface-variant shrink-0 flex items-center">{trailingIcon}</span>
+          <span className="pr-3.5 text-ink-500 shrink-0 flex items-center">{trailingIcon}</span>
         )}
       </div>
       {hasError ? (
         <p id={descId} className="text-caption text-danger-700 px-3.5">{errorText}</p>
       ) : helperText ? (
-        <p id={descId} className="text-caption text-on-surface-variant px-3.5">{helperText}</p>
+        <p id={descId} className="text-caption text-ink-500 px-3.5">{helperText}</p>
       ) : null}
     </div>
   );

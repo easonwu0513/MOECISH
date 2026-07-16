@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableScroll } from '@/components/ui/TableScroll';
@@ -38,6 +37,10 @@ export type UserRow = {
   disabledByName: string | null;
   disabledAtISO: string | null;
   isSelf: boolean;
+  /** 有練習發現(觀察員實習;批32)→ 列「實習紀錄」連結 */
+  hasPractice: boolean;
+  /** 多重身分(批31):現用身分以外的有效授權身分(UserRole,endedAt=null),角色欄併列顯示 */
+  otherIdentities: { role: Role; orgName: string | null }[];
 };
 
 type StatusFilter = 'all' | 'pending' | 'expired' | 'active' | 'disabled';
@@ -67,8 +70,9 @@ export default function UsersDirectory({
     disabled: users.filter((u) => !u.isActive).length,
   }), [invites, users]);
 
-  const matchCommon = (r: { role: Role; orgId: string | null; name: string; email: string }) => {
-    if (roleFilter !== 'all' && r.role !== roleFilter) return false;
+  // extraRoles:帳號的其他有效授權身分——角色篩選須涵蓋多重身分(否則篩「觀察員」漏掉現用他身分的授權持有者)
+  const matchCommon = (r: { role: Role; orgId: string | null; name: string; email: string }, extraRoles: Role[] = []) => {
+    if (roleFilter !== 'all' && r.role !== roleFilter && !extraRoles.includes(roleFilter)) return false;
     if (orgFilter !== 'all' && r.orgId !== orgFilter) return false;
     const needle = q.trim().toLowerCase();
     if (needle && !r.name.toLowerCase().includes(needle) && !r.email.toLowerCase().includes(needle)) return false;
@@ -85,7 +89,7 @@ export default function UsersDirectory({
     if (status === 'pending' || status === 'expired') return false;
     if (status === 'active' && !u.isActive) return false;
     if (status === 'disabled' && u.isActive) return false;
-    return matchCommon(u);
+    return matchCommon(u, u.otherIdentities.map((it) => it.role));
   });
 
   return (
@@ -108,6 +112,7 @@ export default function UsersDirectory({
             <option value="all">全部角色</option>
             <option value="ORG_ADMIN">機關管理員</option>
             <option value="AUDITOR">稽核委員</option>
+            <option value="OBSERVER">觀察員</option>
             <option value="SUPER_ADMIN">最高管理員</option>
           </Select>
         </div>
@@ -126,9 +131,9 @@ export default function UsersDirectory({
 
       {/* 邀請(待接受/已過期):過期可重寄(效期展延 14 天)、待接受可撤銷 */}
       {shownInvites.length > 0 && (
-        <Card padded={false} variant="outlined">
-          <div className="px-5 py-3 bg-warning-50 text-warning-700 text-label-sm uppercase tracking-wide border-b border-outline-variant/60">
-            邀請({shownInvites.length})
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
+          <div className="px-5 py-3 bg-paper-sunk text-ink-700 text-label-sm uppercase tracking-wide border-b border-rule-strong">
+            邀請（{shownInvites.length})
           </div>
           <TableScroll>
             <Table>
@@ -144,19 +149,19 @@ export default function UsersDirectory({
                 {shownInvites.map((inv) => (
                   <Tr key={inv.id} hover={false}>
                     <Td>
-                      <div className="font-medium text-on-surface">{inv.name}</div>
-                      <div className="text-caption font-mono text-on-surface-variant">{inv.email}</div>
+                      <div className="font-medium text-ink-900">{inv.name}</div>
+                      <div className="text-caption font-mono text-ink-500">{inv.email}</div>
                     </Td>
                     <Td>
                       <Chip size="sm" tone={ROLE_TONE[inv.role]}>{ROLE_LABELS[inv.role]}</Chip>
                     </Td>
-                    <Td className="text-on-surface-variant">{inv.orgName ?? '—'}</Td>
+                    <Td className="text-ink-500">{inv.orgName ?? '—'}</Td>
                     <Td>
                       {inv.status === 'pending'
                         ? <Chip size="sm" tone="warning" dot>待接受</Chip>
                         : <Chip size="sm" tone="neutral" dot>已過期</Chip>}
                     </Td>
-                    <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    <Td className="text-right text-caption text-ink-500 tabular-nums">
                       {fmtROC(inv.expiresAtISO)}
                     </Td>
                     <Td className="text-right">
@@ -167,12 +172,12 @@ export default function UsersDirectory({
               </tbody>
             </Table>
           </TableScroll>
-        </Card>
+        </div>
       )}
 
       {/* 帳號(啟用/停用) */}
       {shownUsers.length > 0 && (
-        <Card padded={false} variant="outlined">
+        <div className="overflow-hidden rounded-md border border-rule bg-card">
           <TableScroll>
             <Table>
               <THead>
@@ -187,13 +192,37 @@ export default function UsersDirectory({
                 {shownUsers.map((u) => (
                   <Tr key={u.id}>
                     <Td>
-                      <div className="font-medium text-on-surface">{u.name}</div>
-                      <div className="text-caption font-mono text-on-surface-variant">{u.email}</div>
+                      <div className="font-medium text-ink-900">{u.name}</div>
+                      <div className="text-caption font-mono text-ink-500">{u.email}</div>
                     </Td>
                     <Td>
-                      <Chip size="sm" tone={ROLE_TONE[u.role]}>{ROLE_LABELS[u.role]}</Chip>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Chip
+                          size="sm"
+                          tone={ROLE_TONE[u.role]}
+                          dot={u.otherIdentities.length > 0}
+                          title={u.otherIdentities.length > 0 ? '現用身分' : undefined}
+                        >
+                          {ROLE_LABELS[u.role]}
+                        </Chip>
+                        {u.otherIdentities.map((it, i) => (
+                          <Chip
+                            key={`${it.role}:${it.orgName ?? ''}:${i}`}
+                            size="sm"
+                            tone={ROLE_TONE[it.role]}
+                            title={`已授身分（可切換）${it.orgName ? ` · ${it.orgName}` : ''}`}
+                          >
+                            {ROLE_LABELS[it.role]}
+                          </Chip>
+                        ))}
+                        {u.hasPractice && (
+                          <a href={`/users/${u.id}/practice-history`} className="text-caption text-primary-700 hover:underline focus-ring rounded-sm">
+                            實習紀錄
+                          </a>
+                        )}
+                      </div>
                     </Td>
-                    <Td className="text-on-surface-variant">{u.orgName ?? '—'}</Td>
+                    <Td className="text-ink-500">{u.orgName ?? '—'}</Td>
                     <Td>
                       {u.isActive ? (
                         <Chip size="sm" tone="success">啟用</Chip>
@@ -201,10 +230,10 @@ export default function UsersDirectory({
                         <div className="space-y-1">
                           <Chip size="sm" tone="neutral">停用</Chip>
                           {u.disableReason && (
-                            <p className="text-caption text-on-surface-variant max-w-[16rem] leading-snug">
+                            <p className="text-caption text-ink-500 max-w-[16rem] leading-snug">
                               {u.disableReason}
                               {u.disabledByName && (
-                                <span className="block text-on-surface-variant/70">
+                                <span className="block text-ink-500">
                                   — {u.disabledByName}{u.disabledAtISO ? ` · ${fmtROC(u.disabledAtISO)}` : ''}
                                 </span>
                               )}
@@ -213,7 +242,7 @@ export default function UsersDirectory({
                         </div>
                       )}
                     </Td>
-                    <Td className="text-right text-caption text-on-surface-variant tabular-nums">
+                    <Td className="text-right text-caption text-ink-500 tabular-nums">
                       {u.lastLoginAtISO ? fmtROCDateTime(u.lastLoginAtISO) : '尚未登入'}
                     </Td>
                     <Td className="text-right">
@@ -224,6 +253,7 @@ export default function UsersDirectory({
                         isActive={u.isActive}
                         hasOrganization={!!u.orgId}
                         isSelf={u.isSelf}
+                        orgs={orgs}
                       />
                     </Td>
                   </Tr>
@@ -231,17 +261,17 @@ export default function UsersDirectory({
               </tbody>
             </Table>
           </TableScroll>
-        </Card>
+        </div>
       )}
 
       {shownInvites.length === 0 && shownUsers.length === 0 && (
-        <Card>
+        <div className="rounded-md border border-rule bg-card">
           <EmptyState
             icon={<Users size={28} />}
             title="沒有符合條件的人員"
-            description="調整上方篩選或搜尋條件;或用右上角「邀請人員」建立邀請。"
+            description="調整上方篩選或搜尋條件；或用右上角「邀請人員」建立邀請。"
           />
-        </Card>
+        </div>
       )}
     </div>
   );

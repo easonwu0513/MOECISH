@@ -18,11 +18,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '僅機關管理員可操作' }, { status: 403 });
     }
     if (!checklistOrgCanEdit(cycle.status)) {
-      return NextResponse.json({ error: '需於「資料準備中」階段才能填報(開立中尚未開放)' }, { status: 400 });
+      return NextResponse.json({ error: '需於「資料準備中」階段才能填報（開立中尚未開放）' }, { status: 400 });
     }
     if (cycle.checklistSubmittedAt) {
       return NextResponse.json(
-        { error: '填報已送出鎖定,如需修改請洽稽核委員退回重填' },
+        { error: '填報已送出鎖定，如需修改請洽中心退回重填' },
         { status: 409 },
       );
     }

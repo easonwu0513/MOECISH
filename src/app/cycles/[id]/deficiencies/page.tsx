@@ -5,26 +5,26 @@ import { auth } from '@/lib/auth';
 import { AppShell } from '@/components/shell/AppShell';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
-import { AlertTriangle, ChevronRight } from '@/components/icons';
+import { AlertTriangle } from '@/components/icons';
 import {
   DEFICIENCY_ASPECT_LABELS,
+  DEFICIENCY_ASPECT_NUM,
   DEFICIENCY_TYPE_LABELS,
-  ACTION_STATUS_LABELS,
   type DeficiencyAspect,
   type DeficiencyType,
   type ActionStatus,
   type Role,
 } from '@/lib/types';
 import { canAccess } from '@/lib/access-policy';
-import { actionStatusTone } from '@/lib/state-machine';
-import { toneClasses } from '@/lib/stage';
+import { missingActionFields } from '@/lib/corrective-action';
 import { EMPTY } from '@/lib/copy';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import AdminDeficiencyTools from './AdminDeficiencyTools';
+import SubmitRoundButton from './SubmitRoundButton';
+import { DeficiencyAccordionProvider, DeficiencyRow, DeficiencyAspectSection } from './DeficiencyAccordion';
 
 // 狀態篩選:todo = 待填報(未開始+草稿)、returned/submitted/passed 對應單一狀態
 // 列卡左緣狀態色條沿用 stage.ts toneClasses().dot(單一真實來源,與矩陣/任務卡同語彙)
@@ -53,7 +53,25 @@ export default async function DeficienciesPage({
       organization: true,
       assignments: true,
       deficiencies: {
-        include: { action: { select: { status: true, round: true } } },
+        include: {
+          action: {
+            select: {
+              status: true,
+              round: true,
+              // 完整性檢核(missingActionFields)所需欄位:按鈕「可送」計數與每列「尚缺」提示共用
+              rootCause: true,
+              measureStrategy: true,
+              measureManagement: true,
+              measureTechnical: true,
+              plannedDate: true,
+              trackingMethod: true,
+              execStatus: true,
+              actualDate: true,
+              extendedDate: true,
+              delayReason: true,
+            },
+          },
+        },
         orderBy: [{ aspect: 'asc' }, { type: 'asc' }, { itemNo: 'asc' }],
       },
     },
@@ -68,28 +86,36 @@ export default async function DeficienciesPage({
 
   const yearROC = cycle.year - 1911;
   const aspects: DeficiencyAspect[] = ['STRATEGY', 'MANAGEMENT', 'TECHNICAL'];
-  const aspectNumber: Record<DeficiencyAspect, string> = {
-    STRATEGY: '一', MANAGEMENT: '二', TECHNICAL: '三',
-  };
 
-  const total = cycle.deficiencies.length;
-  const passed = cycle.deficiencies.filter((d) => d.action?.status === 'PASSED').length;
-  const returned = cycle.deficiencies.filter((d) => d.action?.status === 'RETURNED').length;
-  // 連續審查:委員只計/進入「指派給本人審閱」的送審缺失;中心(SUPER_ADMIN)可審全部送審。
-  // reviewer-aware,對齊詳情頁 canReview 與 review API 授權,避免膨脹待審數或導向不可審之缺失。
-  const reviewable = cycle.deficiencies.filter(
-    (d) =>
-      (d.action?.status ?? 'PENDING') === 'SUBMITTED' &&
-      (user.role !== 'AUDITOR' || d.reviewerAuditorId === user.id),
-  );
+  // 委員只見「指派給本人審閱」的缺失(UAT 批66:不看其他委員/全體的缺失);中心/機關看全部(機關本就同院)。
+  // reviewer-aware 一致於詳情頁 canReview、review API 授權與連續審查——清單/計數/篩選全以此為基準,不再膨脹。
+  const myDeficiencies =
+    user.role === 'AUDITOR'
+      ? cycle.deficiencies.filter((d) => d.reviewerAuditorId === user.id)
+      : cycle.deficiencies;
+
+  const total = myDeficiencies.length;
+  const passed = myDeficiencies.filter((d) => d.action?.status === 'PASSED').length;
+  const returned = myDeficiencies.filter((d) => d.action?.status === 'RETURNED').length;
+  // 連續審查:送審中且屬本人可見範圍(myDeficiencies 已 reviewer-aware);中心可審全部送審。
+  const reviewable = myDeficiencies.filter((d) => (d.action?.status ?? 'PENDING') === 'SUBMITTED');
   const firstReviewable = reviewable[0];
   const canReview = user.role === 'AUDITOR' || user.role === 'SUPER_ADMIN';
+  // 機關「一輪統一送審」候選數(批57):草稿/退回補正中「且必填欄位皆已完整」才計入——
+  // 送審 API 本就只送完整項,按鈕數字對齊「真正可送」數,機關不再誤以為草稿全部都會送出。
+  const submittableCount =
+    user.role === 'ORG_ADMIN'
+      ? myDeficiencies.filter((d) => {
+          const s = (d.action?.status ?? 'PENDING') as ActionStatus;
+          return (s === 'DRAFT' || s === 'RETURNED') && !!d.action && missingActionFields(d.action).length === 0;
+        }).length
+      : 0;
 
-  // 套用狀態篩選
+  // 套用狀態篩選(基準=本人可見缺失)
   const statusOf = (d: (typeof cycle.deficiencies)[number]) => (d.action?.status ?? 'PENDING') as ActionStatus;
   const activeFilter = FILTERS.find((f) => f.key === (searchParams.status ?? 'all')) ?? FILTERS[0];
-  const filtered = cycle.deficiencies.filter((d) => activeFilter.match(statusOf(d)));
-  const countOf = (f: (typeof FILTERS)[number]) => cycle.deficiencies.filter((d) => f.match(statusOf(d))).length;
+  const filtered = myDeficiencies.filter((d) => activeFilter.match(statusOf(d)));
+  const countOf = (f: (typeof FILTERS)[number]) => myDeficiencies.filter((d) => f.match(statusOf(d))).length;
 
   return (
     <AppShell
@@ -106,12 +132,12 @@ export default async function DeficienciesPage({
       <CycleHubBar
         cycleId={cycle.id}
         label={`${yearROC} 年度 · ${cycle.organization.shortName ?? cycle.organization.name}`}
-        nextHint="填報送審後,於工作台追蹤審查進度"
+        nextHint="填報送審後，於工作台追蹤審查進度"
       />
       <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-headline text-on-surface">缺失與矯正管考</h1>
-          <p className="mt-1 text-body-sm text-on-surface-variant">
+          <h1 className="text-headline text-ink-900">缺失與矯正管考</h1>
+          <p className="mt-1 text-body-sm text-ink-500">
             {yearROC} 年度 · {cycle.organization.name} · 共 {total} 項
             {/* 通過/待審/退回 分項數字由下方可點擊的篩選 chip 承擔,header 不重述 */}
           </p>
@@ -122,8 +148,11 @@ export default async function DeficienciesPage({
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           {canReview && reviewable.length > 0 && firstReviewable && (
             <Link href={`/cycles/${cycle.id}/deficiencies/${firstReviewable.id}`}>
-              <Button variant="filled" size="sm">開始連續審查({reviewable.length})</Button>
+              <Button variant="filled" size="sm">開始連續審查（{reviewable.length})</Button>
             </Link>
+          )}
+          {user.role === 'ORG_ADMIN' && cycle.status === 'REMEDIATION' && (
+            <SubmitRoundButton cycleId={cycle.id} count={submittableCount} />
           )}
           {user.role === 'SUPER_ADMIN' && cycle.status !== 'CLOSED' && (
             <AdminDeficiencyTools cycleId={cycle.id} cycleStatus={cycle.status} />
@@ -161,7 +190,9 @@ export default async function DeficienciesPage({
               description={
                 user.role === 'SUPER_ADMIN'
                   ? '使用右上角「新增缺失」逐筆建立，或「Excel 匯入」一次帶入教育部範本。'
-                  : EMPTY.noDeficiencies.description
+                  : user.role === 'AUDITOR'
+                    ? '目前沒有指派給您審閱的缺失；其他委員負責審閱的缺失不會顯示於此。'
+                    : EMPTY.noDeficiencies.description
               }
             />
           </div>
@@ -177,67 +208,53 @@ export default async function DeficienciesPage({
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-8">
+        <DeficiencyAccordionProvider>
+          <div className="flex flex-col gap-4">
           {aspects.map((aspect) => {
             const inAspect = filtered.filter((d) => d.aspect === aspect);
-            if (inAspect.length === 0) return null;
+            // 機關管理員:三構面永遠顯示(即使無缺失),但預設展開(批57 改;原批48 圖7 預設收合易讓機關以為沒缺失);
+            // 委員/中心:僅顯示有缺失的構面。所有角色一律預設展開,收合鈕仍可手動收合。
+            const isOrgAdmin = user.role === 'ORG_ADMIN';
+            if (inAspect.length === 0 && !isOrgAdmin) return null;
             const types: DeficiencyType[] = ['IMPROVE', 'SUGGEST'];
+            const improveN = inAspect.filter((d) => d.type === 'IMPROVE').length;
+            const suggestN = inAspect.filter((d) => d.type === 'SUGGEST').length;
             return (
-              <section key={aspect}>
-                <h2 className="text-title-lg text-on-surface mb-4">
-                  {aspectNumber[aspect]}、實地稽核－{DEFICIENCY_ASPECT_LABELS[aspect]}
-                </h2>
+              <DeficiencyAspectSection
+                key={aspect}
+                title={`${DEFICIENCY_ASPECT_NUM[aspect]}、實地稽核－${DEFICIENCY_ASPECT_LABELS[aspect]}`}
+                improveN={improveN}
+                suggestN={suggestN}
+              >
                 <div className="flex flex-col gap-6">
                   {types.map((type) => {
                     const items = inAspect.filter((d) => d.type === type);
                     if (items.length === 0) return null;
                     return (
                       <div key={type}>
-                        <p className="text-label text-on-surface-variant mb-3">
+                        <p className="text-label text-ink-500 mb-3">
                           {DEFICIENCY_TYPE_LABELS[type]}（{items.length} 項）
                         </p>
                         <div className="flex flex-col gap-2.5">
                           {items.map((d) => {
-                            const status = (d.action?.status ?? 'PENDING') as ActionStatus;
-                            const round = d.action?.round ?? 1;
+                            const st = (d.action?.status ?? 'PENDING') as ActionStatus;
+                            // 機關矯正執行中:草稿/退回且未填完整的列標「尚缺 X」,讓機關看得出哪項不會被送出(委員/中心不需)
+                            const missing =
+                              user.role === 'ORG_ADMIN' && !!d.action && (st === 'DRAFT' || st === 'RETURNED')
+                                ? missingActionFields(d.action)
+                                : [];
                             return (
-                              <Link key={d.id} href={`/cycles/${cycle.id}/deficiencies/${d.id}`} className="group block focus-ring rounded-md">
-                                <Card interactive padded={false} className="overflow-hidden">
-                                  <div className="flex">
-                                    {/* 左緣狀態色條(顏色非唯一訊號,右側仍有 Chip+dot+文字) */}
-                                    <div
-                                      className={`w-1.5 self-stretch shrink-0 ${toneClasses(actionStatusTone(status)).dot}`}
-                                      aria-hidden
-                                    />
-                                    <div className="flex-1 flex items-center gap-4 p-4 sm:p-5">
-                                    <span className="w-9 h-9 rounded-md bg-surface-container flex items-center justify-center text-title text-on-surface-variant tabular-nums shrink-0">
-                                      {d.itemNo}
-                                    </span>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-body-sm text-on-surface-variant leading-relaxed line-clamp-2">
-                                        {d.description}
-                                      </p>
-                                      <div className="mt-1.5 flex items-center gap-2">
-                                        {d.checklistRef && (
-                                          <span className="text-caption font-mono text-on-surface-variant">
-                                            檢核項 {d.checklistRef}
-                                          </span>
-                                        )}
-                                        {round > 1 && (
-                                          <span className="text-caption text-on-surface-variant">
-                                            第 {round} 輪
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <Chip tone={actionStatusTone(status)} size="sm" dot>
-                                      {ACTION_STATUS_LABELS[status]}
-                                    </Chip>
-                                    <ChevronRight size={16} className="text-on-surface-variant shrink-0 transition-transform group-hover:translate-x-0.5" />
-                                    </div>
-                                  </div>
-                                </Card>
-                              </Link>
+                              <DeficiencyRow
+                                key={d.id}
+                                cycleId={cycle.id}
+                                id={d.id}
+                                itemNo={d.itemNo}
+                                description={d.description}
+                                checklistRef={d.checklistRef}
+                                status={st}
+                                round={d.action?.round ?? 1}
+                                missingFields={missing.length > 0 ? missing : undefined}
+                              />
                             );
                           })}
                         </div>
@@ -245,10 +262,11 @@ export default async function DeficienciesPage({
                     );
                   })}
                 </div>
-              </section>
+              </DeficiencyAspectSection>
             );
           })}
-        </div>
+          </div>
+        </DeficiencyAccordionProvider>
       )}
     </AppShell>
   );

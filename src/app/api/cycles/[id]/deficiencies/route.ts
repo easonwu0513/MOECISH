@@ -2,13 +2,20 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
+import { canAccess } from '@/lib/access-policy';
 import { errorResponse } from '@/lib/api';
-import { DEFICIENCY_ASPECTS, DEFICIENCY_TYPES } from '@/lib/types';
+import { DEFICIENCY_ASPECTS, DEFICIENCY_TYPES, type Role } from '@/lib/types';
+import { PLACEHOLDER_FINDING_RE } from '@/lib/convert-findings';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
-    await assertCycleAccess(params.id);
+    const { user, cycle } = await assertCycleAccess(params.id);
+    // 缺失與矯正管考不對觀察員開放(批30 需求一-2);且與階段閘一致(委員缺失發布後、機關矯正執行後)。
+    // 頁面已 redirect,此為 API 層權威閘(防直打 API 讀缺失清單=批30 對抗審查 P1)。
+    if (user.role !== 'SUPER_ADMIN' && !canAccess('deficiencies.view', user.role as Role, cycle.status)) {
+      return NextResponse.json({ error: '目前無權檢視缺失清單' }, { status: 403 });
+    }
     const items = await prisma.deficiency.findMany({
       where: { cycleId: params.id },
       include: {
@@ -27,7 +34,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 const CreateBody = z.object({
   aspect: z.enum(DEFICIENCY_ASPECTS),
   type: z.enum(DEFICIENCY_TYPES),
-  description: z.string().min(10, '缺失描述至少 10 字'),
+  description: z
+    .string()
+    .trim()
+    .min(10, '缺失描述至少 10 字')
+    .refine((s) => !PLACEHOLDER_FINDING_RE.test(s), '缺失描述仍為佔位文字（請補述…），請填寫實際缺失內容後再發布'),
   checklistRef: z.string().optional(),
   itemNo: z.number().int().positive().optional(),
 });

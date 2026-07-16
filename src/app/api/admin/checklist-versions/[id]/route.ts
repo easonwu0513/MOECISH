@@ -55,7 +55,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!version) return NextResponse.json({ error: '版本不存在' }, { status: 404 });
     if (version._count.cycles > 0) {
       return NextResponse.json(
-        { error: `有 ${version._count.cycles} 個稽核週期使用此版本,不可刪除;若不再使用請改「停用」` },
+        { error: `有 ${version._count.cycles} 個稽核週期使用此版本，不可刪除；若不再使用請改「停用」` },
         { status: 400 },
       );
     }
@@ -64,7 +64,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       where: { checklistItem: { versionId: version.id } },
     });
     if (responses > 0) {
-      return NextResponse.json({ error: '此版本題目已有作答紀錄,不可刪除' }, { status: 400 });
+      return NextResponse.json({ error: '此版本題目已有作答紀錄，不可刪除' }, { status: 400 });
     }
 
     await prisma.$transaction([

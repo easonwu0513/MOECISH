@@ -44,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     const out = zip.toBuffer();
     const yearROC = cycle.year - 1911;
-    const zipName = `${yearROC}年度資料準備文件範本.zip`;
+    const zipName = `${yearROC}年度資料準備文件範本` + '.zip';
     return new NextResponse(new Uint8Array(out), {
       status: 200,
       headers: {

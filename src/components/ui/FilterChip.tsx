@@ -16,7 +16,7 @@ function chipClass(selected: boolean) {
     base,
     selected
       ? 'bg-primary-600 text-white border-primary-600'
-      : 'bg-surface text-on-surface-variant border-outline-variant hover:border-outline hover:text-on-surface',
+      : 'bg-card text-ink-500 border-rule hover:border-rule-strong hover:text-ink-900',
   );
 }
 
@@ -60,5 +60,5 @@ export function FilterChipButton({
 
 /** 件數徽記(放在 chip 文字後) */
 export function FilterChipCount({ selected, children }: { selected: boolean; children: ReactNode }) {
-  return <span className={cn('tabular-nums', selected ? 'text-primary-100' : 'text-on-surface-variant')}>{children}</span>;
+  return <span className={cn('tabular-nums', selected ? 'text-primary-100' : 'text-ink-500')}>{children}</span>;
 }

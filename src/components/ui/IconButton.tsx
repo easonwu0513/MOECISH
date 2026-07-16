@@ -18,19 +18,19 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const v: Record<Variant, string> = {
   standard:
-    'bg-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface active:bg-surface-container-high',
+    'bg-transparent text-ink-500 hover:bg-paper-sunk hover:text-ink-900 active:bg-rule',
   ghost: /* alias → standard */
-    'bg-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface active:bg-surface-container-high',
+    'bg-transparent text-ink-500 hover:bg-paper-sunk hover:text-ink-900 active:bg-rule',
   subtle:
-    'bg-surface-container text-on-surface hover:bg-surface-container-high active:bg-surface-container-highest',
+    'bg-paper-sunk text-ink-900 hover:bg-rule active:bg-rule-strong',
   filled:
     'bg-primary-600 text-white shadow-elev-1 hover:bg-primary-700 hover:shadow-elev-2 active:bg-primary-800',
   primary: /* alias */
     'bg-primary-600 text-white shadow-elev-1 hover:bg-primary-700 hover:shadow-elev-2 active:bg-primary-800',
   tonal:
-    'bg-primary-container text-on-primary-container hover:bg-primary-200 active:bg-primary-300',
+    'bg-focus-wash text-primary-700 hover:bg-primary-200 active:bg-primary-300',
   outlined:
-    'bg-transparent text-on-surface-variant border border-outline-variant hover:bg-surface-container hover:border-outline',
+    'bg-transparent text-ink-500 border border-neutral-400 hover:bg-paper-sunk hover:border-neutral-500',
 };
 
 const s: Record<Size, string> = {

@@ -11,7 +11,7 @@ const AUTO_KEYS = AUTO_KEY_OPTIONS.map((o) => o.key) as [string, ...string[]];
 const Patch = z.object({
   title: z.string().min(1).max(200).optional(),
   hint: z.string().max(500).nullable().optional(),
-  role: z.enum(['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR']).nullable().optional(),
+  role: z.enum(['SUPER_ADMIN', 'ORG_ADMIN', 'AUDITOR', 'OBSERVER']).nullable().optional(),
   orderIndex: z.number().int().optional(),
   autoKey: z.enum(AUTO_KEYS).nullable().optional(),
   informational: z.boolean().optional(),

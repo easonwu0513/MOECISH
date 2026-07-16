@@ -26,7 +26,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const body = await req.json().catch(() => ({}));
     const done = body.done !== false;
     if (done && !cycle.checklistSubmittedAt) {
-      return NextResponse.json({ error: '機關尚未送出填報,無可審閱' }, { status: 409 });
+      return NextResponse.json({ error: '機關尚未送出填報，無可審閱' }, { status: 409 });
     }
 
     await prisma.auditorAssignment.update({
@@ -45,7 +45,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     if (done) {
       notifyChecklistReviewDone({ cycleId: cycle.id, auditorName: user.name, appBaseUrl: appBaseUrl(req) })
-        .catch((e) => console.error('[review.done] 通知失敗:', e));
+        .catch((e) => console.error('[review.done] 通知失敗：', e));
     }
 
     return NextResponse.json({ ok: true, done });

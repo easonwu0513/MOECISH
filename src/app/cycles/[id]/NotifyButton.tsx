@@ -26,8 +26,9 @@ export default function NotifyButton({ cycleId }: { cycleId: string }) {
 
   return (
     <>
+      {/* 與開立期 NotifyOrgButton「通知機關(稽核開立)」文案分流(審計#4):明示這顆是矯正填報通知 */}
       <Button variant="tonal" onClick={() => setOpen(true)}>
-        通知填報人 / 主管
+        通知機關填報矯正
       </Button>
       <ConfirmDialog
         open={open}

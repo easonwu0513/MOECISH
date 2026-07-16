@@ -1,0 +1,14 @@
+#!/bin/sh
+# 批53:提交前擋「中文顯示字串混入半形標點」的漂移(全形標點守門)。
+# 全庫掃(codebase 現為 0 違規;任何新增半形標點即擋)。規則單一來源 = lib/fullwidth-punct。
+# 一次性啟用(每個 clone 各跑一次):  git config core.hooksPath hooks
+# 自動修正:  npm run lint:punct -- --fix   然後  git add  再重新 commit。
+#
+# 註:不傳「已暫存檔清單」給 linter——Windows 命令列長度上限 + 路徑含 [id] glob 字元會出問題;
+# 全庫靜態掃 349 檔約數秒,穩定且為更強的守門(整個 codebase 維持乾淨)。
+npm run --silent lint:punct || {
+  echo ""
+  echo "X 提交被擋:中文顯示字串含「應全形卻仍半形」的標點(上方為違規清單)。"
+  echo "  修正:  npm run lint:punct -- --fix   然後  git add  再重新 commit。"
+  exit 1
+}

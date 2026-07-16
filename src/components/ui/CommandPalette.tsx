@@ -52,6 +52,12 @@ export function CommandPalette({
 
   useEffect(() => { setActive(0); }, [q]);
 
+  // 鍵盤上下巡覽時,把選中項捲入可視區(避免 active 捲出視窗看不到)
+  useEffect(() => {
+    if (!open) return;
+    document.getElementById(`${listId}-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, open, listId]);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -93,9 +99,9 @@ export function CommandPalette({
   return (
     <div className="fixed inset-0 z-[95] animate-fade-in" role="dialog" aria-modal="true" aria-label="命令面板">
       <div className="absolute inset-0 scrim" onClick={() => onOpenChange(false)} />
-      <div className="relative mx-auto mt-24 w-[min(96%,640px)] bg-surface-container-high rounded-lg shadow-elev-5 border border-outline-variant/60 overflow-hidden animate-slide-up">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-outline-variant/60">
-          <Search size={18} className="text-on-surface-variant shrink-0" />
+      <div className="relative mx-auto mt-24 w-[min(96%,640px)] bg-card rounded-lg shadow-elev-5 border border-rule overflow-hidden animate-slide-up">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-rule">
+          <Search size={18} className="text-ink-500 shrink-0" />
           <input
             ref={inputRef}
             value={q}
@@ -106,18 +112,18 @@ export function CommandPalette({
             aria-controls={listId}
             aria-activedescendant={activeId}
             aria-autocomplete="list"
-            className="flex-1 bg-transparent outline-none text-body text-on-surface placeholder:text-on-surface-variant"
+            className="flex-1 bg-transparent outline-none text-body text-ink-900 placeholder:text-ink-500"
           />
           <span className="kbd">Esc</span>
         </div>
         <div className="max-h-[60vh] overflow-y-auto scrollbar-thin py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-10 text-center text-body-sm text-on-surface-variant">找不到符合的指令</div>
+            <div className="px-4 py-10 text-center text-body-sm text-ink-500">找不到符合的指令</div>
           ) : (
             <ul role="listbox" id={listId}>
               {Array.from(groups.entries()).map(([g, list]) => (
                 <Fragment key={g}>
-                  <li role="presentation" className="px-4 py-1 mt-1 first:mt-0 text-caption text-on-surface-variant uppercase tracking-wider">
+                  <li role="presentation" className="px-4 py-1 mt-1 first:mt-0 text-caption text-ink-500 uppercase tracking-wider">
                     {g}
                   </li>
                   {list.map((c) => {
@@ -131,13 +137,13 @@ export function CommandPalette({
                           onClick={() => { c.action(); onOpenChange(false); }}
                           className={cn(
                             'w-full flex items-center gap-3 px-4 py-2.5 text-body-sm transition-colors',
-                            selected ? 'bg-primary-container text-on-primary-container' : 'text-on-surface hover:bg-surface-container',
+                            selected ? 'bg-focus-wash text-primary-700' : 'text-ink-900 hover:bg-paper-sunk',
                           )}
                         >
-                          {c.icon && <span className={selected ? 'text-on-primary-container' : 'text-on-surface-variant'}>{c.icon}</span>}
+                          {c.icon && <span className={selected ? 'text-primary-700' : 'text-ink-500'}>{c.icon}</span>}
                           <span className="flex-1 text-left">{c.label}</span>
-                          {c.hint && <span className={cn('text-caption', selected ? 'text-on-primary-container/80' : 'text-on-surface-variant')}>{c.hint}</span>}
-                          <ChevronRight size={14} className={selected ? 'text-on-primary-container' : 'text-outline-variant'} />
+                          {c.hint && <span className={cn('text-caption', selected ? 'text-primary-700/80' : 'text-ink-500')}>{c.hint}</span>}
+                          <ChevronRight size={14} className={selected ? 'text-primary-700' : 'text-ink-500'} />
                         </button>
                       </li>
                     );
@@ -147,7 +153,7 @@ export function CommandPalette({
             </ul>
           )}
         </div>
-        <div className="flex items-center justify-between px-4 py-2 border-t border-outline-variant/60 text-caption text-on-surface-variant bg-surface-container-low">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-rule text-caption text-ink-500 bg-paper-sunk">
           <span className="flex items-center gap-1.5">
             <span className="kbd">↑</span>
             <span className="kbd">↓</span>

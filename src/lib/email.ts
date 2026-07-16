@@ -8,12 +8,16 @@ export type EmailKind =
   | 'invitation'
   | 'cycle-notify'
   | 'tracking'
+  | 'track-remind'     // 中心落後列一鍵催辦(有別於一般 tracking / 自動催繳排程,故獨立 kind 以構成純淨的 per-cycle 催辦軌跡)
   | 'password-reset'
   | 'review-request'   // 機關送審 → 通知委員
   | 'action-returned'  // 委員退回 → 通知機關
   | 'all-passed'       // 全數通過 → 通知機關用印
   | 'checklist-submitted' // 檢核表填報送出 → 通知中心(審核)
   | 'committee-review'    // 資料齊備 → 通知委員開始審閱
+  | 'observer-paired'     // 觀察員受配對為某週期觀察員 → 通知該觀察員(批66 M2)
+  | 'observer-review-open' // 資料齊備 / 設定觀察員審閱窗口 → 通知本週期配對觀察員可檢視(批66 M2)
+  | 'review-window-request' // 委員求援:審閱時段未設 → 通知中心設定
   | 'checklist-reopened'  // 檢核表退回重填 → 通知機關
   | 'signed-report-submitted' // 機關確認繳交用印掃描檔 → 通知中心
   | 'signed-report-returned'  // 中心退回用印掃描檔(解除鎖定)→ 站內通知機關重新上傳
@@ -23,6 +27,14 @@ export type EmailKind =
   | 'audit-score-lock'    // 委員確認填寫完畢、鎖定實地稽核評分/發現 → 通知中心
   | 'audit-score-unlock'  // 委員解除實地稽核評分/發現鎖定、修改 → 通知中心
   | 'audit-score-return'  // 最高管理員退件 → 通知該委員(解除鎖定、請重新編輯)
+  | 'tracked-created'     // 缺失拋轉持續列管 → 通知機關(批71)
+  | 'tracked-report'      // 機關送出列管回報 → 通知中心(+協審委員)(批71)
+  | 'tracked-reviewed'    // 中心/協審委員審核列管回報 → 通知機關(批71)
+  | 'tracked-due'         // 列管回報到期/逾期催辦(timer;機關+逾期14天通知中心)(批72)
+  | 'presurvey-remind'    // 事前場次調查催辦(中心催委員/觀察員填意願)(批A)
+  | 'presurvey-travel-remind' // 事前場次調查二階催辦(中心催已指派者填差旅與飲食)(mockup 改版)
+  | 'presurvey-doc-return' // 事前場次調查文件退補(中心退回受調者文件)(批B)
+  | 'presurvey-cv-due'    // 事前場次調查「中心指定填報欄位」到期催辦(timer;催受調者本人)(#5)
   | 'health-alert'        // 系統健康警報(監控)
   | 'other';
 
@@ -56,7 +68,7 @@ export async function sendEmail(input: SendEmailInput) {
   // 系統信一律附「請勿直接回信」footer(避免委員/機關直接回覆系統信箱)。
   // 只加到對外送信與 EmailLog/.txt 紀錄;站內通知摘要仍取原始 input.body(notificationSummary),footer 不會污染鈴鐺。
   const FOOTER =
-    '\n\n──────────\n此封信為系統自動寄發,請勿直接回信。如有疑問請登入平台,或洽教育部轄下醫療領域資訊安全推動中心。';
+    '\n\n──────────\n此封信為系統自動寄發，請勿直接回信。如有疑問請登入平台，或洽教育部轄下醫療領域資訊安全推動中心。';
   // 冪等:body 若已含 footer(如後台重寄讀 EmailLog.body 再進 sendEmail)不重複附加,避免雙重 footer。
   const outboundBody = input.body.includes('此封信為系統自動寄發') ? input.body : `${input.body}${FOOTER}`;
 
@@ -114,7 +126,7 @@ export async function sendEmail(input: SendEmailInput) {
     } catch (e) {
       delivery = 'failed';
       deliveryError = (e as Error).message;
-      console.error('[email] Graph 寄送失敗:', deliveryError);
+      console.error('[email] Graph 寄送失敗：', deliveryError);
     }
   }
 
@@ -174,7 +186,7 @@ export async function sendEmail(input: SendEmailInput) {
       });
     }
   } catch (e) {
-    console.warn('[email] 站內通知建立失敗:', (e as Error).message);
+    console.warn('[email] 站內通知建立失敗：', (e as Error).message);
   }
 
   return log;

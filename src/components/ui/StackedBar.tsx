@@ -1,19 +1,14 @@
 import { cn } from '@/lib/cn';
+import { TONE, type Tone } from '@/lib/tone';
 
 export type StackSeg = {
   value: number;
-  tone: 'success' | 'warning' | 'danger' | 'primary' | 'sage' | 'neutral';
+  tone: Tone;
   label?: string;
 };
 
-const TONE_BG: Record<StackSeg['tone'], string> = {
-  success: 'bg-success-600',
-  warning: 'bg-warning-500',
-  danger: 'bg-danger-600',
-  primary: 'bg-primary-600',
-  sage: 'bg-sage-600',
-  neutral: 'bg-outline-variant',
-};
+// 堆疊段填色取自 lib/tone 的 fill 面向(批72 統一實心 600;neutral=淺灰餘額)
+const TONE_BG = (t: Tone) => TONE[t].fill;
 
 /**
  * 多段堆疊條(資料視覺化基元)。把「組成」一眼讀出 —— 例如檢核表 符合/不符合/未填。
@@ -42,7 +37,7 @@ export function StackedBar({
   return (
     <div className={className}>
       <div
-        className="w-full rounded-full bg-surface-container-high overflow-hidden flex"
+        className="w-full rounded-full bg-paper-sunk overflow-hidden flex"
         style={{ height }}
         role="img"
         aria-label={aria || '尚無資料'}
@@ -50,17 +45,17 @@ export function StackedBar({
         {sum > 0 &&
           segments.map((s, i) =>
             s.value > 0 ? (
-              <span key={i} className={cn('h-full', TONE_BG[s.tone])} style={{ width: `${(s.value / sum) * 100}%` }} />
+              <span key={i} className={cn('h-full', TONE_BG(s.tone))} style={{ width: `${(s.value / sum) * 100}%` }} />
             ) : null,
           )}
       </div>
       {legend && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-label-sm text-on-surface-variant">
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-label-sm text-ink-500">
           {segments.map((s, i) =>
             s.label ? (
               <span key={i} className="inline-flex items-center gap-1.5">
-                <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', TONE_BG[s.tone])} aria-hidden />
-                {s.label} <span className="tabular-nums text-on-surface">{s.value}</span>
+                <span className={cn('w-2.5 h-2.5 rounded-sm shrink-0', TONE_BG(s.tone))} aria-hidden />
+                {s.label} <span className="tabular-nums text-ink-900">{s.value}</span>
               </span>
             ) : null,
           )}

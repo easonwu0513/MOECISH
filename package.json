@@ -17,15 +17,22 @@
     "email:retry": "tsx src/scripts/retry-failed-emails.ts",
     "checklist:import-gov": "tsx src/scripts/import-checklist-gov.ts",
     "journey:seed": "tsx src/scripts/seed-journey.ts",
+    "letters:seed": "tsx src/scripts/seed-letter-templates.ts",
     "test:isolation": "tsx src/scripts/test-isolation.ts",
     "test:access": "tsx src/scripts/test-access-matrix.ts",
     "test:notify": "tsx src/scripts/test-notify-matrix.ts",
     "test:punct": "tsx src/scripts/test-fullwidth-punct.ts",
+    "test:auditscore": "tsx src/scripts/test-audit-score.ts",
+    "test:modules": "tsx src/scripts/test-cycle-modules.ts",
+    "test:posts": "tsx src/scripts/test-post-lifecycle.ts",
+    "test:statemachine": "tsx src/scripts/test-state-machine.ts",
+    "test:returns": "tsx src/scripts/test-returns.ts",
     "reset:hospitals": "tsx src/scripts/reset-hospitals.ts",
     "reset:cycles": "tsx src/scripts/reset-cycles.ts",
     "seed:test-accounts": "tsx src/scripts/seed-test-accounts.ts",
     "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
-    "graph:refresh": "tsx src/scripts/refresh-graph-token.ts"
+    "graph:refresh": "tsx src/scripts/refresh-graph-token.ts",
+    "lint:punct": "tsx src/scripts/lint-fullwidth-punct.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",

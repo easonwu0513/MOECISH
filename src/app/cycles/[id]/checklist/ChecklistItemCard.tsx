@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { SURFACE_INFO } from '@/lib/tone';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Segmented } from '@/components/ui/Segmented';
@@ -15,7 +16,7 @@ import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
 import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
-import { LawPanel } from '@/components/checklist/LawBasis';
+import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
 import type { ClientItem, ClientResponse } from './ChecklistShell';
 
@@ -53,7 +54,13 @@ export default function ChecklistItemCard({
   // (原本固定讀 response?.version prop,存第二次時 prop 尚未經 router.refresh 更新 → 仍送舊版號 →
   //  單一使用者也誤判「資料已被他人更新」409。改本地追蹤後連續存檔版號正確遞增。)
   const [version, setVersion] = useState<number>(response?.version ?? 0);
-  useEffect(() => { setVersion((v) => Math.max(v, response?.version ?? 0)); }, [response?.version]);
+  // versionRef=存檔當下讀最新版號(收斂驗證高:重疊並發存檔若都讀 render 閉包的 version 會共用 stale 值→
+  // 單人單分頁「打字排程存 + 點符合度即時存」重疊即誤判 409;串接+ref 杜絕)。
+  const versionRef = useRef<number>(response?.version ?? 0);
+  const bumpVersion = (v: number) => { versionRef.current = Math.max(versionRef.current, v); setVersion(versionRef.current); };
+  useEffect(() => { bumpVersion(response?.version ?? 0); }, [response?.version]);
+  // 存檔串接鏈:前一個 in-flight 完成後才發下一個,避免重疊(每個都讀 versionRef 最新值)
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   // 批次標記(全標符合/未答全標不適用)或退回/他處刷新後,伺服器端符合度變動 → 同步本地顯示,
   // 免使用者重新整理才看到結果(符合度由按鈕即時存檔,此同步不會吞掉編輯中的文字)。
   useEffect(() => {
@@ -84,36 +91,49 @@ export default function ChecklistItemCard({
 
   // 成功一律安靜(卡片內 ✓ 已儲存 就地閃示),失敗才跳 toast —
   // 87 題逐題點選若每次都跳通知會轟炸使用者。
-  async function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
-    if (!canEdit) return;
-    startSaving(async () => {
-      const res = await fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
+  // 單次存檔(讀 versionRef 最新版號);409-版號衝突(server 回 current)自動以最新版號重試一次
+  async function doSave(nextCompliance: ComplianceLevel | null, nextDescription: string, nextRecordDocs: string) {
+    const put = (v: number) =>
+      fetch(`/api/cycles/${cycleId}/checklist/${encodeURIComponent(item.itemNo)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           compliance: nextCompliance,
           description: nextDescription || null,
           recordDocs: nextRecordDocs || null,
-          version,
+          version: v,
         }),
       });
+    let res = await put(versionRef.current);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({} as { error?: string; current?: { version?: number } }));
+      // 版號衝突且拿得到現行版號 → 以現行版號重送一次(涵蓋佐證上傳先建 response 使版號跳動之窄窗)
+      if (res.status === 409 && j.current && typeof j.current.version === 'number') {
+        bumpVersion(j.current.version);
+        res = await put(versionRef.current);
+      }
       if (!res.ok) {
-        const j = await res.json().catch(() => ({ error: '儲存失敗' }));
-        toast.error('儲存失敗', j.error);
+        const j2 = await res.json().catch(() => ({ error: '儲存失敗' }));
+        toast.error('儲存失敗', (j2 as { error?: string }).error ?? '儲存失敗');
         return;
       }
-      // 以伺服器回傳的新版號更新本地,確保下一次存檔送出正確版號(避免連續存檔誤判 409)
-      const saved = await res.json().catch(() => null);
-      if (saved && typeof saved.version === 'number') setVersion(saved.version);
-      setTextDirty(false);
-      setJustSaved(true);
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
-      // 存檔後往上捲的元凶在 ChecklistShell 的「捲動聚焦卡片」effect(已限定僅鍵盤導覽觸發),
-      // 這裡直接 refresh 即可;勿再加「記住/回復捲動位置」補丁 — refresh 完成時間不定,
-      // 定時回復只會在使用者剛捲動時把頁面拉回舊位置(反而製造跳動)。
-      router.refresh();
-    });
+    }
+    const saved = await res.json().catch(() => null);
+    if (saved && typeof saved.version === 'number') bumpVersion(saved.version);
+    setTextDirty(false);
+    setJustSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setJustSaved(false), 1200);
+    // 存檔後往上捲的元凶在 ChecklistShell 的「捲動聚焦卡片」effect(已限定僅鍵盤導覽觸發),這裡直接 refresh 即可。
+    router.refresh();
+  }
+
+  function save(nextCompliance = compliance, nextDescription = description, nextRecordDocs = recordDocs) {
+    if (!canEdit) return;
+    // 串接:掛在前一個存檔之後執行,確保嚴格序列化(不重疊),下一個讀到已更新的 versionRef
+    const next = saveChainRef.current.then(() => doSave(nextCompliance, nextDescription, nextRecordDocs)).catch(() => {});
+    saveChainRef.current = next;
+    startSaving(async () => { await next; });
   }
 
   // 邊打邊存:停止輸入 900ms 後自動儲存;失焦則立即 flush。消除「有沒有存到」的不確定。
@@ -137,7 +157,8 @@ export default function ChecklistItemCard({
       toast.success('已標記為已補正');
       router.refresh();
     } else {
-      toast.error('操作失敗');
+      const j = await res.json().catch(() => ({}));
+      toast.error('操作失敗', j.error);
     }
   }
 
@@ -167,7 +188,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="flex flex-col gap-3">
           <div>
-            <label className="block text-label text-on-surface-variant mb-2">符合情形</label>
+            <label className="block text-label text-ink-500 mb-2">符合情形</label>
             <Segmented<ComplianceLevel>
               value={compliance}
               onChange={(v) => { setCompliance(v); save(v, description); }}
@@ -182,7 +203,7 @@ export default function ChecklistItemCard({
             />
           </div>
           <Textarea
-            label="機關說明(規範內容、執行方式、執行結果)"
+            label="機關說明（規範內容、執行方式、執行結果）"
             value={description}
             onChange={(e) => { setTextDirty(true); setDescription(e.target.value); scheduleSave(e.target.value, recordDocs); }}
             onBlur={autoSaveOnBlur}
@@ -191,13 +212,13 @@ export default function ChecklistItemCard({
             placeholder="例：依據本院『資訊安全政策 v3』第 5.2 條，每季進行一次審查…"
           />
           <Textarea
-            label="紀錄文件(如規範、紀錄、公文等)"
+            label="紀錄文件（如規範、紀錄、公文等）"
             value={recordDocs}
             onChange={(e) => { setTextDirty(true); setRecordDocs(e.target.value); scheduleSave(description, e.target.value); }}
             onBlur={autoSaveOnBlur}
             disabled={!canEdit}
             rows={2}
-            placeholder={item.expectedEvidence ? `參考應備文件:${item.expectedEvidence.split('\n')[0]}…` : '例:資訊安全管理程序書、內部稽核報告…'}
+            placeholder={item.expectedEvidence ? `參考應備文件：${item.expectedEvidence.split('\n')[0]}…` : '例：資訊安全管理程序書、內部稽核報告…'}
           />
           {canEdit && (
             <div className="flex items-center gap-2">
@@ -217,7 +238,7 @@ export default function ChecklistItemCard({
       content: (
         <div className="space-y-2">
           {(response?.comments ?? []).length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant">本題尚無委員意見。</p>
+            <p className="text-body-sm text-ink-500">本題尚無委員意見。</p>
           ) : (
             response!.comments.map((c) => (
               <div
@@ -228,7 +249,7 @@ export default function ChecklistItemCard({
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-caption text-on-surface-variant">
+                  <span className="text-caption text-ink-500">
                     {c.authorName ? `${c.authorName} · ` : ''}{fmtROCDateTime(c.createdAt)}
                   </span>
                   {c.resolvedAt ? (
@@ -239,18 +260,18 @@ export default function ChecklistItemCard({
                     </Button>
                   ) : null}
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-on-surface-variant leading-relaxed">{c.content}</p>
+                <p className="mt-1 whitespace-pre-wrap text-ink-500 leading-relaxed">{c.content}</p>
               </div>
             ))
           )}
-          {/* 委員/中心可在此留審閱意見(委員私人審閱筆記,機關端不可見);需機關已作答(有 response) */}
-          {(userRole === 'AUDITOR' || userRole === 'SUPER_ADMIN') &&
+          {/* 委員審閱筆記僅委員可新增(UAT:最高管理員不像委員審閱,不需新增委員意見;既有意見中心仍可讀,見上方 map) */}
+          {userRole === 'AUDITOR' &&
             (response ? (
               <div className="pt-1">
                 <CommentForm responseId={response.id} />
               </div>
             ) : (
-              <p className="text-caption text-on-surface-variant">(機關尚未作答,暫無法留言)</p>
+              <p className="text-caption text-ink-500">（機關尚未作答，暫無法留言）</p>
             ))}
         </div>
       ),
@@ -267,7 +288,7 @@ export default function ChecklistItemCard({
           currentDescription={description}
           currentRecordDocs={recordDocs}
           currentVersion={version}
-          onSaved={(v) => setVersion((cur) => Math.max(cur, v))}
+          onSaved={bumpVersion}
           canEdit={canEdit}
           viewOnly={userRole === 'AUDITOR'}
           expectedEvidence={item.expectedEvidence}
@@ -282,17 +303,17 @@ export default function ChecklistItemCard({
     <div
       data-item-id={item.id}
       className={cn(
-        'relative bg-surface-container-lowest rounded-md border transition-all duration-200 ease-standard overflow-hidden',
-        focused ? 'border-primary-400 shadow-elev-2' : 'border-outline-variant/60',
+        'relative bg-card rounded-md border transition-all duration-200 ease-standard overflow-hidden',
+        focused ? 'border-primary-400 shadow-elev-2' : 'border-rule',
         !focused && expanded && 'shadow-elev-1',
-        !focused && !expanded && 'hover:border-outline-variant',
+        !focused && !expanded && 'hover:border-rule-strong',
       )}
     >
       {/* top compliance stripe — replaces the old full-height left bar */}
       <span
         className={cn(
           'block h-[3px]',
-          compliance ? complianceColor[compliance] : 'bg-surface-container-high',
+          compliance ? complianceColor[compliance] : 'bg-paper-sunk',
         )}
         aria-hidden
       />
@@ -307,7 +328,7 @@ export default function ChecklistItemCard({
           {item.itemNo}
         </Chip>
         <div className="flex-1 min-w-0">
-          <p className="text-body text-on-surface leading-relaxed">{item.content}</p>
+          <p className="text-body text-ink-900 leading-relaxed">{item.content}</p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             {compliance ? (
               <Chip tone={complianceTone(compliance)} size="sm" dot>
@@ -320,7 +341,7 @@ export default function ChecklistItemCard({
               <Chip tone="neutral" size="sm">委員意見 {commentCount}</Chip>
             )}
             {evidenceCount > 0 && (
-              <span className="inline-flex items-center gap-1 text-caption text-on-surface-variant">
+              <span className="inline-flex items-center gap-1 text-caption text-ink-500">
                 <Paperclip size={12} className="shrink-0" />{evidenceCount}
               </span>
             )}
@@ -331,37 +352,44 @@ export default function ChecklistItemCard({
               />
             )}
             {response && (description || compliance) && !canEdit && (
-              <span className="text-caption text-on-surface-variant">唯讀</span>
+              <span className="text-caption text-ink-500">唯讀</span>
             )}
           </div>
         </div>
         <ChevronDown
           size={18}
           className={cn(
-            'text-on-surface-variant mt-1 transition-transform shrink-0',
+            'text-ink-500 mt-1 transition-transform shrink-0',
             expanded && 'rotate-180',
           )}
         />
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-outline-variant/60">
-          <Tabs tabs={tabs} />
-          {/* 法規對照:填報者最需照法規填,故展開即顯眼(與委員審閱頁同範式),不再藏在分頁 */}
-          {(item.auditBasis || item.auditFocus || item.expectedEvidence) && (
-            <details className="mt-3 rounded-md border border-primary-100 bg-primary-50/40 overflow-hidden">
-              <summary className="cursor-pointer select-none px-3 py-2 text-body-sm font-medium text-primary-800 hover:bg-primary-50 transition-colors">
-                法規對照(稽核依據・稽核重點・應備文件)
-              </summary>
-              <div className="px-3 pb-3 pt-1 bg-surface-container-lowest">
-                <LawPanel
+        <div className="px-4 pb-4 pt-1 border-t border-rule">
+          {/* 法規對照:填報者最需照法規填。lg 以上移至右欄常駐展開(sticky 跟隨),免上下來回捲;
+              窄螢幕維持題卡下方可摺疊面板。無法規資料則不分欄、左欄佔滿。 */}
+          <div className={hasLawRef(item) ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5' : ''}>
+            <div className="min-w-0">
+              <Tabs tabs={tabs} />
+              {hasLawRef(item) && (
+                <LawReferenceCollapsible
                   auditBasis={item.auditBasis}
                   auditFocus={item.auditFocus}
                   expectedEvidence={item.expectedEvidence}
+                  className="mt-3 lg:hidden"
                 />
-              </div>
-            </details>
-          )}
+              )}
+            </div>
+            {hasLawRef(item) && (
+              <LawReferenceSticky
+                auditBasis={item.auditBasis}
+                auditFocus={item.auditFocus}
+                expectedEvidence={item.expectedEvidence}
+                topClass="lg:top-56"
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -424,8 +452,14 @@ function EvidenceBlock({
       }),
     });
     if (!res.ok) {
-      const j = await res.json().catch(() => ({ error: '無法建立作答紀錄' }));
-      toast.error('上傳失敗', j.error);
+      const j = await res.json().catch(() => ({} as { error?: string; current?: { id?: string; version?: number } }));
+      // 版號衝突(先改答建了 response、prop 尚未回灌)→ server 回 current,直接沿用其 id/版號,不誤報上傳失敗
+      if (res.status === 409 && j.current?.id) {
+        setResponseId(j.current.id);
+        if (typeof j.current.version === 'number') onSaved?.(j.current.version);
+        return j.current.id;
+      }
+      toast.error('上傳失敗', (j as { error?: string }).error ?? '無法建立作答紀錄');
       return null;
     }
     const saved = await res.json();
@@ -437,8 +471,8 @@ function EvidenceBlock({
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) {
-      toast.error('上傳失敗', '檔案超過 5MB 上限');
+    if (f.size > 20 * 1024 * 1024) {
+      toast.error('上傳失敗', '檔案超過 20MB 上限');
       e.target.value = '';
       return;
     }
@@ -466,17 +500,17 @@ function EvidenceBlock({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-label text-on-surface-variant">紀錄佐證上傳</p>
-        <span className="text-caption text-on-surface-variant">每檔 ≤ 5MB · 規範、紀錄、公文、截圖…</span>
+        <p className="text-label text-ink-500">紀錄佐證上傳</p>
+        <span className="text-caption text-ink-500">每檔 ≤ 20MB · 規範、紀錄、公文、截圖…</span>
       </div>
       {expectedEvidence && (
-        <div className="mb-3 rounded-sm bg-primary-50/60 border border-primary-100 px-3 py-2">
+        <div className={`mb-3 rounded-sm ${SURFACE_INFO} px-3 py-2`}>
           <p className="text-caption font-medium text-primary-800 mb-0.5">本題應備文件參考</p>
           <p className="text-caption text-primary-800/80 whitespace-pre-wrap leading-relaxed">{expectedEvidence}</p>
         </div>
       )}
       {files.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant mb-3">尚未上傳任何佐證文件</p>
+        <p className="text-body-sm text-ink-500 mb-3">尚未上傳任何佐證文件</p>
       ) : (
         <ul className="mb-3 space-y-1">
           {files.map((f) => (
@@ -489,7 +523,7 @@ function EvidenceBlock({
       {canEdit && (
         <div>
           <FileUploadButton size="sm" label="+ 上傳紀錄佐證" busy={uploading} onChange={onUpload} accept={ORG_UPLOAD_ACCEPT} />
-          <p className="mt-1 text-caption text-on-surface-variant">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
+          <p className="mt-1 text-caption text-ink-500">僅接受 PDF / JPG / PNG;Word、Excel 等其他格式請先轉換為 PDF/JPG/PNG 再上傳。</p>
         </div>
       )}
     </div>
