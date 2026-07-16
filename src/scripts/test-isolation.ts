@@ -17,6 +17,14 @@ import { prisma } from '../lib/db';
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3001';
 const PW = 'IsoTest#2026';
 
+// ── 測試庫守門(路線圖#4):本測試會建立並刪除資料,絕不可誤打正式庫 ──
+if (process.env.MOECISH_TEST_DB !== '1') {
+  console.error(
+    '[guard] test:isolation 會寫入並刪除資料庫資料。請先確認 DATABASE_URL 指向「測試庫」,再以 MOECISH_TEST_DB=1 明確確認執行。',
+  );
+  process.exit(1);
+}
+
 // ── HTTP helpers ─────────────────────────────
 
 type Jar = Map<string, string>;
@@ -179,6 +187,15 @@ async function cleanup() {
   await prisma.checklistResponse.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.auditScore.deleteMany({ where: { cycleId: { in: cycleIds } } });
   await prisma.auditFinding.deleteMany({ where: { cycleId: { in: cycleIds } } });
+  // 持續列管夾具(路線圖#4;先刪 report→tracked,餘由 deficiency cascade 兜底)
+  await prisma.trackedReport.deleteMany({ where: { tracked: { organizationId: { in: orgIds } } } });
+  await prisma.trackedDeficiency.deleteMany({ where: { organizationId: { in: orgIds } } });
+  // 事前場次調查夾具(路線圖#4;2097=測試專用年度,participant 以 isotest 帳號收斂)
+  await prisma.sessionAvailability.deleteMany({ where: { session: { year: 2097, name: { startsWith: '隔離測試' } } } });
+  await prisma.surveyFinalAssignment.deleteMany({ where: { session: { year: 2097, name: { startsWith: '隔離測試' } } } });
+  await prisma.surveyParticipant.deleteMany({ where: { year: 2097, user: { email: { startsWith: 'isotest-' } } } });
+  await prisma.surveySession.deleteMany({ where: { year: 2097, name: { startsWith: '隔離測試' } } });
+  await prisma.surveyFillWindow.deleteMany({ where: { year: 2097 } });
   const defs = await prisma.deficiency.findMany({ where: { cycleId: { in: cycleIds } }, select: { id: true } });
   await prisma.correctiveAction.deleteMany({ where: { deficiencyId: { in: defs.map((d) => d.id) } } });
   await prisma.deficiency.deleteMany({ where: { cycleId: { in: cycleIds } } });
@@ -445,6 +462,65 @@ async function main() {
   // 身分切換不可跨機關竄改(Q3 org-hopping):A 管理員只持 ORG_ADMIN@A,冒 organizationId=B 一律 403
   await expectStatus('A管理員 切換為B機關管理員(無授權/org-hop)', jarA, 'POST', '/api/identity', [403], { role: 'ORG_ADMIN', organizationId: orgB.id });
   await expectStatus('A管理員 切換為委員(無授權)', jarA, 'POST', '/api/identity', [403], { role: 'AUDITOR', organizationId: null });
+
+  console.log('\n── 事前場次調查隔離(批A/B;路線圖#4)──');
+  // 夾具:2097 年度(測試專用)兩場次(共同+委員專屬)、三受調者(委員Y/Z、觀察員O1)、開放中時窗
+  const SURVEY_YEAR = 2097;
+  const SECRET_VENUE = '隔離測試機密場地';
+  await prisma.surveyFillWindow.create({
+    data: { year: SURVEY_YEAR, openAt: null, closeAt: new Date(now.getTime() + 7 * 86400000), updatedById: adminA.id },
+  });
+  const sShared = await prisma.surveySession.create({
+    data: { year: SURVEY_YEAR, name: SECRET_VENUE, anonymizeForMember: true, anonymizeForObserver: true, sharedWithObserver: true, orderIndex: 0, createdById: adminA.id },
+  });
+  const sMemberOnly = await prisma.surveySession.create({
+    data: { year: SURVEY_YEAR, name: `${SECRET_VENUE}二`, sharedWithObserver: false, orderIndex: 1, createdById: adminA.id },
+  });
+  const pY = await prisma.surveyParticipant.create({ data: { year: SURVEY_YEAR, userId: auditorY.id, kind: 'MEMBER', invitedById: adminA.id } });
+  const pZ = await prisma.surveyParticipant.create({ data: { year: SURVEY_YEAR, userId: auditorZ.id, kind: 'MEMBER', invitedById: adminA.id } });
+  const pO1 = await prisma.surveyParticipant.create({ data: { year: SURVEY_YEAR, userId: observer1.id, kind: 'OBSERVER', invitedById: adminA.id } });
+
+  // 逐人 IDOR:細閘=中心或本人(loadParticipantForAccess),受調者絕不可讀寫他人那筆
+  await expectAllowed('委員Y 填自己意願(陽性)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, { sessionId: sShared.id, status: 'OK' });
+  await expectStatus('委員Y 填他人意願(逐人IDOR)', jarY, 'PUT', `/api/pre-survey/participants/${pZ.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  await expectStatus('委員Y 代他人送出(逐人IDOR)', jarY, 'POST', `/api/pre-survey/participants/${pZ.id}/submit`, [403]);
+  await expectStatus('觀察員O1 填委員意願(跨身分IDOR)', jarO1, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  // 機關不涉入(access-policy presurvey.view:ORG_ADMIN fail-closed)
+  await expectStatus('A管理員 打受調意願API(機關不涉入)', jarA, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  await expectPageDenied('A管理員 開事前調查頁(redirect)', jarA, '/pre-survey');
+  // 觀察員不得對「委員專屬」場次寫意願(寫入端防禦縱深,擋 crafted request)
+  await expectStatus('觀察員O1 寫委員專屬場次(crafted)', jarO1, 'PUT', `/api/pre-survey/participants/${pO1.id}/availability`, [400], { sessionId: sMemberOnly.id, status: 'OK' });
+  // 匿名:自助頁對委員以序號呈現場地,實名不得出現於回應(anonymizeForMember=true)
+  {
+    const res = await fetch(`${BASE}/pre-survey?year=${SURVEY_YEAR}`, { redirect: 'manual', headers: { cookie: cookieHeader(jarY) } });
+    const html = res.status === 200 ? await res.text() : '';
+    const leaked = html.includes(SECRET_VENUE);
+    if (res.status === 200 && !leaked) {
+      passCount++;
+      console.log('  [PASS] 委員Y 自助頁場地匿名(實名不外流)');
+    } else {
+      failures.push(`委員Y 自助頁場地匿名: status=${res.status},實名外流=${leaked}`);
+      console.log(`  [FAIL] 委員Y 自助頁場地匿名 — status=${res.status},實名外流=${leaked}`);
+    }
+  }
+  // 時窗:逾窗硬擋本人;中心對個別開放補填(editUnlocked)即可續填
+  await prisma.surveyFillWindow.update({ where: { year: SURVEY_YEAR }, data: { closeAt: new Date(now.getTime() - 3600000) } });
+  await expectStatus('委員Y 逾窗填意願(時窗硬擋)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'NA' });
+  await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { editUnlocked: true } });
+  await expectAllowed('委員Y 經開放補填續填(editUnlocked)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, { sessionId: sShared.id, status: 'NA' });
+
+  console.log('\n── 持續列管隔離(批71;路線圖#4)──');
+  const tracked1 = await prisma.trackedDeficiency.create({
+    data: {
+      deficiencyId: defA.id, organizationId: orgA.id, originCycleId: cycleA.id,
+      aspect: defA.aspect, type: defA.type, itemNo: defA.itemNo, description: defA.description,
+      originYear: 2099, nextReportDue: in30d,
+    },
+  });
+  await expectAllowed('A管理員 回報自家列管(陽性)', jarA, 'POST', `/api/tracking/${tracked1.id}/reports`, { content: '隔離測試進度說明', execStatus: 'IN_PROGRESS' });
+  await expectStatus('B管理員 回報A家列管(跨租戶IDOR)', jarB, 'POST', `/api/tracking/${tracked1.id}/reports`, [403], { content: 'x', execStatus: 'IN_PROGRESS' });
+  await expectStatus('委員Y 調整列管設定(僅中心)', jarY, 'PATCH', `/api/tracking/${tracked1.id}`, [403], { cadenceMonths: 6 });
+  await expectStatus('觀察員O1 回報列管(角色拒)', jarO1, 'POST', `/api/tracking/${tracked1.id}/reports`, [403], { content: 'x', execStatus: 'IN_PROGRESS' });
 
   console.log('\n[isolation] 清理夾具…');
   await cleanup();

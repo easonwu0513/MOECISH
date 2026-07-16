@@ -36,6 +36,8 @@ jobs:
       # 防護基準在 CI 明確開啟:E2E 在基準開啟下全綠,是正式環境開啟前的安全網
       SECURITY_BASELINE: '1'
       TZ: Asia/Taipei
+      # DB 整合測試守門:明確確認本環境連的是測試庫(CI service container),非正式庫
+      MOECISH_TEST_DB: '1'
     steps:
       - uses: actions/checkout@v4
 

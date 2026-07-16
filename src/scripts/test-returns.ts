@@ -10,6 +10,14 @@ import { prisma } from '../lib/db';
 import { getOpenReturns } from '../lib/returns';
 import type { ReturnKind } from '../lib/returns';
 
+// ── 測試庫守門(路線圖#4):本測試會建立並刪除資料,絕不可誤打正式庫 ──
+if (process.env.MOECISH_TEST_DB !== '1') {
+  console.error(
+    '[guard] test:returns 會寫入並刪除資料庫資料。請先確認 DATABASE_URL 指向「測試庫」,再以 MOECISH_TEST_DB=1 明確確認執行。',
+  );
+  process.exit(1);
+}
+
 let pass = 0;
 const fails: string[] = [];
 function check(name: string, cond: boolean) {
