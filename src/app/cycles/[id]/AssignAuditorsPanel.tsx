@@ -12,7 +12,7 @@ import { cn } from '@/lib/cn';
 import { AlertTriangle } from '@/components/icons';
 import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type AssignAspect } from '@/lib/audit-score';
 
-type Auditor = { id: string; name: string; email: string };
+type Auditor = { id: string; name: string; email: string; coiOrgAdmin?: boolean };
 type Assignment = {
   id: string;
   auditor: Auditor;
@@ -43,6 +43,8 @@ export default function AssignAuditorsPanel({
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
   // 實地稽核階段新增委員的事前確認(confirmOnAssign 時啟用)
   const [pendingAssign, setPendingAssign] = useState<{ id: string; name: string } | null>(null);
+  // J UAT:指派到「自己服務機關」的 COI 提示(後端另硬擋;前端先明確告知,不送出)
+  const [pendingCoi, setPendingCoi] = useState<{ name: string } | null>(null);
 
   async function load() {
     const res = await fetch(`/api/cycles/${cycleId}/assignments`);
@@ -59,8 +61,13 @@ export default function AssignAuditorsPanel({
   /** 指派入口:實地稽核進行中先跳確認視窗,其餘階段直接指派 */
   function requestAdd() {
     if (!pick) return;
+    const auditor = available.find((a) => a.id === pick);
+    // J:指派到自己服務之機關(受稽醫院)→ 依迴避原則不可,先跳提示視窗告知(不送出)
+    if (auditor?.coiOrgAdmin) {
+      setPendingCoi({ name: auditor.name });
+      return;
+    }
     if (confirmOnAssign) {
-      const auditor = available.find((a) => a.id === pick);
       setPendingAssign({ id: pick, name: auditor?.name ?? '此委員' });
       return;
     }
@@ -235,7 +242,9 @@ export default function AssignAuditorsPanel({
               <Select label="新增委員" value={pick} onChange={(e) => setPick(e.target.value)}>
                 <option value="">選擇稽核委員…</option>
                 {available.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}（{a.email}）</option>
+                  <option key={a.id} value={a.id}>
+                    {a.name}（{a.email}）{a.coiOrgAdmin ? ' ⚠ 受稽機關管理員' : ''}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -264,6 +273,21 @@ export default function AssignAuditorsPanel({
         tone="primary"
         onConfirm={() => { if (pendingAssign) return add(); }}
         loading={busy}
+      />
+
+      {/* J UAT:指派到自己服務之機關 → 依迴避原則不可,明確提示視窗告知(後端亦硬擋) */}
+      <ConfirmDialog
+        open={pendingCoi !== null}
+        onOpenChange={(o) => { if (!o) setPendingCoi(null); }}
+        title="不可指派：違反迴避原則"
+        description={
+          pendingCoi
+            ? `「${pendingCoi.name}」為本受稽機關的機關管理員（其所屬醫院即本週期受稽對象）。依迴避原則，委員不得稽核自己服務之機關，系統不會指派。請改指派其他委員。`
+            : undefined
+        }
+        confirmLabel="我知道了"
+        tone="primary"
+        onConfirm={() => setPendingCoi(null)}
       />
 
       {/* 移除指派確認(防誤刪):對齊全站不可逆動作一律 ConfirmDialog 的慣例 */}

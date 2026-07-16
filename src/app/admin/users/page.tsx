@@ -48,13 +48,17 @@ export default async function UsersPage() {
   // 多重身分(批31):角色欄同時列出現用身分+其他有效授權身分——
   // 只顯示現用身分時,中心無從得知「現用機關管理員、另持觀察員授權」者可被配對為觀察員
   const orgNameById = new Map(orgs.map((o) => [o.id, o.name] as const));
-  const userRows: UserRow[] = users.map((u) => ({
+  const userRows: UserRow[] = users.map((u) => {
+    // I UAT:現用身分無所屬醫院(如切換為觀察員/委員)時,退回其持有的 ORG_ADMIN 授權醫院顯示,避免顯「—」
+    const orgAdminG = u.roleGrants.find((g) => g.role === 'ORG_ADMIN' && g.organizationId);
+    const grantOrgName = orgAdminG?.organizationId ? orgNameById.get(orgAdminG.organizationId) ?? null : null;
+    return {
     id: u.id,
     name: u.name,
     email: u.email,
     role: u.role as Role,
     orgId: u.organizationId,
-    orgName: u.organization?.name ?? null,
+    orgName: u.organization?.name ?? grantOrgName,
     otherIdentities: u.roleGrants
       .filter((g) => !(g.role === u.role && g.organizationId === u.organizationId))
       .map((g) => ({
@@ -68,7 +72,8 @@ export default async function UsersPage() {
     disabledAtISO: u.disabledAt ? u.disabledAt.toISOString() : null,
     isSelf: u.id === user.id,
     hasPractice: practicedIds.has(u.id),
-  }));
+    };
+  });
 
   return (
     <AppShell

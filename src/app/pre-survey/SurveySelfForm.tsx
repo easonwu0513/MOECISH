@@ -420,7 +420,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             <MultiPills label="飲食需求（可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleMulti('diet', v)} />
           </div>
           <div className="mt-4">
-            <Textarea label="差旅特殊備註" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="如被指派多場次且各場次需求不同，請詳述。" />
+            <Textarea label="特殊備註（如需協助安排停車等，請註明車號）" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
             <div className="mt-2">
               <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存備註</Button>
             </div>

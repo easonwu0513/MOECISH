@@ -45,11 +45,21 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         !!orgId &&
         (it.auditor.organizationId === orgId || it.auditor.roleGrants.some((g) => g.organizationId === orgId)),
     }));
-    const auditors = await prisma.user.findMany({
+    const auditorUsers = await prisma.user.findMany({
       where: { role: 'AUDITOR', isActive: true },
-      select: { id: true, name: true, email: true },
+      select: {
+        id: true, name: true, email: true, organizationId: true,
+        roleGrants: { where: { endedAt: null, role: 'ORG_ADMIN' }, select: { organizationId: true } },
+      },
       orderBy: { name: 'asc' },
     });
+    // J UAT:標記「本員為受稽機關的機關管理員」(現用身分或 ORG_ADMIN 授權)→ 前端指派前提示 COI(後端 POST 另硬擋)。roleGrants 不外傳,只回布林。
+    const auditors = auditorUsers.map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      coiOrgAdmin: !!orgId && (a.organizationId === orgId || a.roleGrants.some((g) => g.organizationId === orgId)),
+    }));
     return NextResponse.json({ items, auditors });
   } catch (e) {
     return errorResponse(e);

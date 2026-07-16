@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -37,6 +37,7 @@ export type AdminSessionDTO = {
   targetObserverCount: number;
   anonymizeForMember: boolean; // 對委員是否匿名地點
   anonymizeForObserver: boolean; // 對觀察員是否匿名地點
+  sharedWithObserver: boolean; // 是否委員與觀察員共同場次(false=委員專屬,如委員共識會議)
 };
 export type AdminParticipantDTO = {
   id: string;
@@ -77,6 +78,7 @@ export default function SurveyAdminBoard({
   observerPool,
   templates,
   customColumns,
+  initialKind = 'MEMBER',
 }: {
   yearROC: number;
   sessions: AdminSessionDTO[];
@@ -85,10 +87,11 @@ export default function SurveyAdminBoard({
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
   customColumns: AdminColumnDTO[];
+  initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [kind, setKind] = useState<SurveyParticipantKind>('MEMBER');
+  const [kind, setKind] = useState<SurveyParticipantKind>(initialKind);
   const [sessionMgrOpen, setSessionMgrOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<AdminParticipantDTO | null>(null);
@@ -103,16 +106,22 @@ export default function SurveyAdminBoard({
   const rows = useMemo(() => {
     const list = participants.filter((p) => p.kind === kind);
     if (!sortSessionId) return list;
-    // 一鍵分組:該場次「OK」者排前(穩定排序,不改其餘相對序)
+    // 一鍵分組(UAT):依「最終指派該場次」者排前(非委員 OK 意願),穩定排序不改其餘相對序。
     return [...list].sort((a, b) => {
-      const av = a.availability[sortSessionId] === 'OK' ? 0 : 1;
-      const bv = b.availability[sortSessionId] === 'OK' ? 0 : 1;
+      const av = a.finalSessionIds.includes(sortSessionId) ? 0 : 1;
+      const bv = b.finalSessionIds.includes(sortSessionId) ? 0 : 1;
       return av - bv;
     });
   }, [participants, kind, sortSessionId]);
 
+  // D UAT:觀察員分頁不顯示「委員專屬」場次(sharedWithObserver=false,如委員共識會議);委員分頁顯示全部。
+  const visibleSessions = useMemo(
+    () => (kind === 'OBSERVER' ? sessions.filter((s) => s.sharedWithObserver) : sessions),
+    [sessions, kind],
+  );
+
   const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
-  const colCount = sessions.length + customColumns.length + 10 + (kind === 'MEMBER' ? 1 : 0);
+  const colCount = visibleSessions.length + customColumns.length + 10 + (kind === 'MEMBER' ? 1 : 0);
 
   async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -175,7 +184,12 @@ export default function SurveyAdminBoard({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Segmented
           value={kind}
-          onChange={(v) => setKind(v)}
+          onChange={(v) => {
+            setKind(v); // 即時切換內容;同步 ?kind 讓側欄樹高亮跟著走(避免側欄停在舊身分)
+            const params = new URLSearchParams(window.location.search);
+            params.set('kind', v);
+            router.replace(`/pre-survey?${params.toString()}`, { scroll: false });
+          }}
           options={[
             { value: 'MEMBER', label: '委員' },
             { value: 'OBSERVER', label: '觀察員' },
@@ -198,9 +212,9 @@ export default function SurveyAdminBoard({
       </div>
 
       {/* 達標儀表卡 */}
-      {sessions.length > 0 && (
+      {visibleSessions.length > 0 && (
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          {sessions.map((s) => {
+          {visibleSessions.map((s) => {
             const target = s[targetField];
             // UAT:分母是「最終指派目標人數」,分子應為「已指派該場次人數」(非意願 OK 人數)
             const assigned = rows.filter((p) => p.finalSessionIds.includes(s.id)).length;
@@ -236,7 +250,7 @@ export default function SurveyAdminBoard({
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">意願回信</th>
                 {/* 場次意願(點表頭一鍵分組) */}
-                {sessions.map((s, i) => {
+                {visibleSessions.map((s, i) => {
                   const active = sortSessionId === s.id;
                   return (
                     <th
@@ -368,16 +382,9 @@ export default function SurveyAdminBoard({
                         </div>
                       </div>
                     </td>
-                    {/* 最終場次 */}
+                    {/* 最終場次(E UAT:內嵌下拉多選,免點進彈窗直接指派) */}
                     <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => setAssignFor(p)}
-                        className="inline-flex items-center gap-1 text-caption text-primary-700 hover:underline focus-ring rounded"
-                      >
-                        <MapPin size={13} />
-                        {p.finalSessionIds.length > 0 ? `已指派 ${p.finalSessionIds.length} 場` : '指派'}
-                      </button>
+                      <FinalSessionCell p={p} sessions={visibleSessions} />
                     </td>
                     {/* 意願回信 */}
                     <td className="px-3 py-2">
@@ -392,7 +399,7 @@ export default function SurveyAdminBoard({
                       </Select>
                     </td>
                     {/* 場次意願 */}
-                    {sessions.map((s) => (
+                    {visibleSessions.map((s) => (
                       <td key={s.id} className="px-2 py-2 text-center">
                         <Select
                           value={p.availability[s.id] ?? ''}
@@ -604,12 +611,15 @@ function AdminProfileDialog({
   const [phone2, setPhone2] = useState('');
   const [email2, setEmail2] = useState('');
   const [saving, setSaving] = useState(false);
+  const [reviewReason, setReviewReason] = useState('');
+  const [reviewing, setReviewing] = useState(false);
 
   useEffect(() => {
     setPhone(participant?.phone ?? '');
     setEmail(participant?.email ?? '');
     setPhone2(participant?.phone2 ?? '');
     setEmail2(participant?.email2 ?? '');
+    setReviewReason(participant?.rejectReason ?? '');
   }, [participant]);
 
   if (!participant) return null;
@@ -632,6 +642,22 @@ function AdminProfileDialog({
     setSaving(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
     toast.success('已儲存聯絡資訊');
+    router.refresh();
+  }
+
+  // G UAT:個人資料彈窗也能審核文件(核可/退補);與管考表「資料繳交」欄的 DocReviewDialog 同一後端閘。
+  async function review(decision: 'APPROVE' | 'RETURN') {
+    if (decision === 'RETURN' && !reviewReason.trim()) { toast.error('退補必須填寫理由'); return; }
+    setReviewing(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/docs/review`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision, reason: reviewReason.trim() || undefined }),
+    });
+    setReviewing(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '審核失敗' })); toast.error('審核失敗', j.error); return; }
+    toast.success(decision === 'APPROVE' ? '文件已核可' : '已退補，將通知受調者補件');
+    onClose(); // 關窗 + refresh 使管考表狀態同步(彈窗持舊 DTO,不重掛)
     router.refresh();
   }
 
@@ -675,6 +701,19 @@ function AdminProfileDialog({
           </div>
           {p.docStatus === 'RETURNED' && p.rejectReason && (
             <p className="mt-2 text-caption text-danger-600">退補理由：{p.rejectReason}</p>
+          )}
+          {/* G UAT:已送審 → 中心可於此直接核可/退補(免另尋管考表「資料繳交」欄) */}
+          {p.docStatus === 'SUBMITTED' && (
+            <div className="mt-3 rounded-md border border-rule bg-paper-sunk/40 p-3">
+              <p className="text-caption text-ink-600 mb-2">
+                {p.docReviewed ? '文件已核可；如需重審可退補。' : '受調者已送審文件，請審核：'}
+              </p>
+              <Textarea label="退補理由（退補時必填）" value={reviewReason} onChange={(e) => setReviewReason(e.target.value)} rows={2} />
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" onClick={() => review('APPROVE')} loading={reviewing} disabled={reviewing}>核可</Button>
+                <Button size="sm" variant="danger" onClick={() => review('RETURN')} loading={reviewing} disabled={reviewing}>退補</Button>
+              </div>
+            </div>
           )}
         </section>
 
@@ -833,7 +872,25 @@ function SessionManagerDialog({
   const [remark, setRemark] = useState('');
   const [anonM, setAnonM] = useState(true);
   const [anonO, setAnonO] = useState(true);
+  const [shared, setShared] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // B UAT:一鍵把該年度已排定實地稽核日的稽核週期建成場次(去重;與手動新增並存)
+  async function importCycles() {
+    setImporting(true);
+    const res = await fetch('/api/pre-survey/sessions/import-cycles', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year }),
+    });
+    setImporting(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '帶入失敗' })); toast.error('帶入失敗', j.error); return; }
+    const j = await res.json().catch(() => ({ created: 0, skipped: 0 }));
+    if (j.created > 0) toast.success(`已帶入 ${j.created} 個稽核場次`, j.skipped > 0 ? `另有 ${j.skipped} 個已存在略過` : undefined);
+    else toast.warning('無新場次可帶入', j.message ?? (j.skipped > 0 ? `${j.skipped} 個已存在` : undefined));
+    router.refresh();
+  }
 
   async function add() {
     if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
@@ -841,11 +898,11 @@ function SessionManagerDialog({
     const res = await fetch('/api/pre-survey/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO }),
+      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared }),
     });
     setBusy(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
-    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true);
+    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true); setShared(true);
     toast.success('已新增場次');
     router.refresh();
   }
@@ -853,6 +910,14 @@ function SessionManagerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={`管理 ${yearROC} 年度場次`} description="新增或就地編輯稽核場次；地點預設對受調者以序號匿名（可逐場次關閉）；目標人數為達標儀表卡分母。">
       <div className="space-y-4 pt-2">
+        {/* B UAT:帶入當年度稽核場次 */}
+        <div className="rounded-md border border-primary-100 bg-primary-50/40 p-3.5">
+          <p className="text-body-sm font-medium text-ink-900">帶入當年度稽核場次</p>
+          <p className="mt-0.5 text-caption text-ink-500">將本年度已排定實地稽核日的稽核週期一鍵建成場次（日期＝實地稽核日、名稱＝受稽機關；已存在者略過）。仍可於下方手動新增。</p>
+          <div className="mt-2">
+            <Button size="sm" variant="outlined" onClick={importCycles} loading={importing} disabled={importing}>帶入當年度稽核場次</Button>
+          </div>
+        </div>
         <div className="rounded-md border border-rule bg-card p-3.5">
           <p className="text-label text-ink-900 mb-2">新增場次</p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -879,8 +944,11 @@ function SessionManagerDialog({
             <label className="flex items-center gap-2 text-body-sm text-ink-700">
               <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
             </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
+            </label>
           </div>
-          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱。</p>
+          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱；取消「共同場次」則此場次為委員專屬，觀察員不列入調查。</p>
           <div className="mt-3">
             <Button size="sm" onClick={add} loading={busy} disabled={busy}>新增場次</Button>
           </div>
@@ -909,6 +977,7 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
   const [remark, setRemark] = useState(s.remark ?? '');
   const [anonM, setAnonM] = useState(s.anonymizeForMember);
   const [anonO, setAnonO] = useState(s.anonymizeForObserver);
+  const [shared, setShared] = useState(s.sharedWithObserver);
   const [busy, setBusy] = useState(false);
 
   const dirty =
@@ -919,7 +988,8 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
     required !== s.isRequired ||
     (remark.trim() || '') !== (s.remark ?? '') ||
     anonM !== s.anonymizeForMember ||
-    anonO !== s.anonymizeForObserver;
+    anonO !== s.anonymizeForObserver ||
+    shared !== s.sharedWithObserver;
 
   async function save() {
     if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
@@ -930,7 +1000,7 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
       body: JSON.stringify({
         name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || null,
         targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0,
-        anonymizeForMember: anonM, anonymizeForObserver: anonO,
+        anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared,
       }),
     });
     setBusy(false);
@@ -966,6 +1036,9 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
         </label>
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
           <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+        </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
         </label>
       </div>
       <div className="mt-3 flex items-center gap-3">
@@ -1024,6 +1097,100 @@ function AddParticipantDialog({
         )}
       </div>
     </Dialog>
+  );
+}
+
+// ── E UAT:管考表「最終場次」內嵌下拉多選(顯示已指派 + 直接勾選指派,免點進彈窗) ──
+// 用 fixed 定位讓下拉逃出管考矩陣的 overflow-auto 內捲容器(否則會被裁切)。
+function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // 本地樂觀勾選集:連續勾選以此為準,避免 router.refresh() 回填新 props 前第二次 toggle 讀到舊 prop,
+  // 又因後端整批覆寫語意而吃掉剛指派的場次。伺服器回填(assignedKey 變動)時再同步。
+  const [selected, setSelected] = useState<string[]>(p.finalSessionIds);
+  const assignedKey = p.finalSessionIds.join(',');
+  useEffect(() => {
+    setSelected(p.finalSessionIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedKey]);
+
+  // 可指派場次=該人勾「OK」∪ 已指派(與指派原則一致,免逐場對照)
+  const options = sessions.filter((s) => p.availability[s.id] === 'OK' || selected.includes(s.id));
+  const assigned = sessions.filter((s) => selected.includes(s.id));
+
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left });
+    setOpen(true);
+  }
+
+  async function toggle(sessionId: string) {
+    if (busy) return;
+    const has = selected.includes(sessionId);
+    const next = has ? selected.filter((id) => id !== sessionId) : [...selected, sessionId];
+    setSelected(next); // 樂觀更新:連點多格以本地集合累積,不依賴尚未回填的 prop
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}/assign`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionIds: next }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '指派失敗' }));
+      setSelected(p.finalSessionIds); // 失敗還原本地狀態
+      toast.error('指派失敗', j.error);
+      return;
+    }
+    router.refresh(); // 伺服器狀態同步回 finalSessionIds(達標卡/催二階/排序一併更新)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        className="inline-flex max-w-[160px] items-center gap-1 text-left text-caption text-primary-700 hover:underline focus-ring rounded"
+        title="指派最終場次"
+      >
+        <MapPin size={13} className="shrink-0" />
+        <span className="truncate">
+          {assigned.length > 0 ? assigned.map((s) => `${s.dateLabel} ${s.name}`).join('、') : '指派'}
+        </span>
+        <ChevronDown size={12} className="shrink-0" />
+      </button>
+      {open && pos && (
+        <>
+          <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 min-w-[200px] max-h-64 overflow-auto rounded-md border border-rule bg-card p-1 shadow-lg"
+            style={{ top: pos.top, left: pos.left }}
+          >
+            {options.length === 0 ? (
+              <p className="px-2 py-1.5 text-caption text-ink-400">此人尚無勾選「OK」的場次可指派。</p>
+            ) : (
+              options.map((s) => {
+                const on = selected.includes(s.id);
+                return (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-caption text-ink-700 hover:bg-paper-sunk cursor-pointer"
+                  >
+                    <input type="checkbox" checked={on} disabled={busy} onChange={() => toggle(s.id)} className="rounded border-rule" />
+                    <span className="truncate">{s.dateLabel} · {s.name}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

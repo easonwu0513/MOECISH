@@ -9,6 +9,7 @@ import { useNav } from './NavProgress';
 import { APP_VERSION, BUILD_REV } from '@/lib/version';
 import { sidebarGroups, navIcon } from './nav-map';
 import { CycleNavTree } from './CycleNavTree';
+import { PreSurveyNavTree } from './PreSurveyNavTree';
 
 /**
  * 靜謐文件工作坊側欄(批 B4)——白卡底 + 髮絲線 + ink 墨字;
@@ -60,6 +61,10 @@ export function Sidebar({
                   // 「稽核週期」在展開模式換成階層樹(年度→醫院→工作區,直達目的地);收合模式維持原 icon 列
                   if (i.href === '/cycles' && !collapsed) {
                     return <CycleNavTree key={i.href} role={role} userKey={userKey} onClose={onClose} />;
+                  }
+                  // 事前場次調查(中心)展開樹:委員 / 觀察員 / 歷年資料(→各年度)
+                  if (i.href === '/pre-survey' && !collapsed) {
+                    return <PreSurveyNavTree key={i.href} onClose={onClose} />;
                   }
                   const active =
                     pathname === i.href ||

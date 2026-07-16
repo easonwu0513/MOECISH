@@ -14,6 +14,7 @@ const Body = z.object({
   targetObserverCount: z.number().int().min(0).max(999).optional(),
   anonymizeForMember: z.boolean().optional(),
   anonymizeForObserver: z.boolean().optional(),
+  sharedWithObserver: z.boolean().optional(),
 });
 
 /** 編輯年度場次(批A;僅中心)。 */
@@ -34,6 +35,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (body.targetObserverCount !== undefined) data.targetObserverCount = body.targetObserverCount;
     if (body.anonymizeForMember !== undefined) data.anonymizeForMember = body.anonymizeForMember;
     if (body.anonymizeForObserver !== undefined) data.anonymizeForObserver = body.anonymizeForObserver;
+    if (body.sharedWithObserver !== undefined) data.sharedWithObserver = body.sharedWithObserver;
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
     }

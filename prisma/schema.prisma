@@ -642,6 +642,8 @@ model SurveySession {
   // UAT:每場次可各自決定是否對委員/觀察員匿名地點(預設 true=匿名,維持原行為;如委員共識會議可關閉,自助頁顯真實地名)
   anonymizeForMember   Boolean  @default(true)
   anonymizeForObserver Boolean  @default(true)
+  // D UAT:此場次是否為委員與觀察員「共同場次」(預設 true);false=委員專屬(如委員共識會議),觀察員自助頁與達標卡不含此場次
+  sharedWithObserver   Boolean  @default(true)
   isRequired          Boolean  @default(false) // 必參加
   remark              String? // 給受調者看的備註
   targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)

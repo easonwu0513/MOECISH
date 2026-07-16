@@ -57,7 +57,7 @@ export type SelfParticipant = {
   travelNote: string | null;
   customValues: string | null; // #5:中心自訂欄位的值(JSON Record<columnId,string>)
   availabilities: { sessionId: string; status: string }[];
-  finalAssignments: { session: { name: string; date: Date | null } }[];
+  finalAssignments: { session: { id: string; name: string; date: Date | null } }[];
 };
 export type SelfSession = {
   id: string;
@@ -67,6 +67,7 @@ export type SelfSession = {
   remark: string | null;
   anonymizeForMember: boolean;
   anonymizeForObserver: boolean;
+  sharedWithObserver: boolean;
 };
 export type SelfTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
 
@@ -80,6 +81,9 @@ export async function buildSelfDTO(opts: {
   const { participant, sessions, templateDTOs, accountEmail } = opts;
   const yearROC = participant.year - 1911;
   const kind = participant.kind as SurveyParticipantKind;
+  // D UAT:觀察員不列入「委員專屬」場次(sharedWithObserver=false,如委員共識會議);委員看全部。序號依此清單重編。
+  const kindSessions = kind === 'OBSERVER' ? sessions.filter((s) => s.sharedWithObserver) : sessions;
+  const kindSessionIds = new Set(kindSessions.map((s) => s.id));
   const kindSlots = (SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] ?? []) as readonly string[];
   const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
 
@@ -127,8 +131,12 @@ export async function buildSelfDTO(opts: {
     diet: parseArr(participant.diet),
     travelNote: participant.travelNote,
     customFields,
-    assignedLabels: participant.finalAssignments.map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
-    sessions: sessions.map((s, i) => {
+    // D UAT 隱私:已指派標籤只列本 kind 可見場次(觀察員排除委員專屬,如場次事後改為委員專屬亦不外洩);
+    // 真實地名保留供指派後差旅二階使用(本人只見自己被指派的場次,非跨人清單)。
+    assignedLabels: participant.finalAssignments
+      .filter((fa) => kindSessionIds.has(fa.session.id))
+      .map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
+    sessions: kindSessions.map((s, i) => {
       // UAT:每場次可各自關閉對委員/觀察員的匿名(如委員共識會議);關閉則顯真實地名,否則仍以穩定序號匿名。
       // 僅送出計算後的 anonLabel,匿名場次的真實地名不會外洩到 client。
       const anon = kind === 'OBSERVER' ? s.anonymizeForObserver : s.anonymizeForMember;
@@ -155,7 +163,7 @@ export async function loadDashboardSelfSurvey(userId: string, accountEmail: stri
     orderBy: [{ year: 'desc' }, { kind: 'asc' }],
     include: {
       availabilities: { select: { sessionId: true, status: true } },
-      finalAssignments: { include: { session: { select: { name: true, date: true } } } },
+      finalAssignments: { include: { session: { select: { id: true, name: true, date: true } } } },
     },
   });
   if (!participant) return null;
