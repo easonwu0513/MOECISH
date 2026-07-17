@@ -66,7 +66,11 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     searchParams.year && yearSet.has(Number(searchParams.year)) ? Number(searchParams.year) : years[0] ?? currentYear;
   const yearROC = year - 1911;
 
-  const sessions = await prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } });
+  // UAT 圖2:場次一律依辦理日期排序(未定日期排最後、同日依手動序號);匿名序號隨清單順序重編,中心/自助/匯出三面一致
+  const sessions = await prisma.surveySession.findMany({
+    where: { year },
+    orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+  });
 
   // 公版範本(批B;兩視角共用):SurveyTemplate + 其實體檔 Evidence
   const templates = await prisma.surveyTemplate.findMany({ where: { year }, orderBy: { slot: 'asc' } });
@@ -243,6 +247,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     email: p.email,
     phone2: p.phone2,
     email2: p.email2,
+    proxyEmail: p.proxyEmail,
+    proxyPhone: p.proxyPhone,
     note: p.note,
     replyStatus: p.replyStatus,
     docHandover: p.docHandover,

@@ -47,6 +47,8 @@ export type SelfParticipant = {
   email: string | null;
   phone2: string | null;
   email2: string | null;
+  proxyEmail: string | null; // 代理聯絡人信箱(UAT;null=無代理)
+  proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: Date | null;
   editUnlocked: boolean; // 中心對此人開放補填/變更意願(逾填報時窗仍可編修)
   docStatus: string;
@@ -126,6 +128,8 @@ export async function buildSelfDTO(opts: {
     email: participant.email,
     phone2: participant.phone2,
     email2: participant.email2,
+    proxyEmail: participant.proxyEmail,
+    proxyPhone: participant.proxyPhone,
     submittedAt: participant.submittedAt?.toISOString() ?? null,
     // UAT 填報時窗:canEditAvailability=false 時自助頁鎖定意願編修並顯示時窗說明
     canEditAvailability: canEdit,
@@ -188,7 +192,11 @@ export async function loadDashboardSelfSurvey(userId: string, accountEmail: stri
 
   const year = participant.year;
   const [sessions, templates] = await Promise.all([
-    prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+    // UAT 圖2:依辦理日期排序(未定最後、同日依序號)——序號隨清單順序重編,與中心管考/匯出一致
+    prisma.surveySession.findMany({
+      where: { year },
+      orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+    }),
     prisma.surveyTemplate.findMany({ where: { year }, orderBy: { slot: 'asc' } }),
   ]);
   const templateFiles = templates.length

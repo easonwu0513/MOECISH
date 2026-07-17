@@ -14,6 +14,9 @@ const Body = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   phone2: z.string().trim().max(50).nullable().optional(),
   email2: z.string().trim().max(200).nullable().optional(),
+  // 代理聯絡人(UAT:勾選「有代理聯絡人」後填;取消勾選=送 null 清除)
+  proxyEmail: z.string().trim().max(200).nullable().optional(),
+  proxyPhone: z.string().trim().max(50).nullable().optional(),
   // 僅中心可改的管考欄位(note=中心對受調者的內部管理註記,自助頁不顯示,故不對本人開放)
   note: z.string().trim().max(1000).nullable().optional(),
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
@@ -75,6 +78,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (body.email !== undefined) data.email = body.email?.trim() || null;
     if (body.phone2 !== undefined) data.phone2 = body.phone2?.trim() || null;
     if (body.email2 !== undefined) data.email2 = body.email2?.trim() || null;
+    if (body.proxyEmail !== undefined) data.proxyEmail = body.proxyEmail?.trim() || null;
+    if (body.proxyPhone !== undefined) data.proxyPhone = body.proxyPhone?.trim() || null;
     if (isAdmin) {
       if (body.note !== undefined) data.note = body.note?.trim() || null;
       if (body.committeeType !== undefined) {

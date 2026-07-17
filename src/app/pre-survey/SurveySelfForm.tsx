@@ -39,6 +39,8 @@ export type SelfDTO = {
   email: string | null;
   phone2: string | null; // 次要聯絡電話
   email2: string | null; // 次要聯絡信箱
+  proxyEmail: string | null; // 代理聯絡人信箱(null=無代理)
+  proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: string | null;
   // UAT 填報時窗:canEditAvailability=false 時鎖定意願編修/送出並顯示時窗說明
   canEditAvailability: boolean;
@@ -70,6 +72,9 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [email2, setEmail2] = useState(data.email2 ?? '');
   const [phone2, setPhone2] = useState(data.phone2 ?? '');
   const [showSecondary, setShowSecondary] = useState(!!(data.email2 || data.phone2));
+  const [proxyEmail, setProxyEmail] = useState(data.proxyEmail ?? '');
+  const [proxyPhone, setProxyPhone] = useState(data.proxyPhone ?? '');
+  const [hasProxy, setHasProxy] = useState(!!(data.proxyEmail || data.proxyPhone));
   const [statuses, setStatuses] = useState<Record<string, SurveyAvailabilityStatus | null>>(
     Object.fromEntries(data.sessions.map((s) => [s.id, s.status])),
   );
@@ -101,6 +106,9 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         email: email.trim() || null,
         phone2: phone2.trim() || null,
         email2: email2.trim() || null,
+        // 取消勾選「有代理聯絡人」時送 null 清除,避免殘留舊代理個資
+        proxyEmail: hasProxy ? proxyEmail.trim() || null : null,
+        proxyPhone: hasProxy ? proxyPhone.trim() || null : null,
       }),
     });
     setSavingContact(false);
@@ -260,6 +268,32 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           >
             ＋ 新增次要聯絡信箱／電話
           </button>
+        )}
+        {/* 代理聯絡人(UAT):勾選展開;取消勾選並儲存即清除 */}
+        <label className="mt-3 flex items-center gap-2.5 cursor-pointer text-body-sm text-ink-900">
+          <input
+            type="checkbox"
+            className="accent-primary-600"
+            checked={hasProxy}
+            onChange={(e) => setHasProxy(e.target.checked)}
+          />
+          有代理聯絡人（由他人代為聯絡時勾選）
+        </label>
+        {hasProxy && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <TextField
+              label="代理聯絡人電子郵件"
+              value={proxyEmail}
+              onChange={(e) => setProxyEmail(e.target.value)}
+              placeholder="代理聯絡人的信箱"
+            />
+            <TextField
+              label="代理聯絡人電話"
+              value={proxyPhone}
+              onChange={(e) => setProxyPhone(e.target.value)}
+              placeholder="代理聯絡人的電話"
+            />
+          </div>
         )}
         <div className="mt-3">
           <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>

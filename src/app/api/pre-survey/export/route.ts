@@ -42,7 +42,11 @@ export async function GET(req: Request) {
     }
 
     const [sessions, participants, customCols] = await Promise.all([
-      prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+      // UAT 圖2:與管考表/自助頁同序(辦理日期升冪、未定最後)
+      prisma.surveySession.findMany({
+        where: { year },
+        orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+      }),
       prisma.surveyParticipant.findMany({
         where: { year, kind },
         include: {
@@ -88,6 +92,8 @@ export async function GET(req: Request) {
       '聯絡電話',
       '次要信箱',
       '次要電話',
+      '代理聯絡人信箱',
+      '代理聯絡人電話',
       ...customCols.map((c) => c.title),
     ];
 
@@ -115,6 +121,8 @@ export async function GET(req: Request) {
         p.phone ?? '',
         p.email2 ?? '',
         p.phone2 ?? '',
+        p.proxyEmail ?? '',
+        p.proxyPhone ?? '',
         ...customCols.map((c) => custom[c.id] ?? ''),
       ].map((v) => cell(String(v)));
     });
