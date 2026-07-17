@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
+import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
 import { canEditAvailability } from '@/lib/pre-survey-window';
 import { SURVEY_AVAILABILITY_STATUSES } from '@/lib/types';
@@ -9,6 +10,8 @@ import { SURVEY_AVAILABILITY_STATUSES } from '@/lib/types';
 const Body = z.object({
   sessionId: z.string().min(1),
   status: z.enum(SURVEY_AVAILABILITY_STATUSES),
+  // UAT 圖6 安全鎖:中心代改意願必附「變動原因」(進稽核軌跡);本人自填不需
+  reason: z.string().trim().max(500).optional(),
 });
 
 /**
@@ -17,8 +20,13 @@ const Body = z.object({
  */
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { participant, isAdmin } = await loadParticipantForAccess(params.id);
+    const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
     const body = Body.parse(await req.json());
+
+    // UAT 圖6 安全鎖(伺服器端強制,防繞過前端):中心於管考表代改意願,必附變動原因
+    if (isAdmin && !body.reason) {
+      return NextResponse.json({ error: '中心修改意願須填寫變動原因（解鎖修改）' }, { status: 400 });
+    }
 
     // 填報時窗閘:本人須在時窗內或經中心開放補填(editUnlocked);中心代填(isAdmin)不受限。
     if (!isAdmin) {
@@ -51,6 +59,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       create: { participantId: participant.id, sessionId: body.sessionId, status: body.status },
       update: { status: body.status },
     });
+
+    // 中心代改留痕(UAT 圖6):誰、對誰的哪個場次、改成什麼、為什麼
+    if (isAdmin) {
+      await writeAuditLog({
+        actorId: user.id,
+        action: 'SURVEY_AVAILABILITY_ADMIN_SET',
+        entityType: 'SurveyParticipant',
+        entityId: participant.id,
+        after: { sessionId: body.sessionId, status: body.status, reason: body.reason },
+        ...extractRequestMeta(req),
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {

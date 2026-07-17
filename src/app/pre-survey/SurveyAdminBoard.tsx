@@ -108,6 +108,9 @@ export default function SurveyAdminBoard({
   const [fillWindowOpen, setFillWindowOpen] = useState(false);
   const [sortSessionId, setSortSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // UAT 圖6 安全鎖:意願為受調者本人填報結果,中心改格須填「變動原因」解鎖(進稽核軌跡)
+  const [unlockCell, setUnlockCell] = useState<{ pid: string; sessionId: string; pName: string; sName: string; next: string } | null>(null);
+  const [unlockReason, setUnlockReason] = useState('');
 
   const rows = useMemo(() => {
     const list = participants.filter((p) => p.kind === kind);
@@ -148,8 +151,6 @@ export default function SurveyAdminBoard({
     return true;
   }
 
-  const setAvailability = (pid: string, sessionId: string, status: string) =>
-    call(`/api/pre-survey/participants/${pid}/availability`, 'PUT', { sessionId, status });
   const patchParticipant = (pid: string, data: Record<string, unknown>) =>
     call(`/api/pre-survey/participants/${pid}`, 'PATCH', data);
   const setCustomValue = (pid: string, columnId: string, value: string) =>
@@ -412,7 +413,11 @@ export default function SurveyAdminBoard({
                       <td key={s.id} className="px-2 py-2 text-center">
                         <Select
                           value={p.availability[s.id] ?? ''}
-                          onChange={(e) => setAvailability(p.id, s.id, e.target.value || 'NA')}
+                          onChange={(e) => {
+                            // 安全鎖:不直接寫入,先開「解鎖修改」視窗填變動原因(controlled value 未變,取消即回彈)
+                            setUnlockReason('');
+                            setUnlockCell({ pid: p.id, sessionId: s.id, pName: p.name, sName: s.name, next: e.target.value || 'NA' });
+                          }}
                           dense
                           aria-label={`${p.name} 對 ${s.name} 意願`}
                         >
@@ -517,6 +522,49 @@ export default function SurveyAdminBoard({
         tone="danger"
         onConfirm={async () => { if (removeFor) { await call(`/api/pre-survey/participants/${removeFor.id}`, 'DELETE', undefined, '已移除'); setRemoveFor(null); } }}
       />
+      {/* UAT 圖6 安全鎖:中心修改意願須填變動原因才解鎖(後端同步強制,原因進稽核軌跡) */}
+      <Dialog
+        open={unlockCell !== null}
+        onOpenChange={(o) => { if (!o && !busy) setUnlockCell(null); }}
+        title="解鎖修改意願"
+        description="意願為受調者本人填報結果，中心代為修改須留下變動原因（記入稽核軌跡）。"
+        footer={
+          <>
+            <Button variant="text" onClick={() => setUnlockCell(null)} disabled={busy}>取消</Button>
+            <Button
+              onClick={async () => {
+                if (!unlockCell) return;
+                if (!unlockReason.trim()) { toast.error('請填寫變動原因'); return; }
+                const ok = await call(
+                  `/api/pre-survey/participants/${unlockCell.pid}/availability`,
+                  'PUT',
+                  { sessionId: unlockCell.sessionId, status: unlockCell.next, reason: unlockReason.trim() },
+                  '已修改意願',
+                );
+                if (ok) setUnlockCell(null);
+              }}
+              loading={busy}
+              disabled={busy}
+            >
+              解鎖並修改
+            </Button>
+          </>
+        }
+      >
+        {unlockCell && (
+          <div className="space-y-3 pt-2">
+            <p className="text-body-sm text-ink-900">
+              {unlockCell.pName} · {unlockCell.sName}：改為「{unlockCell.next === 'OK' ? SURVEY_AVAILABILITY_LABELS.OK : SURVEY_AVAILABILITY_LABELS.NA}」
+            </p>
+            <TextField
+              label="變動原因（必填）"
+              value={unlockReason}
+              onChange={(e) => setUnlockReason(e.target.value)}
+              placeholder="如：委員來電告知行程異動"
+            />
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }
