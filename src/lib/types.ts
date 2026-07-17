@@ -237,7 +237,18 @@ export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readon
 };
 
 /** 交通方式(差旅二階,可複選)。 */
-export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸', '接駁'] as const;
+// UAT 圖20:刪「接駁」選項;「大眾運輸」需再選單一工具(高鐵/火車/客運/其他),
+// 以複合值存於逐場次 transport JSON(如「大眾運輸：高鐵」「大眾運輸：其他：簡述」),不動 schema。
+export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸'] as const;
+export const SURVEY_TRANSIT_MODES = ['高鐵', '火車', '客運', '其他'] as const;
+export const TRANSIT_PREFIX = '大眾運輸';
+/** 驗證 transport 陣列元素:基本選項,或「大眾運輸」複合 token(含未選工具的過渡態)。 */
+export function isValidTransportToken(t: string): boolean {
+  if ((SURVEY_TRANSPORT_OPTIONS as readonly string[]).includes(t)) return true;
+  if (t === TRANSIT_PREFIX) return true;
+  const m = t.match(/^大眾運輸：(高鐵|火車|客運|其他)(：(.{0,50}))?$/);
+  return !!m && (m[1] === '其他' || m[2] === undefined);
+}
 /** 飲食需求(差旅二階,可複選)。 */
 export const SURVEY_DIET_OPTIONS = ['葷', '素', '不吃豬', '不吃牛', '不吃家禽', '不吃海鮮'] as const;
 

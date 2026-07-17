@@ -4,12 +4,19 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
 import { canEditAvailability } from '@/lib/pre-survey-window';
-import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS } from '@/lib/types';
+import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS, isValidTransportToken } from '@/lib/types';
 
 const Body = z.object({
-  // UAT 圖14:交通(含住宿)改「逐指派場次」填(地點不同交通不同);飲食全場次一致仍存受調者
+  // UAT 圖14:交通(含住宿)改「逐指派場次」填(地點不同交通不同);飲食全場次一致仍存受調者。
+  // UAT 圖20:「大眾運輸」以複合 token 帶單選工具(高鐵/火車/客運/其他:簡述),isValidTransportToken 白名單驗證。
   sessionTransport: z
-    .object({ sessionId: z.string().min(1), transport: z.array(z.enum(SURVEY_TRANSPORT_OPTIONS)).max(SURVEY_TRANSPORT_OPTIONS.length) })
+    .object({
+      sessionId: z.string().min(1),
+      transport: z
+        .array(z.string().max(80))
+        .max(SURVEY_TRANSPORT_OPTIONS.length + 1)
+        .refine((arr) => arr.every(isValidTransportToken), { message: '交通選項格式不正確' }),
+    })
     .optional(),
   diet: z.array(z.enum(SURVEY_DIET_OPTIONS)).max(SURVEY_DIET_OPTIONS.length).optional(),
   travelNote: z.string().trim().max(1000).nullable().optional(),

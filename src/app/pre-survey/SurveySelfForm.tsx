@@ -17,6 +17,8 @@ import {
   SURVEY_AVAILABILITY_STATUSES,
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_TRANSPORT_OPTIONS,
+  SURVEY_TRANSIT_MODES,
+  TRANSIT_PREFIX,
   SURVEY_DIET_OPTIONS,
   surveyTemplateSlotLabel,
   type SurveyAvailabilityStatus,
@@ -226,10 +228,9 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     return true;
   }
 
-  // UAT 圖14:交通逐場次切換(打 API 帶 sessionId);失敗顯式回滾本地 state
-  async function toggleSessionTransport(sessionId: string, value: string) {
+  // UAT 圖14/20:交通逐場次整組替換(picker 內含大眾運輸複合 token 邏輯);失敗顯式回滾本地 state
+  async function replaceSessionTransport(sessionId: string, next: string[]) {
     const cur = sessionTransports[sessionId] ?? [];
-    const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
     setSessionTransports((prev) => ({ ...prev, [sessionId]: next })); // 樂觀
     setTravelBusy(true);
     const ok = await putTravel({ sessionTransport: { sessionId, transport: next } }, true);
@@ -530,12 +531,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
               <div className="space-y-4">
                 {travelSessions.map((a) => (
                   <div key={a.sessionId} className="rounded-md border border-rule bg-card p-3.5">
-                    <MultiPills
+                    <SessionTransportPicker
+                      sessionId={a.sessionId}
                       label={`${a.label}：往返交通方式（含住宿，可複選）`}
-                      options={SURVEY_TRANSPORT_OPTIONS}
-                      selected={sessionTransports[a.sessionId] ?? []}
+                      tokens={sessionTransports[a.sessionId] ?? []}
                       busy={travelBusy}
-                      onToggle={(v) => toggleSessionTransport(a.sessionId, v)}
+                      onChange={(next) => replaceSessionTransport(a.sessionId, next)}
                     />
                   </div>
                 ))}
@@ -681,6 +682,86 @@ function DocSlot({
 }
 
 // ── 多選 pill(交通/飲食) ──
+/**
+ * UAT 圖20:單場次交通選擇器。基本選項為 pills(可複選);「大眾運輸」選取後展開
+ * 單選工具(高鐵/火車/客運/其他:簡述),以複合 token 存於 transport 陣列
+ * (「大眾運輸：高鐵」「大眾運輸：其他：簡述」);高鐵/非高鐵顯示不同接駁提示。
+ */
+function SessionTransportPicker({
+  sessionId, label, tokens, busy, onChange,
+}: { sessionId: string; label: string; tokens: string[]; busy: boolean; onChange: (next: string[]) => void }) {
+  const transit = tokens.find((t) => t === TRANSIT_PREFIX || t.startsWith(`${TRANSIT_PREFIX}：`)) ?? null;
+  const parts = (transit ?? '').split('：');
+  const mode = parts[1] ?? null;
+  const [otherNote, setOtherNote] = useState(parts[2] ?? '');
+  const basics = tokens.filter((t) => t !== transit);
+  const selectedPills = [...basics, ...(transit ? [TRANSIT_PREFIX] : [])];
+
+  function togglePill(v: string) {
+    if (v === TRANSIT_PREFIX) {
+      onChange(transit ? basics : [...basics, TRANSIT_PREFIX]);
+    } else {
+      const nextBasics = basics.includes(v) ? basics.filter((x) => x !== v) : [...basics, v];
+      onChange([...nextBasics, ...(transit ? [transit] : [])]);
+    }
+  }
+  function setMode(m: string) {
+    const token =
+      m === '其他' && otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：${m}`;
+    onChange([...basics, token]);
+  }
+  function saveOtherNote() {
+    if (mode !== '其他') return;
+    const token = otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：其他`;
+    if (token !== transit) onChange([...basics, token]);
+  }
+
+  return (
+    <div>
+      <MultiPills label={label} options={SURVEY_TRANSPORT_OPTIONS} selected={selectedPills} busy={busy} onToggle={togglePill} />
+      {transit && (
+        <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm text-ink-700">
+            <span className="text-ink-500">大眾運輸工具：</span>
+            {SURVEY_TRANSIT_MODES.map((m) => (
+              <label key={m} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name={`transit-${sessionId}`}
+                  checked={mode === m}
+                  disabled={busy}
+                  onChange={() => setMode(m)}
+                  className="accent-primary-600"
+                />
+                {m}
+              </label>
+            ))}
+          </div>
+          {mode === '其他' && (
+            <TextField
+              label="其他（請簡述）"
+              value={otherNote}
+              onChange={(e) => setOtherNote(e.target.value)}
+              onBlur={saveOtherNote}
+              placeholder="如：自行安排交通"
+            />
+          )}
+          {mode === '高鐵' && (
+            <p className="rounded-md border border-primary-100 bg-primary-50/70 px-3 py-2 text-caption text-primary-800">
+              ⓘ 本中心將統一安排往返高鐵站與受稽機關間之接駁。
+            </p>
+          )}
+          {(mode === '火車' || mode === '客運' || mode === '其他') && (
+            <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-caption text-ink-700">
+              ⓘ 若您選擇搭乘火車、客運或其他大眾運輸工具，中心將視最終登記人數，彈性評估是否安排接駁車服務，感謝您的配合！
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MultiPills({
   label, options, selected, busy, onToggle,
 }: {
