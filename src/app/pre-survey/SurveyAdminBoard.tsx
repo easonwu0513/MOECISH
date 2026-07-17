@@ -1558,7 +1558,12 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
       toast.error('指派失敗', j.error);
       return;
     }
-    toast.success('已儲存指派');
+    // UAT 圖37:回饋連動結果(帶入場次→稽核週期委員指派;COI 跳過;觀察員配對提示)
+    const j = await res.json().catch(() => ({}) as { linkedCycles?: string[]; skippedCoi?: string[]; observerHint?: boolean });
+    if (j.linkedCycles?.length) toast.success('已儲存指派', `已同步加入稽核週期委員指派：${j.linkedCycles.join('、')}`);
+    else toast.success('已儲存指派');
+    if (j.skippedCoi?.length) toast.warning('利益迴避跳過', `${j.skippedCoi.join('、')}：該委員服務於受稽機關，未自動加入週期指派。`);
+    if (j.observerHint) toast.warning('觀察員配對提醒', '觀察員需指導委員，請至該稽核週期「進階設定」完成觀察員配對。');
     setOpen(false);
     router.refresh();
   }
