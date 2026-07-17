@@ -59,7 +59,7 @@ export type SelfParticipant = {
   travelNote: string | null;
   customValues: string | null; // #5:中心自訂欄位的值(JSON Record<columnId,string>)
   availabilities: { sessionId: string; status: string }[];
-  finalAssignments: { session: { id: string; name: string; date: Date | null } }[];
+  finalAssignments: { transport?: string | null; session: { id: string; name: string; date: Date | null; needsTravel?: boolean } }[];
 };
 export type SelfSession = {
   id: string;
@@ -172,6 +172,15 @@ export async function buildSelfDTO(opts: {
     assignedLabels: participant.finalAssignments
       .filter((fa) => kindSessionIds.has(fa.session.id))
       .map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
+    // UAT 圖14:逐場次差旅——每個被指派場次的交通各自填(needsTravel=false 的線上場次免填)
+    assignedSessions: participant.finalAssignments
+      .filter((fa) => kindSessionIds.has(fa.session.id))
+      .map((fa) => ({
+        sessionId: fa.session.id,
+        label: `${mdLabel(fa.session.date)} ${fa.session.name}`,
+        needsTravel: fa.session.needsTravel ?? true,
+        transport: parseArr(fa.transport ?? null),
+      })),
     sessions: kindSessions.map((s, i) => {
       // UAT:每場次可各自關閉對委員/觀察員的匿名(如委員共識會議);關閉則顯真實地名,否則仍以穩定序號匿名。
       // 僅送出計算後的 anonLabel,匿名場次的真實地名不會外洩到 client。
@@ -199,7 +208,7 @@ export async function loadDashboardSelfSurvey(userId: string, accountEmail: stri
     orderBy: [{ year: 'desc' }, { kind: 'asc' }],
     include: {
       availabilities: { select: { sessionId: true, status: true } },
-      finalAssignments: { include: { session: { select: { id: true, name: true, date: true } } } },
+      finalAssignments: { include: { session: { select: { id: true, name: true, date: true, needsTravel: true } } } },
     },
   });
   if (!participant) return null;

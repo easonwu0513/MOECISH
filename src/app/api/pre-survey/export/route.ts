@@ -52,7 +52,7 @@ export async function GET(req: Request) {
         include: {
           user: { select: { name: true } },
           availabilities: { select: { sessionId: true, status: true } },
-          finalAssignments: { include: { session: { select: { name: true, date: true } } } },
+          finalAssignments: { include: { session: { select: { name: true, date: true, needsTravel: true } } } },
         },
         orderBy: { invitedAt: 'asc' },
       }),
@@ -114,7 +114,14 @@ export async function GET(req: Request) {
         finalLabels.join(' / '),
         SURVEY_REPLY_STATUS_LABELS[p.replyStatus as SurveyReplyStatus] ?? p.replyStatus,
         SURVEY_DOC_HANDOVER_LABELS[p.docHandover as SurveyDocHandover] ?? p.docHandover,
-        parseArr(p.transport).join(' / '),
+        // UAT 圖14:交通逐場次(「場次:選項」;線上場次不列)
+        p.finalAssignments
+          .filter((fa) => fa.session.needsTravel)
+          .map((fa) => {
+            const arr = parseArr(fa.transport);
+            return `${fa.session.name}：${arr.length > 0 ? arr.join('、') : '未填'}`;
+          })
+          .join(' / '),
         parseArr(p.diet).join(' / '),
         (p.note ?? '') + (p.travelNote ? ` / 差旅備註：${p.travelNote}` : ''),
         p.email ?? '',

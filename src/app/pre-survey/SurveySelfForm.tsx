@@ -63,6 +63,8 @@ export type SelfDTO = {
   // #5:中心開放受調者自行填寫的自訂欄位(selfEditable);dueDate 供本人參考,逾期由 timer 催辦
   customFields: { id: string; title: string; dueDate: string | null; value: string }[];
   assignedLabels: string[]; // 已指派的最終場次(含真實地名,指派後揭露)
+  // UAT 圖14:逐場次差旅——交通(含住宿)依場次各填;needsTravel=false(線上)場次免填
+  assignedSessions: { sessionId: string; label: string; needsTravel: boolean; transport: string[] }[];
   sessions: SelfSessionDTO[];
 };
 
@@ -89,7 +91,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [uploadingSlot, setUploadingSlot] = useState<'CV' | 'NDA' | null>(null);
   const [submittingDocs, setSubmittingDocs] = useState(false);
   // 差旅二階(樂觀 local state)
-  const [transport, setTransport] = useState<string[]>(data.transport);
+  // UAT 圖14:交通逐場次(Record<sessionId, string[]>);飲食全場次一致
+  const [sessionTransports, setSessionTransports] = useState<Record<string, string[]>>(
+    Object.fromEntries(data.assignedSessions.map((a) => [a.sessionId, a.transport])),
+  );
   const [diet, setDiet] = useState<string[]>(data.diet);
   const [travelNote, setTravelNote] = useState(data.travelNote ?? '');
   const [savingTravel, setSavingTravel] = useState(false);
@@ -200,7 +205,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     router.refresh();
   }
 
-  async function putTravel(patch: { transport?: string[]; diet?: string[]; travelNote?: string | null }, silent = false) {
+  async function putTravel(
+    patch: { sessionTransport?: { sessionId: string; transport: string[] }; diet?: string[]; travelNote?: string | null },
+    silent = false,
+  ) {
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}/travel`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -215,19 +223,25 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     return true;
   }
 
-  async function toggleMulti(kind: 'transport' | 'diet', value: string) {
-    const cur = kind === 'transport' ? transport : diet;
+  // UAT 圖14:交通逐場次切換(打 API 帶 sessionId);失敗顯式回滾本地 state
+  async function toggleSessionTransport(sessionId: string, value: string) {
+    const cur = sessionTransports[sessionId] ?? [];
     const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
-    if (kind === 'transport') setTransport(next);
-    else setDiet(next); // 樂觀
+    setSessionTransports((prev) => ({ ...prev, [sessionId]: next })); // 樂觀
     setTravelBusy(true);
-    const ok = await putTravel({ [kind]: next }, true);
+    const ok = await putTravel({ sessionTransport: { sessionId, transport: next } }, true);
     setTravelBusy(false);
-    if (!ok) {
-      // 顯式回滾本地 state(router.refresh 不會重置 useState;失敗不可讓 pill 停在錯誤選取)
-      if (kind === 'transport') setTransport(cur);
-      else setDiet(cur);
-    }
+    if (!ok) setSessionTransports((prev) => ({ ...prev, [sessionId]: cur }));
+  }
+
+  async function toggleDiet(value: string) {
+    const cur = diet;
+    const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+    setDiet(next); // 樂觀
+    setTravelBusy(true);
+    const ok = await putTravel({ diet: next }, true);
+    setTravelBusy(false);
+    if (!ok) setDiet(cur); // 顯式回滾(router.refresh 不會重置 useState)
   }
 
   async function saveTravelNote() {
@@ -496,10 +510,34 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
               <p className="mt-1 text-body-sm text-ink-900">您被指派的最終場次：{data.assignedLabels.join('、')}</p>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MultiPills label="往返交通方式（含住宿，可複選）" options={SURVEY_TRANSPORT_OPTIONS} selected={transport} busy={travelBusy} onToggle={(v) => toggleMulti('transport', v)} />
-            <MultiPills label="飲食需求（可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleMulti('diet', v)} />
-          </div>
+          {/* UAT 圖14:交通(含住宿)逐場次填(地點不同交通不同);線上場次免填;飲食全場次一致 */}
+          {(() => {
+            const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+            const onlineSessions = data.assignedSessions.filter((a) => !a.needsTravel);
+            return (
+              <div className="space-y-4">
+                {travelSessions.map((a) => (
+                  <div key={a.sessionId} className="rounded-md border border-rule bg-card p-3.5">
+                    <MultiPills
+                      label={`${a.label}：往返交通方式（含住宿，可複選）`}
+                      options={SURVEY_TRANSPORT_OPTIONS}
+                      selected={sessionTransports[a.sessionId] ?? []}
+                      busy={travelBusy}
+                      onToggle={(v) => toggleSessionTransport(a.sessionId, v)}
+                    />
+                  </div>
+                ))}
+                {onlineSessions.length > 0 && (
+                  <p className="text-caption text-ink-500">
+                    {onlineSessions.map((a) => a.label).join('、')}：線上辦理，無需填寫交通住宿。
+                  </p>
+                )}
+                {travelSessions.length > 0 && (
+                  <MultiPills label="飲食需求（全部場次一致，可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleDiet(v)} />
+                )}
+              </div>
+            );
+          })()}
           <div className="mt-4">
             <Textarea label="特殊備註（如需協助安排停車等，請註明車號）" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
             <div className="mt-2">

@@ -40,6 +40,8 @@ export type AdminSessionDTO = {
   anonymizeForObserver: boolean; // 對觀察員是否匿名地點
   sharedWithObserver: boolean; // 是否委員與觀察員共同場次(false=委員專屬,如委員共識會議)
   sourceCycleId: string | null; // UAT 圖13:由稽核週期帶入(非 null)→日期鎖定,隨週期實地稽核日連動
+  needsTravel: boolean; // UAT 圖14:此場次是否需第二階段差旅(線上會議=false)
+  isBriefing: boolean; // UAT 圖14:受稽機關說明會(年度必備,不可刪)
 };
 export type AdminParticipantDTO = {
   id: string;
@@ -443,7 +445,15 @@ export default function SurveyAdminBoard({
                     </td>
                     {/* 交通 / 飲食(唯讀;本人填) */}
                     <td className="px-3 py-2 text-caption text-ink-700">
-                      {p.transport.length > 0 ? p.transport.join('、') : <span className="text-ink-400">—</span>}
+                      {p.transport.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {p.transport.map((t, i) => (
+                            <span key={i} className="whitespace-nowrap">{t}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-ink-400">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-caption text-ink-700">
                       {p.diet.length > 0 ? p.diet.join('、') : <span className="text-ink-400">—</span>}
@@ -858,7 +868,7 @@ function AdminProfileDialog({
         <section>
           <h4 className="text-label text-ink-900 mb-2">差旅與飲食（第二階段）</h4>
           <div className="grid gap-3 sm:grid-cols-2 text-caption text-ink-700">
-            <div><span className="text-ink-500">交通：</span> {p.transport.length > 0 ? p.transport.join('、') : '—'}</div>
+            <div><span className="text-ink-500">交通：</span> {p.transport.length > 0 ? p.transport.join('；') : '—'}</div>
             <div><span className="text-ink-500">飲食：</span> {p.diet.length > 0 ? p.diet.join('、') : '—'}</div>
           </div>
           {p.travelNote && <p className="mt-2 text-caption text-ink-700"><span className="text-ink-500">差旅備註：</span> {p.travelNote}</p>}
@@ -1106,8 +1116,10 @@ function SessionManagerDialog({
   const [anonM, setAnonM] = useState(true);
   const [anonO, setAnonO] = useState(true);
   const [shared, setShared] = useState(true);
+  const [needsTravel, setNeedsTravel] = useState(true); // UAT 圖14:線上場次可關(免差旅二階)
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [creatingBriefing, setCreatingBriefing] = useState(false);
   // UAT 圖4:新增場次表單預設收合(彈窗以管理既有場次為主),點標題列展開
   const [showAdd, setShowAdd] = useState(false);
 
@@ -1133,11 +1145,11 @@ function SessionManagerDialog({
     const res = await fetch('/api/pre-survey/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared }),
+      body: JSON.stringify({ year, name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || undefined, targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0, anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared, needsTravel }),
     });
     setBusy(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
-    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true); setShared(true);
+    setName(''); setDate(''); setRemark(''); setRequired(false); setAnonM(true); setAnonO(true); setShared(true); setNeedsTravel(true);
     toast.success('已新增場次');
     router.refresh();
   }
@@ -1153,6 +1165,34 @@ function SessionManagerDialog({
             <Button size="sm" variant="outlined" onClick={importCycles} loading={importing} disabled={importing}>帶入當年度稽核場次</Button>
           </div>
         </div>
+        {/* UAT 圖14:受稽機關說明會=年度必備場次(綁死不可刪;名稱/時間可編);未建立時提供一鍵建立 */}
+        {!sessions.some((s) => s.isBriefing) && (
+          <div className="rounded-md border border-warning-200 bg-warning-50/50 p-3.5">
+            <p className="text-body-sm font-medium text-ink-900">受稽機關說明會（年度必備）尚未建立</p>
+            <p className="mt-0.5 text-caption text-ink-500">每年度固定辦理一場說明會；建立後名稱與時間可編輯，但場次不可刪除。預設為線上辦理（不需差旅調查）。</p>
+            <div className="mt-2">
+              <Button
+                size="sm"
+                variant="outlined"
+                loading={creatingBriefing}
+                disabled={creatingBriefing}
+                onClick={async () => {
+                  setCreatingBriefing(true);
+                  const ok = await fetch('/api/pre-survey/sessions', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ year, name: '受稽機關說明會', isBriefing: true, needsTravel: false, anonymizeForMember: false, anonymizeForObserver: false }),
+                  }).then((r) => r.ok).catch(() => false);
+                  setCreatingBriefing(false);
+                  if (ok) { toast.success('已建立受稽機關說明會場次'); router.refresh(); }
+                  else toast.error('建立失敗');
+                }}
+              >
+                建立說明會場次
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="rounded-md border border-rule bg-card p-3.5">
           <button
             type="button"
@@ -1191,8 +1231,11 @@ function SessionManagerDialog({
             <label className="flex items-center gap-2 text-body-sm text-ink-700">
               <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
             </label>
+            <label className="flex items-center gap-2 text-body-sm text-ink-700">
+              <input type="checkbox" checked={needsTravel} onChange={(e) => setNeedsTravel(e.target.checked)} className="rounded border-rule" /> 需第二階段差旅調查
+            </label>
           </div>
-          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱；取消「共同場次」則此場次為委員專屬，觀察員不列入調查。</p>
+          <p className="mt-1 text-caption text-ink-500">關閉匿名的場次（如委員共識會議），該身分的受調者自助頁會直接看到真實地點名稱；取消「共同場次」則此場次為委員專屬，觀察員不列入調查；線上辦理的場次可取消「差旅調查」，受調者第二階段免填該場次交通住宿。</p>
           <div className="mt-3">
             <Button size="sm" onClick={add} loading={busy} disabled={busy}>新增場次</Button>
           </div>
@@ -1223,6 +1266,7 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
   const [anonM, setAnonM] = useState(s.anonymizeForMember);
   const [anonO, setAnonO] = useState(s.anonymizeForObserver);
   const [shared, setShared] = useState(s.sharedWithObserver);
+  const [needsTravel, setNeedsTravel] = useState(s.needsTravel);
   const [busy, setBusy] = useState(false);
 
   const dirty =
@@ -1234,7 +1278,8 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
     (remark.trim() || '') !== (s.remark ?? '') ||
     anonM !== s.anonymizeForMember ||
     anonO !== s.anonymizeForObserver ||
-    shared !== s.sharedWithObserver;
+    shared !== s.sharedWithObserver ||
+    needsTravel !== s.needsTravel;
 
   async function save() {
     if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
@@ -1247,6 +1292,7 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
         name: name.trim(), ...(s.sourceCycleId ? {} : { date: date || null }), isRequired: required, remark: remark.trim() || null,
         targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0,
         anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared,
+        needsTravel,
       }),
     });
     setBusy(false);
@@ -1293,11 +1339,18 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
           <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
         </label>
+        <label className="flex items-center gap-2 text-body-sm text-ink-700">
+          <input type="checkbox" checked={needsTravel} onChange={(e) => setNeedsTravel(e.target.checked)} className="rounded border-rule" /> 需第二階段差旅調查
+        </label>
       </div>
       <div className="mt-3 flex items-center gap-3">
         <Button size="sm" onClick={save} loading={busy} disabled={busy || !dirty}>儲存變更</Button>
         {!dirty && <span className="text-caption text-ink-400">尚未修改</span>}
-        <button type="button" onClick={del} className="ml-auto text-caption text-danger-600 hover:underline focus-ring rounded">刪除場次</button>
+        {s.isBriefing ? (
+          <span className="ml-auto text-caption text-ink-500">說明會（年度必備，不可刪除）</span>
+        ) : (
+          <button type="button" onClick={del} className="ml-auto text-caption text-danger-600 hover:underline focus-ring rounded">刪除場次</button>
+        )}
       </div>
     </div>
   );

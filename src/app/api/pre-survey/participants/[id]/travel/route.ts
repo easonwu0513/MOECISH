@@ -7,7 +7,10 @@ import { canEditAvailability } from '@/lib/pre-survey-window';
 import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS } from '@/lib/types';
 
 const Body = z.object({
-  transport: z.array(z.enum(SURVEY_TRANSPORT_OPTIONS)).max(SURVEY_TRANSPORT_OPTIONS.length).optional(),
+  // UAT 圖14:交通(含住宿)改「逐指派場次」填(地點不同交通不同);飲食全場次一致仍存受調者
+  sessionTransport: z
+    .object({ sessionId: z.string().min(1), transport: z.array(z.enum(SURVEY_TRANSPORT_OPTIONS)).max(SURVEY_TRANSPORT_OPTIONS.length) })
+    .optional(),
   diet: z.array(z.enum(SURVEY_DIET_OPTIONS)).max(SURVEY_DIET_OPTIONS.length).optional(),
   travelNote: z.string().trim().max(1000).nullable().optional(),
 });
@@ -43,15 +46,34 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
-    const data: Record<string, unknown> = {};
-    if (body.transport !== undefined) data.transport = JSON.stringify(Array.from(new Set(body.transport)));
-    if (body.diet !== undefined) data.diet = JSON.stringify(Array.from(new Set(body.diet)));
-    if (body.travelNote !== undefined) data.travelNote = body.travelNote?.trim() || null;
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
+    // 逐場次交通:寫入該受調者「該場次的指派列」(不存在=未被指派該場次,擋 crafted request)
+    if (body.sessionTransport !== undefined) {
+      const st = body.sessionTransport;
+      const assignment = await prisma.surveyFinalAssignment.findUnique({
+        where: { participantId_sessionId: { participantId: participant.id, sessionId: st.sessionId } },
+        include: { session: { select: { needsTravel: true } } },
+      });
+      if (!assignment) {
+        return NextResponse.json({ error: '您未被指派此場次，無法填寫其差旅資訊。' }, { status: 400 });
+      }
+      if (!assignment.session.needsTravel) {
+        return NextResponse.json({ error: '此場次為線上或無需差旅調查。' }, { status: 400 });
+      }
+      await prisma.surveyFinalAssignment.update({
+        where: { id: assignment.id },
+        data: { transport: JSON.stringify(Array.from(new Set(st.transport))) },
+      });
     }
 
-    await prisma.surveyParticipant.update({ where: { id: participant.id }, data });
+    const data: Record<string, unknown> = {};
+    if (body.diet !== undefined) data.diet = JSON.stringify(Array.from(new Set(body.diet)));
+    if (body.travelNote !== undefined) data.travelNote = body.travelNote?.trim() || null;
+    if (body.sessionTransport === undefined && Object.keys(data).length === 0) {
+      return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
+    }
+    if (Object.keys(data).length > 0) {
+      await prisma.surveyParticipant.update({ where: { id: participant.id }, data });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {

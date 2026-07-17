@@ -15,6 +15,7 @@ const Body = z.object({
   anonymizeForMember: z.boolean().optional(),
   anonymizeForObserver: z.boolean().optional(),
   sharedWithObserver: z.boolean().optional(),
+  needsTravel: z.boolean().optional(), // UAT 圖14:此場次是否需第二階段差旅
 });
 
 /** 編輯年度場次(批A;僅中心)。 */
@@ -47,6 +48,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (body.anonymizeForMember !== undefined) data.anonymizeForMember = body.anonymizeForMember;
     if (body.anonymizeForObserver !== undefined) data.anonymizeForObserver = body.anonymizeForObserver;
     if (body.sharedWithObserver !== undefined) data.sharedWithObserver = body.sharedWithObserver;
+    if (body.needsTravel !== undefined) data.needsTravel = body.needsTravel; // UAT 圖14
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });
     }
@@ -72,8 +74,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
-    const existing = await prisma.surveySession.findUnique({ where: { id: params.id }, select: { id: true } });
+    const existing = await prisma.surveySession.findUnique({
+      where: { id: params.id },
+      select: { id: true, isBriefing: true },
+    });
     if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+    // UAT 圖14:受稽機關說明會為年度必備場次,不可刪除(名稱/日期可編輯)
+    if (existing.isBriefing) {
+      return NextResponse.json({ error: '「受稽機關說明會」為年度必備場次，不可刪除；可編輯其名稱與時間。' }, { status: 400 });
+    }
 
     await prisma.surveySession.delete({ where: { id: params.id } });
 

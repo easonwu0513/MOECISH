@@ -24,7 +24,12 @@ export function computeStatus(data: SelfDTO): Status {
   const willingnessSent = !!data.submittedAt;
   const needsStage1 = !willingnessSent || !docsSubmitted;
   const isAssigned = data.assignedLabels.length > 0;
-  const needsStage2 = !needsStage1 && isAssigned && (data.transport.length === 0 || data.diet.length === 0);
+  // UAT 圖14:二階=「需差旅的指派場次」逐場次交通皆填 + 飲食;全為線上場次(needsTravel=false)則二階免填
+  const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+  const needsStage2 =
+    !needsStage1 &&
+    travelSessions.length > 0 &&
+    (travelSessions.some((a) => a.transport.length === 0) || data.diet.length === 0);
   const waitingForAssignment = !needsStage1 && !isAssigned;
 
   if (docsReturned) {

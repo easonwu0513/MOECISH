@@ -645,6 +645,10 @@ model SurveySession {
   // D UAT:此場次是否為委員與觀察員「共同場次」(預設 true);false=委員專屬(如委員共識會議),觀察員自助頁與達標卡不含此場次
   sharedWithObserver   Boolean  @default(true)
   isRequired          Boolean  @default(false) // 必參加
+  // UAT 圖14:此場次是否需要第二階段差旅(交通住宿)調查;線上會議(如共識會議)設 false 免填
+  needsTravel         Boolean  @default(true)
+  // UAT 圖14:受稽機關說明會(年度必備場次,不可刪除;名稱/日期可編)
+  isBriefing          Boolean  @default(false)
   remark              String? // 給受調者看的備註
   targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)
   targetObserverCount Int      @default(0) // 目標觀察員數
@@ -763,6 +767,9 @@ model SurveyFinalAssignment {
   participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   sessionId     String
   session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // UAT 圖14:逐場次交通方式(含住宿;JSON string[])——地點不同交通不同,故存於指派而非受調者;
+  // 飲食(diet)全場次一致,仍存 SurveyParticipant。
+  transport     String?
   assignedById  String // 指派者快照
   assignedAt    DateTime          @default(now())
 

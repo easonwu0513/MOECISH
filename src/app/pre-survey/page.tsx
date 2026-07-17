@@ -111,7 +111,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
       orderBy: { kind: 'asc' }, // 確定性:MEMBER 在前(雙身分預設頁籤)
       include: {
         availabilities: { select: { sessionId: true, status: true } },
-        finalAssignments: { include: { session: { select: { id: true, name: true, date: true } } } },
+        finalAssignments: { include: { session: { select: { id: true, name: true, date: true, needsTravel: true } } } },
       },
     });
     const dual = myParts.length > 1;
@@ -166,7 +166,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     include: {
       user: { select: { name: true } },
       availabilities: { select: { sessionId: true, status: true } },
-      finalAssignments: { select: { sessionId: true } },
+      // UAT 圖14:交通逐場次(存指派列),帶場次名/needsTravel 供管考顯示
+      finalAssignments: { select: { sessionId: true, transport: true, session: { select: { name: true, needsTravel: true } } } },
     },
     orderBy: { invitedAt: 'asc' },
   });
@@ -210,6 +211,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     anonymizeForObserver: s.anonymizeForObserver,
     sharedWithObserver: s.sharedWithObserver,
     sourceCycleId: s.sourceCycleId,
+    needsTravel: s.needsTravel,
+    isBriefing: s.isBriefing,
   }));
 
   // 中心自訂欄位(mockup 改版;年度制)。#5:selfEditable=開放受調者填寫、dueDate=填報到期日(供催辦)
@@ -266,7 +269,13 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     cvFile: docBy.get(p.id)?.cv ?? null,
     ndaFile: docBy.get(p.id)?.nda ?? null,
     priorCvFile: docBy.get(p.id)?.priorCv ?? null,
-    transport: parseArr(p.transport),
+    // UAT 圖14:交通逐場次(「場次名:選項」;僅列需差旅場次);線上場次不列
+    transport: p.finalAssignments
+      .filter((fa) => fa.session.needsTravel)
+      .map((fa) => {
+        const arr = parseArr(fa.transport);
+        return `${fa.session.name}：${arr.length > 0 ? arr.join('、') : '未填'}`;
+      }),
     diet: parseArr(p.diet),
     travelNote: p.travelNote,
     customValues: parseObj(p.customValues),

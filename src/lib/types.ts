@@ -231,7 +231,8 @@ export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
 }
 /** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
 export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
-  MEMBER: ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'],
+  // UAT 圖15:移除 CV_SAMPLE(去年度經歷說明書)公版槽——個別委員舊版經歷改走右側逐人上傳(prior-cv)
+  MEMBER: ['CV_BLANK', 'NDA_BLANK'],
   OBSERVER: ['NDA_BLANK_OBSERVER'],
 };
 

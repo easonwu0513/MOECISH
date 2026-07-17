@@ -16,6 +16,9 @@ const Body = z.object({
   anonymizeForMember: z.boolean().optional(),
   anonymizeForObserver: z.boolean().optional(),
   sharedWithObserver: z.boolean().optional(),
+  // UAT 圖14:是否需要第二階段差旅(線上會議設 false);isBriefing=受稽機關說明會(年度必備,不可刪)
+  needsTravel: z.boolean().optional(),
+  isBriefing: z.boolean().optional(),
 });
 
 /** 新增年度場次(批A;僅中心 SUPER_ADMIN)。orderIndex 附加於該年度末端,決定受調者看到的匿名序號。 */
@@ -42,6 +45,8 @@ export async function POST(req: Request) {
         anonymizeForMember: body.anonymizeForMember ?? true,
         anonymizeForObserver: body.anonymizeForObserver ?? true,
         sharedWithObserver: body.sharedWithObserver ?? true,
+        needsTravel: body.needsTravel ?? true,
+        isBriefing: body.isBriefing ?? false,
         orderIndex: (last?.orderIndex ?? -1) + 1,
         createdById: user.id,
       },

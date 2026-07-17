@@ -334,9 +334,11 @@ export default async function HomePage() {
             survey
               ? !survey.submittedAt || survey.docStatus !== 'SUBMITTED'
                 ? 1
-                : survey.assignedLabels.length > 0 && (survey.transport.length === 0 || survey.diet.length === 0)
-                  ? 2
-                  : null
+                : (() => {
+                    // UAT 圖14:二階=需差旅場次逐場次交通皆填+飲食;全線上場次免二階
+                    const ts = survey.assignedSessions.filter((a) => a.needsTravel);
+                    return ts.length > 0 && (ts.some((a) => a.transport.length === 0) || survey.diet.length === 0) ? 2 : null;
+                  })()
               : null
           }
         />
