@@ -16,6 +16,7 @@ import { fmtROC } from '@/lib/date';
 import { cn } from '@/lib/cn';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
 import BatchCreateCycles from '@/app/admin/cycles/BatchCreateCycles';
+import { DeleteDraftCycleButton } from './DeleteDraftCycleButton';
 
 // 委員/機關清單依登入者即時查詢(含新指派的週期),不可被靜態快取
 export const dynamic = 'force-dynamic';
@@ -191,7 +192,13 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
                       </div>
                     </>
                   ) : (
-                    <p className="text-caption text-ink-500">尚未發布缺失</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-caption text-ink-500">尚未發布缺失</p>
+                      {/* UAT 圖11:開立中(DRAFT)可刪(僅中心;誤開立清理,進入後續階段即不可刪) */}
+                      {isCenter && c.status === 'DRAFT' && (
+                        <DeleteDraftCycleButton cycleId={c.id} orgName={orgName} />
+                      )}
+                    </div>
                   )}
                   {lockedForAuditor && (
                     <p className="mt-2 text-caption text-ink-500">本週期已結案，資料已鎖定，委員無法再進入檢視。</p>

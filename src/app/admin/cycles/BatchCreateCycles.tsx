@@ -114,7 +114,8 @@ export default function BatchCreateCycles({
         }
       >
         <div className="flex flex-col gap-4 pt-2">
-          <div className="grid grid-cols-2 gap-3">
+          {/* UAT 圖12:TextField(浮動 label)與 Select(外置 label)高度不同,以 items-end 對齊底線 */}
+          <div className="grid grid-cols-2 gap-3 items-end">
             <TextField label="年度（西元）" value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026" />
             <Select label="題庫版本" value={versionId} onChange={(e) => setVersionId(e.target.value)}>
               {versions.map((v) => (
