@@ -1466,14 +1466,21 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
         ref={btnRef}
         type="button"
         onClick={() => (open ? setOpen(false) : openMenu())}
-        className="inline-flex max-w-[160px] items-center gap-1 text-left text-caption text-primary-700 hover:underline focus-ring rounded"
+        className="inline-flex items-start gap-1 text-left text-caption text-primary-700 hover:underline focus-ring rounded"
         title="指派最終場次"
       >
-        <MapPin size={13} className="shrink-0" />
-        <span className="truncate">
-          {assigned.length > 0 ? assigned.map((s) => `${s.dateLabel} ${s.name}`).join('、') : '指派'}
-        </span>
-        <ChevronDown size={12} className="shrink-0" />
+        <MapPin size={13} className="shrink-0 mt-0.5" />
+        {/* UAT 圖17:被指派場次詳列(逐場次一行),不以省略號截斷 */}
+        {assigned.length > 0 ? (
+          <span className="flex flex-col gap-0.5">
+            {assigned.map((s) => (
+              <span key={s.id} className="whitespace-nowrap">{s.dateLabel} {s.name}</span>
+            ))}
+          </span>
+        ) : (
+          <span>指派</span>
+        )}
+        <ChevronDown size={12} className="shrink-0 mt-0.5" />
       </button>
       {open && pos && (
         <>

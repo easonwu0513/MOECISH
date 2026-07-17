@@ -264,6 +264,20 @@ export default async function HomePage() {
         : user.role === 'OBSERVER'
           ? `觀察員 · 受配對 ${cycles.length} 個週期`
           : `中心 · 監督 ${orgCount} 院`;
+  // UAT:委員/觀察員的事前場次調查整合進總覽身分帶(頭像/狀態徽章開彈窗),不再側欄單列一個入口。
+  const survey =
+    user.role === 'AUDITOR' || user.role === 'OBSERVER'
+      ? await loadDashboardSelfSurvey(user.id, user.email ?? null)
+      : null;
+  // UAT 圖18:調查待辦入列(置頂)——未被指派稽核週期前,委員的首要待辦即事前場次調查一階/二階
+  if (survey) {
+    const travelSessions = survey.assignedSessions.filter((a) => a.needsTravel);
+    if (!survey.submittedAt || survey.docStatus !== 'SUBMITTED') {
+      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: '事前場次調查：請填寫出席意願並繳交文件（第一階段）', href: '/pre-survey', cta: '去填寫' });
+    } else if (travelSessions.length > 0 && (travelSessions.some((a) => a.transport.length === 0) || survey.diet.length === 0)) {
+      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey', cta: '去填寫' });
+    }
+  }
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
   const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
@@ -272,12 +286,6 @@ export default async function HomePage() {
   // 中心跨院總覽讀數(院數型,對齊中心心智模型)
   const remediationCount = enriched.filter((e) => e.status === 'REMEDIATION').length;
   const confirmOrgs = orgsWith((e) => e.prepToConfirm);
-
-  // UAT:委員/觀察員的事前場次調查整合進總覽身分帶(頭像/狀態徽章開彈窗),不再側欄單列一個入口。
-  const survey =
-    user.role === 'AUDITOR' || user.role === 'OBSERVER'
-      ? await loadDashboardSelfSurvey(user.id, user.email ?? null)
-      : null;
   const identityRoleChip = <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>;
   const identityRight =
     todos.length > 0 ? (

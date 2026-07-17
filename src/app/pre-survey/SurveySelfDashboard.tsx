@@ -30,7 +30,8 @@ export function computeStatus(data: SelfDTO): Status {
     !needsStage1 &&
     travelSessions.length > 0 &&
     (travelSessions.some((a) => a.transport.length === 0) || data.diet.length === 0);
-  const waitingForAssignment = !needsStage1 && !isAssigned;
+  // UAT 圖18:改判「尚無任何需差旅的指派場次」——只被指派線上場次(免差旅)時仍屬「待分派後填報」,不誤顯已完成
+  const waitingForAssignment = !needsStage1 && travelSessions.length === 0;
 
   if (docsReturned) {
     const extra = willingnessSent ? '' : '另出席意願尚未送出，請一併於下方送出。';
@@ -43,7 +44,8 @@ export function computeStatus(data: SelfDTO): Status {
     return { tone: 'warning', label: '第一階段待完成', hint: `尚待完成：${missing.join('、')}。`, cta: '前往填寫' };
   }
   if (waitingForAssignment) {
-    return { tone: 'neutral', label: '待中心指派場次', hint: '第一階段已完成。待中心指派最終場次後，再填寫第二階段差旅與飲食。', cta: '檢視' };
+    // UAT 圖18:提醒色 + 明示「等中心分派完場次才填」——含「僅被指派免差旅場次(如線上說明會)」情境
+    return { tone: 'warning', label: '第二階段待中心完成場次分派後填報', hint: '第一階段已完成。待中心完成場次分派後，再填寫第二階段差旅（交通住宿）與飲食。', cta: '檢視' };
   }
   if (needsStage2) {
     return {
