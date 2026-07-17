@@ -1438,6 +1438,14 @@ function AddParticipantDialog({
 
 // ── E UAT:管考表「最終場次」內嵌下拉多選(顯示已指派 + 直接勾選指派,免點進彈窗) ──
 // 用 fixed 定位讓下拉逃出管考矩陣的 overflow-auto 內捲容器(否則會被裁切)。
+/** UAT 圖38:構面 chip 配色(方便辨識;未知構面 fallback neutral)。 */
+const ASPECT_CHIP_TONE: Record<string, 'primary' | 'warning' | 'success' | 'sage'> = {
+  管理面: 'primary',
+  策略面: 'warning',
+  技術面: 'success',
+  '管理面-OT': 'sage',
+};
+
 /** UAT 圖28:解析「專長」欄(JSON 陣列;舊單值字串相容為單元素)。 */
 function parseSpecialties(raw: string | null): string[] {
   if (!raw) return [];
@@ -1584,7 +1592,11 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
             {assigned.map((s) => (
               <span key={s.id} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 {s.dateLabel} {s.name}
-                {p.finalAspects[s.id] && <Chip size="sm" tone="primary">{p.finalAspects[s.id]}</Chip>}
+                {p.finalAspects[s.id] && (
+                  <Chip size="sm" tone={ASPECT_CHIP_TONE[p.finalAspects[s.id] as string] ?? 'neutral'}>
+                    {p.finalAspects[s.id]}
+                  </Chip>
+                )}
               </span>
             ))}
           </span>
