@@ -39,6 +39,7 @@ export type AdminSessionDTO = {
   anonymizeForMember: boolean; // 對委員是否匿名地點
   anonymizeForObserver: boolean; // 對觀察員是否匿名地點
   sharedWithObserver: boolean; // 是否委員與觀察員共同場次(false=委員專屬,如委員共識會議)
+  sourceCycleId: string | null; // UAT 圖13:由稽核週期帶入(非 null)→日期鎖定,隨週期實地稽核日連動
 };
 export type AdminParticipantDTO = {
   id: string;
@@ -1242,7 +1243,8 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        name: name.trim(), date: date || null, isRequired: required, remark: remark.trim() || null,
+        // UAT 圖13:帶入場次的日期鎖定(不送 date;後端亦硬擋),僅隨來源週期實地稽核日連動
+        name: name.trim(), ...(s.sourceCycleId ? {} : { date: date || null }), isRequired: required, remark: remark.trim() || null,
         targetMemberCount: Number(tm) || 0, targetObserverCount: Number(to) || 0,
         anonymizeForMember: anonM, anonymizeForObserver: anonO, sharedWithObserver: shared,
       }),
@@ -1264,7 +1266,14 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
     <div className="rounded-md border border-rule bg-card p-3.5">
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <TextField
+          label="日期"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          disabled={!!s.sourceCycleId}
+          helperText={s.sourceCycleId ? '由稽核週期帶入：日期鎖定，請至該週期修改「實地稽核日期」自動連動' : undefined}
+        />
         <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
         <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>

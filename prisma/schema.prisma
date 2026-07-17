@@ -649,6 +649,9 @@ model SurveySession {
   targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)
   targetObserverCount Int      @default(0) // 目標觀察員數
   orderIndex          Int      @default(0) // 穩定排序 → 決定受調者看到的匿名序號
+  // UAT 圖13:由稽核週期「帶入」時的來源週期 id(手動場次為 null)。帶入場次的 date 鎖定,
+  // 僅隨該週期實地稽核日連動變更;無 FK(週期刪除後場次留存,連動自然失效)。
+  sourceCycleId       String?
   createdById         String // 建立者快照(權責分立)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

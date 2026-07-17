@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     const cycles = await prisma.auditCycle.findMany({
       where: { year, onsiteDate: { not: null } },
-      select: { onsiteDate: true, organization: { select: { name: true, shortName: true } } },
+      select: { id: true, onsiteDate: true, organization: { select: { name: true, shortName: true } } },
       orderBy: { onsiteDate: 'asc' },
     });
     if (cycles.length === 0) {
@@ -28,10 +28,10 @@ export async function POST(req: Request) {
 
     const existing = await prisma.surveySession.findMany({
       where: { year },
-      select: { name: true, date: true, orderIndex: true },
+      select: { id: true, name: true, date: true, orderIndex: true, sourceCycleId: true },
     });
     const keyOf = (name: string, date: Date | null) => `${name}|${date ? date.toISOString() : ''}`;
-    const existKey = new Set(existing.map((s) => keyOf(s.name, s.date)));
+    const existKey = new Map(existing.map((s) => [keyOf(s.name, s.date), s]));
     let nextOrder = existing.reduce((m, s) => Math.max(m, s.orderIndex), -1) + 1;
 
     let created = 0;
@@ -39,11 +39,19 @@ export async function POST(req: Request) {
     for (const c of cycles) {
       const name = c.organization.shortName ?? c.organization.name;
       const key = keyOf(name, c.onsiteDate);
-      if (existKey.has(key)) { skipped += 1; continue; }
-      await prisma.surveySession.create({
-        data: { year, name, date: c.onsiteDate, createdById: user.id, orderIndex: nextOrder },
+      const match = existKey.get(key);
+      if (match) {
+        // UAT 圖13 冪等補標:sourceCycleId 欄位加入前帶入的舊場次,匹配到即補來源(使日期鎖定/連動生效)
+        if (!match.sourceCycleId) {
+          await prisma.surveySession.update({ where: { id: match.id }, data: { sourceCycleId: c.id } });
+        }
+        skipped += 1;
+        continue;
+      }
+      const s = await prisma.surveySession.create({
+        data: { year, name, date: c.onsiteDate, sourceCycleId: c.id, createdById: user.id, orderIndex: nextOrder },
       });
-      existKey.add(key);
+      existKey.set(key, { id: s.id, name, date: c.onsiteDate, orderIndex: nextOrder, sourceCycleId: c.id });
       nextOrder += 1;
       created += 1;
     }

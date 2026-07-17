@@ -23,8 +23,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
 
-    const existing = await prisma.surveySession.findUnique({ where: { id: params.id }, select: { id: true } });
+    const existing = await prisma.surveySession.findUnique({
+      where: { id: params.id },
+      select: { id: true, sourceCycleId: true },
+    });
     if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+
+    // UAT 圖13(伺服器端強制):由稽核週期帶入的場次,日期鎖定——僅隨該週期實地稽核日連動
+    if (body.date !== undefined && existing.sourceCycleId) {
+      return NextResponse.json(
+        { error: '此場次由稽核週期帶入，日期請至該稽核週期修改「實地稽核日期」，此處將自動連動。' },
+        { status: 400 },
+      );
+    }
 
     const data: Record<string, unknown> = {};
     if (body.name !== undefined) data.name = body.name;
