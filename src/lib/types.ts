@@ -242,10 +242,15 @@ export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readon
 export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸'] as const;
 export const SURVEY_TRANSIT_MODES = ['高鐵', '火車', '客運', '其他'] as const;
 export const TRANSIT_PREFIX = '大眾運輸';
-/** 驗證 transport 陣列元素:基本選項,或「大眾運輸」複合 token(含未選工具的過渡態)。 */
+/**
+ * 驗證 transport 陣列元素:基本選項、「大眾運輸」複合 token(含未選工具的過渡態),
+ * 或「汽車」複合 token(UAT 圖23:協助停車+車號──「汽車：協助停車」「汽車：協助停車：ABC-1234」)。
+ */
 export function isValidTransportToken(t: string): boolean {
   if ((SURVEY_TRANSPORT_OPTIONS as readonly string[]).includes(t)) return true;
   if (t === TRANSIT_PREFIX) return true;
+  if (t === '汽車：協助停車') return true;
+  if (/^汽車：協助停車：.{1,20}$/.test(t)) return true;
   const m = t.match(/^大眾運輸：(高鐵|火車|客運|其他)(：(.{0,50}))?$/);
   return !!m && (m[1] === '其他' || m[2] === undefined);
 }

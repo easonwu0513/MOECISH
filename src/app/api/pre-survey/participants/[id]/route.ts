@@ -28,7 +28,12 @@ const Body = z.object({
   // 自訂欄位單格值(mockup 改版;value 為空字串=清除該格)。中心可改任一欄;
   // 受調者本人僅限已開放填寫(selfEditable)的欄位(於下方 PATCH 內把關)。
   customValue: z.object({ columnId: z.string().min(1), value: z.string().max(500) }).optional(),
+  // UAT 圖24 安全鎖:聯絡資訊為受調者本人填報結果,中心代改必附變動原因(進稽核軌跡);本人自改不需
+  reason: z.string().trim().max(500).optional(),
 });
+
+/** 聯絡資訊欄組(UAT 圖24:中心改動需原因解鎖) */
+const CONTACT_FIELDS = ['phone', 'email', 'phone2', 'email2', 'proxyName', 'proxyEmail', 'proxyPhone'] as const;
 
 /** 解析 customValues JSON;壞資料回空物件。 */
 function parseCustomValues(json: string | null): Record<string, string> {
@@ -72,6 +77,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (!col || col.year !== participant.year || !col.selfEditable) {
         return NextResponse.json({ error: '此欄位未開放您填寫' }, { status: 403 });
       }
+    }
+
+    // UAT 圖24 安全鎖(伺服器端強制,防繞過前端):中心修改聯絡資訊欄組必附變動原因
+    const contactTouched = CONTACT_FIELDS.some((f) => body[f] !== undefined);
+    if (isAdmin && contactTouched && !body.reason) {
+      return NextResponse.json({ error: '中心修改受調者聯絡資訊須填寫變動原因（解鎖修改）' }, { status: 400 });
     }
 
     // UAT 圖21:主要聯絡方式必填——不允許將主要信箱/電話清為空(伺服器端強制)
@@ -141,7 +152,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       action: 'SURVEY_PARTICIPANT_UPDATE',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { fields: [...Object.keys(data), ...(cv !== undefined ? ['customValues'] : [])], byAdmin: isAdmin },
+      after: {
+        fields: [...Object.keys(data), ...(cv !== undefined ? ['customValues'] : [])],
+        byAdmin: isAdmin,
+        // UAT 圖24:中心改聯絡欄的變動原因留痕
+        ...(isAdmin && contactTouched && body.reason ? { reason: body.reason } : {}),
+      },
       ...extractRequestMeta(req),
     });
 

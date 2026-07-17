@@ -701,31 +701,73 @@ function SessionTransportPicker({
   const parts = (transit ?? '').split('：');
   const mode = parts[1] ?? null;
   const [otherNote, setOtherNote] = useState(parts[2] ?? '');
-  const basics = tokens.filter((t) => t !== transit);
-  const selectedPills = [...basics, ...(transit ? [TRANSIT_PREFIX] : [])];
+  // UAT 圖23:汽車複合 token(「汽車」「汽車：協助停車」「汽車：協助停車：車號」)
+  const car = tokens.find((t) => t === '汽車' || t.startsWith('汽車：')) ?? null;
+  const carParts = (car ?? '').split('：');
+  const carAssist = carParts.length > 1;
+  const [plate, setPlate] = useState(carParts[2] ?? '');
+  const basics = tokens.filter((t) => t !== transit && t !== car);
+  const rest = [...(car ? [car] : []), ...(transit ? [transit] : [])];
+  const selectedPills = [...basics, ...(car ? ['汽車'] : []), ...(transit ? [TRANSIT_PREFIX] : [])];
 
   function togglePill(v: string) {
     if (v === TRANSIT_PREFIX) {
-      onChange(transit ? basics : [...basics, TRANSIT_PREFIX]);
+      onChange([...basics, ...(car ? [car] : []), ...(transit ? [] : [TRANSIT_PREFIX])]);
+    } else if (v === '汽車') {
+      onChange([...basics, ...(car ? [] : ['汽車']), ...(transit ? [transit] : [])]);
     } else {
       const nextBasics = basics.includes(v) ? basics.filter((x) => x !== v) : [...basics, v];
-      onChange([...nextBasics, ...(transit ? [transit] : [])]);
+      onChange([...nextBasics, ...rest]);
     }
   }
   function setMode(m: string) {
     const token =
       m === '其他' && otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：${m}`;
-    onChange([...basics, token]);
+    onChange([...basics, ...(car ? [car] : []), token]);
   }
   function saveOtherNote() {
     if (mode !== '其他') return;
     const token = otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：其他`;
-    if (token !== transit) onChange([...basics, token]);
+    if (token !== transit) onChange([...basics, ...(car ? [car] : []), token]);
+  }
+  function setCarAssist(checked: boolean) {
+    const token = checked
+      ? plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車'
+      : '汽車';
+    onChange([...basics, token, ...(transit ? [transit] : [])]);
+  }
+  function savePlate() {
+    if (!car || !carAssist) return;
+    const token = plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車';
+    if (token !== car) onChange([...basics, token, ...(transit ? [transit] : [])]);
   }
 
   return (
     <div>
       <MultiPills label={label} options={SURVEY_TRANSPORT_OPTIONS} selected={selectedPills} busy={busy} onToggle={togglePill} />
+      {car && (
+        <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+          <label className="flex items-center gap-2 text-body-sm text-ink-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={carAssist}
+              disabled={busy}
+              onChange={(e) => setCarAssist(e.target.checked)}
+              className="rounded border-rule accent-primary-600"
+            />
+            需要協助安排停車
+          </label>
+          {carAssist && (
+            <TextField
+              label="車號"
+              value={plate}
+              onChange={(e) => setPlate(e.target.value)}
+              onBlur={savePlate}
+              placeholder="如：ABC-1234"
+            />
+          )}
+        </div>
+      )}
       {transit && (
         <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm text-ink-700">

@@ -685,6 +685,9 @@ function AdminProfileDialog({
   const [proxyEmail, setProxyEmail] = useState('');
   const [proxyPhone, setProxyPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  // UAT 圖24:聯絡欄安全鎖(填變動原因才可儲存)
+  const [contactReasonOpen, setContactReasonOpen] = useState(false);
+  const [contactReason, setContactReason] = useState('');
   const [reviewReason, setReviewReason] = useState('');
   const [reviewing, setReviewing] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -705,7 +708,9 @@ function AdminProfileDialog({
   const isObserver = p.kind === 'OBSERVER';
   const assignedNames = sessions.filter((s) => p.finalSessionIds.includes(s.id)).map((s) => `${s.dateLabel} ${s.name}`);
 
+  // UAT 圖24 安全鎖:聯絡資訊為受調者本人填報結果,中心代改須填變動原因(後端同步強制、進稽核軌跡)
   async function saveContact() {
+    if (!contactReason.trim()) { toast.error('請填寫變動原因'); return; }
     setSaving(true);
     const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
       method: 'PATCH',
@@ -718,11 +723,14 @@ function AdminProfileDialog({
         proxyName: proxyName.trim() || null,
         proxyEmail: proxyEmail.trim() || null,
         proxyPhone: proxyPhone.trim() || null,
+        reason: contactReason.trim(),
       }),
     });
     setSaving(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
     toast.success('已儲存聯絡資訊');
+    setContactReasonOpen(false);
+    setContactReason('');
     router.refresh();
   }
 
@@ -786,7 +794,22 @@ function AdminProfileDialog({
             <TextField label="代理聯絡人電話" value={proxyPhone} onChange={(e) => setProxyPhone(e.target.value)} placeholder="無代理則留空" />
           </div>
           <div className="mt-2">
-            <Button size="sm" variant="tonal" onClick={saveContact} loading={saving} disabled={saving}>儲存聯絡資訊</Button>
+            {contactReasonOpen ? (
+              <div className="w-full space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+                <TextField
+                  label="變動原因（必填，記入稽核軌跡）"
+                  value={contactReason}
+                  onChange={(e) => setContactReason(e.target.value)}
+                  placeholder="如：委員來電告知更換聯絡方式"
+                />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={saveContact} loading={saving} disabled={saving}>解鎖並儲存</Button>
+                  <Button size="sm" variant="text" onClick={() => setContactReasonOpen(false)} disabled={saving}>取消</Button>
+                </div>
+              </div>
+            ) : (
+              <Button size="sm" variant="tonal" onClick={() => { setContactReason(''); setContactReasonOpen(true); }}>儲存聯絡資訊</Button>
+            )}
           </div>
         </section>
 
