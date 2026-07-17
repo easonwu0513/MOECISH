@@ -74,6 +74,7 @@ export type AdminParticipantDTO = {
   availability: Record<string, string>; // sessionId → status
   finalSessionIds: string[];
   finalAspects: Record<string, string | null>; // UAT 圖28:sessionId → 該場次被指派的構面(null=免構面,如說明會)
+  receiptReturned: boolean; // UAT 圖36:委員是否已回傳領據(寄信收送;中心勾選統計)
 };
 export type PoolUser = { id: string; name: string; email: string };
 export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
@@ -136,7 +137,7 @@ export default function SurveyAdminBoard({
   );
 
   const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
-  const colCount = visibleSessions.length + customColumns.length + 9 + (kind === 'MEMBER' ? 1 : 0); // UAT 圖28:移除意願回信欄
+  const colCount = visibleSessions.length + customColumns.length + 9 + (kind === 'MEMBER' ? 2 : 0); // UAT 圖28 移除意願回信;圖36 委員加回傳領據欄
 
   async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -282,8 +283,9 @@ export default function SurveyAdminBoard({
                     </th>
                   );
                 })}
-                {/* 右群組:文件交接 / 交通 / 飲食 / 電話 / 備註 */}
+                {/* 右群組:文件交接 / 回傳領據(委員) / 交通 / 飲食 / 電話 / 備註 */}
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">文件交接</th>
+                {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-center font-medium">回傳領據</th>}
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">聯絡電話</th>
@@ -424,6 +426,19 @@ export default function SurveyAdminBoard({
                         ))}
                       </Select>
                     </td>
+                    {/* UAT 圖36:回傳領據(委員;寄信收送,中心手動勾選統計) */}
+                    {kind === 'MEMBER' && (
+                      <td className="px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-rule accent-primary-600"
+                          checked={p.receiptReturned}
+                          disabled={busy}
+                          onChange={(e) => patchParticipant(p.id, { receiptReturned: e.target.checked })}
+                          aria-label={`${p.name} 是否已回傳領據`}
+                        />
+                      </td>
+                    )}
                     {/* 交通 / 飲食(唯讀;本人填) */}
                     <td className="px-3 py-2 text-caption text-ink-700">
                       {p.transport.length > 0 ? (

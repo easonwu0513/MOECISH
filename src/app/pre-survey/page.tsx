@@ -284,6 +284,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     availability: Object.fromEntries(p.availabilities.map((a) => [a.sessionId, a.status])),
     finalSessionIds: p.finalAssignments.map((fa) => fa.sessionId),
     finalAspects: Object.fromEntries(p.finalAssignments.map((fa) => [fa.sessionId, fa.aspect])),
+    receiptReturned: p.receiptReturned,
   }));
 
   return (

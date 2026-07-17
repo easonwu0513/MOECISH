@@ -59,8 +59,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const targetType = slot === 'CV' ? 'SURVEY_CV' : slot === 'RECEIPT' ? 'SURVEY_RECEIPT' : 'SURVEY_NDA';
 
-    // UAT 圖30/34:領據——委員常設(報支出席費/差旅費/評鑑費);觀察員為年度開關制,未開放不可上傳
-    if (slot === 'RECEIPT' && participant.kind === 'OBSERVER') {
+    // UAT 圖30/36:領據上傳僅觀察員(年度開關制);委員領據改寄信收送,不走系統上傳
+    if (slot === 'RECEIPT') {
+      if (participant.kind !== 'OBSERVER') {
+        return NextResponse.json({ error: '委員領據以寄信方式收送，不於系統上傳。' }, { status: 400 });
+      }
       const win = await prisma.surveyFillWindow.findUnique({
         where: { year: participant.year },
         select: { observerReceiptEnabled: true },

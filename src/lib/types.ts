@@ -236,8 +236,8 @@ export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
 /** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
 export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
   // UAT 圖15:移除 CV_SAMPLE(去年度經歷說明書)公版槽——個別委員舊版經歷改走右側逐人上傳(prior-cv)
-  // UAT 圖34:RECEIPT_MEMBER(委員費用領據)常設——報支說明會出席費/差旅費/評鑑費
-  MEMBER: ['CV_BLANK', 'NDA_BLANK', 'RECEIPT_MEMBER'],
+  // UAT 圖36:委員領據改回「寄信收送」不走系統上傳(RECEIPT_MEMBER 槽移除;管考表以 receiptReturned 勾選統計)
+  MEMBER: ['CV_BLANK', 'NDA_BLANK'],
   // UAT 圖30:RECEIPT_OBSERVER(差旅費領據)為年度開關制——該年度有報銷差旅費才開放(SurveyFillWindow.observerReceiptEnabled)
   OBSERVER: ['NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER'],
 };

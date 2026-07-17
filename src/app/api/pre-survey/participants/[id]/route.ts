@@ -27,6 +27,8 @@ const Body = z.object({
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
   // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願);僅中心可改。
   editUnlocked: z.boolean().optional(),
+  // UAT 圖36:委員是否已回傳領據(寄信收送;中心手動勾選供統計);僅中心可改。
+  receiptReturned: z.boolean().optional(),
   // 自訂欄位單格值(mockup 改版;value 為空字串=清除該格)。中心可改任一欄;
   // 受調者本人僅限已開放填寫(selfEditable)的欄位(於下方 PATCH 內把關)。
   customValue: z.object({ columnId: z.string().min(1), value: z.string().max(500) }).optional(),
@@ -65,7 +67,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       body.committeeTypes !== undefined ||
       body.replyStatus !== undefined ||
       body.docHandover !== undefined ||
-      body.editUnlocked !== undefined;
+      body.editUnlocked !== undefined ||
+      body.receiptReturned !== undefined;
     if (adminOnlyTouched && !isAdmin) {
       return NextResponse.json({ error: '此欄位僅中心可調整' }, { status: 403 });
     }
@@ -120,6 +123,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;
       if (body.editUnlocked !== undefined) data.editUnlocked = body.editUnlocked;
+      if (body.receiptReturned !== undefined) data.receiptReturned = body.receiptReturned;
     }
     const cv = body.customValue; // 中心或(通過上方欄位閘的)本人;customValues 為 read-modify-write,另走交易避免遺失更新
     if (Object.keys(data).length === 0 && cv === undefined) {

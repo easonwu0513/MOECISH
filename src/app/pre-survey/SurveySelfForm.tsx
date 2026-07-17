@@ -541,9 +541,9 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             <div>
               <h3 className="text-label text-ink-900">第二階段：差旅與飲食調查</h3>
               <p className="mt-1 text-body-sm text-ink-900">您被指派的最終場次：{data.assignedLabels.join('、')}</p>
-              {/* UAT 圖33:僅觀察員——費用自理說明 */}
+              {/* UAT 圖33/35:僅觀察員——費用自理說明 */}
               {isObserver && (
-                <p className="mt-1 text-caption text-ink-500">本次稽核活動須自行負擔交通及住宿費用。</p>
+                <p className="mt-1 text-caption text-ink-500">本年度稽核活動須自行負擔交通及住宿費用。</p>
               )}
             </div>
           </div>

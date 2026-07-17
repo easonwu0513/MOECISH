@@ -84,6 +84,7 @@ export async function GET(req: Request) {
       ...sessions.map((s) => `${md(s.date)} ${s.name}`),
       '最終場次',
       '文件交接',
+      ...(kind === 'MEMBER' ? ['是否回傳領據'] : []),
       '交通',
       '飲食',
       '備註',
@@ -125,6 +126,7 @@ export async function GET(req: Request) {
         }),
         finalLabels.join(' / '),
         SURVEY_DOC_HANDOVER_LABELS[p.docHandover as SurveyDocHandover] ?? p.docHandover,
+        ...(kind === 'MEMBER' ? [p.receiptReturned ? '已回傳' : '未回傳'] : []),
         // UAT 圖14:交通逐場次(「場次:選項」;線上場次不列)
         p.finalAssignments
           .filter((fa) => fa.session.needsTravel)

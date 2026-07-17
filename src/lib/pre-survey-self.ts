@@ -118,8 +118,8 @@ export async function buildSelfDTO(opts: {
     where: { year: participant.year },
     select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
   });
-  // UAT 圖30/34:領據開放——委員常設(費用領據);觀察員依年度開關
-  const receiptEnabled = kind === 'MEMBER' ? true : !!fillWin?.observerReceiptEnabled;
+  // UAT 圖30/36:領據上傳僅觀察員(依年度開關);委員領據改寄信收送,不走系統
+  const receiptEnabled = kind === 'MEMBER' ? false : !!fillWin?.observerReceiptEnabled;
   const now = new Date();
   const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
   // UAT 圖7 雙時窗:文件上傳與意願共用第一時窗;差旅(交通/飲食)走第二時窗(場次確定後才開放)。
