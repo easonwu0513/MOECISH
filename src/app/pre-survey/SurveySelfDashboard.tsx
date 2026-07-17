@@ -48,10 +48,11 @@ export function computeStatus(data: SelfDTO): Status {
     return { tone: 'warning', label: '第二階段待中心完成場次分派後填報', hint: '第一階段已完成。待中心完成場次分派後，再填寫第二階段差旅（交通住宿）與飲食。', cta: '檢視' };
   }
   if (needsStage2) {
+    // UAT 圖18/25:與待分派態統一字樣與提醒色(使用者指定文案;hint 仍引導立即填寫)
     return {
-      tone: 'primary',
-      label: '第二階段待完成',
-      hint: `您已獲指派：${data.assignedLabels.join('、')}。請填寫往返交通方式與飲食需求。`,
+      tone: 'warning',
+      label: '第二階段待中心完成場次分派後填報',
+      hint: `您已獲指派：${data.assignedLabels.join('、')}。請填寫各場次往返交通方式與飲食需求。`,
       cta: '前往填寫',
     };
   }
