@@ -91,12 +91,13 @@ export async function buildSelfDTO(opts: {
   const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
 
   const myDocs = await prisma.evidence.findMany({
-    where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: participant.id },
+    where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT'] }, targetId: participant.id },
     select: { id: true, targetType: true, originalName: true },
   });
   const cvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV') ?? null;
   const ndaEv = myDocs.find((d) => d.targetType === 'SURVEY_NDA') ?? null;
   const priorCvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV_PRIOR') ?? null;
+  const receiptEv = myDocs.find((d) => d.targetType === 'SURVEY_RECEIPT') ?? null; // UAT 圖30
 
   // #5:中心開放受調者填寫的自訂欄位(selfEditable);帶各欄現值與到期日供本人填報
   const selfColumns = await prisma.surveyCustomColumn.findMany({
@@ -115,8 +116,9 @@ export async function buildSelfDTO(opts: {
   // UAT:意願填報時窗(逾窗鎖定編修/送出;中心可對本人 editUnlocked 開放補填)
   const fillWin = await prisma.surveyFillWindow.findUnique({
     where: { year: participant.year },
-    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true },
+    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
   });
+  const receiptEnabled = !!fillWin?.observerReceiptEnabled; // UAT 圖30:年度領據開關
   const now = new Date();
   const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
   // UAT 圖7 雙時窗:文件上傳與意願共用第一時窗;差旅(交通/飲食)走第二時窗(場次確定後才開放)。
@@ -137,6 +139,8 @@ export async function buildSelfDTO(opts: {
     proxyEmail: participant.proxyEmail,
     proxyPhone: participant.proxyPhone,
     submittedAt: participant.submittedAt?.toISOString() ?? null,
+    // UAT 圖29:主要聯絡(信箱+電話)未填寫完整——總覽身分帶警示用
+    contactIncomplete: !participant.email?.trim() || !participant.phone?.trim(),
     // UAT 填報時窗:canEditAvailability=false 時自助頁鎖定意願編修並顯示時窗說明
     canEditAvailability: canEdit,
     // UAT 圖7:文件上傳與意願同窗;差旅走第二時窗
@@ -163,8 +167,13 @@ export async function buildSelfDTO(opts: {
     cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
     ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
     priorCvFile: priorCvEv ? { id: priorCvEv.id, name: priorCvEv.originalName } : null,
-    // 依身分過濾公版範本(委員=CV+委員切結書;觀察員=觀察員切結書)
-    templates: templateDTOs.filter((t) => kindSlots.includes(t.slot)),
+    // UAT 圖30:領據(觀察員;年度開關制)
+    receiptEnabled,
+    receiptFile: receiptEv ? { id: receiptEv.id, name: receiptEv.originalName } : null,
+    // 依身分過濾公版範本(委員=CV+委員切結書;觀察員=觀察員切結書);領據範本僅開放年度顯示
+    templates: templateDTOs.filter(
+      (t) => kindSlots.includes(t.slot) && (t.slot !== 'RECEIPT_OBSERVER' || receiptEnabled),
+    ),
     transport: parseArr(participant.transport),
     diet: parseArr(participant.diet),
     travelNote: participant.travelNote,

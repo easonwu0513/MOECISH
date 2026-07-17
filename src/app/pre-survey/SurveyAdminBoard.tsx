@@ -97,7 +97,7 @@ export default function SurveyAdminBoard({
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
   customColumns: AdminColumnDTO[];
-  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null } | null; // 該年度雙時窗:意願+文件(第一)/差旅(第二)
+  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null; observerReceiptEnabled: boolean } | null; // 該年度雙時窗 + 領據開關(UAT 圖30)
   initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
 }) {
   const router = useRouter();
@@ -493,7 +493,14 @@ export default function SurveyAdminBoard({
 
       <SessionManagerDialog open={sessionMgrOpen} onOpenChange={setSessionMgrOpen} yearROC={yearROC} sessions={sessions} />
       <FillWindowDialog open={fillWindowOpen} onOpenChange={setFillWindowOpen} yearROC={yearROC} fillWindow={fillWindow} />
-      <TemplateManagerDialog open={templateMgrOpen} onOpenChange={setTemplateMgrOpen} yearROC={yearROC} templates={templates} kind={kind} />
+      <TemplateManagerDialog
+        open={templateMgrOpen}
+        onOpenChange={setTemplateMgrOpen}
+        yearROC={yearROC}
+        templates={templates}
+        kind={kind}
+        receiptEnabled={fillWindow?.observerReceiptEnabled ?? false}
+      />
       <AddParticipantDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -1786,13 +1793,28 @@ function FileRow({ label, file, hidden }: { label: string; file: { id: string; n
 
 // ── 公版範本管理對話框(逐槽上傳/替換/刪除) ──
 function TemplateManagerDialog({
-  open, onOpenChange, yearROC, templates, kind,
-}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[]; kind: SurveyParticipantKind }) {
+  open, onOpenChange, yearROC, templates, kind, receiptEnabled,
+}: { open: boolean; onOpenChange: (o: boolean) => void; yearROC: number; templates: AdminTemplateDTO[]; kind: SurveyParticipantKind; receiptEnabled: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [togglingReceipt, setTogglingReceipt] = useState(false);
   const bySlot = new Map(templates.map((t) => [t.slot, t]));
   const slots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind];
+
+  // UAT 圖30:年度領據開關——關閉時觀察員自助不顯示領據範本與上傳槽(上傳端亦硬擋)
+  async function toggleReceipt(next: boolean) {
+    setTogglingReceipt(true);
+    const res = await fetch('/api/pre-survey/fill-window', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: yearROC + 1911, observerReceiptEnabled: next }),
+    });
+    setTogglingReceipt(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '設定失敗' })); toast.error('設定失敗', j.error); return; }
+    toast.success(next ? '已開放本年度觀察員填寫差旅費領據' : '已關閉本年度差旅費領據');
+    router.refresh();
+  }
 
   async function upload(slot: string, e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1822,6 +1844,19 @@ function TemplateManagerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={`${yearROC} 年度公版範本（${kind === 'OBSERVER' ? '觀察員' : '委員'}）`} description="上傳空白經歷說明書/切結書等範本，供受調者下載填寫。觀察員切結書與委員分開。可為 Word 或 PDF。一槽一檔，重傳取代。">
       <div className="space-y-3 pt-2">
+        {/* UAT 圖30:年度領據開關(僅觀察員面)——有報銷差旅費的年度才開放觀察員填寫領據 */}
+        {kind === 'OBSERVER' && (
+          <label className="flex items-center gap-2.5 rounded-md border border-rule bg-paper-sunk/50 p-3 text-body-sm text-ink-900 cursor-pointer">
+            <input
+              type="checkbox"
+              className="accent-primary-600"
+              checked={receiptEnabled}
+              disabled={togglingReceipt}
+              onChange={(e) => toggleReceipt(e.target.checked)}
+            />
+            本年度開放觀察員填寫差旅費領據（有報銷差旅費的年度才開；關閉時觀察員看不到領據範本與上傳欄）
+          </label>
+        )}
         {slots.map((slot) => {
           const t = bySlot.get(slot);
           return (

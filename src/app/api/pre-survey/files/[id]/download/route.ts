@@ -12,7 +12,7 @@ const INLINE_MIME = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/i;
  *  - SURVEY_CV / SURVEY_NDA / SURVEY_CV_PRIOR:限本人或中心;SURVEY_TEMPLATE:開放全體受調者。
  * 授權由 assertSurveyFileAccess 依 targetType 把關(杜絕跨人 IDOR)。
  */
-const SURVEY_FILE_TYPES = new Set(['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_TEMPLATE', 'SURVEY_CV_PRIOR']);
+const SURVEY_FILE_TYPES = new Set(['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_TEMPLATE', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT']);
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {

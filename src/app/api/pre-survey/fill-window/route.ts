@@ -12,6 +12,8 @@ const Body = z.object({
   // UAT 圖7:第二時窗(差旅/飲食調查);意願與文件上傳共用第一時窗
   travelOpenAt: z.string().datetime().nullable().optional(),
   travelCloseAt: z.string().datetime().nullable().optional(),
+  // UAT 圖30:本年度是否開放觀察員填寫差旅費領據(單獨切換;未提供=不變)
+  observerReceiptEnabled: z.boolean().optional(),
 });
 
 /**
@@ -33,10 +35,26 @@ export async function PUT(req: Request) {
     if (travelOpenAt && travelCloseAt && travelOpenAt > travelCloseAt) {
       return NextResponse.json({ error: '差旅調查起始時間不得晚於截止時間' }, { status: 400 });
     }
+    // undefined-preserving:各欄「未提供=不變」——開關可單獨切換而不清掉時窗(UAT 圖30)
     await prisma.surveyFillWindow.upsert({
       where: { year: body.year },
-      create: { year: body.year, openAt, closeAt, travelOpenAt, travelCloseAt, updatedById: user.id },
-      update: { openAt, closeAt, travelOpenAt, travelCloseAt, updatedById: user.id },
+      create: {
+        year: body.year,
+        openAt,
+        closeAt,
+        travelOpenAt,
+        travelCloseAt,
+        observerReceiptEnabled: body.observerReceiptEnabled ?? false,
+        updatedById: user.id,
+      },
+      update: {
+        openAt: body.openAt === undefined ? undefined : openAt,
+        closeAt: body.closeAt === undefined ? undefined : closeAt,
+        travelOpenAt: body.travelOpenAt === undefined ? undefined : travelOpenAt,
+        travelCloseAt: body.travelCloseAt === undefined ? undefined : travelCloseAt,
+        observerReceiptEnabled: body.observerReceiptEnabled,
+        updatedById: user.id,
+      },
     });
     await writeAuditLog({
       actorId: user.id,

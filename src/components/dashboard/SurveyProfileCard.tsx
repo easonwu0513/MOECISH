@@ -52,13 +52,21 @@ export function SurveyProfileCard({
   );
 
   const extra = (
-    <button type="button" onClick={() => setOpen(true)} className="focus-ring rounded-full text-left" title={status.hint}>
-      <Chip size="sm" tone={status.tone} dot>
-        <span className="inline-flex items-center gap-1">
-          {statusIcon(status.tone)}事前場次調查 · {status.label}
-        </span>
-      </Chip>
-    </button>
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <button type="button" onClick={() => setOpen(true)} className="focus-ring rounded-full text-left" title={status.hint}>
+        <Chip size="sm" tone={status.tone} dot>
+          <span className="inline-flex items-center gap-1">
+            {statusIcon(status.tone)}事前場次調查 · {status.label}
+          </span>
+        </Chip>
+      </button>
+      {/* UAT 圖29:主要聯絡(信箱+電話)未填寫完整 → 身分帶警示(點擊同開彈窗補填) */}
+      {data.contactIncomplete && (
+        <button type="button" onClick={() => setOpen(true)} className="focus-ring rounded-full text-left" title="請於聯絡資訊填寫並儲存主要電子郵件與聯絡電話">
+          <Chip size="sm" tone="danger" dot>聯絡資訊未填寫完整</Chip>
+        </button>
+      )}
+    </span>
   );
 
   return (

@@ -189,7 +189,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!existing) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
 
     const docs = await prisma.evidence.findMany({
-      where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: params.id },
+      where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT'] }, targetId: params.id },
       select: { id: true, storageKey: true },
     });
 

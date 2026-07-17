@@ -187,7 +187,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
 
   const fillWindowRow = await prisma.surveyFillWindow.findUnique({
     where: { year },
-    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true },
+    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
   });
   const fillWindow = fillWindowRow
     ? {
@@ -195,6 +195,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
         closeAt: fillWindowRow.closeAt?.toISOString() ?? null,
         travelOpenAt: fillWindowRow.travelOpenAt?.toISOString() ?? null,
         travelCloseAt: fillWindowRow.travelCloseAt?.toISOString() ?? null,
+        observerReceiptEnabled: fillWindowRow.observerReceiptEnabled,
       }
     : null;
 

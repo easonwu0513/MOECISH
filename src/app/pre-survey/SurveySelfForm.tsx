@@ -47,6 +47,7 @@ export type SelfDTO = {
   proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: string | null;
   // UAT 填報時窗:canEditAvailability=false 時鎖定意願編修/送出並顯示時窗說明
+  contactIncomplete: boolean; // UAT 圖29:主要聯絡(信箱+電話)未填寫完整
   canEditAvailability: boolean;
   canUploadDocs: boolean; // UAT 圖7:文件上傳與意願共用第一時窗
   canEditTravel: boolean; // UAT 圖7:差旅(交通/飲食)走第二時窗
@@ -59,6 +60,8 @@ export type SelfDTO = {
   cvFile: { id: string; name: string } | null;
   ndaFile: { id: string; name: string } | null;
   priorCvFile: { id: string; name: string } | null; // 中心提供的舊版經歷說明書參考(僅委員;供參考)
+  receiptEnabled: boolean; // UAT 圖30:本年度是否開放觀察員填寫差旅費領據
+  receiptFile: { id: string; name: string } | null; // 觀察員已上傳的領據
   templates: SelfTemplateDTO[];
   transport: string[];
   diet: string[];
@@ -92,7 +95,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [submitting, setSubmitting] = useState(false);
   const [busySession, setBusySession] = useState<string | null>(null);
   // 文件繳交
-  const [uploadingSlot, setUploadingSlot] = useState<'CV' | 'NDA' | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<'CV' | 'NDA' | 'RECEIPT' | null>(null);
   const [submittingDocs, setSubmittingDocs] = useState(false);
   // 差旅二階(樂觀 local state)
   // UAT 圖14:交通逐場次(Record<sessionId, string[]>);飲食全場次一致
@@ -177,7 +180,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     router.refresh();
   }
 
-  async function uploadDoc(slot: 'CV' | 'NDA', e: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadDoc(slot: 'CV' | 'NDA' | 'RECEIPT', e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -415,6 +418,16 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             uploading={uploadingSlot === 'NDA'}
             onUpload={(e) => uploadDoc('NDA', e)}
           />
+          {/* UAT 圖30:差旅費領據(觀察員;年度開關制——本年度有報銷差旅費才開放;不綁一階送審) */}
+          {isObserver && data.receiptEnabled && (
+            <DocSlot
+              title="差旅費領據"
+              file={data.receiptFile}
+              locked={false}
+              uploading={uploadingSlot === 'RECEIPT'}
+              onUpload={(e) => uploadDoc('RECEIPT', e)}
+            />
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-3">
@@ -561,7 +574,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           <div className="mt-4">
             <Textarea label="特殊備註（如需協助安排停車等，請註明車號）" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
             <div className="mt-2">
-              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存備註</Button>
+              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存</Button>
             </div>
           </div>
         </Card>

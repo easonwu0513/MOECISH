@@ -278,6 +278,28 @@ export default async function HomePage() {
       todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey', cta: '去填寫' });
     }
   }
+  // UAT 圖32:調查前置四步檢核(空狀態面板用;done=null 表示待中心分派場次、尚不可填)
+  const surveySteps = survey
+    ? (() => {
+        const ts = survey.assignedSessions.filter((a) => a.needsTravel);
+        const stage2Done: boolean | null =
+          ts.length > 0 ? ts.every((a) => a.transport.length > 0) && survey.diet.length > 0 : null;
+        return [
+          { key: 'contact', label: '填寫並儲存聯絡資訊（主要電子郵件與聯絡電話）', done: !survey.contactIncomplete as boolean | null },
+          {
+            key: 'docs',
+            label:
+              survey.kind === 'OBSERVER'
+                ? '上傳並送審文件（聘任同意暨保密切結書）'
+                : '上傳並送審文件（經歷說明書與聘任同意暨保密切結書）',
+            done: survey.docStatus === 'SUBMITTED' as boolean | null,
+          },
+          { key: 'stage1', label: '送出第一階段：稽核場次出席意願', done: !!survey.submittedAt as boolean | null },
+          { key: 'stage2', label: '填寫第二階段：差旅（交通住宿）與飲食需求', done: stage2Done },
+        ];
+      })()
+    : null;
+
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
   const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
@@ -356,6 +378,31 @@ export default async function HomePage() {
       <ReturnsInbox items={openReturns} showOrg={isSuper} />
 
       {cycles.length === 0 ? (
+        surveySteps ? (
+          /* UAT 圖32:有稽核任務前,空狀態面板改顯示調查前置四步檢核(完成打勾/未完成跳轉/待分派灰態) */
+          <Card variant="outlined">
+            <h2 className="text-label text-ink-900 mb-1">開始稽核任務前，請先完成以下事項</h2>
+            <p className="text-caption text-ink-500 mb-4">完成後待中心指派稽核週期，您的稽核任務將顯示於此。</p>
+            <ul className="space-y-2.5">
+              {surveySteps.map((s) => (
+                <li key={s.key} className="flex items-center gap-3">
+                  {s.done === true ? (
+                    <CheckCircle size={18} className="shrink-0 text-success-600" />
+                  ) : (
+                    <span className="h-[18px] w-[18px] shrink-0 rounded-full border-2 border-rule" aria-hidden />
+                  )}
+                  <span className={cn('flex-1 text-body-sm', s.done === true ? 'text-ink-500 line-through' : 'text-ink-900')}>
+                    {s.label}
+                  </span>
+                  {s.done === false && (
+                    <Button href="/pre-survey" size="sm" variant="text">前往填寫</Button>
+                  )}
+                  {s.done === null && <span className="text-caption text-ink-400">待中心完成場次分派後填報</span>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
             <EmptyState
@@ -373,6 +420,7 @@ export default async function HomePage() {
             />
           </div>
         </Card>
+        )
       ) : (
         <>
           {/* 中心:跨院總覽 4 讀數(移至矩陣之上;其餘角色有各自的讀數,不顯示這排缺失導向統計) */}

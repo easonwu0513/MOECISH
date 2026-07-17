@@ -8,7 +8,7 @@ import { loadParticipantForAccess } from '@/lib/pre-survey-server';
 import { canEditAvailability } from '@/lib/pre-survey-window';
 import { sniffDocType } from '@/lib/pre-survey-files';
 
-const SlotSchema = z.enum(['CV', 'NDA']);
+const SlotSchema = z.enum(['CV', 'NDA', 'RECEIPT']); // RECEIPT=觀察員差旅費領據(UAT 圖30;年度開關制)
 
 /**
  * 上傳個人文件(批B):CV=經歷說明書(僅委員)、NDA=聘任同意暨保密切結書。本人或中心可傳。
@@ -57,7 +57,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
-    const targetType = slot === 'CV' ? 'SURVEY_CV' : 'SURVEY_NDA';
+    const targetType = slot === 'CV' ? 'SURVEY_CV' : slot === 'RECEIPT' ? 'SURVEY_RECEIPT' : 'SURVEY_NDA';
+
+    // UAT 圖30:領據為年度開關制——未開放時不可上傳(伺服器端強制)
+    if (slot === 'RECEIPT') {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { observerReceiptEnabled: true },
+      });
+      if (!win?.observerReceiptEnabled) {
+        return NextResponse.json({ error: '本年度未開放填寫差旅費領據。' }, { status: 400 });
+      }
+    }
 
     // 取代同槽舊檔:先寫新檔成功、再刪舊檔(delete-after-write),避免「先刪舊→寫新失敗」使已核可/已送審文件平白遺失。
     const old = await prisma.evidence.findMany({

@@ -745,6 +745,8 @@ model SurveyFillWindow {
   // 場次確定後才開放差旅填報,故與第一時窗分開設定;皆可 null=該端不限。
   travelOpenAt  DateTime?
   travelCloseAt DateTime?
+  // UAT 圖30:本年度是否開放觀察員填寫差旅費領據(有報銷差旅費的年度才開;預設關)
+  observerReceiptEnabled Boolean @default(false)
   updatedById   String // 最後設定者快照
   updatedAt     DateTime  @updatedAt
 }
