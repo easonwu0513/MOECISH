@@ -797,7 +797,8 @@ function SessionTransportPicker({
           )}
           {mode === '高鐵' && (
             <p className="rounded-md border border-primary-100 bg-primary-50/70 px-3 py-2 text-caption text-primary-800">
-              ⓘ 本中心將統一安排往返高鐵站與受稽機關間之接駁。
+              ⓘ 本中心將統一安排<strong className="font-semibold">稽核當天</strong>往返高鐵站與受稽機關間之接駁
+              （<strong className="font-semibold">僅限非臺北地區</strong>之受稽機關）。
             </p>
           )}
           {(mode === '火車' || mode === '客運' || mode === '其他') && (

@@ -167,7 +167,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
       user: { select: { name: true } },
       availabilities: { select: { sessionId: true, status: true } },
       // UAT 圖14:交通逐場次(存指派列),帶場次名/needsTravel 供管考顯示
-      finalAssignments: { select: { sessionId: true, transport: true, session: { select: { name: true, needsTravel: true } } } },
+      finalAssignments: { select: { sessionId: true, transport: true, aspect: true, session: { select: { name: true, needsTravel: true } } } },
     },
     orderBy: { invitedAt: 'asc' },
   });
@@ -282,6 +282,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     customValues: parseObj(p.customValues),
     availability: Object.fromEntries(p.availabilities.map((a) => [a.sessionId, a.status])),
     finalSessionIds: p.finalAssignments.map((fa) => fa.sessionId),
+    finalAspects: Object.fromEntries(p.finalAssignments.map((fa) => [fa.sessionId, fa.aspect])),
   }));
 
   return (

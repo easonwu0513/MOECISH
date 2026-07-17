@@ -48,7 +48,7 @@ export type AdminParticipantDTO = {
   userId: string; // 綁定帳號 id(去重以此為鍵,非顯示姓名——同名不同帳號)
   name: string;
   kind: SurveyParticipantKind;
-  committeeType: string | null;
+  committeeType: string | null; // UAT 圖28:「專長」可複選(JSON 陣列字串;舊單值相容)
   phone: string | null;
   email: string | null;
   phone2: string | null;
@@ -73,6 +73,7 @@ export type AdminParticipantDTO = {
   customValues: Record<string, string>; // columnId → 值
   availability: Record<string, string>; // sessionId → status
   finalSessionIds: string[];
+  finalAspects: Record<string, string | null>; // UAT 圖28:sessionId → 該場次被指派的構面(null=免構面,如說明會)
 };
 export type PoolUser = { id: string; name: string; email: string };
 export type AdminTemplateDTO = { id: string; slot: string; label: string; fileId: string | null; fileName: string | null };
@@ -135,7 +136,7 @@ export default function SurveyAdminBoard({
   );
 
   const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
-  const colCount = visibleSessions.length + customColumns.length + 10 + (kind === 'MEMBER' ? 1 : 0);
+  const colCount = visibleSessions.length + customColumns.length + 9 + (kind === 'MEMBER' ? 1 : 0); // UAT 圖28:移除意願回信欄
 
   async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -259,11 +260,10 @@ export default function SurveyAdminBoard({
             <thead>
               <tr className="bg-paper-sunk text-caption text-ink-500">
                 <th className="sticky left-0 top-0 z-30 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">姓名</th>
-                {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[124px]">類型</th>}
+                {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[124px]">專長</th>}
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[120px]">資料繳交</th>
-                {/* 左群組:最終場次 / 意願回信 */}
-                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[130px]">最終場次</th>
-                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">意願回信</th>
+                {/* 左群組:最終場次(UAT 圖28:意願回信欄已移除——填寫皆於系統內完成,毋須回信) */}
+                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[180px]">最終場次</th>
                 {/* 場次意願(點表頭一鍵分組) */}
                 {visibleSessions.map((s, i) => {
                   const active = sortSessionId === s.id;
@@ -354,16 +354,8 @@ export default function SurveyAdminBoard({
                     </td>
                     {kind === 'MEMBER' && (
                       <td className="px-3 py-2">
-                        <Select
-                          value={p.committeeType ?? ''}
-                          onChange={(e) => patchParticipant(p.id, { committeeType: e.target.value || null })}
-                          dense
-                        >
-                          <option value="">未分類</option>
-                          {SURVEY_COMMITTEE_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </Select>
+                        {/* UAT 圖28:「專長」可複選(一位委員可擅長多構面) */}
+                        <SpecialtyCell p={p} busy={busy} onSave={(next) => patchParticipant(p.id, { committeeTypes: next })} />
                       </td>
                     )}
                     {/* 資料繳交(狀態 chip → 審核;催1/2階) */}
@@ -400,18 +392,6 @@ export default function SurveyAdminBoard({
                     {/* 最終場次(E UAT:內嵌下拉多選,免點進彈窗直接指派) */}
                     <td className="px-3 py-2">
                       <FinalSessionCell p={p} sessions={visibleSessions} />
-                    </td>
-                    {/* 意願回信 */}
-                    <td className="px-3 py-2">
-                      <Select
-                        value={p.replyStatus}
-                        onChange={(e) => patchParticipant(p.id, { replyStatus: e.target.value })}
-                        dense
-                      >
-                        {SURVEY_REPLY_STATUSES.map((r) => (
-                          <option key={r} value={r}>{SURVEY_REPLY_STATUS_LABELS[r]}</option>
-                        ))}
-                      </Select>
                     </td>
                     {/* 場次意願 */}
                     {visibleSessions.map((s) => (
@@ -775,7 +755,7 @@ function AdminProfileDialog({
       title={
         <span className="inline-flex items-center gap-2">
           <User size={18} /> {p.name}
-          <Chip size="sm" tone="neutral">{isObserver ? '觀察員' : p.committeeType ?? '委員'}</Chip>
+          <Chip size="sm" tone="neutral">{isObserver ? '觀察員' : parseSpecialties(p.committeeType).join('、') || '委員'}</Chip>
           <Chip size="sm" tone={docDisp.tone}>{docDisp.label}</Chip>
         </span>
       }
@@ -1436,25 +1416,23 @@ function AddParticipantDialog({
 
 // ── E UAT:管考表「最終場次」內嵌下拉多選(顯示已指派 + 直接勾選指派,免點進彈窗) ──
 // 用 fixed 定位讓下拉逃出管考矩陣的 overflow-auto 內捲容器(否則會被裁切)。
-function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[] }) {
-  const router = useRouter();
-  const toast = useToast();
+/** UAT 圖28:解析「專長」欄(JSON 陣列;舊單值字串相容為單元素)。 */
+function parseSpecialties(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const a = JSON.parse(raw);
+    return Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [raw];
+  } catch {
+    return [raw];
+  }
+}
+
+/** UAT 圖28:「專長」欄(可複選;即勾即存)。 */
+function SpecialtyCell({ p, busy, onSave }: { p: AdminParticipantDTO; busy: boolean; onSave: (next: string[]) => void }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  // 本地樂觀勾選集:連續勾選以此為準,避免 router.refresh() 回填新 props 前第二次 toggle 讀到舊 prop,
-  // 又因後端整批覆寫語意而吃掉剛指派的場次。伺服器回填(assignedKey 變動)時再同步。
-  const [selected, setSelected] = useState<string[]>(p.finalSessionIds);
-  const assignedKey = p.finalSessionIds.join(',');
-  useEffect(() => {
-    setSelected(p.finalSessionIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignedKey]);
-
-  // 可指派場次=該人勾「OK」∪ 已指派(與指派原則一致,免逐場對照)
-  const options = sessions.filter((s) => p.availability[s.id] === 'OK' || selected.includes(s.id));
-  const assigned = sessions.filter((s) => selected.includes(s.id));
+  const selected = parseSpecialties(p.committeeType);
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
@@ -1462,25 +1440,105 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
     setOpen(true);
   }
 
-  async function toggle(sessionId: string) {
-    if (busy) return;
-    const has = selected.includes(sessionId);
-    const next = has ? selected.filter((id) => id !== sessionId) : [...selected, sessionId];
-    setSelected(next); // 樂觀更新:連點多格以本地集合累積,不依賴尚未回填的 prop
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        className="inline-flex items-center gap-1 text-left text-caption text-ink-700 hover:underline focus-ring rounded"
+        title="設定專長（可複選）"
+      >
+        <span>{selected.length > 0 ? selected.join('、') : '未分類'}</span>
+        <ChevronDown size={12} className="shrink-0" />
+      </button>
+      {open && pos && (
+        <>
+          <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
+          <div className="fixed z-50 min-w-[160px] rounded-md border border-rule bg-card p-1 shadow-lg" style={{ top: pos.top, left: pos.left }}>
+            {SURVEY_COMMITTEE_TYPES.map((t) => {
+              const on = selected.includes(t);
+              return (
+                <label key={t} className="flex items-center gap-2 rounded px-2 py-1.5 text-caption text-ink-700 hover:bg-paper-sunk cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    disabled={busy}
+                    onChange={() => onSave(on ? selected.filter((x) => x !== t) : [...selected, t])}
+                    className="rounded border-rule"
+                  />
+                  {t}
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // UAT 圖28:草稿(sessionId→構面;null=免構面)——開啟時自 props 初始化,「儲存指派」才整組送出
+  const [draft, setDraft] = useState<Record<string, string | null>>({});
+
+  // 可指派場次=勾「OK」∪ 已指派 ∪ 說明會(年度必備、必參加,不受意願過濾)
+  const options = sessions.filter(
+    (s) => s.isBriefing || p.availability[s.id] === 'OK' || p.finalSessionIds.includes(s.id),
+  );
+  const assigned = sessions.filter((s) => p.finalSessionIds.includes(s.id));
+  // 觀察員無委員構面;說明會免構面
+  const needAspect = (s: AdminSessionDTO) => p.kind === 'MEMBER' && !s.isBriefing;
+
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: r.left });
+    setDraft(Object.fromEntries(p.finalSessionIds.map((id) => [id, p.finalAspects[id] ?? null])));
+    setOpen(true);
+  }
+
+  function toggleDraft(sessionId: string) {
+    setDraft((prev) => {
+      const next = { ...prev };
+      if (sessionId in next) delete next[sessionId];
+      else next[sessionId] = null;
+      return next;
+    });
+  }
+
+  async function save() {
+    // 除說明會(與觀察員)外,勾選場次皆須指定構面才能儲存(UAT 圖28)
+    const missing = Object.entries(draft).filter(([sid, aspect]) => {
+      const s = sessions.find((x) => x.id === sid);
+      return s && needAspect(s) && !aspect;
+    });
+    if (missing.length > 0) {
+      toast.error('請為每個勾選場次指定構面（說明會除外）');
+      return;
+    }
     setBusy(true);
     const res = await fetch(`/api/pre-survey/participants/${p.id}/assign`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionIds: next }),
+      body: JSON.stringify({
+        assignments: Object.entries(draft).map(([sessionId, aspect]) => ({ sessionId, aspect })),
+      }),
     });
     setBusy(false);
     if (!res.ok) {
       const j = await res.json().catch(() => ({ error: '指派失敗' }));
-      setSelected(p.finalSessionIds); // 失敗還原本地狀態
       toast.error('指派失敗', j.error);
       return;
     }
-    router.refresh(); // 伺服器狀態同步回 finalSessionIds(達標卡/催二階/排序一併更新)
+    toast.success('已儲存指派');
+    setOpen(false);
+    router.refresh();
   }
 
   return (
@@ -1490,18 +1548,21 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
         type="button"
         onClick={() => (open ? setOpen(false) : openMenu())}
         className="inline-flex items-start gap-1 text-left text-caption text-primary-700 hover:underline focus-ring rounded"
-        title="指派最終場次"
+        title="指派最終場次（可指定構面）"
       >
         <MapPin size={13} className="shrink-0 mt-0.5" />
-        {/* UAT 圖17:被指派場次詳列(逐場次一行),不以省略號截斷 */}
+        {/* UAT 圖17/28:被指派場次詳列(逐場次一行 + 該場次構面 chip),不以省略號截斷 */}
         {assigned.length > 0 ? (
-          <span className="flex flex-col gap-0.5">
+          <span className="flex flex-col gap-1">
             {assigned.map((s) => (
-              <span key={s.id} className="whitespace-nowrap">{s.dateLabel} {s.name}</span>
+              <span key={s.id} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                {s.dateLabel} {s.name}
+                {p.finalAspects[s.id] && <Chip size="sm" tone="primary">{p.finalAspects[s.id]}</Chip>}
+              </span>
             ))}
           </span>
         ) : (
-          <span>指派</span>
+          <span>編輯指派</span>
         )}
         <ChevronDown size={12} className="shrink-0 mt-0.5" />
       </button>
@@ -1509,25 +1570,45 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
         <>
           <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
           <div
-            className="fixed z-50 min-w-[200px] max-h-64 overflow-auto rounded-md border border-rule bg-card p-1 shadow-lg"
+            className="fixed z-50 min-w-[300px] max-h-80 overflow-auto rounded-md border border-rule bg-card p-2 shadow-lg"
             style={{ top: pos.top, left: pos.left }}
           >
+            <p className="px-1 pb-1.5 text-caption text-ink-500">勾選場次並指定構面（說明會免構面）</p>
             {options.length === 0 ? (
               <p className="px-2 py-1.5 text-caption text-ink-400">此人尚無勾選「OK」的場次可指派。</p>
             ) : (
               options.map((s) => {
-                const on = selected.includes(s.id);
+                const on = s.id in draft;
                 return (
-                  <label
-                    key={s.id}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 text-caption text-ink-700 hover:bg-paper-sunk cursor-pointer"
-                  >
-                    <input type="checkbox" checked={on} disabled={busy} onChange={() => toggle(s.id)} className="rounded border-rule" />
-                    <span className="truncate">{s.dateLabel} · {s.name}</span>
-                  </label>
+                  <div key={s.id} className="flex items-center gap-2 rounded px-2 py-1.5 text-caption text-ink-700 hover:bg-paper-sunk">
+                    <label className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={on} disabled={busy} onChange={() => toggleDraft(s.id)} className="rounded border-rule" />
+                      <span className="truncate">{s.dateLabel} · {s.name}</span>
+                    </label>
+                    {on && needAspect(s) && (
+                      <select
+                        value={draft[s.id] ?? ''}
+                        disabled={busy}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, [s.id]: e.target.value || null }))}
+                        className="shrink-0 rounded border border-rule bg-card px-1.5 py-1 text-caption focus-ring"
+                        aria-label={`${s.name} 指派構面`}
+                      >
+                        <option value="">選構面</option>
+                        {SURVEY_COMMITTEE_TYPES.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 );
               })
             )}
+            <div className="mt-2 flex items-center justify-end gap-2 border-t border-rule pt-2">
+              <button type="button" onClick={() => setOpen(false)} disabled={busy} className="rounded px-2 py-1 text-caption text-ink-500 hover:underline focus-ring">
+                取消
+              </button>
+              <Button size="sm" onClick={save} loading={busy} disabled={busy}>儲存指派</Button>
+            </div>
           </div>
         </>
       )}

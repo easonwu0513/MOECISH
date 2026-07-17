@@ -4,9 +4,16 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { SURVEY_COMMITTEE_TYPES } from '@/lib/types';
 
 const Body = z.object({
-  sessionIds: z.array(z.string().min(1)).max(50),
+  // UAT 圖28:每場次指派可帶構面(管理面/策略面/技術面/管理面-OT;說明會等免構面=null)
+  assignments: z
+    .array(z.object({ sessionId: z.string().min(1), aspect: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional() }))
+    .max(50)
+    .optional(),
+  // 舊形狀(無構面)向後相容
+  sessionIds: z.array(z.string().min(1)).max(50).optional(),
 });
 
 /**
@@ -25,7 +32,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
 
-    const wanted = Array.from(new Set(body.sessionIds));
+    // 統一為 [{ sessionId, aspect }](assignments 優先;sessionIds 相容=無構面);同場次去重取先者
+    const rawEntries =
+      body.assignments ?? (body.sessionIds ?? []).map((sessionId) => ({ sessionId, aspect: null as string | null }));
+    const entries = rawEntries.filter(
+      (e, i) => rawEntries.findIndex((x) => x.sessionId === e.sessionId) === i,
+    );
+    const wanted = entries.map((e) => e.sessionId);
     if (wanted.length > 0) {
       // D 防禦縱深:觀察員不得被指派到「委員專屬」場次(sharedWithObserver=false),與自助頁/達標卡排除一致。
       const where =
@@ -50,17 +63,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       await tx.surveyFinalAssignment.deleteMany({
         where: { participantId: participant.id, sessionId: { notIn: wanted.length ? wanted : ['__none__'] } },
       });
-      const existing = await tx.surveyFinalAssignment.findMany({
-        where: { participantId: participant.id },
-        select: { sessionId: true },
-      });
-      const have = new Set(existing.map((a) => a.sessionId));
-      const toAdd = wanted.filter((sid) => !have.has(sid));
-      if (toAdd.length > 0) {
-        // skipDuplicates:並發相同指派冪等,不撞 @@unique 觸發偽 409(@@unique 仍保證不產生重複指派列)
-        await tx.surveyFinalAssignment.createMany({
-          data: toAdd.map((sid) => ({ participantId: participant.id, sessionId: sid, assignedById: user.id })),
-          skipDuplicates: true,
+      // upsert 逐筆(≤50):新指派帶構面建立、既有指派更新構面(UAT 圖28);並發冪等(@@unique 保證不重複)
+      for (const e of entries) {
+        await tx.surveyFinalAssignment.upsert({
+          where: { participantId_sessionId: { participantId: participant.id, sessionId: e.sessionId } },
+          create: { participantId: participant.id, sessionId: e.sessionId, aspect: e.aspect ?? null, assignedById: user.id },
+          update: { aspect: e.aspect ?? null },
         });
       }
     });
@@ -70,7 +78,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       action: 'SURVEY_FINAL_ASSIGN',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { sessionIds: wanted },
+      after: { assignments: entries },
       ...extractRequestMeta(req),
     });
 

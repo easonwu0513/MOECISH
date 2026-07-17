@@ -21,6 +21,8 @@ const Body = z.object({
   // 僅中心可改的管考欄位(note=中心對受調者的內部管理註記,自助頁不顯示,故不對本人開放)
   note: z.string().trim().max(1000).nullable().optional(),
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
+  // UAT 圖28:「專長」可複選(存 JSON 陣列於 committeeType 欄;空陣列=清除;舊單值字串讀取端相容)
+  committeeTypes: z.array(z.enum(SURVEY_COMMITTEE_TYPES)).max(SURVEY_COMMITTEE_TYPES.length).optional(),
   replyStatus: z.enum(SURVEY_REPLY_STATUSES).optional(),
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
   // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願);僅中心可改。
@@ -60,6 +62,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const adminOnlyTouched =
       body.note !== undefined ||
       body.committeeType !== undefined ||
+      body.committeeTypes !== undefined ||
       body.replyStatus !== undefined ||
       body.docHandover !== undefined ||
       body.editUnlocked !== undefined;
@@ -106,6 +109,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (body.committeeType !== undefined) {
         // 觀察員無委員細分構面
         data.committeeType = participant.kind === 'MEMBER' ? body.committeeType : null;
+      }
+      if (body.committeeTypes !== undefined) {
+        // UAT 圖28:專長複選(JSON 陣列存同欄;觀察員無構面)
+        data.committeeType =
+          participant.kind === 'MEMBER' && body.committeeTypes.length > 0
+            ? JSON.stringify(body.committeeTypes)
+            : null;
       }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;

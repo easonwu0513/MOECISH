@@ -771,6 +771,8 @@ model SurveyFinalAssignment {
   // UAT 圖14:逐場次交通方式(含住宿;JSON string[])——地點不同交通不同,故存於指派而非受調者;
   // 飲食(diet)全場次一致,仍存 SurveyParticipant。
   transport     String?
+  // UAT 圖28:該場次被指派的構面(管理面/策略面/技術面/管理面-OT;說明會等不分構面=null)
+  aspect        String?
   assignedById  String // 指派者快照
   assignedAt    DateTime          @default(now())
 

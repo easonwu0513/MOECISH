@@ -171,12 +171,15 @@ export async function buildSelfDTO(opts: {
     customFields,
     // D UAT 隱私:已指派標籤只列本 kind 可見場次(觀察員排除委員專屬,如場次事後改為委員專屬亦不外洩);
     // 真實地名保留供指派後差旅二階使用(本人只見自己被指派的場次,非跨人清單)。
-    assignedLabels: participant.finalAssignments
+    // UAT 圖26:指派場次一律依辦理日期排序(未定最後),與場次清單同一時間軸
+    assignedLabels: [...participant.finalAssignments]
       .filter((fa) => kindSessionIds.has(fa.session.id))
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
       .map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
     // UAT 圖14:逐場次差旅——每個被指派場次的交通各自填(needsTravel=false 的線上場次免填)
-    assignedSessions: participant.finalAssignments
+    assignedSessions: [...participant.finalAssignments]
       .filter((fa) => kindSessionIds.has(fa.session.id))
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
       .map((fa) => ({
         sessionId: fa.session.id,
         label: `${mdLabel(fa.session.date)} ${fa.session.name}`,

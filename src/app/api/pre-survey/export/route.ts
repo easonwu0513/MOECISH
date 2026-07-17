@@ -52,7 +52,7 @@ export async function GET(req: Request) {
         include: {
           user: { select: { name: true } },
           availabilities: { select: { sessionId: true, status: true } },
-          finalAssignments: { include: { session: { select: { name: true, date: true, needsTravel: true } } } },
+          finalAssignments: { select: { transport: true, aspect: true, session: { select: { name: true, date: true, needsTravel: true } } } },
         },
         orderBy: { invitedAt: 'asc' },
       }),
@@ -78,12 +78,11 @@ export async function GET(req: Request) {
 
     const header = [
       '姓名',
-      '類型',
+      '專長',
       '文件繳交',
       '意願送出',
       ...sessions.map((s) => `${md(s.date)} ${s.name}`),
       '最終場次',
-      '意願回信',
       '文件交接',
       '交通',
       '飲食',
@@ -100,11 +99,23 @@ export async function GET(req: Request) {
 
     const rows = participants.map((p) => {
       const availMap = new Map(p.availabilities.map((a) => [a.sessionId, a.status]));
-      const finalLabels = p.finalAssignments.map((fa) => `${md(fa.session.date)} ${fa.session.name}`);
+      // UAT 圖28:最終場次帶構面;專長 JSON 陣列 parse(舊單值相容)
+      const finalLabels = p.finalAssignments.map(
+        (fa) => `${md(fa.session.date)} ${fa.session.name}${fa.aspect ? `（${fa.aspect}）` : ''}`,
+      );
       const custom = parseObj(p.customValues);
+      const specialties = (() => {
+        if (!p.committeeType) return kind === 'OBSERVER' ? '觀察員' : '';
+        try {
+          const a = JSON.parse(p.committeeType);
+          return Array.isArray(a) ? a.join('、') : p.committeeType;
+        } catch {
+          return p.committeeType;
+        }
+      })();
       return [
         p.user.name,
-        p.committeeType ?? (kind === 'OBSERVER' ? '觀察員' : ''),
+        specialties,
         SURVEY_DOC_STATUS_LABELS[p.docStatus as SurveyDocStatus] ?? p.docStatus,
         p.submittedAt ? '已送出' : '未送出',
         ...sessions.map((s) => {
@@ -113,7 +124,6 @@ export async function GET(req: Request) {
           return st ? (SURVEY_AVAILABILITY_LABELS[st] ?? st) : '未填寫';
         }),
         finalLabels.join(' / '),
-        SURVEY_REPLY_STATUS_LABELS[p.replyStatus as SurveyReplyStatus] ?? p.replyStatus,
         SURVEY_DOC_HANDOVER_LABELS[p.docHandover as SurveyDocHandover] ?? p.docHandover,
         // UAT 圖14:交通逐場次(「場次:選項」;線上場次不列)
         p.finalAssignments
