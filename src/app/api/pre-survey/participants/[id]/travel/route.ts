@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { canEditAvailability } from '@/lib/pre-survey-window';
 import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS } from '@/lib/types';
 
 const Body = z.object({
@@ -18,12 +19,28 @@ const Body = z.object({
  */
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { participant } = await loadParticipantForAccess(params.id);
+    const { participant, isAdmin } = await loadParticipantForAccess(params.id);
     const body = Body.parse(await req.json());
 
     const assigned = await prisma.surveyFinalAssignment.count({ where: { participantId: participant.id } });
     if (assigned === 0) {
       return NextResponse.json({ error: '尚未被指派最終場次，差旅與飲食調查暫未開放填寫。' }, { status: 400 });
+    }
+
+    // UAT 圖7 第二時窗(伺服器端強制,防繞過前端):本人限差旅調查區間內填寫;
+    // 中心代填不受限;editUnlocked(中心開放補填)豁免——重用意願時窗同一組純函式。
+    if (!isAdmin) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { travelOpenAt: true, travelCloseAt: true },
+      });
+      const travelWin = win ? { openAt: win.travelOpenAt, closeAt: win.travelCloseAt } : null;
+      if (!canEditAvailability(travelWin, participant.editUnlocked, new Date())) {
+        return NextResponse.json(
+          { error: '差旅調查未在開放時間內；如需填寫或變更，請聯絡中心開放。' },
+          { status: 403 },
+        );
+      }
     }
 
     const data: Record<string, unknown> = {};

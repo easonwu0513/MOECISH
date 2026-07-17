@@ -730,11 +730,15 @@ model SurveyCustomColumn {
 // openAt/closeAt 皆可為 null=該端不限;兩者皆 null 或無此列=永遠開放(向後相容)。
 // 逾窗後受調者不可改/送出意願;中心(SUPER_ADMIN)代填不受限;中心亦可對個別受調者開放補填(SurveyParticipant.editUnlocked)。
 model SurveyFillWindow {
-  year        Int       @id
-  openAt      DateTime?
-  closeAt     DateTime?
-  updatedById String // 最後設定者快照
-  updatedAt   DateTime  @updatedAt
+  year          Int       @id
+  openAt        DateTime?
+  closeAt       DateTime?
+  // UAT 圖7:第二時窗——差旅(交通/飲食)調查區間;意願與文件上傳共用第一時窗(openAt/closeAt)。
+  // 場次確定後才開放差旅填報,故與第一時窗分開設定;皆可 null=該端不限。
+  travelOpenAt  DateTime?
+  travelCloseAt DateTime?
+  updatedById   String // 最後設定者快照
+  updatedAt     DateTime  @updatedAt
 }
 
 model SessionAvailability {

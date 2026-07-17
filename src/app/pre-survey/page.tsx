@@ -186,10 +186,15 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
 
   const fillWindowRow = await prisma.surveyFillWindow.findUnique({
     where: { year },
-    select: { openAt: true, closeAt: true },
+    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true },
   });
   const fillWindow = fillWindowRow
-    ? { openAt: fillWindowRow.openAt?.toISOString() ?? null, closeAt: fillWindowRow.closeAt?.toISOString() ?? null }
+    ? {
+        openAt: fillWindowRow.openAt?.toISOString() ?? null,
+        closeAt: fillWindowRow.closeAt?.toISOString() ?? null,
+        travelOpenAt: fillWindowRow.travelOpenAt?.toISOString() ?? null,
+        travelCloseAt: fillWindowRow.travelCloseAt?.toISOString() ?? null,
+      }
     : null;
 
   const sessionDTOs: AdminSessionDTO[] = sessions.map((s) => ({

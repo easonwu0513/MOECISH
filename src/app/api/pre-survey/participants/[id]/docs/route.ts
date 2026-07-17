@@ -5,6 +5,7 @@ import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { canEditAvailability } from '@/lib/pre-survey-window';
 import { sniffDocType } from '@/lib/pre-survey-files';
 
 const SlotSchema = z.enum(['CV', 'NDA']);
@@ -20,6 +21,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     if (!isAdmin && participant.docStatus === 'SUBMITTED') {
       return NextResponse.json({ error: '文件已送審，如需修改請待中心退補後再上傳。' }, { status: 400 });
+    }
+
+    // UAT 圖7:文件上傳與意願共用第一時窗(伺服器端強制;中心不受限、editUnlocked 豁免)
+    if (!isAdmin) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { openAt: true, closeAt: true },
+      });
+      if (!canEditAvailability(win, participant.editUnlocked, new Date())) {
+        return NextResponse.json({ error: '文件上傳未在開放時間內；如需補件，請聯絡中心開放。' }, { status: 403 });
+      }
     }
 
     const fd = await req.formData();

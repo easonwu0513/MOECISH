@@ -114,10 +114,14 @@ export async function buildSelfDTO(opts: {
   // UAT:意願填報時窗(逾窗鎖定編修/送出;中心可對本人 editUnlocked 開放補填)
   const fillWin = await prisma.surveyFillWindow.findUnique({
     where: { year: participant.year },
-    select: { openAt: true, closeAt: true },
+    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true },
   });
   const now = new Date();
   const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
+  // UAT 圖7 雙時窗:文件上傳與意願共用第一時窗;差旅(交通/飲食)走第二時窗(場次確定後才開放)。
+  // 第二時窗重用同一組純函式(欄位改名映射);editUnlocked 兩窗皆豁免(中心開放補填即全開)。
+  const travelWin = fillWin ? { openAt: fillWin.travelOpenAt, closeAt: fillWin.travelCloseAt } : null;
+  const canTravel = canEditAvailability(travelWin, participant.editUnlocked, now);
 
   return {
     participantId: participant.id,
@@ -133,6 +137,16 @@ export async function buildSelfDTO(opts: {
     submittedAt: participant.submittedAt?.toISOString() ?? null,
     // UAT 填報時窗:canEditAvailability=false 時自助頁鎖定意願編修並顯示時窗說明
     canEditAvailability: canEdit,
+    // UAT 圖7:文件上傳與意願同窗;差旅走第二時窗
+    canUploadDocs: canEdit,
+    canEditTravel: canTravel,
+    travelWindow: travelWin && (travelWin.openAt || travelWin.closeAt)
+      ? {
+          openAt: travelWin.openAt?.toISOString() ?? null,
+          closeAt: travelWin.closeAt?.toISOString() ?? null,
+          state: fillWindowState(travelWin, now),
+        }
+      : null,
     editUnlocked: participant.editUnlocked,
     fillWindow: fillWin
       ? {

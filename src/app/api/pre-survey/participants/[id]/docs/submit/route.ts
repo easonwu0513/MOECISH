@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { canEditAvailability } from '@/lib/pre-survey-window';
 
 /**
  * 送審個人文件(批B;本人或中心)。前置:委員須有 cv+切結書、觀察員須有切結書。
@@ -10,11 +11,22 @@ import { loadParticipantForAccess } from '@/lib/pre-survey-server';
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { user, participant } = await loadParticipantForAccess(params.id);
+    const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
 
     // 送審僅在 NONE(未繳交)或 RETURNED(待補件)時可觸發;已送審(SUBMITTED)不可重複送(防覆寫 docSubmittedAt/清 rejectReason)
     if (participant.docStatus === 'SUBMITTED') {
       return NextResponse.json({ error: '文件已送審，待中心審核' }, { status: 400 });
+    }
+
+    // UAT 圖7:文件送審與意願共用第一時窗(伺服器端強制;中心代送不受限、editUnlocked 豁免)
+    if (!isAdmin) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { openAt: true, closeAt: true },
+      });
+      if (!canEditAvailability(win, participant.editUnlocked, new Date())) {
+        return NextResponse.json({ error: '文件送審未在開放時間內；如需補件，請聯絡中心開放。' }, { status: 403 });
+      }
     }
 
     const [cv, nda] = await Promise.all([

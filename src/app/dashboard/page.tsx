@@ -325,7 +325,21 @@ export default async function HomePage() {
 
       {/* 委員 / 觀察員首次登入的歡迎引導(角色化文案 + 第一步 CTA;localStorage 記住已關,中心/機關不顯示) */}
       {(user.role === 'AUDITOR' || user.role === 'OBSERVER') && (
-        <WelcomeOnboarding role={user.role} firstHref={topAction?.href} firstLabel={topAction?.cta} />
+        <WelcomeOnboarding
+          role={user.role}
+          firstHref={topAction?.href}
+          firstLabel={topAction?.cta}
+          // UAT 圖8:歡迎卡提醒首要=事前場次調查(一階=意願+文件;一階完成且已指派則提醒二階差旅)
+          surveyStage={
+            survey
+              ? !survey.submittedAt || survey.docStatus !== 'SUBMITTED'
+                ? 1
+                : survey.assignedLabels.length > 0 && (survey.transport.length === 0 || survey.diet.length === 0)
+                  ? 2
+                  : null
+              : null
+          }
+        />
       )}
 
       {/* 退回收件匣:散落各頁的退回待補正收斂於此(機關 / 中心;無退回則不顯示) */}

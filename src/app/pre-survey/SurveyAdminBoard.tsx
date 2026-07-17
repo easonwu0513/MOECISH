@@ -91,7 +91,7 @@ export default function SurveyAdminBoard({
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
   customColumns: AdminColumnDTO[];
-  fillWindow: { openAt: string | null; closeAt: string | null } | null; // 該年度意願填報時窗(中心設定)
+  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null } | null; // 該年度雙時窗:意願+文件(第一)/差旅(第二)
   initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
 }) {
   const router = useRouter();
@@ -976,12 +976,14 @@ function FillWindowDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
   yearROC: number;
-  fillWindow: { openAt: string | null; closeAt: string | null } | null;
+  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null } | null;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [openAt, setOpenAt] = useState('');
   const [closeAt, setCloseAt] = useState('');
+  const [travelOpenAt, setTravelOpenAt] = useState('');
+  const [travelCloseAt, setTravelCloseAt] = useState('');
   const [busy, setBusy] = useState(false);
 
   // 每次開啟以最新 prop 重置(避免關窗後再開仍顯舊值)
@@ -989,22 +991,37 @@ function FillWindowDialog({
     if (open) {
       setOpenAt(isoToLocalInput(fillWindow?.openAt ?? null));
       setCloseAt(isoToLocalInput(fillWindow?.closeAt ?? null));
+      setTravelOpenAt(isoToLocalInput(fillWindow?.travelOpenAt ?? null));
+      setTravelCloseAt(isoToLocalInput(fillWindow?.travelCloseAt ?? null));
     }
-  }, [open, fillWindow?.openAt, fillWindow?.closeAt]);
+  }, [open, fillWindow?.openAt, fillWindow?.closeAt, fillWindow?.travelOpenAt, fillWindow?.travelCloseAt]);
 
   async function save() {
     // datetime-local 一律解讀為台北時間(+08:00),不隨管理員瀏覽器時區偏移;空=null(該端不限)
-    const openIso = openAt ? new Date(`${openAt.slice(0, 16)}:00+08:00`).toISOString() : null;
-    const closeIso = closeAt ? new Date(`${closeAt.slice(0, 16)}:00+08:00`).toISOString() : null;
+    const toIso = (v: string) => (v ? new Date(`${v.slice(0, 16)}:00+08:00`).toISOString() : null);
+    const openIso = toIso(openAt);
+    const closeIso = toIso(closeAt);
+    const travelOpenIso = toIso(travelOpenAt);
+    const travelCloseIso = toIso(travelCloseAt);
     if (openIso && closeIso && new Date(openIso) > new Date(closeIso)) {
       toast.error('開放起始時間不得晚於截止時間');
+      return;
+    }
+    if (travelOpenIso && travelCloseIso && new Date(travelOpenIso) > new Date(travelCloseIso)) {
+      toast.error('差旅調查起始時間不得晚於截止時間');
       return;
     }
     setBusy(true);
     const res = await fetch('/api/pre-survey/fill-window', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ year: yearROC + 1911, openAt: openIso, closeAt: closeIso }),
+      body: JSON.stringify({
+        year: yearROC + 1911,
+        openAt: openIso,
+        closeAt: closeIso,
+        travelOpenAt: travelOpenIso,
+        travelCloseAt: travelCloseIso,
+      }),
     });
     setBusy(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '儲存失敗' })); toast.error('儲存失敗', j.error); return; }
@@ -1017,31 +1034,55 @@ function FillWindowDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`${yearROC} 年度意願填報時間`}
-      description="設定受調者可填寫／送出意願的時間區間；逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
+      title={`${yearROC} 年度填報時間`}
+      description="兩個時間區間：場次意願與文件上傳共用第一區間；場次確定後才開放的差旅（交通住宿／飲食）調查用第二區間。逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
     >
-      <div className="space-y-3 pt-2">
-        <div>
-          <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
-          <input
-            type="datetime-local"
-            value={openAt}
-            onChange={(e) => setOpenAt(e.target.value)}
-            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-          />
+      <div className="space-y-4 pt-2">
+        <div className="rounded-md border border-rule bg-card p-3.5 space-y-3">
+          <p className="text-label text-ink-900">第一區間：場次意願與文件上傳</p>
+          <div>
+            <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
+            <input
+              type="datetime-local"
+              value={openAt}
+              onChange={(e) => setOpenAt(e.target.value)}
+              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
+            <input
+              type="datetime-local"
+              value={closeAt}
+              onChange={(e) => setCloseAt(e.target.value)}
+              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
-          <input
-            type="datetime-local"
-            value={closeAt}
-            onChange={(e) => setCloseAt(e.target.value)}
-            className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-          />
+        <div className="rounded-md border border-rule bg-card p-3.5 space-y-3">
+          <p className="text-label text-ink-900">第二區間：差旅（交通住宿／飲食）調查</p>
+          <div>
+            <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
+            <input
+              type="datetime-local"
+              value={travelOpenAt}
+              onChange={(e) => setTravelOpenAt(e.target.value)}
+              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
+            <input
+              type="datetime-local"
+              value={travelCloseAt}
+              onChange={(e) => setTravelCloseAt(e.target.value)}
+              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2 pt-1">
           <Button size="sm" onClick={save} loading={busy} disabled={busy}>儲存</Button>
-          <Button size="sm" variant="text" onClick={() => { setOpenAt(''); setCloseAt(''); }} disabled={busy}>清除限制</Button>
+          <Button size="sm" variant="text" onClick={() => { setOpenAt(''); setCloseAt(''); setTravelOpenAt(''); setTravelCloseAt(''); }} disabled={busy}>清除限制</Button>
         </div>
       </div>
     </Dialog>

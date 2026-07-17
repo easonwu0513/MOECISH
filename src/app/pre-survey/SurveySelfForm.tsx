@@ -44,6 +44,9 @@ export type SelfDTO = {
   submittedAt: string | null;
   // UAT 填報時窗:canEditAvailability=false 時鎖定意願編修/送出並顯示時窗說明
   canEditAvailability: boolean;
+  canUploadDocs: boolean; // UAT 圖7:文件上傳與意願共用第一時窗
+  canEditTravel: boolean; // UAT 圖7:差旅(交通/飲食)走第二時窗
+  travelWindow: { openAt: string | null; closeAt: string | null; state: 'OPEN' | 'BEFORE' | 'AFTER' } | null;
   editUnlocked: boolean;
   fillWindow: { openAt: string | null; closeAt: string | null; state: 'OPEN' | 'BEFORE' | 'AFTER' } | null;
   docStatus: string;
@@ -95,6 +98,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const isAssigned = data.assignedLabels.length > 0;
   const docStatus = data.docStatus as SurveyDocStatus;
   const docLocked = docStatus === 'SUBMITTED'; // 送審後鎖上傳(待中心審核/退補)
+  const docsWindowLocked = !data.canUploadDocs; // UAT 圖7:文件上傳逾第一時窗鎖定(editUnlocked 豁免已算入)
 
   async function saveContact() {
     setSavingContact(true);
@@ -368,7 +372,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             <DocSlot
               title="經歷說明書"
               file={data.cvFile}
-              locked={docLocked}
+              locked={docLocked || docsWindowLocked}
               uploading={uploadingSlot === 'CV'}
               onUpload={(e) => uploadDoc('CV', e)}
             />
@@ -376,7 +380,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           <DocSlot
             title="聘任同意暨保密切結書"
             file={data.ndaFile}
-            locked={docLocked}
+            locked={docLocked || docsWindowLocked}
             uploading={uploadingSlot === 'NDA'}
             onUpload={(e) => uploadDoc('NDA', e)}
           />
@@ -385,6 +389,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         <div className="mt-3 flex items-center gap-3">
           {docLocked ? (
             <span className="text-caption text-ink-500">文件已送審，待中心審核；如需修改請待退補後再上傳。</span>
+          ) : docsWindowLocked ? (
+            <span className="text-caption text-ink-500">
+              {data.fillWindow?.state === 'BEFORE'
+                ? `文件上傳尚未開始${data.fillWindow.openAt ? `（開放時間：${fmtROCDateTime(data.fillWindow.openAt)} 起）` : ''}。`
+                : `文件上傳已截止${data.fillWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.fillWindow.closeAt)}）` : ''}。如需補件，請聯絡中心開放。`}
+            </span>
           ) : (
             <>
               <Button size="sm" onClick={submitDocs} loading={submittingDocs} disabled={submittingDocs}>
@@ -461,8 +471,22 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </div>
       )}
 
-      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下) */}
-      {isAssigned ? (
+      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下;圖7:另受第二時窗管制) */}
+      {isAssigned && !data.canEditTravel ? (
+        <Card variant="outlined" className="bg-paper-sunk/40">
+          <div className="flex items-start gap-2 text-ink-500">
+            <MapPin size={18} className="mt-0.5 shrink-0" />
+            <div>
+              <h3 className="text-label text-ink-700">第二階段：差旅與飲食調查</h3>
+              <p className="mt-1 text-caption">
+                {data.travelWindow?.state === 'BEFORE'
+                  ? `差旅調查尚未開放${data.travelWindow.openAt ? `（開放時間：${fmtROCDateTime(data.travelWindow.openAt)} 起）` : ''}。`
+                  : `差旅調查已截止${data.travelWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.travelWindow.closeAt)}）` : ''}。如需補填或變更，請聯絡中心開放。`}
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : isAssigned ? (
         <Card variant="outlined" className="border-l-[3px] border-l-success-500">
           <div className="flex items-start gap-2 mb-3">
             <MapPin size={18} className="mt-0.5 shrink-0 text-success-700" />
