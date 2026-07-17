@@ -15,6 +15,7 @@ import { EMPTY } from '@/lib/copy';
 import { fmtROC } from '@/lib/date';
 import { cn } from '@/lib/cn';
 import { DeadlineChip } from '@/components/cycle/DeadlineChip';
+import BatchCreateCycles from '@/app/admin/cycles/BatchCreateCycles';
 
 // 委員/機關清單依登入者即時查詢(含新指派的週期),不可被靜態快取
 export const dynamic = 'force-dynamic';
@@ -57,6 +58,22 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
     return ta - tb || b.createdAt.getTime() - a.createdAt.getTime();
   });
 
+  // 中心:列表頁就地開立年度週期(UAT 回饋:免繞 /admin/cycles 後台)——沿用批次開立精靈
+  const isCenter = user.role === 'SUPER_ADMIN';
+  const createOrgs = isCenter
+    ? await prisma.organization.findMany({
+        orderBy: { createdAt: 'asc' },
+        include: { cycles: { select: { year: true } } },
+      })
+    : [];
+  const createVersions = isCenter
+    ? await prisma.checklistVersion.findMany({
+        where: { isActive: true },
+        orderBy: { year: 'desc' },
+        select: { id: true, name: true, year: true },
+      })
+    : [];
+
   // 年度做成頁籤分類(取代標題上的年度);民國年呈現
   // 年度頁籤升冪(全部 → 115 → 116…,由舊到新如時間軸;列表本身仍最新年在前)
   const years = [...new Set(cycles.map((c) => c.year))].sort((a, b) => a - b);
@@ -74,9 +91,18 @@ export default async function CyclesPage({ searchParams }: { searchParams: { yea
       user={{ name: user.name, email: user.email, role: user.role, organizationName: user.organizationName }}
       crumbs={[{ label: '總覽', href: '/dashboard' }, { label: '稽核週期' }]}
     >
-      <header className="mb-4 flex items-baseline justify-between">
+      <header className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-headline text-ink-900">稽核週期</h1>
-        <span className="text-caption text-ink-500">共 {shown.length} 筆</span>
+        <div className="flex items-center gap-3">
+          <span className="text-caption text-ink-500">共 {shown.length} 筆</span>
+          {isCenter && (
+            <BatchCreateCycles
+              orgs={createOrgs.map((o) => ({ id: o.id, name: o.name, years: o.cycles.map((c) => c.year) }))}
+              versions={createVersions}
+              defaultYear={years.length ? Math.max(...years) : new Date().getFullYear()}
+            />
+          )}
+        </div>
       </header>
 
       {years.length > 0 && (
