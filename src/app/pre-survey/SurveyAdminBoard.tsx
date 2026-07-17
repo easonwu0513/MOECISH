@@ -1017,6 +1017,8 @@ function SessionManagerDialog({
   const [shared, setShared] = useState(true);
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
+  // UAT 圖4:新增場次表單預設收合(彈窗以管理既有場次為主),點標題列展開
+  const [showAdd, setShowAdd] = useState(false);
 
   // B UAT:一鍵把該年度已排定實地稽核日的稽核週期建成場次(去重;與手動新增並存)
   async function importCycles() {
@@ -1061,8 +1063,17 @@ function SessionManagerDialog({
           </div>
         </div>
         <div className="rounded-md border border-rule bg-card p-3.5">
-          <p className="text-label text-ink-900 mb-2">新增場次</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setShowAdd((v) => !v)}
+            aria-expanded={showAdd}
+            className="flex w-full items-center justify-between text-left focus-ring rounded"
+          >
+            <span className="text-label text-ink-900">新增場次</span>
+            <span className="text-caption text-primary-700">{showAdd ? '收合' : '＋ 展開'}</span>
+          </button>
+          {showAdd && (<>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：總院、斗六" />
             <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
@@ -1094,6 +1105,7 @@ function SessionManagerDialog({
           <div className="mt-3">
             <Button size="sm" onClick={add} loading={busy} disabled={busy}>新增場次</Button>
           </div>
+          </>)}
         </div>
 
         {sessions.length > 0 && (
