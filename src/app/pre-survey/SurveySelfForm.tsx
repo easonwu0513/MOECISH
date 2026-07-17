@@ -111,6 +111,9 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const docsWindowLocked = !data.canUploadDocs; // UAT 圖7:文件上傳逾第一時窗鎖定(editUnlocked 豁免已算入)
 
   async function saveContact() {
+    // UAT 圖21:主要聯絡方式必填(信箱+電話);後端同步強制
+    if (!email.trim()) { toast.error('請填寫主要電子郵件'); return; }
+    if (!phone.trim()) { toast.error('請填寫主要聯絡電話'); return; }
     setSavingContact(true);
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}`, {
       method: 'PATCH',
@@ -275,8 +278,8 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         <h3 className="text-label text-ink-900 mb-1">聯絡資訊</h3>
         <p className="text-caption text-ink-500 mb-3">主要電子郵件已預先代入您的帳號信箱；如需以其他信箱、電話聯繫，可修改或新增次要聯絡。</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
-          <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <TextField label="電子郵件（主要，必填）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
+          <TextField label="聯絡電話（主要，必填）" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="必填" />
         </div>
         {showSecondary ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -416,7 +419,11 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
         <div className="mt-3 flex items-center gap-3">
           {docLocked ? (
-            <span className="text-caption text-ink-500">文件已送審，待中心審核；如需修改請待退補後再上傳。</span>
+            <span className="text-caption text-ink-500">
+              {data.docReviewed
+                ? '文件已核可，如需變更文件，請聯絡中心協助處理！'
+                : '文件已送審，待中心審核；如需修改請待退補後再上傳。'}
+            </span>
           ) : docsWindowLocked ? (
             <span className="text-caption text-ink-500">
               {data.fillWindow?.state === 'BEFORE'

@@ -29,6 +29,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       }
     }
 
+    // UAT 圖21:主要聯絡方式必填——送出意願前信箱與電話皆須在(信箱可為帳號預代入後儲存的值)
+    if (!participant.email?.trim() || !participant.phone?.trim()) {
+      return NextResponse.json(
+        { error: '請先於「聯絡資訊」填寫並儲存主要電子郵件與聯絡電話後再送出。' },
+        { status: 400 },
+      );
+    }
+
     // 所有場次必填:僅計本身分「可見」場次(觀察員排除委員專屬),未答齊則擋下(不自動補 N/A)。
     const kindFilter = participant.kind === 'OBSERVER' ? { sharedWithObserver: true } : {};
     const [sessions, existing] = await Promise.all([

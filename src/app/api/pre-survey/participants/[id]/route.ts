@@ -74,6 +74,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
+    // UAT 圖21:主要聯絡方式必填——不允許將主要信箱/電話清為空(伺服器端強制)
+    if (body.email !== undefined && !body.email?.trim()) {
+      return NextResponse.json({ error: '主要電子郵件為必填，不可清空。' }, { status: 400 });
+    }
+    if (body.phone !== undefined && !body.phone?.trim()) {
+      return NextResponse.json({ error: '主要聯絡電話為必填，不可清空。' }, { status: 400 });
+    }
+
     const data: Record<string, unknown> = {};
     if (body.phone !== undefined) data.phone = body.phone?.trim() || null;
     if (body.email !== undefined) data.email = body.email?.trim() || null;
