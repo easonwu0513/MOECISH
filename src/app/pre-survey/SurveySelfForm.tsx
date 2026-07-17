@@ -354,7 +354,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
         {/* 下載公版範本 */}
         <div className="mb-4">
-          <p className="text-caption text-ink-500 mb-2">下載公版範本</p>
+          <p className="text-caption text-ink-500 mb-2">下載待填文件</p>
           {data.templates.length === 0 ? (
             <p className="text-caption text-ink-400">中心尚未提供公版範本。</p>
           ) : (
@@ -377,16 +377,19 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           )}
         </div>
 
-        {/* 中心提供的舊版經歷說明書參考(僅委員) */}
+        {/* 中心提供的舊版經歷說明書參考(僅委員;UAT 圖19:加「歷史文件參考」小標,前綴動態去年度全銜) */}
         {!isObserver && data.priorCvFile && (
-          <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
-            <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
-            <p className="text-caption text-ink-700">
-              {data.yearROC - 1} 年度經歷說明書：
-              <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
-                {data.priorCvFile.name}
-              </a>
-            </p>
+          <div className="mb-4">
+            <p className="text-caption text-ink-500 mb-2">歷史文件參考</p>
+            <div className="flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
+              <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
+              <p className="text-caption text-ink-700">
+                {data.yearROC - 1} 年度稽核委員候選人經歷說明書：
+                <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
+                  {data.priorCvFile.name}
+                </a>
+              </p>
+            </div>
           </div>
         )}
 

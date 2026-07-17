@@ -222,10 +222,10 @@ export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
  */
 export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
   switch (slot) {
-    case 'CV_SAMPLE': return `${yearROC - 1} 年度經歷說明書`;
-    case 'CV_BLANK': return `${yearROC} 年度經歷說明書`;
-    case 'NDA_BLANK': return `${yearROC} 年度保密切結書`;
-    case 'NDA_BLANK_OBSERVER': return `${yearROC} 年度保密切結書（觀察員）`;
+    case 'CV_SAMPLE': return `${yearROC - 1} 年度稽核委員候選人經歷說明書`;
+    case 'CV_BLANK': return `${yearROC} 年度稽核委員候選人經歷說明書`;
+    case 'NDA_BLANK': return `${yearROC} 年度稽核委員聘任同意暨保密切結書`;
+    case 'NDA_BLANK_OBSERVER': return `${yearROC} 年度觀察員聘任同意暨保密切結書`;
     default: return SURVEY_TEMPLATE_SLOT_LABELS[slot as SurveyTemplateSlot] ?? slot;
   }
 }
