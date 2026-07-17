@@ -279,22 +279,22 @@ export default async function HomePage() {
     }
   }
   // UAT 圖32:調查前置四步檢核(空狀態面板用;done=null 表示待中心分派場次、尚不可填)
-  const surveySteps = survey
+  const surveySteps: { key: string; label: string; done: boolean | null }[] | null = survey
     ? (() => {
         const ts = survey.assignedSessions.filter((a) => a.needsTravel);
         const stage2Done: boolean | null =
           ts.length > 0 ? ts.every((a) => a.transport.length > 0) && survey.diet.length > 0 : null;
         return [
-          { key: 'contact', label: '填寫並儲存聯絡資訊（主要電子郵件與聯絡電話）', done: !survey.contactIncomplete as boolean | null },
+          { key: 'contact', label: '填寫並儲存聯絡資訊（主要電子郵件與聯絡電話）', done: !survey.contactIncomplete },
           {
             key: 'docs',
             label:
               survey.kind === 'OBSERVER'
                 ? '上傳並送審文件（聘任同意暨保密切結書）'
                 : '上傳並送審文件（經歷說明書與聘任同意暨保密切結書）',
-            done: survey.docStatus === 'SUBMITTED' as boolean | null,
+            done: survey.docStatus === 'SUBMITTED',
           },
-          { key: 'stage1', label: '送出第一階段：稽核場次出席意願', done: !!survey.submittedAt as boolean | null },
+          { key: 'stage1', label: '送出第一階段：稽核場次出席意願', done: !!survey.submittedAt },
           { key: 'stage2', label: '填寫第二階段：差旅（交通住宿）與飲食需求', done: stage2Done },
         ];
       })()
