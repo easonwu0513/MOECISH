@@ -676,6 +676,7 @@ model SurveyParticipant {
   email         String? // 主要聯絡信箱(自助頁預設代入帳號 email,本人可改)
   phone2        String? // 次要聯絡電話(UAT:本人可自行新增另一組聯絡)
   email2        String? // 次要聯絡信箱(UAT:另一組聯絡帳號)
+  proxyName     String? // 代理聯絡人姓名/職稱(UAT 圖16;如「王小明/秘書」)
   proxyEmail    String? // 代理聯絡人信箱(UAT:勾選「有代理聯絡人」後填;無代理=null)
   proxyPhone    String? // 代理聯絡人電話
   note          String? // 中心對受調者的內部管理註記(自助頁不顯示;僅中心可改)

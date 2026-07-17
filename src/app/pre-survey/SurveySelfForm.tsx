@@ -40,6 +40,7 @@ export type SelfDTO = {
   email: string | null;
   phone2: string | null; // 次要聯絡電話
   email2: string | null; // 次要聯絡信箱
+  proxyName: string | null; // 代理聯絡人姓名/職稱(如「王小明/秘書」)
   proxyEmail: string | null; // 代理聯絡人信箱(null=無代理)
   proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: string | null;
@@ -78,9 +79,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [email2, setEmail2] = useState(data.email2 ?? '');
   const [phone2, setPhone2] = useState(data.phone2 ?? '');
   const [showSecondary, setShowSecondary] = useState(!!(data.email2 || data.phone2));
+  const [proxyName, setProxyName] = useState(data.proxyName ?? '');
   const [proxyEmail, setProxyEmail] = useState(data.proxyEmail ?? '');
   const [proxyPhone, setProxyPhone] = useState(data.proxyPhone ?? '');
-  const [hasProxy, setHasProxy] = useState(!!(data.proxyEmail || data.proxyPhone));
+  const [hasProxy, setHasProxy] = useState(!!(data.proxyName || data.proxyEmail || data.proxyPhone));
   const [statuses, setStatuses] = useState<Record<string, SurveyAvailabilityStatus | null>>(
     Object.fromEntries(data.sessions.map((s) => [s.id, s.status])),
   );
@@ -117,6 +119,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         phone2: phone2.trim() || null,
         email2: email2.trim() || null,
         // 取消勾選「有代理聯絡人」時送 null 清除,避免殘留舊代理個資
+        proxyName: hasProxy ? proxyName.trim() || null : null,
         proxyEmail: hasProxy ? proxyEmail.trim() || null : null,
         proxyPhone: hasProxy ? proxyPhone.trim() || null : null,
       }),
@@ -301,6 +304,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         {hasProxy && (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <TextField
+              label="代理人姓名/職稱"
+              value={proxyName}
+              onChange={(e) => setProxyName(e.target.value)}
+              placeholder="如：王小明/秘書"
+            />
+            <TextField
               label="代理聯絡人電子郵件"
               value={proxyEmail}
               onChange={(e) => setProxyEmail(e.target.value)}
@@ -373,7 +382,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
             <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
             <p className="text-caption text-ink-700">
-              中心提供您的舊版經歷說明書供參考：
+              {data.yearROC - 1} 年度經歷說明書：
               <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
                 {data.priorCvFile.name}
               </a>

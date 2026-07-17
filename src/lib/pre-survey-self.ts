@@ -47,6 +47,7 @@ export type SelfParticipant = {
   email: string | null;
   phone2: string | null;
   email2: string | null;
+  proxyName: string | null; // 代理聯絡人姓名/職稱(UAT 圖16)
   proxyEmail: string | null; // 代理聯絡人信箱(UAT;null=無代理)
   proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: Date | null;
@@ -132,6 +133,7 @@ export async function buildSelfDTO(opts: {
     email: participant.email,
     phone2: participant.phone2,
     email2: participant.email2,
+    proxyName: participant.proxyName,
     proxyEmail: participant.proxyEmail,
     proxyPhone: participant.proxyPhone,
     submittedAt: participant.submittedAt?.toISOString() ?? null,

@@ -256,6 +256,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     email: p.email,
     phone2: p.phone2,
     email2: p.email2,
+    proxyName: p.proxyName,
     proxyEmail: p.proxyEmail,
     proxyPhone: p.proxyPhone,
     note: p.note,

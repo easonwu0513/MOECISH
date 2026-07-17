@@ -53,6 +53,7 @@ export type AdminParticipantDTO = {
   email: string | null;
   phone2: string | null;
   email2: string | null;
+  proxyName: string | null; // 代理聯絡人姓名/職稱(UAT 圖16)
   proxyEmail: string | null; // 代理聯絡人信箱(UAT;null=無代理)
   proxyPhone: string | null; // 代理聯絡人電話
   note: string | null;
@@ -680,6 +681,7 @@ function AdminProfileDialog({
   const [email, setEmail] = useState('');
   const [phone2, setPhone2] = useState('');
   const [email2, setEmail2] = useState('');
+  const [proxyName, setProxyName] = useState('');
   const [proxyEmail, setProxyEmail] = useState('');
   const [proxyPhone, setProxyPhone] = useState('');
   const [saving, setSaving] = useState(false);
@@ -692,6 +694,7 @@ function AdminProfileDialog({
     setEmail(participant?.email ?? '');
     setPhone2(participant?.phone2 ?? '');
     setEmail2(participant?.email2 ?? '');
+    setProxyName(participant?.proxyName ?? '');
     setProxyEmail(participant?.proxyEmail ?? '');
     setProxyPhone(participant?.proxyPhone ?? '');
     setReviewReason(participant?.rejectReason ?? '');
@@ -712,6 +715,7 @@ function AdminProfileDialog({
         email: email.trim() || null,
         phone2: phone2.trim() || null,
         email2: email2.trim() || null,
+        proxyName: proxyName.trim() || null,
         proxyEmail: proxyEmail.trim() || null,
         proxyPhone: proxyPhone.trim() || null,
       }),
@@ -777,6 +781,7 @@ function AdminProfileDialog({
             <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <TextField label="電子郵件（次要）" value={email2} onChange={(e) => setEmail2(e.target.value)} placeholder="—" />
             <TextField label="聯絡電話（次要）" value={phone2} onChange={(e) => setPhone2(e.target.value)} placeholder="—" />
+            <TextField label="代理人姓名/職稱" value={proxyName} onChange={(e) => setProxyName(e.target.value)} placeholder="如：王小明/秘書" />
             <TextField label="代理聯絡人信箱" value={proxyEmail} onChange={(e) => setProxyEmail(e.target.value)} placeholder="無代理則留空" />
             <TextField label="代理聯絡人電話" value={proxyPhone} onChange={(e) => setProxyPhone(e.target.value)} placeholder="無代理則留空" />
           </div>
