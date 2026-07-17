@@ -418,10 +418,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             uploading={uploadingSlot === 'NDA'}
             onUpload={(e) => uploadDoc('NDA', e)}
           />
-          {/* UAT 圖30:差旅費領據(觀察員;年度開關制——本年度有報銷差旅費才開放;不綁一階送審) */}
-          {isObserver && data.receiptEnabled && (
+          {/* UAT 圖30/34:領據——委員常設(報支出席費/差旅費/評鑑費);觀察員依年度開關;皆不綁一階送審 */}
+          {data.receiptEnabled && (
             <DocSlot
-              title="差旅費領據"
+              title={isObserver ? '差旅費領據' : '費用領據（出席費／差旅費／評鑑費）'}
               file={data.receiptFile}
               locked={false}
               uploading={uploadingSlot === 'RECEIPT'}

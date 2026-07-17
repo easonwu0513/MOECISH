@@ -208,7 +208,7 @@ export const SURVEY_DOC_STATUS_LABELS: Record<SurveyDocStatus, string> = {
 };
 
 /** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員;切結書委員與觀察員各一份(UAT:觀察員切結書不同,分開)。 */
-export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER'] as const;
+export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER', 'RECEIPT_MEMBER'] as const;
 export type SurveyTemplateSlot = (typeof SURVEY_TEMPLATE_SLOTS)[number];
 export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
   CV_SAMPLE: '舊版經歷說明書（參考）',
@@ -216,6 +216,7 @@ export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
   NDA_BLANK: '空白保密切結書（委員）',
   NDA_BLANK_OBSERVER: '空白保密切結書（觀察員）',
   RECEIPT_OBSERVER: '差旅費領據（觀察員）',
+  RECEIPT_MEMBER: '費用領據（委員）',
 };
 /**
  * UAT 圖9:公版範本標籤動態代入年度(民國)——顯示端一律用本函式(DB label 僅為 fallback)。
@@ -228,13 +229,15 @@ export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
     case 'NDA_BLANK': return `${yearROC} 年度稽核委員聘任同意暨保密切結書`;
     case 'NDA_BLANK_OBSERVER': return `${yearROC} 年度觀察員聘任同意暨保密切結書`;
     case 'RECEIPT_OBSERVER': return `${yearROC} 年度觀察員差旅費領據`;
+    case 'RECEIPT_MEMBER': return `${yearROC} 年度稽核委員費用領據`;
     default: return SURVEY_TEMPLATE_SLOT_LABELS[slot as SurveyTemplateSlot] ?? slot;
   }
 }
 /** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
 export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
   // UAT 圖15:移除 CV_SAMPLE(去年度經歷說明書)公版槽——個別委員舊版經歷改走右側逐人上傳(prior-cv)
-  MEMBER: ['CV_BLANK', 'NDA_BLANK'],
+  // UAT 圖34:RECEIPT_MEMBER(委員費用領據)常設——報支說明會出席費/差旅費/評鑑費
+  MEMBER: ['CV_BLANK', 'NDA_BLANK', 'RECEIPT_MEMBER'],
   // UAT 圖30:RECEIPT_OBSERVER(差旅費領據)為年度開關制——該年度有報銷差旅費才開放(SurveyFillWindow.observerReceiptEnabled)
   OBSERVER: ['NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER'],
 };

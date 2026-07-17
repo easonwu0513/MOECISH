@@ -118,7 +118,8 @@ export async function buildSelfDTO(opts: {
     where: { year: participant.year },
     select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
   });
-  const receiptEnabled = !!fillWin?.observerReceiptEnabled; // UAT 圖30:年度領據開關
+  // UAT 圖30/34:領據開放——委員常設(費用領據);觀察員依年度開關
+  const receiptEnabled = kind === 'MEMBER' ? true : !!fillWin?.observerReceiptEnabled;
   const now = new Date();
   const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
   // UAT 圖7 雙時窗:文件上傳與意願共用第一時窗;差旅(交通/飲食)走第二時窗(場次確定後才開放)。
@@ -170,7 +171,7 @@ export async function buildSelfDTO(opts: {
     // UAT 圖30:領據(觀察員;年度開關制)
     receiptEnabled,
     receiptFile: receiptEv ? { id: receiptEv.id, name: receiptEv.originalName } : null,
-    // 依身分過濾公版範本(委員=CV+委員切結書;觀察員=觀察員切結書);領據範本僅開放年度顯示
+    // 依身分過濾公版範本;觀察員領據範本僅開放年度顯示(委員費用領據常設)
     templates: templateDTOs.filter(
       (t) => kindSlots.includes(t.slot) && (t.slot !== 'RECEIPT_OBSERVER' || receiptEnabled),
     ),
