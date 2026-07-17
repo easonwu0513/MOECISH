@@ -33,12 +33,10 @@ export default function BatchCreateCycles({
 
   const [year, setYear] = useState(String(defaultYear));
   const [versionId, setVersionId] = useState(versions[0]?.id ?? '');
-  const [dueDate, setDueDate] = useState('');
-  const [prepDueDate, setPrepDueDate] = useState('');
-  const [prepDueTech, setPrepDueTech] = useState('');
-  const [onsiteDate, setOnsiteDate] = useState('');
   const [applyPrep, setApplyPrep] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // UAT 圖10:每機關各自的實地稽核日期(選填;未填=留空,之後於週期頁再設)
+  const [onsiteDates, setOnsiteDates] = useState<Record<string, string>>({});
 
   const yearNum = parseInt(year, 10);
   const eligible = useMemo(
@@ -75,11 +73,11 @@ export default function BatchCreateCycles({
       body: JSON.stringify({
         year: yearNum,
         checklistVersionId: versionId,
-        organizationIds: Array.from(selected),
-        dueDate: dueDate || null,
-        prepDueDate: prepDueDate || null,
-        prepDueTech: prepDueTech || null,
-        onsiteDate: onsiteDate || null,
+        // UAT 圖10:每機關附各自的實地稽核日期(未填=null 留空)
+        organizations: Array.from(selected).map((id) => ({
+          organizationId: id,
+          onsiteDate: onsiteDates[id] || null,
+        })),
         applyStandardPrep: applyPrep,
       }),
     });
@@ -124,35 +122,49 @@ export default function BatchCreateCycles({
               ))}
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <TextField label="矯正填報截止（選填）" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            <TextField label="資料準備截止 · 實地稽核區（選填）" type="date" value={prepDueDate} onChange={(e) => setPrepDueDate(e.target.value)} />
-            <TextField label="資料準備截止 · 技術檢測區（選填）" type="date" value={prepDueTech} onChange={(e) => setPrepDueTech(e.target.value)} />
-            <TextField label="實地稽核日期（選填，可開立時先訂）" type="date" value={onsiteDate} onChange={(e) => setOnsiteDate(e.target.value)} />
-          </div>
 
           <div>
-            <p className="text-label text-ink-900 mb-2">機關（{selected.size} 已選）</p>
-            <div className="flex flex-col gap-1 max-h-56 overflow-y-auto rounded-md border border-rule p-2">
-              {eligible.map((o) => (
-                <label
-                  key={o.id}
-                  className={cn(
-                    'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-body-sm transition-colors',
-                    o.has ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-paper-sunk',
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    className="accent-primary-600"
-                    checked={selected.has(o.id)}
-                    disabled={o.has}
-                    onChange={() => toggle(o.id)}
-                  />
-                  <span className="flex-1 min-w-0 truncate text-ink-900">{o.name}</span>
-                  {o.has && <span className="text-caption text-ink-500 shrink-0">已有該年度</span>}
-                </label>
-              ))}
+            <p className="text-label text-ink-900 mb-2">選擇機關與實地稽核日期（{selected.size} 已選）</p>
+            <div className="rounded-md border border-rule">
+              <p className="flex items-start gap-1.5 border-b border-rule bg-paper-sunk/50 px-3 py-2 text-caption text-ink-500">
+                💡 提示：您可於此處直接為各機關選填實地稽核時間，未填寫者將留空。
+              </p>
+              <div className="flex flex-col gap-1 max-h-64 overflow-y-auto p-2">
+                {eligible.map((o) => (
+                  <div
+                    key={o.id}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-body-sm transition-colors',
+                      o.has ? 'opacity-50' : 'hover:bg-paper-sunk',
+                    )}
+                  >
+                    <label className={cn('flex flex-1 min-w-0 items-center gap-2.5', o.has ? 'cursor-not-allowed' : 'cursor-pointer')}>
+                      <input
+                        type="checkbox"
+                        className="accent-primary-600"
+                        checked={selected.has(o.id)}
+                        disabled={o.has}
+                        onChange={() => toggle(o.id)}
+                      />
+                      <span className="flex-1 min-w-0 truncate text-ink-900">{o.name}</span>
+                      {o.has && <span className="text-caption text-ink-500 shrink-0">已有該年度</span>}
+                    </label>
+                    {!o.has && (
+                      <input
+                        type="date"
+                        aria-label={`${o.name} 實地稽核日期（選填）`}
+                        value={onsiteDates[o.id] ?? ''}
+                        onChange={(e) => setOnsiteDates((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                        disabled={!selected.has(o.id)}
+                        className={cn(
+                          'shrink-0 rounded-md border border-rule bg-card px-2.5 py-1.5 text-caption focus-ring',
+                          !selected.has(o.id) && 'opacity-40 cursor-not-allowed',
+                        )}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

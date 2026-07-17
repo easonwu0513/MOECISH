@@ -18,6 +18,7 @@ import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_TRANSPORT_OPTIONS,
   SURVEY_DIET_OPTIONS,
+  surveyTemplateSlotLabel,
   type SurveyAvailabilityStatus,
   type SurveyDocStatus,
 } from '@/lib/types';
@@ -342,10 +343,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                       href={`/api/pre-survey/files/${t.fileId}/download`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-primary-700 hover:bg-paper-sunk focus-ring"
                     >
-                      <Paperclip size={13} /> {t.label}
+                      <Paperclip size={13} /> {surveyTemplateSlotLabel(t.slot, data.yearROC)}
                     </a>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-ink-400">{t.label}（無檔案）</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-ink-400">{surveyTemplateSlotLabel(t.slot, data.yearROC)}（無檔案）</span>
                   )}
                 </li>
               ))}

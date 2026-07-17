@@ -216,6 +216,19 @@ export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
   NDA_BLANK: '空白保密切結書（委員）',
   NDA_BLANK_OBSERVER: '空白保密切結書（觀察員）',
 };
+/**
+ * UAT 圖9:公版範本標籤動態代入年度(民國)——顯示端一律用本函式(DB label 僅為 fallback)。
+ * CV_SAMPLE=去年度(如調查為 115 年度則顯示 114 年度)、其餘=調查當年度。
+ */
+export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
+  switch (slot) {
+    case 'CV_SAMPLE': return `${yearROC - 1} 年度經歷說明書`;
+    case 'CV_BLANK': return `${yearROC} 年度經歷說明書`;
+    case 'NDA_BLANK': return `${yearROC} 年度保密切結書`;
+    case 'NDA_BLANK_OBSERVER': return `${yearROC} 年度保密切結書（觀察員）`;
+    default: return SURVEY_TEMPLATE_SLOT_LABELS[slot as SurveyTemplateSlot] ?? slot;
+  }
+}
 /** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
 export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
   MEMBER: ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'],

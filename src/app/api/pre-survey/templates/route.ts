@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { SURVEY_TEMPLATE_SLOTS, SURVEY_TEMPLATE_SLOT_LABELS, type SurveyTemplateSlot } from '@/lib/types';
+import { SURVEY_TEMPLATE_SLOTS, surveyTemplateSlotLabel, type SurveyTemplateSlot } from '@/lib/types';
 
 /**
  * 上傳公版範本(批B;僅中心)。範本為空白表單(如經歷說明書/切結書 Word 或 PDF),受調者下載填寫。
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     let template: { id: string };
     try {
       template = await prisma.surveyTemplate.create({
-        data: { year, slot, label: label || SURVEY_TEMPLATE_SLOT_LABELS[slot], uploadedById: user.id },
+        data: { year, slot, label: label || surveyTemplateSlotLabel(slot, year - 1911), uploadedById: user.id },
         select: { id: true },
       });
     } catch (err) {

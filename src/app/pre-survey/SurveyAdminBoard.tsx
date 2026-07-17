@@ -22,6 +22,7 @@ import {
   SURVEY_REPLY_STATUSES,
   SURVEY_DOC_HANDOVER_STATUSES,
   SURVEY_TEMPLATE_SLOT_LABELS,
+  surveyTemplateSlotLabel,
   SURVEY_TEMPLATE_SLOTS_BY_KIND,
   type SurveyParticipantKind,
 } from '@/lib/types';
@@ -1625,7 +1626,7 @@ function TemplateManagerDialog({
     fd.append('file', file);
     fd.append('year', String(yearROC + 1911));
     fd.append('slot', slot);
-    fd.append('label', SURVEY_TEMPLATE_SLOT_LABELS[slot as keyof typeof SURVEY_TEMPLATE_SLOT_LABELS] ?? slot);
+    fd.append('label', surveyTemplateSlotLabel(slot, yearROC)); // UAT 圖9:動態年度標籤
     const res = await fetch('/api/pre-survey/templates', { method: 'POST', body: fd });
     setBusySlot(null);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '上傳失敗' })); toast.error('上傳失敗', j.error); return; }
@@ -1648,7 +1649,7 @@ function TemplateManagerDialog({
           return (
             <div key={slot} className="flex items-center justify-between gap-3 rounded-md border border-rule bg-card p-3">
               <div className="min-w-0">
-                <p className="text-body-sm font-medium text-ink-900">{SURVEY_TEMPLATE_SLOT_LABELS[slot]}</p>
+                <p className="text-body-sm font-medium text-ink-900">{surveyTemplateSlotLabel(slot, yearROC)}</p>
                 {t?.fileId ? (
                   <a href={`/api/pre-survey/files/${t.fileId}/download`} className="text-caption text-primary-700 hover:underline break-all">{t.fileName}</a>
                 ) : (
