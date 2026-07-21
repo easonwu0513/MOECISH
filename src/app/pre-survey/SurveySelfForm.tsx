@@ -489,7 +489,8 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                     <span className="text-body-sm font-medium text-ink-900">{s.anonLabel}</span>
                     {s.isRequired && <Chip size="sm" tone="danger">必參加</Chip>}
                   </div>
-                  {s.remark && <p className="mt-0.5 text-caption text-ink-500">{s.remark}</p>}
+                  {/* UAT 圖48:備註保留管理端輸入的換行,委員/觀察員看到的段落與最高管理者一致 */}
+                  {s.remark && <p className="mt-0.5 text-caption text-ink-500 whitespace-pre-line">{s.remark}</p>}
                 </div>
                 <div className="inline-flex rounded-lg bg-paper-sunk p-1" role="group" aria-label={`${s.anonLabel} 意願`}>
                   {SURVEY_AVAILABILITY_STATUSES.map((opt) => {
