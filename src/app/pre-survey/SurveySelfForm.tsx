@@ -519,18 +519,45 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </div>
       )}
 
-      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下;圖7:另受第二時窗管制) */}
+      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下;圖7:另受第二時窗管制)
+          UAT 圖39:逾窗仍顯示已填內容(唯讀)——受調者看得到自己填了什麼,僅不可修改 */}
       {isAssigned && !data.canEditTravel ? (
         <Card variant="outlined" className="bg-paper-sunk/40">
-          <div className="flex items-start gap-2 text-ink-500">
-            <MapPin size={18} className="mt-0.5 shrink-0" />
-            <div>
+          <div className="flex items-start gap-2">
+            <MapPin size={18} className="mt-0.5 shrink-0 text-ink-500" />
+            <div className="min-w-0 flex-1">
               <h3 className="text-label text-ink-700">第二階段：差旅與飲食調查</h3>
-              <p className="mt-1 text-caption">
+              <p className="mt-1 text-caption text-ink-500">
                 {data.travelWindow?.state === 'BEFORE'
                   ? `差旅調查尚未開放${data.travelWindow.openAt ? `（開放時間：${fmtROCDateTime(data.travelWindow.openAt)} 起）` : ''}。`
                   : `差旅調查已截止${data.travelWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.travelWindow.closeAt)}）` : ''}。如需補填或變更，請聯絡中心開放。`}
               </p>
+              {/* 已填內容唯讀呈現 */}
+              <div className="mt-3 space-y-1.5 text-body-sm text-ink-700">
+                {data.assignedSessions
+                  .filter((a) => a.needsTravel)
+                  .map((a) => (
+                    <p key={a.sessionId}>
+                      <span className="text-ink-500">{a.label}：</span>
+                      {a.transport.length > 0 ? a.transport.join('、') : '未填'}
+                    </p>
+                  ))}
+                {data.assignedSessions.some((a) => !a.needsTravel) && (
+                  <p className="text-caption text-ink-500">
+                    {data.assignedSessions.filter((a) => !a.needsTravel).map((a) => a.label).join('、')}：線上辦理，無需填寫交通住宿。
+                  </p>
+                )}
+                <p>
+                  <span className="text-ink-500">飲食需求：</span>
+                  {data.diet.length > 0 ? data.diet.join('、') : '未填'}
+                </p>
+                {data.travelNote && (
+                  <p>
+                    <span className="text-ink-500">特殊備註：</span>
+                    {data.travelNote}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </Card>
