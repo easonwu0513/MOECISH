@@ -98,7 +98,12 @@ export default function SurveyAdminBoard({
   observerPool: PoolUser[];
   templates: AdminTemplateDTO[];
   customColumns: AdminColumnDTO[];
-  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null; observerReceiptEnabled: boolean } | null; // 該年度雙時窗 + 領據開關(UAT 圖30)
+  fillWindow: {
+    openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null;
+    // 圖41:觀察員時窗與委員分開設定
+    observerOpenAt: string | null; observerCloseAt: string | null; observerTravelOpenAt: string | null; observerTravelCloseAt: string | null;
+    observerReceiptEnabled: boolean;
+  } | null; // 該年度雙時窗×二身分 + 領據開關(UAT 圖30/41)
   initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
 }) {
   const router = useRouter();
@@ -192,6 +197,7 @@ export default function SurveyAdminBoard({
         templates={templates}
         members={participants.filter((p) => p.kind === 'MEMBER')}
         onManageTemplates={() => setTemplateMgrOpen(true)}
+        receiptEnabled={fillWindow?.observerReceiptEnabled ?? false}
       />
 
       {/* 工具列 */}
@@ -586,18 +592,22 @@ export default function SurveyAdminBoard({
 
 // ── 系統檔案管理區(公版範本入口 + 個別委員舊版經歷說明書上傳) ──
 function FileManagementCard({
-  kind, templates, members, onManageTemplates,
+  kind, templates, members, onManageTemplates, receiptEnabled,
 }: {
   kind: SurveyParticipantKind;
   templates: AdminTemplateDTO[];
   members: AdminParticipantDTO[];
   onManageTemplates: () => void;
+  receiptEnabled: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [selectedId, setSelectedId] = useState('');
   const [busy, setBusy] = useState(false);
-  const kindSlots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] as readonly string[];
+  // UAT 圖40:觀察員領據槽為年度開關制——未開放年度不計入分母(顯示 1/1 而非 1/2)
+  const kindSlots = (SURVEY_TEMPLATE_SLOTS_BY_KIND[kind] as readonly string[]).filter(
+    (s) => s !== 'RECEIPT_OBSERVER' || receiptEnabled,
+  );
   const uploadedCount = templates.filter((t) => t.fileId && kindSlots.includes(t.slot)).length;
   const selected = members.find((m) => m.id === selectedId) ?? null;
 
@@ -1016,20 +1026,63 @@ function isoToLocalInput(iso: string | null): string {
 }
 
 // ── 意願填報時窗設定(中心設定 openAt/closeAt;逾窗受調者鎖定,除非個別開放補填) ──
+/** 圖41:單一時間區間(起訖兩個 datetime-local)的共用輸入組 */
+function WindowRangeFields({
+  title, openVal, closeVal, onOpenChange, onCloseChange,
+}: {
+  title: string;
+  openVal: string;
+  closeVal: string;
+  onOpenChange: (v: string) => void;
+  onCloseChange: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-rule bg-card p-3.5 space-y-3">
+      <p className="text-label text-ink-900">{title}</p>
+      <div>
+        <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
+        <input
+          type="datetime-local"
+          value={openVal}
+          onChange={(e) => onOpenChange(e.target.value)}
+          className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+        />
+      </div>
+      <div>
+        <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
+        <input
+          type="datetime-local"
+          value={closeVal}
+          onChange={(e) => onCloseChange(e.target.value)}
+          className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
+        />
+      </div>
+    </div>
+  );
+}
+
 function FillWindowDialog({
   open, onOpenChange, yearROC, fillWindow,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   yearROC: number;
-  fillWindow: { openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null } | null;
+  fillWindow: {
+    openAt: string | null; closeAt: string | null; travelOpenAt: string | null; travelCloseAt: string | null;
+    observerOpenAt: string | null; observerCloseAt: string | null; observerTravelOpenAt: string | null; observerTravelCloseAt: string | null;
+  } | null;
 }) {
   const router = useRouter();
   const toast = useToast();
+  // 圖41:委員與觀察員時窗分開設定(各自兩個區間,共 8 端)
   const [openAt, setOpenAt] = useState('');
   const [closeAt, setCloseAt] = useState('');
   const [travelOpenAt, setTravelOpenAt] = useState('');
   const [travelCloseAt, setTravelCloseAt] = useState('');
+  const [obsOpenAt, setObsOpenAt] = useState('');
+  const [obsCloseAt, setObsCloseAt] = useState('');
+  const [obsTravelOpenAt, setObsTravelOpenAt] = useState('');
+  const [obsTravelCloseAt, setObsTravelCloseAt] = useState('');
   const [busy, setBusy] = useState(false);
 
   // 每次開啟以最新 prop 重置(避免關窗後再開仍顯舊值)
@@ -1039,8 +1092,16 @@ function FillWindowDialog({
       setCloseAt(isoToLocalInput(fillWindow?.closeAt ?? null));
       setTravelOpenAt(isoToLocalInput(fillWindow?.travelOpenAt ?? null));
       setTravelCloseAt(isoToLocalInput(fillWindow?.travelCloseAt ?? null));
+      setObsOpenAt(isoToLocalInput(fillWindow?.observerOpenAt ?? null));
+      setObsCloseAt(isoToLocalInput(fillWindow?.observerCloseAt ?? null));
+      setObsTravelOpenAt(isoToLocalInput(fillWindow?.observerTravelOpenAt ?? null));
+      setObsTravelCloseAt(isoToLocalInput(fillWindow?.observerTravelCloseAt ?? null));
     }
-  }, [open, fillWindow?.openAt, fillWindow?.closeAt, fillWindow?.travelOpenAt, fillWindow?.travelCloseAt]);
+  }, [
+    open,
+    fillWindow?.openAt, fillWindow?.closeAt, fillWindow?.travelOpenAt, fillWindow?.travelCloseAt,
+    fillWindow?.observerOpenAt, fillWindow?.observerCloseAt, fillWindow?.observerTravelOpenAt, fillWindow?.observerTravelCloseAt,
+  ]);
 
   async function save() {
     // datetime-local 一律解讀為台北時間(+08:00),不隨管理員瀏覽器時區偏移;空=null(該端不限)
@@ -1049,13 +1110,18 @@ function FillWindowDialog({
     const closeIso = toIso(closeAt);
     const travelOpenIso = toIso(travelOpenAt);
     const travelCloseIso = toIso(travelCloseAt);
-    if (openIso && closeIso && new Date(openIso) > new Date(closeIso)) {
-      toast.error('開放起始時間不得晚於截止時間');
-      return;
-    }
-    if (travelOpenIso && travelCloseIso && new Date(travelOpenIso) > new Date(travelCloseIso)) {
-      toast.error('差旅調查起始時間不得晚於截止時間');
-      return;
+    const obsOpenIso = toIso(obsOpenAt);
+    const obsCloseIso = toIso(obsCloseAt);
+    const obsTravelOpenIso = toIso(obsTravelOpenAt);
+    const obsTravelCloseIso = toIso(obsTravelCloseAt);
+    const ranges: [string | null, string | null, string][] = [
+      [openIso, closeIso, '委員第一區間起始時間不得晚於截止時間'],
+      [travelOpenIso, travelCloseIso, '委員第二區間起始時間不得晚於截止時間'],
+      [obsOpenIso, obsCloseIso, '觀察員第一區間起始時間不得晚於截止時間'],
+      [obsTravelOpenIso, obsTravelCloseIso, '觀察員第二區間起始時間不得晚於截止時間'],
+    ];
+    for (const [o, c, msg] of ranges) {
+      if (o && c && new Date(o) > new Date(c)) { toast.error(msg); return; }
     }
     setBusy(true);
     const res = await fetch('/api/pre-survey/fill-window', {
@@ -1067,6 +1133,10 @@ function FillWindowDialog({
         closeAt: closeIso,
         travelOpenAt: travelOpenIso,
         travelCloseAt: travelCloseIso,
+        observerOpenAt: obsOpenIso,
+        observerCloseAt: obsCloseIso,
+        observerTravelOpenAt: obsTravelOpenIso,
+        observerTravelCloseAt: obsTravelCloseIso,
       }),
     });
     setBusy(false);
@@ -1081,54 +1151,30 @@ function FillWindowDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={`${yearROC} 年度填報時間`}
-      description="兩個時間區間：場次意願與文件上傳共用第一區間；場次確定後才開放的差旅（交通住宿／飲食）調查用第二區間。逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
+      description="委員與觀察員的填報時間分開設定，各有兩個區間：場次意願與文件上傳共用第一區間；場次確定後才開放的差旅（交通住宿／飲食）調查用第二區間。逾期後受調者不可再變更（中心代填不受限，亦可於個別受調者的個人資料開放補填）。留空=該端不限。"
     >
       <div className="space-y-4 pt-2">
-        <div className="rounded-md border border-rule bg-card p-3.5 space-y-3">
-          <p className="text-label text-ink-900">第一區間：場次意願與文件上傳</p>
-          <div>
-            <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
-            <input
-              type="datetime-local"
-              value={openAt}
-              onChange={(e) => setOpenAt(e.target.value)}
-              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-            />
-          </div>
-          <div>
-            <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
-            <input
-              type="datetime-local"
-              value={closeAt}
-              onChange={(e) => setCloseAt(e.target.value)}
-              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-            />
-          </div>
+        <div className="space-y-3">
+          <p className="text-label font-medium text-ink-900">稽核委員填報時間</p>
+          <WindowRangeFields title="第一區間：場次意願與文件上傳" openVal={openAt} closeVal={closeAt} onOpenChange={setOpenAt} onCloseChange={setCloseAt} />
+          <WindowRangeFields title="第二區間：差旅（交通住宿／飲食）調查" openVal={travelOpenAt} closeVal={travelCloseAt} onOpenChange={setTravelOpenAt} onCloseChange={setTravelCloseAt} />
         </div>
-        <div className="rounded-md border border-rule bg-card p-3.5 space-y-3">
-          <p className="text-label text-ink-900">第二區間：差旅（交通住宿／飲食）調查</p>
-          <div>
-            <label className="block text-caption text-ink-600 mb-1">開放起始（留空=即刻起）</label>
-            <input
-              type="datetime-local"
-              value={travelOpenAt}
-              onChange={(e) => setTravelOpenAt(e.target.value)}
-              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-            />
-          </div>
-          <div>
-            <label className="block text-caption text-ink-600 mb-1">截止（留空=不限）</label>
-            <input
-              type="datetime-local"
-              value={travelCloseAt}
-              onChange={(e) => setTravelCloseAt(e.target.value)}
-              className="w-full rounded-md border border-rule bg-card px-3 py-2 text-body-sm focus-ring"
-            />
-          </div>
+        <div className="space-y-3 border-t border-rule pt-4">
+          <p className="text-label font-medium text-ink-900">觀察員填報時間</p>
+          <WindowRangeFields title="第一區間：場次意願與文件上傳" openVal={obsOpenAt} closeVal={obsCloseAt} onOpenChange={setObsOpenAt} onCloseChange={setObsCloseAt} />
+          <WindowRangeFields title="第二區間：差旅（交通住宿／飲食）調查" openVal={obsTravelOpenAt} closeVal={obsTravelCloseAt} onOpenChange={setObsTravelOpenAt} onCloseChange={setObsTravelCloseAt} />
         </div>
         <div className="flex items-center gap-2 pt-1">
           <Button size="sm" onClick={save} loading={busy} disabled={busy}>儲存</Button>
-          <Button size="sm" variant="text" onClick={() => { setOpenAt(''); setCloseAt(''); setTravelOpenAt(''); setTravelCloseAt(''); }} disabled={busy}>清除限制</Button>
+          <Button
+            size="sm"
+            variant="text"
+            onClick={() => {
+              setOpenAt(''); setCloseAt(''); setTravelOpenAt(''); setTravelCloseAt('');
+              setObsOpenAt(''); setObsCloseAt(''); setObsTravelOpenAt(''); setObsTravelCloseAt('');
+            }}
+            disabled={busy}
+          >清除限制</Button>
         </div>
       </div>
     </Dialog>
@@ -1839,7 +1885,8 @@ function TemplateManagerDialog({
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [togglingReceipt, setTogglingReceipt] = useState(false);
   const bySlot = new Map(templates.map((t) => [t.slot, t]));
-  const slots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind];
+  // UAT 圖40:未開放年度領據槽自彈窗隱藏(開關打開才出現上傳槽)
+  const slots = SURVEY_TEMPLATE_SLOTS_BY_KIND[kind].filter((s) => s !== 'RECEIPT_OBSERVER' || receiptEnabled);
 
   // UAT 圖30:年度領據開關——關閉時觀察員自助不顯示領據範本與上傳槽(上傳端亦硬擋)
   async function toggleReceipt(next: boolean) {

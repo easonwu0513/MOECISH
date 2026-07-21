@@ -14,6 +14,11 @@ const Body = z.object({
   travelCloseAt: z.string().datetime().nullable().optional(),
   // UAT 圖30:本年度是否開放觀察員填寫差旅費領據(單獨切換;未提供=不變)
   observerReceiptEnabled: z.boolean().optional(),
+  // UAT 圖41:觀察員專屬時窗(與委員分開設定;各端 null=不限)
+  observerOpenAt: z.string().datetime().nullable().optional(),
+  observerCloseAt: z.string().datetime().nullable().optional(),
+  observerTravelOpenAt: z.string().datetime().nullable().optional(),
+  observerTravelCloseAt: z.string().datetime().nullable().optional(),
 });
 
 /**
@@ -29,11 +34,21 @@ export async function PUT(req: Request) {
     const closeAt = body.closeAt ? new Date(body.closeAt) : null;
     const travelOpenAt = body.travelOpenAt ? new Date(body.travelOpenAt) : null;
     const travelCloseAt = body.travelCloseAt ? new Date(body.travelCloseAt) : null;
+    const observerOpenAt = body.observerOpenAt ? new Date(body.observerOpenAt) : null;
+    const observerCloseAt = body.observerCloseAt ? new Date(body.observerCloseAt) : null;
+    const observerTravelOpenAt = body.observerTravelOpenAt ? new Date(body.observerTravelOpenAt) : null;
+    const observerTravelCloseAt = body.observerTravelCloseAt ? new Date(body.observerTravelCloseAt) : null;
     if (openAt && closeAt && openAt > closeAt) {
       return NextResponse.json({ error: '開放起始時間不得晚於截止時間' }, { status: 400 });
     }
     if (travelOpenAt && travelCloseAt && travelOpenAt > travelCloseAt) {
       return NextResponse.json({ error: '差旅調查起始時間不得晚於截止時間' }, { status: 400 });
+    }
+    if (observerOpenAt && observerCloseAt && observerOpenAt > observerCloseAt) {
+      return NextResponse.json({ error: '觀察員第一區間起始時間不得晚於截止時間' }, { status: 400 });
+    }
+    if (observerTravelOpenAt && observerTravelCloseAt && observerTravelOpenAt > observerTravelCloseAt) {
+      return NextResponse.json({ error: '觀察員差旅調查起始時間不得晚於截止時間' }, { status: 400 });
     }
     // undefined-preserving:各欄「未提供=不變」——開關可單獨切換而不清掉時窗(UAT 圖30)
     await prisma.surveyFillWindow.upsert({
@@ -44,6 +59,10 @@ export async function PUT(req: Request) {
         closeAt,
         travelOpenAt,
         travelCloseAt,
+        observerOpenAt,
+        observerCloseAt,
+        observerTravelOpenAt,
+        observerTravelCloseAt,
         observerReceiptEnabled: body.observerReceiptEnabled ?? false,
         updatedById: user.id,
       },
@@ -52,6 +71,10 @@ export async function PUT(req: Request) {
         closeAt: body.closeAt === undefined ? undefined : closeAt,
         travelOpenAt: body.travelOpenAt === undefined ? undefined : travelOpenAt,
         travelCloseAt: body.travelCloseAt === undefined ? undefined : travelCloseAt,
+        observerOpenAt: body.observerOpenAt === undefined ? undefined : observerOpenAt,
+        observerCloseAt: body.observerCloseAt === undefined ? undefined : observerCloseAt,
+        observerTravelOpenAt: body.observerTravelOpenAt === undefined ? undefined : observerTravelOpenAt,
+        observerTravelCloseAt: body.observerTravelCloseAt === undefined ? undefined : observerTravelCloseAt,
         observerReceiptEnabled: body.observerReceiptEnabled,
         updatedById: user.id,
       },
@@ -66,6 +89,10 @@ export async function PUT(req: Request) {
         closeAt: closeAt?.toISOString() ?? null,
         travelOpenAt: travelOpenAt?.toISOString() ?? null,
         travelCloseAt: travelCloseAt?.toISOString() ?? null,
+        observerOpenAt: observerOpenAt?.toISOString() ?? null,
+        observerCloseAt: observerCloseAt?.toISOString() ?? null,
+        observerTravelOpenAt: observerTravelOpenAt?.toISOString() ?? null,
+        observerTravelCloseAt: observerTravelCloseAt?.toISOString() ?? null,
       },
       ...extractRequestMeta(req),
     });

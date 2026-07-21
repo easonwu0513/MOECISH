@@ -187,7 +187,11 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
 
   const fillWindowRow = await prisma.surveyFillWindow.findUnique({
     where: { year },
-    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
+    select: {
+      openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true,
+      observerOpenAt: true, observerCloseAt: true, observerTravelOpenAt: true, observerTravelCloseAt: true,
+      observerReceiptEnabled: true,
+    },
   });
   const fillWindow = fillWindowRow
     ? {
@@ -195,6 +199,11 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
         closeAt: fillWindowRow.closeAt?.toISOString() ?? null,
         travelOpenAt: fillWindowRow.travelOpenAt?.toISOString() ?? null,
         travelCloseAt: fillWindowRow.travelCloseAt?.toISOString() ?? null,
+        // 圖41:觀察員專屬時窗(與委員分開設定)
+        observerOpenAt: fillWindowRow.observerOpenAt?.toISOString() ?? null,
+        observerCloseAt: fillWindowRow.observerCloseAt?.toISOString() ?? null,
+        observerTravelOpenAt: fillWindowRow.observerTravelOpenAt?.toISOString() ?? null,
+        observerTravelCloseAt: fillWindowRow.observerTravelCloseAt?.toISOString() ?? null,
         observerReceiptEnabled: fillWindowRow.observerReceiptEnabled,
       }
     : null;

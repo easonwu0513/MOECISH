@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
-import { canEditAvailability } from '@/lib/pre-survey-window';
+import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 
 /**
  * 送出一階意願(批A;本人或中心代送)。UAT 改為「所有場次必填」:
@@ -19,9 +19,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!isAdmin) {
       const win = await prisma.surveyFillWindow.findUnique({
         where: { year: participant.year },
-        select: { openAt: true, closeAt: true },
+        select: YEAR_WINDOWS_SELECT,
       });
-      if (!canEditAvailability(win, participant.editUnlocked, new Date())) {
+      if (!canEditAvailability(stage1WindowFor(win, participant.kind), participant.editUnlocked, new Date())) {
         return NextResponse.json(
           { error: '意願填報已截止或尚未開始；如需補填或變更，請聯絡中心開放。' },
           { status: 403 },

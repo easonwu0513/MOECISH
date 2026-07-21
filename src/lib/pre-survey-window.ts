@@ -5,6 +5,46 @@
  */
 export type FillWindow = { openAt: Date | null; closeAt: Date | null } | null;
 
+/** UAT 圖41:年度時窗全欄(委員四欄 + 觀察員四欄;各自獨立,null=該端不限)。 */
+export type YearWindows = {
+  openAt: Date | null;
+  closeAt: Date | null;
+  travelOpenAt: Date | null;
+  travelCloseAt: Date | null;
+  observerOpenAt: Date | null;
+  observerCloseAt: Date | null;
+  observerTravelOpenAt: Date | null;
+  observerTravelCloseAt: Date | null;
+} | null;
+
+/** 各判定點統一的 prisma select(避免各 route 漏欄)。 */
+export const YEAR_WINDOWS_SELECT = {
+  openAt: true,
+  closeAt: true,
+  travelOpenAt: true,
+  travelCloseAt: true,
+  observerOpenAt: true,
+  observerCloseAt: true,
+  observerTravelOpenAt: true,
+  observerTravelCloseAt: true,
+} as const;
+
+/** 第一時窗(意願+文件+聯絡)依身分取欄:觀察員用 observer* 四欄,委員用原四欄。 */
+export function stage1WindowFor(win: YearWindows, kind: string): FillWindow {
+  if (!win) return null;
+  return kind === 'OBSERVER'
+    ? { openAt: win.observerOpenAt, closeAt: win.observerCloseAt }
+    : { openAt: win.openAt, closeAt: win.closeAt };
+}
+
+/** 第二時窗(差旅/飲食)依身分取欄。 */
+export function stage2WindowFor(win: YearWindows, kind: string): FillWindow {
+  if (!win) return null;
+  return kind === 'OBSERVER'
+    ? { openAt: win.observerTravelOpenAt, closeAt: win.observerTravelCloseAt }
+    : { openAt: win.travelOpenAt, closeAt: win.travelCloseAt };
+}
+
 /** 現在是否在填報時窗內。無設定(null)或兩端皆 null=永遠開放(向後相容,無此列時亦視為開放)。 */
 export function isFillWindowOpen(win: FillWindow, now: Date): boolean {
   if (!win) return true;

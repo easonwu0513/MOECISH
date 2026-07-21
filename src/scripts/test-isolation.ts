@@ -508,6 +508,13 @@ async function main() {
   await expectStatus('委員Y 逾窗填意願(時窗硬擋)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'NA' });
   await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { editUnlocked: true } });
   await expectAllowed('委員Y 經開放補填續填(editUnlocked)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, { sessionId: sShared.id, status: 'NA' });
+  // 圖41:委員與觀察員時窗分開設定——各看各的窗,互不影響
+  await prisma.surveyFillWindow.update({
+    where: { year: SURVEY_YEAR },
+    data: { closeAt: new Date(now.getTime() + 7 * 86400000), observerCloseAt: new Date(now.getTime() - 3600000) },
+  });
+  await expectAllowed('委員Z 委員窗開放可填(分窗)', jarZ, 'PUT', `/api/pre-survey/participants/${pZ.id}/availability`, { sessionId: sShared.id, status: 'OK' });
+  await expectStatus('觀察員O1 觀察員窗逾期硬擋(分窗)', jarO1, 'PUT', `/api/pre-survey/participants/${pO1.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
 
   console.log('\n── 持續列管隔離(批71;路線圖#4)──');
   const tracked1 = await prisma.trackedDeficiency.create({

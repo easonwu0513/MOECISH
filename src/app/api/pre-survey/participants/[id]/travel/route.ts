@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
-import { canEditAvailability } from '@/lib/pre-survey-window';
+import { canEditAvailability, stage2WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS, isValidTransportToken } from '@/lib/types';
 
 const Body = z.object({
@@ -42,10 +42,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (!isAdmin) {
       const win = await prisma.surveyFillWindow.findUnique({
         where: { year: participant.year },
-        select: { travelOpenAt: true, travelCloseAt: true },
+        select: YEAR_WINDOWS_SELECT,
       });
-      const travelWin = win ? { openAt: win.travelOpenAt, closeAt: win.travelCloseAt } : null;
-      if (!canEditAvailability(travelWin, participant.editUnlocked, new Date())) {
+      if (!canEditAvailability(stage2WindowFor(win, participant.kind), participant.editUnlocked, new Date())) {
         return NextResponse.json(
           { error: '差旅調查未在開放時間內；如需填寫或變更，請聯絡中心開放。' },
           { status: 403 },

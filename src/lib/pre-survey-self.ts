@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { anonymousSessionLabel } from './pre-survey';
 import { rocSlashWeekday } from './date';
-import { canEditAvailability, fillWindowState } from './pre-survey-window';
+import { canEditAvailability, fillWindowState, stage1WindowFor, stage2WindowFor, YEAR_WINDOWS_SELECT } from './pre-survey-window';
 import { SURVEY_TEMPLATE_SLOTS_BY_KIND, type SurveyAvailabilityStatus, type SurveyParticipantKind } from './types';
 import type { SelfDTO } from '@/app/pre-survey/SurveySelfForm';
 
@@ -113,18 +113,17 @@ export async function buildSelfDTO(opts: {
     value: cvValues[c.id] ?? '',
   }));
 
-  // UAT:意願填報時窗(逾窗鎖定編修/送出;中心可對本人 editUnlocked 開放補填)
+  // UAT 圖41:意願填報時窗依身分分流(委員/觀察員各自四欄;逾窗鎖定編修/送出;editUnlocked 兩窗皆豁免)
   const fillWin = await prisma.surveyFillWindow.findUnique({
     where: { year: participant.year },
-    select: { openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true, observerReceiptEnabled: true },
+    select: { ...YEAR_WINDOWS_SELECT, observerReceiptEnabled: true },
   });
   // UAT 圖30/36:領據上傳僅觀察員(依年度開關);委員領據改寄信收送,不走系統
   const receiptEnabled = kind === 'MEMBER' ? false : !!fillWin?.observerReceiptEnabled;
   const now = new Date();
-  const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
-  // UAT 圖7 雙時窗:文件上傳與意願共用第一時窗;差旅(交通/飲食)走第二時窗(場次確定後才開放)。
-  // 第二時窗重用同一組純函式(欄位改名映射);editUnlocked 兩窗皆豁免(中心開放補填即全開)。
-  const travelWin = fillWin ? { openAt: fillWin.travelOpenAt, closeAt: fillWin.travelCloseAt } : null;
+  const stage1Win = stage1WindowFor(fillWin, kind);
+  const canEdit = canEditAvailability(stage1Win, participant.editUnlocked, now);
+  const travelWin = stage2WindowFor(fillWin, kind);
   const canTravel = canEditAvailability(travelWin, participant.editUnlocked, now);
 
   return {
@@ -155,11 +154,12 @@ export async function buildSelfDTO(opts: {
         }
       : null,
     editUnlocked: participant.editUnlocked,
-    fillWindow: fillWin
+    // UAT 圖41:顯示端亦依身分取窗(觀察員看觀察員自己的區間)
+    fillWindow: stage1Win
       ? {
-          openAt: fillWin.openAt?.toISOString() ?? null,
-          closeAt: fillWin.closeAt?.toISOString() ?? null,
-          state: fillWindowState(fillWin, now),
+          openAt: stage1Win.openAt?.toISOString() ?? null,
+          closeAt: stage1Win.closeAt?.toISOString() ?? null,
+          state: fillWindowState(stage1Win, now),
         }
       : null,
     docStatus: participant.docStatus,
