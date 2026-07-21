@@ -30,20 +30,26 @@ export async function POST(req: Request) {
       where: { year },
       select: { id: true, name: true, date: true, orderIndex: true, sourceCycleId: true },
     });
-    const keyOf = (name: string, date: Date | null) => `${name}|${date ? date.toISOString() : ''}`;
-    const existKey = new Map(existing.map((s) => [keyOf(s.name, s.date), s]));
+    // UAT 圖13/37 冪等補標(寬鬆化):以「場次名=機關名」匹配(不要求日期相同——舊場次日期可能
+    // 已被中心改過);匹配到即補 sourceCycleId 並把日期對齊週期實地稽核日(圖13 連動語意),
+    // 使日期鎖定與週期指派連動(圖37)對「補標前帶入的舊場次」也生效。
+    const byName = new Map(existing.map((s) => [s.name, s]));
     let nextOrder = existing.reduce((m, s) => Math.max(m, s.orderIndex), -1) + 1;
 
     let created = 0;
     let skipped = 0;
     for (const c of cycles) {
       const name = c.organization.shortName ?? c.organization.name;
-      const key = keyOf(name, c.onsiteDate);
-      const match = existKey.get(key);
+      const match = byName.get(name) ?? byName.get(c.organization.name);
       if (match) {
-        // UAT 圖13 冪等補標:sourceCycleId 欄位加入前帶入的舊場次,匹配到即補來源(使日期鎖定/連動生效)
-        if (!match.sourceCycleId) {
-          await prisma.surveySession.update({ where: { id: match.id }, data: { sourceCycleId: c.id } });
+        const patch: { sourceCycleId?: string; date?: Date | null } = {};
+        if (!match.sourceCycleId) patch.sourceCycleId = c.id;
+        if (match.sourceCycleId === null || match.sourceCycleId === c.id) {
+          // 僅對「本週期來源(或剛補標)」的場次對齊日期,避免改到同名異源場次
+          if ((match.date?.getTime() ?? null) !== (c.onsiteDate?.getTime() ?? null)) patch.date = c.onsiteDate;
+        }
+        if (Object.keys(patch).length > 0) {
+          await prisma.surveySession.update({ where: { id: match.id }, data: patch });
         }
         skipped += 1;
         continue;
@@ -51,7 +57,7 @@ export async function POST(req: Request) {
       const s = await prisma.surveySession.create({
         data: { year, name, date: c.onsiteDate, sourceCycleId: c.id, createdById: user.id, orderIndex: nextOrder },
       });
-      existKey.set(key, { id: s.id, name, date: c.onsiteDate, orderIndex: nextOrder, sourceCycleId: c.id });
+      byName.set(name, { id: s.id, name, date: c.onsiteDate, orderIndex: nextOrder, sourceCycleId: c.id });
       nextOrder += 1;
       created += 1;
     }
