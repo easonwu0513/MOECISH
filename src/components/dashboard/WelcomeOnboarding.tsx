@@ -98,7 +98,7 @@ export function WelcomeOnboarding({
           <Button
             onClick={() => {
               dismiss();
-              router.push('/pre-survey'); // 跳轉至事前場次調查自助填報
+              router.push('/pre-survey?open=1'); // 跳轉並直接開啟填報視窗(UAT 圖46)
             }}
             variant="text"
             size="sm"

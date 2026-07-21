@@ -894,14 +894,18 @@ function AdminProfileDialog({
           </div>
         </section>
 
-        {/* 差旅與飲食(本人填,唯讀) */}
+        {/* 差旅與飲食(本人填,唯讀;UAT 圖47:逐場次逐行,一眼可讀) */}
         <section>
           <h4 className="text-label text-ink-900 mb-2">差旅與飲食（第二階段）</h4>
-          <div className="grid gap-3 sm:grid-cols-2 text-caption text-ink-700">
-            <div><span className="text-ink-500">交通：</span> {p.transport.length > 0 ? p.transport.join('；') : '—'}</div>
-            <div><span className="text-ink-500">飲食：</span> {p.diet.length > 0 ? p.diet.join('、') : '—'}</div>
+          <div className="space-y-1 text-caption text-ink-700">
+            {p.transport.length > 0 ? (
+              p.transport.map((t, i) => <p key={i}>{t}</p>)
+            ) : (
+              <p><span className="text-ink-500">交通：</span>—</p>
+            )}
+            <p><span className="text-ink-500">飲食：</span>{p.diet.length > 0 ? p.diet.join('、') : '—'}</p>
+            {p.travelNote && <p><span className="text-ink-500">差旅備註：</span>{p.travelNote}</p>}
           </div>
-          {p.travelNote && <p className="mt-2 text-caption text-ink-700"><span className="text-ink-500">差旅備註：</span> {p.travelNote}</p>}
         </section>
       </div>
     </Dialog>

@@ -273,9 +273,9 @@ export default async function HomePage() {
   if (survey) {
     const travelSessions = survey.assignedSessions.filter((a) => a.needsTravel);
     if (!survey.submittedAt || survey.docStatus !== 'SUBMITTED') {
-      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: '事前場次調查：請填寫出席意願並繳交文件（第一階段）', href: '/pre-survey', cta: '去填寫' });
+      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: '事前場次調查：請填寫出席意願並繳交文件（第一階段）', href: '/pre-survey?open=1', cta: '去填寫' });
     } else if (travelSessions.length > 0 && (travelSessions.some((a) => a.transport.length === 0) || survey.diet.length === 0)) {
-      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey', cta: '去填寫' });
+      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey?open=1', cta: '去填寫' });
     }
   }
   // UAT 圖32:調查前置四步檢核(空狀態面板用;done=null 表示待中心分派場次、尚不可填)
@@ -395,7 +395,7 @@ export default async function HomePage() {
                     {s.label}
                   </span>
                   {s.done === false && (
-                    <Button href="/pre-survey" size="sm" variant="text">前往填寫</Button>
+                    <Button href="/pre-survey?open=1" size="sm" variant="text">前往填寫</Button>
                   )}
                   {s.done === null && <span className="text-caption text-ink-400">待中心完成場次分派後填報</span>}
                 </li>

@@ -276,10 +276,11 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </Card>
       )}
 
-      {/* 聯絡資訊(主要信箱預設代入帳號;可另加次要聯絡) */}
+      {/* 聯絡資訊(主要信箱預設代入帳號;可另加次要聯絡;UAT 圖44:納入第一時窗,逾窗鎖定並註明截止時間) */}
       <Card variant="outlined">
         <h3 className="text-label text-ink-900 mb-1">聯絡資訊</h3>
         <p className="text-caption text-ink-500 mb-3">主要電子郵件已預先代入您的帳號信箱；如需以其他信箱、電話聯繫，可修改或新增次要聯絡。</p>
+        <fieldset disabled={docsWindowLocked} className={docsWindowLocked ? 'opacity-60' : undefined}>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="電子郵件（主要，必填）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
           <TextField label="聯絡電話（主要，必填）" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="必填" />
@@ -330,10 +331,19 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             />
           </div>
         )}
+        </fieldset>
         <div className="mt-3">
-          <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>
-            儲存聯絡資訊
-          </Button>
+          {docsWindowLocked ? (
+            <p className="text-caption text-ink-500">
+              {data.fillWindow?.state === 'BEFORE'
+                ? `聯絡資訊填寫尚未開始${data.fillWindow.openAt ? `（開放時間：${fmtROCDateTime(data.fillWindow.openAt)} 起）` : ''}。`
+                : `聯絡資訊填寫已截止${data.fillWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.fillWindow.closeAt)}）` : ''}。如需更改，請聯絡中心開放。`}
+            </p>
+          ) : (
+            <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>
+              儲存聯絡資訊
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -532,21 +542,16 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                   ? `差旅調查尚未開放${data.travelWindow.openAt ? `（開放時間：${fmtROCDateTime(data.travelWindow.openAt)} 起）` : ''}。`
                   : `差旅調查已截止${data.travelWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.travelWindow.closeAt)}）` : ''}。如需補填或變更，請聯絡中心開放。`}
               </p>
-              {/* 已填內容唯讀呈現 */}
+              {/* 已填內容唯讀呈現(UAT 圖45:依辦理日期順序單一清單,不分組) */}
               <div className="mt-3 space-y-1.5 text-body-sm text-ink-700">
-                {data.assignedSessions
-                  .filter((a) => a.needsTravel)
-                  .map((a) => (
-                    <p key={a.sessionId}>
-                      <span className="text-ink-500">{a.label}：</span>
-                      {a.transport.length > 0 ? a.transport.join('、') : '未填'}
-                    </p>
-                  ))}
-                {data.assignedSessions.some((a) => !a.needsTravel) && (
-                  <p className="text-caption text-ink-500">
-                    {data.assignedSessions.filter((a) => !a.needsTravel).map((a) => a.label).join('、')}：線上辦理，無需填寫交通住宿。
+                {data.assignedSessions.map((a) => (
+                  <p key={a.sessionId}>
+                    <span className="text-ink-500">{a.label}：</span>
+                    {a.needsTravel
+                      ? a.transport.length > 0 ? a.transport.join('、') : '未填'
+                      : '線上辦理，無需填寫交通住宿。'}
                   </p>
-                )}
+                ))}
                 <p>
                   <span className="text-ink-500">飲食需求：</span>
                   {data.diet.length > 0 ? data.diet.join('、') : '未填'}

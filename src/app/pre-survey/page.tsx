@@ -46,7 +46,7 @@ function parseObj(json: string | null): Record<string, string> {
   }
 }
 
-export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string; kind?: string } }) {
+export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string; kind?: string; open?: string } }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/pre-survey');
   const user = session.user;
@@ -153,7 +153,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
             const selfData = await buildSelfDTO({ participant, sessions, templateDTOs, accountEmail: user.email ?? null });
             // 總覽卡 key 綁 participant.id(穩定;雙身分切換時 id 變→重掛):送出/審核後不重掛總覽 → 彈窗保持開啟。
             // 表單本體的重掛(反映最新伺服器狀態)由 SurveySelfDashboard 內部以 submittedAt/docStatus 為 key 處理。
-            return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} />;
+            return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} autoOpen={searchParams.open === '1'} />;
           })()
         )}
       </AppShell>
@@ -166,8 +166,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     include: {
       user: { select: { name: true } },
       availabilities: { select: { sessionId: true, status: true } },
-      // UAT 圖14:交通逐場次(存指派列),帶場次名/needsTravel 供管考顯示
-      finalAssignments: { select: { sessionId: true, transport: true, aspect: true, session: { select: { name: true, needsTravel: true } } } },
+      // UAT 圖14/47:交通逐場次(存指派列),帶場次名/needsTravel/date 供管考顯示(依日期排序)
+      finalAssignments: { select: { sessionId: true, transport: true, aspect: true, session: { select: { name: true, needsTravel: true, date: true } } } },
     },
     orderBy: { invitedAt: 'asc' },
   });
@@ -271,9 +271,10 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     cvFile: docBy.get(p.id)?.cv ?? null,
     ndaFile: docBy.get(p.id)?.nda ?? null,
     priorCvFile: docBy.get(p.id)?.priorCv ?? null,
-    // UAT 圖14:交通逐場次(「場次名:選項」;僅列需差旅場次);線上場次不列
-    transport: p.finalAssignments
+    // UAT 圖14/45/47:交通逐場次(「場次名:選項」;僅列需差旅場次,依辦理日期排序);線上場次不列
+    transport: [...p.finalAssignments]
       .filter((fa) => fa.session.needsTravel)
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
       .map((fa) => {
         const arr = parseArr(fa.transport);
         return `${fa.session.name}：${arr.length > 0 ? arr.join('、') : '未填'}`;

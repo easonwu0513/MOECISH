@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { canEditAvailability } from '@/lib/pre-survey-window';
 import { deleteFileByKey } from '@/lib/storage';
 import { SURVEY_COMMITTEE_TYPES, SURVEY_REPLY_STATUSES, SURVEY_DOC_HANDOVER_STATUSES } from '@/lib/types';
 
@@ -89,6 +90,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const contactTouched = CONTACT_FIELDS.some((f) => body[f] !== undefined);
     if (isAdmin && contactTouched && !body.reason) {
       return NextResponse.json({ error: '中心修改受調者聯絡資訊須填寫變動原因（解鎖修改）' }, { status: 400 });
+    }
+
+    // UAT 圖44:聯絡資訊納入第一時窗——本人逾窗不可改(editUnlocked 豁免;中心不受限)
+    if (!isAdmin && contactTouched) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { openAt: true, closeAt: true },
+      });
+      if (!canEditAvailability(win, participant.editUnlocked, new Date())) {
+        return NextResponse.json(
+          { error: '聯絡資訊填寫已截止；如需更改，請聯絡中心開放。' },
+          { status: 403 },
+        );
+      }
     }
 
     // UAT 圖21:主要聯絡方式必填——不允許將主要信箱/電話清為空(伺服器端強制)

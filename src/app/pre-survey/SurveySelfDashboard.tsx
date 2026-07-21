@@ -75,9 +75,10 @@ export function statusIcon(tone: Tone) {
  * 委員/觀察員自助「總覽」(mockup 改版):問候卡 + 狀態徽章指引 → 點開彈窗填寫/檢視。
  * 表單本體沿用 SurveySelfForm(全部後端保證不變),只是改由總覽卡引導入口。
  */
-export default function SurveySelfDashboard({ data, userName }: { data: SelfDTO; userName: string }) {
+export default function SurveySelfDashboard({ data, userName, autoOpen = false }: { data: SelfDTO; userName: string; autoOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // UAT 圖46:?open=1 深連結直接開填寫視窗(總覽四步檢核/待辦「前往填寫」免二次點擊)
+  const [open, setOpen] = useState(autoOpen);
   const status = computeStatus(data);
   // 關窗時 refresh:意願鈕/差旅 pill 為樂觀存檔(不各自 refresh),關窗才同步伺服器狀態回本卡,
   // 使總覽徽章 computeStatus(data) 正確、重開表單以最新 data 初始化(否則會像資料未存)。
