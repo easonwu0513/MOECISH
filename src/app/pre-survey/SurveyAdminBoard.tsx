@@ -1241,10 +1241,12 @@ function SessionManagerDialog({
             <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <div className="mt-3">
-            <TextField
+            {/* UAT 圖42:備註改多行,長內容一次看全 */}
+            <Textarea
               label="備註（受調者可見，勿含地點）"
               value={remark}
               onChange={(e) => setRemark(e.target.value)}
+              rows={3}
               placeholder="如：請至少勾選 2 場、上午 09:30 簽到"
             />
           </div>
@@ -1354,7 +1356,8 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
         <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
       <div className="mt-3">
-        <TextField label="備註（受調者可見，勿含地點）" value={remark} onChange={(e) => setRemark(e.target.value)} />
+        {/* UAT 圖42:備註改多行,長內容一次看全 */}
+        <Textarea label="備註（受調者可見，勿含地點）" value={remark} onChange={(e) => setRemark(e.target.value)} rows={3} />
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5 sm:gap-y-2">
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
@@ -1523,8 +1526,8 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
     (s) => s.isBriefing || p.availability[s.id] === 'OK' || p.finalSessionIds.includes(s.id),
   );
   const assigned = sessions.filter((s) => p.finalSessionIds.includes(s.id));
-  // 觀察員無委員構面;說明會免構面
-  const needAspect = (s: AdminSessionDTO) => p.kind === 'MEMBER' && !s.isBriefing;
+  // UAT 圖43:觀察員與委員同款——皆勾選場次並指定構面(觀察員練習聚焦構面);僅說明會免構面
+  const needAspect = (s: AdminSessionDTO) => !s.isBriefing;
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
