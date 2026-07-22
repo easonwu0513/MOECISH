@@ -324,8 +324,10 @@ model CycleObserver {
   observer         User       @relation("ObserverAssignments", fields: [observerId], references: [id])
   // 指導委員(師徒制,需求二-3):必須是本週期 AuditorAssignment 中的正式委員(API 驗證;
   // 委員被抽換前需先改配對)。指導委員可檢視「自己帶的」觀察員練習並回饋。
-  mentorId         String
-  mentor           User       @relation("MentorAssignments", fields: [mentorId], references: [id])
+  // UAT 圖49:可空=「事前場次調查連動加入、指導委員待設定」;mentor 權限判定皆 === 比對,null 恆 fail-closed。
+  // onDelete 明寫 Restrict:可空 relation 預設會變 SetNull,明寫以維持與 0_init 相同 FK 行為(migration 才不需重建 FK)
+  mentorId         String?
+  mentor           User?      @relation("MentorAssignments", fields: [mentorId], references: [id], onDelete: Restrict)
   // 觀察員負責構面(比照 AuditorAssignment.dimensions;JSON 陣列 AssignAspect)。
   // 純練習聚焦標籤(練習工作台標示負責構面),不影響任何授權;null/空=未指定(視同全構面)。
   dimensions       String?

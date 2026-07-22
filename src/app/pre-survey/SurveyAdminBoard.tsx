@@ -1218,9 +1218,10 @@ function SessionManagerDialog({
     const extra: string[] = [];
     if (j.skipped > 0) extra.push(`${j.skipped} 個場次已存在略過`);
     if (j.backfilled > 0) extra.push(`補上 ${j.backfilled} 個場次的來源週期`);
-    if (j.linkedCycles?.length) extra.push(`已連動週期委員指派：${j.linkedCycles.join('、')}`);
+    if (j.linkedCycles?.length) extra.push(`已連動加入稽核週期：${j.linkedCycles.join('、')}`);
     if (j.skippedCoi?.length) extra.push(`因服務該機關跳過：${j.skippedCoi.join('、')}`);
-    if (j.observerHint) extra.push('觀察員請至週期進階設定完成師徒配對');
+    if (j.skippedOther?.length) extra.push(`部分未連動：${j.skippedOther.join('、')}`);
+    if (j.observerHint) extra.push('觀察員已入配對，請至週期進階設定指定指導委員');
     if (j.created > 0) toast.success(`已帶入 ${j.created} 個稽核場次`, extra.join('；') || undefined);
     else if (j.backfilled > 0) toast.success('已補齊既有場次的來源週期', extra.join('；') || undefined);
     else toast.warning('無新場次可帶入', j.message ?? (extra.join('；') || undefined));
@@ -1627,12 +1628,15 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
       toast.error('指派失敗', j.error);
       return;
     }
-    // UAT 圖37:回饋連動結果(帶入場次→稽核週期委員指派;COI 跳過;觀察員配對提示)
-    const j = await res.json().catch(() => ({}) as { linkedCycles?: string[]; skippedCoi?: string[]; observerHint?: boolean });
-    if (j.linkedCycles?.length) toast.success('已儲存指派', `已同步加入稽核週期委員指派：${j.linkedCycles.join('、')}`);
+    // UAT 圖37/49:回饋連動結果(帶入場次→委員入週期指派/觀察員入週期配對;COI 與互斥跳過)
+    const j = await res.json().catch(
+      () => ({}) as { linkedCycles?: string[]; skippedCoi?: string[]; skippedOther?: string[]; observerHint?: boolean },
+    );
+    if (j.linkedCycles?.length) toast.success('已儲存指派', `已同步加入稽核週期：${j.linkedCycles.join('、')}`);
     else toast.success('已儲存指派');
-    if (j.skippedCoi?.length) toast.warning('利益迴避跳過', `${j.skippedCoi.join('、')}：該委員服務於受稽機關，未自動加入週期指派。`);
-    if (j.observerHint) toast.warning('觀察員配對提醒', '觀察員需指導委員，請至該稽核週期「進階設定」完成觀察員配對。');
+    if (j.skippedCoi?.length) toast.warning('利益迴避跳過', `${j.skippedCoi.join('、')}：該員服務於受稽機關，未自動加入週期。`);
+    if (j.skippedOther?.length) toast.warning('部分未連動', j.skippedOther.join('、'));
+    if (j.observerHint) toast.warning('指導委員待設定', '觀察員已加入該稽核週期的觀察員配對，請至週期「進階設定」指定指導委員。');
     setOpen(false);
     router.refresh();
   }

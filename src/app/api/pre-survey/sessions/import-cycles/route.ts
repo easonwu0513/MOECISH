@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { linkMemberToCycles } from '@/lib/pre-survey-linkage';
+import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linkage';
 
 const Body = z.object({ year: z.number().int().min(2000).max(2200) });
 
@@ -97,10 +97,12 @@ export async function POST(req: Request) {
       created += 1;
     }
 
-    // UAT 圖37:補標完成後,對剛補標場次上「已存在的委員指派」直接觸發週期連動
-    // (使用者先前已按過儲存指派——不需重存;連動核心與 assign route 共用,行為一致)。
+    // UAT 圖37/49:補標完成後,對剛補標場次上「已存在的指派」直接觸發週期連動
+    // (使用者先前已按過儲存指派——不需重存;連動核心與 assign route 共用,行為一致):
+    //  - 委員 → 週期稽核委員指派;觀察員 → 週期觀察員配對(指導委員待設定)。
     const linkedCycles: string[] = [];
     const skippedCoi: string[] = [];
+    const skippedOther: string[] = [];
     let observerHint = false;
     if (backfilled.length > 0) {
       const cycleBySession = new Map(backfilled.map((b) => [b.sessionId, b.cycleId]));
@@ -108,20 +110,26 @@ export async function POST(req: Request) {
         where: { sessionId: { in: backfilled.map((b) => b.sessionId) } },
         select: { sessionId: true, aspect: true, participant: { select: { kind: true, userId: true } } },
       });
-      const byUser = new Map<string, Array<{ cycleId: string; aspect: string | null }>>();
+      const byMember = new Map<string, Array<{ cycleId: string; aspect: string | null }>>();
+      const byObserver = new Map<string, Array<{ cycleId: string; aspect: string | null }>>();
       for (const a of assigns) {
-        if (a.participant.kind !== 'MEMBER') {
-          observerHint = true;
-          continue;
-        }
         const cycleId = cycleBySession.get(a.sessionId);
         if (!cycleId) continue;
-        byUser.set(a.participant.userId, [...(byUser.get(a.participant.userId) ?? []), { cycleId, aspect: a.aspect }]);
+        const bucket = a.participant.kind === 'MEMBER' ? byMember : byObserver;
+        bucket.set(a.participant.userId, [...(bucket.get(a.participant.userId) ?? []), { cycleId, aspect: a.aspect }]);
       }
-      for (const [userId, items] of byUser) {
+      for (const [userId, items] of byMember) {
         const linked = await linkMemberToCycles(userId, items);
         linkedCycles.push(...linked.linkedCycles);
         skippedCoi.push(...linked.skippedCoi);
+        skippedOther.push(...linked.skippedOther);
+      }
+      for (const [userId, items] of byObserver) {
+        const linked = await linkObserverToCycles(userId, items);
+        linkedCycles.push(...linked.linkedCycles.map((l) => `${l}（觀察員）`));
+        skippedCoi.push(...linked.skippedCoi.map((l) => `${l}（觀察員）`));
+        skippedOther.push(...linked.skippedOther);
+        if (linked.created > 0) observerHint = true;
       }
     }
 
@@ -130,11 +138,13 @@ export async function POST(req: Request) {
       action: 'SURVEY_SESSION_IMPORT_CYCLES',
       entityType: 'SurveySession',
       entityId: String(year),
-      after: { year, created, skipped, backfilled: backfilled.length, linkedCycles, skippedCoi },
+      after: { year, created, skipped, backfilled: backfilled.length, linkedCycles, skippedCoi, skippedOther },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ created, skipped, backfilled: backfilled.length, linkedCycles, skippedCoi, observerHint });
+    return NextResponse.json({
+      created, skipped, backfilled: backfilled.length, linkedCycles, skippedCoi, skippedOther, observerHint,
+    });
   } catch (e) {
     return errorResponse(e);
   }

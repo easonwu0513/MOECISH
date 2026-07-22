@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { SURVEY_COMMITTEE_TYPES } from '@/lib/types';
-import { linkMemberToCycles } from '@/lib/pre-survey-linkage';
+import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linkage';
 
 const Body = z.object({
   // UAT 圖28:每場次指派可帶構面(管理面/策略面/技術面/管理面-OT;說明會等免構面=null)
@@ -74,12 +74,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     });
 
-    // UAT 圖37:帶入場次(sourceCycleId)指派後,連動稽核週期——
-    //  - 委員:自動加入該週期「稽核委員指派」(核心抽至 lib/pre-survey-linkage,與帶入補標共用)。
-    //  - 觀察員:CycleObserver 配對必填指導委員(mentorId),無法自動——回應提示至週期進階設定配對。
-    //  - 僅做「加入」連動;自調查移除場次不反向移除週期指派(避免誤刪已有評分/審閱紀錄的指派)。
+    // UAT 圖37/49:帶入場次(sourceCycleId)指派後,連動稽核週期(核心抽至 lib/pre-survey-linkage)——
+    //  - 委員:自動加入該週期「稽核委員指派」(AuditorAssignment;構面聯集)。
+    //  - 觀察員:自動加入該週期「觀察員配對」(CycleObserver;指導委員待設定,由中心至進階設定指定)。
+    //  - 僅做「加入」連動;自調查移除場次不反向移除週期指派(避免誤刪已有評分/審閱/練習紀錄)。
     let linkedCycles: string[] = [];
     let skippedCoi: string[] = [];
+    let skippedOther: string[] = [];
     let observerHint = false;
     const srcSessions = wanted.length
       ? await prisma.surveySession.findMany({
@@ -88,18 +89,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         })
       : [];
     if (srcSessions.length > 0) {
+      const items = srcSessions.map((s) => ({
+        cycleId: s.sourceCycleId as string,
+        aspect: entries.find((e) => e.sessionId === s.id)?.aspect ?? null,
+      }));
       if (participant.kind === 'MEMBER') {
-        const linked = await linkMemberToCycles(
-          participant.userId,
-          srcSessions.map((s) => ({
-            cycleId: s.sourceCycleId as string,
-            aspect: entries.find((e) => e.sessionId === s.id)?.aspect ?? null,
-          })),
-        );
+        const linked = await linkMemberToCycles(participant.userId, items);
         linkedCycles = linked.linkedCycles;
         skippedCoi = linked.skippedCoi;
+        skippedOther = linked.skippedOther;
       } else {
-        observerHint = true;
+        const linked = await linkObserverToCycles(participant.userId, items);
+        linkedCycles = linked.linkedCycles;
+        skippedCoi = linked.skippedCoi;
+        skippedOther = linked.skippedOther;
+        observerHint = linked.created > 0; // 真的新增「指導委員待設定」列才提示(補構面不跳)
       }
     }
 
@@ -108,11 +112,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       action: 'SURVEY_FINAL_ASSIGN',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { assignments: entries, linkedCycles, skippedCoi },
+      after: { assignments: entries, linkedCycles, skippedCoi, skippedOther },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, linkedCycles, skippedCoi, observerHint });
+    return NextResponse.json({ ok: true, linkedCycles, skippedCoi, skippedOther, observerHint });
   } catch (e) {
     return errorResponse(e);
   }
