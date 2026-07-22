@@ -872,15 +872,15 @@ function AdminProfileDialog({
               })}
             </ul>
           )}
-          {/* UAT:逾填報時窗開放此人補填/變更意願(供逾期補填或申請變更) */}
+          {/* UAT:逾填報時窗開放此人補填/變更(供逾期補填或申請變更;圖54:同一開關同時豁免一階意願/文件與二階差旅) */}
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
             <div className="min-w-0">
-              <p className="text-caption font-medium text-ink-700">開放補填／變更意願</p>
+              <p className="text-caption font-medium text-ink-700">開放補填／變更（意願、文件與差旅）</p>
               {/* UAT 圖52:開放為一次性——補填完成(意願+文件皆送出)即自動收回,不會無限期可改 */}
               <p className="text-caption text-ink-500">
                 {p.editUnlocked
-                  ? '已開放：此人可無視填報時窗編修並重新送出；意願與文件皆送出後自動收回開放。'
-                  : '逾填報時窗後此人不可再改；開放後可補填或變更（補填送出即自動收回）。'}
+                  ? '已開放：此人可無視兩階段時窗編修並重新送出；意願與文件皆送出後自動收回開放。'
+                  : '逾填報時窗後此人不可再改；開放後可補填或變更意願、文件與差旅（補填送出即自動收回）。'}
               </p>
             </div>
             <Button size="sm" variant={p.editUnlocked ? 'danger' : 'tonal'} onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
@@ -891,7 +891,15 @@ function AdminProfileDialog({
 
         {/* 差旅與飲食(本人填,唯讀;UAT 圖47:逐場次逐行,一眼可讀) */}
         <section>
-          <h4 className="text-label text-ink-900 mb-2">差旅與飲食（第二階段）</h4>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h4 className="text-label text-ink-900">差旅與飲食（第二階段）</h4>
+            {/* UAT 圖54:二階逾期未填就地開放補填(與上方同一開關,亦同時開放意願/文件) */}
+            {!p.editUnlocked && (
+              <Button size="sm" variant="text" onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
+                開放補填
+              </Button>
+            )}
+          </div>
           <div className="space-y-1 text-caption text-ink-700">
             {p.transport.length > 0 ? (
               p.transport.map((t, i) => <p key={i}>{t}</p>)
