@@ -4,11 +4,9 @@ import { errorResponse } from '@/lib/api';
 import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_REPLY_STATUS_LABELS,
-  SURVEY_DOC_HANDOVER_LABELS,
   SURVEY_DOC_STATUS_LABELS,
   type SurveyAvailabilityStatus,
   type SurveyReplyStatus,
-  type SurveyDocHandover,
   type SurveyDocStatus,
 } from '@/lib/types';
 
@@ -29,7 +27,7 @@ function parseArr(json: string | null): string[] {
 
 /**
  * 匯出某年度某類別(委員/觀察員)管考清單為 CSV(批B;僅中心)。BOM + UTF-8,Excel 可直開。
- * 欄序:姓名, 類型, 文件繳交, 意願送出, [各場次 日期 地點], 最終場次, 意願回信, 文件交接, 交通, 飲食, 備註。
+ * 欄序:姓名, 專長, 文件繳交, 意願送出, [各場次 日期 地點], 最終場次, 回傳領據(委員), 交通, 飲食, 備註, 聯絡欄位, 自訂欄位。
  */
 export async function GET(req: Request) {
   try {
@@ -83,7 +81,6 @@ export async function GET(req: Request) {
       '意願送出',
       ...sessions.map((s) => `${md(s.date)} ${s.name}`),
       '最終場次',
-      '文件交接',
       ...(kind === 'MEMBER' ? ['是否回傳領據'] : []),
       '交通',
       '飲食',
@@ -125,7 +122,6 @@ export async function GET(req: Request) {
           return st ? (SURVEY_AVAILABILITY_LABELS[st] ?? st) : '未填寫';
         }),
         finalLabels.join(' / '),
-        SURVEY_DOC_HANDOVER_LABELS[p.docHandover as SurveyDocHandover] ?? p.docHandover,
         ...(kind === 'MEMBER' ? [p.receiptReturned ? '已回傳' : '未回傳'] : []),
         // UAT 圖14:交通逐場次(「場次:選項」;線上場次不列)
         p.finalAssignments

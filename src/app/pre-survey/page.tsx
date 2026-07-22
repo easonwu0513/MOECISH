@@ -271,7 +271,6 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     proxyPhone: p.proxyPhone,
     note: p.note,
     replyStatus: p.replyStatus,
-    docHandover: p.docHandover,
     submittedAt: p.submittedAt?.toISOString() ?? null,
     editUnlocked: p.editUnlocked,
     docStatus: p.docStatus,

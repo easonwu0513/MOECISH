@@ -18,9 +18,7 @@ import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_COMMITTEE_TYPES,
   SURVEY_REPLY_STATUS_LABELS,
-  SURVEY_DOC_HANDOVER_LABELS,
   SURVEY_REPLY_STATUSES,
-  SURVEY_DOC_HANDOVER_STATUSES,
   SURVEY_TEMPLATE_SLOT_LABELS,
   surveyTemplateSlotLabel,
   SURVEY_TEMPLATE_SLOTS_BY_KIND,
@@ -58,7 +56,6 @@ export type AdminParticipantDTO = {
   proxyPhone: string | null; // 代理聯絡人電話
   note: string | null;
   replyStatus: string;
-  docHandover: string;
   submittedAt: string | null;
   editUnlocked: boolean; // 中心已對此人開放補填/變更意願(逾填報時窗仍可編修)
   docStatus: string;
@@ -142,7 +139,7 @@ export default function SurveyAdminBoard({
   );
 
   const targetField = kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
-  const colCount = visibleSessions.length + customColumns.length + 9 + (kind === 'MEMBER' ? 2 : 0); // UAT 圖28 移除意願回信;圖36 委員加回傳領據欄
+  const colCount = visibleSessions.length + customColumns.length + 8 + (kind === 'MEMBER' ? 2 : 0); // UAT 圖28 移除意願回信;圖36 委員加回傳領據欄;圖51 移除文件交接
 
   async function call(url: string, method: string, body?: unknown, okMsg?: string): Promise<boolean> {
     setBusy(true);
@@ -289,8 +286,7 @@ export default function SurveyAdminBoard({
                     </th>
                   );
                 })}
-                {/* 右群組:文件交接 / 回傳領據(委員) / 交通 / 飲食 / 電話 / 備註 */}
-                <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium">文件交接</th>
+                {/* 右群組:回傳領據(委員) / 交通 / 飲食 / 電話 / 備註(UAT 圖51:移除舊 mockup 遺留「文件交接」欄) */}
                 {kind === 'MEMBER' && <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-center font-medium">回傳領據</th>}
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">交通</th>
                 <th className="sticky top-0 z-20 bg-paper-sunk px-3 py-2.5 text-left font-medium min-w-[110px]">飲食</th>
@@ -420,18 +416,6 @@ export default function SurveyAdminBoard({
                         </Select>
                       </td>
                     ))}
-                    {/* 文件交接 */}
-                    <td className="px-3 py-2">
-                      <Select
-                        value={p.docHandover}
-                        onChange={(e) => patchParticipant(p.id, { docHandover: e.target.value })}
-                        dense
-                      >
-                        {SURVEY_DOC_HANDOVER_STATUSES.map((d) => (
-                          <option key={d} value={d}>{SURVEY_DOC_HANDOVER_LABELS[d]}</option>
-                        ))}
-                      </Select>
-                    </td>
                     {/* UAT 圖36:回傳領據(委員;寄信收送,中心手動勾選統計) */}
                     {kind === 'MEMBER' && (
                       <td className="px-3 py-2 text-center">
@@ -1833,6 +1817,22 @@ function DocReviewDialog({ participant, onClose }: { participant: AdminParticipa
     router.refresh();
   }
 
+  // UAT 圖51:受調者檔案已齊但未按送審(常見:逾窗後自助端鎖定)→ 中心代為送審後即可審核
+  async function submitForParticipant() {
+    if (!participant) return;
+    setBusy(true);
+    const res = await fetch(`/api/pre-survey/participants/${participant.id}/docs/submit`, { method: 'POST' });
+    setBusy(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '代為送審失敗' }));
+      toast.error('代為送審失敗', j.error);
+      return;
+    }
+    toast.success('已代為送審', '重新開啟該受調者的文件審核即可核可或退補。');
+    onClose();
+    router.refresh();
+  }
+
   const canReview = participant?.docStatus === 'SUBMITTED';
   return (
     <Dialog
@@ -1861,11 +1861,22 @@ function DocReviewDialog({ participant, onClose }: { participant: AdminParticipa
             </div>
           </>
         ) : (
-          <p className="text-caption text-ink-500">
-            {participant?.docStatus === 'RETURNED'
-              ? '已退補，待受調者補件並重新送審後再審核。'
-              : '受調者尚未送審文件。'}
-          </p>
+          <>
+            <p className="text-caption text-ink-500">
+              {participant?.docStatus === 'RETURNED'
+                ? '已退補，待受調者補件並重新送審後再審核。'
+                : '受調者尚未送審文件。'}
+            </p>
+            {/* UAT 圖51:檔案已齊但受調者未按送審即逾窗 → 中心可代為送審(伺服器對中心豁免時窗),再行審核 */}
+            {participant && !!participant.ndaFile && (participant.kind === 'OBSERVER' || !!participant.cvFile) && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="tonal" onClick={submitForParticipant} loading={busy} disabled={busy}>
+                  代為送審
+                </Button>
+                <span className="text-caption text-ink-500">檔案已上傳齊全；代為送審後即可核可或退補。</span>
+              </div>
+            )}
+          </>
         )}
       </div>
     </Dialog>
