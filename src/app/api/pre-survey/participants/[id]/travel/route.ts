@@ -38,13 +38,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 
     // UAT 圖7 第二時窗(伺服器端強制,防繞過前端):本人限差旅調查區間內填寫;
-    // 中心代填不受限;editUnlocked(中心開放補填)豁免——重用意願時窗同一組純函式。
+    // 中心代填不受限;圖55:二階豁免改讀 travelEditUnlocked(與一階 editUnlocked 分離,互不連動)。
     if (!isAdmin) {
       const win = await prisma.surveyFillWindow.findUnique({
         where: { year: participant.year },
         select: YEAR_WINDOWS_SELECT,
       });
-      if (!canEditAvailability(stage2WindowFor(win, participant.kind), participant.editUnlocked, new Date())) {
+      if (!canEditAvailability(stage2WindowFor(win, participant.kind), participant.travelEditUnlocked, new Date())) {
         return NextResponse.json(
           { error: '差旅調查未在開放時間內；如需填寫或變更，請聯絡中心開放。' },
           { status: 403 },
@@ -79,6 +79,31 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
     if (Object.keys(data).length > 0) {
       await prisma.surveyParticipant.update({ where: { id: participant.id }, data });
+    }
+
+    // UAT 圖55:二階補填開放為一次性——本人把「需差旅場次交通+飲食」都填齊即自動收回
+    // (與一階 editUnlocked 於圖52 的消耗語意對稱;中心代填不消耗)。
+    if (!isAdmin && participant.travelEditUnlocked) {
+      const [assignments, fresh] = await Promise.all([
+        prisma.surveyFinalAssignment.findMany({
+          where: { participantId: participant.id },
+          select: { transport: true, session: { select: { needsTravel: true } } },
+        }),
+        prisma.surveyParticipant.findUnique({ where: { id: participant.id }, select: { diet: true } }),
+      ]);
+      const parseLen = (json: string | null) => {
+        try {
+          const a = JSON.parse(json ?? '[]');
+          return Array.isArray(a) ? a.length : 0;
+        } catch {
+          return 0;
+        }
+      };
+      const travelDone = assignments.filter((a) => a.session.needsTravel).every((a) => parseLen(a.transport) > 0);
+      const dietDone = parseLen(fresh?.diet ?? null) > 0;
+      if (travelDone && dietDone) {
+        await prisma.surveyParticipant.update({ where: { id: participant.id }, data: { travelEditUnlocked: false } });
+      }
     }
 
     return NextResponse.json({ ok: true });

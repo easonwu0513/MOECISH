@@ -51,7 +51,8 @@ export type SelfParticipant = {
   proxyEmail: string | null; // 代理聯絡人信箱(UAT;null=無代理)
   proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: Date | null;
-  editUnlocked: boolean; // 中心對此人開放補填/變更意願(逾填報時窗仍可編修)
+  editUnlocked: boolean; // 中心對此人開放一階補填/變更(意願/文件;逾第一時窗仍可編修)
+  travelEditUnlocked: boolean; // 圖55:二階(差旅/飲食)補填開放獨立開關
   docStatus: string;
   docReviewedAt: Date | null;
   rejectReason: string | null;
@@ -123,8 +124,9 @@ export async function buildSelfDTO(opts: {
   const now = new Date();
   const stage1Win = stage1WindowFor(fillWin, kind);
   const canEdit = canEditAvailability(stage1Win, participant.editUnlocked, now);
+  // UAT 圖55:二階豁免改讀 travelEditUnlocked(一階/二階開放各自獨立,互不連動)
   const travelWin = stage2WindowFor(fillWin, kind);
-  const canTravel = canEditAvailability(travelWin, participant.editUnlocked, now);
+  const canTravel = canEditAvailability(travelWin, participant.travelEditUnlocked, now);
 
   return {
     participantId: participant.id,

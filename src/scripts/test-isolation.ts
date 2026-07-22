@@ -528,6 +528,15 @@ async function main() {
   });
   await expectAllowed('委員Y 補填期間送出意願(unlock 有效)', jarY, 'POST', `/api/pre-survey/participants/${pY.id}/submit`);
   await expectStatus('委員Y 送出後再改意願(補填開放已自動收回)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  // 圖55:一階/二階補填開關分離——二階開放不連動一階;二階(交通+飲食)填齊即自動收回
+  await prisma.surveyFinalAssignment.create({ data: { participantId: pY.id, sessionId: sShared.id, assignedById: adminA.id } });
+  await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { travelEditUnlocked: true } });
+  await expectStatus('委員Y 二階開放仍不可改意願(開關分離)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  await expectAllowed('委員Y 二階開放可填差旅(開關分離)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/travel`, {
+    sessionTransport: { sessionId: sShared.id, transport: ['汽車'] },
+    diet: ['葷'],
+  });
+  await expectStatus('委員Y 二階填齊後自動收回(一次性)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/travel`, [403], { diet: ['素'] });
 
   console.log('\n── 持續列管隔離(批71;路線圖#4)──');
   const tracked1 = await prisma.trackedDeficiency.create({

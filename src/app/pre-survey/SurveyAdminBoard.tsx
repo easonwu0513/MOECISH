@@ -57,7 +57,8 @@ export type AdminParticipantDTO = {
   note: string | null;
   replyStatus: string;
   submittedAt: string | null;
-  editUnlocked: boolean; // 中心已對此人開放補填/變更意願(逾填報時窗仍可編修)
+  editUnlocked: boolean; // 中心已對此人開放一階補填/變更(意願/文件;逾第一時窗仍可編修)
+  travelEditUnlocked: boolean; // 圖55:二階(差旅/飲食)補填開放獨立開關
   docStatus: string;
   docReviewed: boolean;
   rejectReason: string | null;
@@ -746,7 +747,7 @@ function AdminProfileDialog({
     router.refresh();
   }
 
-  // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願;供受調者逾期補填或申請變更)
+  // UAT:中心對此人「開放補填/變更(一階=意願/文件/聯絡)」開關(逾第一時窗仍可編修;供逾期補填或申請變更)
   async function toggleUnlock() {
     setUnlocking(true);
     const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
@@ -756,8 +757,23 @@ function AdminProfileDialog({
     });
     setUnlocking(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '設定失敗' })); toast.error('設定失敗', j.error); return; }
-    toast.success(!p.editUnlocked ? '已開放此人補填/變更意願' : '已關閉此人補填權限');
+    toast.success(!p.editUnlocked ? '已開放此人補填/變更意願與文件' : '已關閉此人一階補填權限');
     onClose(); // 關窗 + refresh 使狀態同步(彈窗持舊 DTO,不重掛)
+    router.refresh();
+  }
+
+  // UAT 圖55:二階(差旅/飲食)補填開放獨立開關——只開差旅,不連動一階
+  async function toggleTravelUnlock() {
+    setUnlocking(true);
+    const res = await fetch(`/api/pre-survey/participants/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ travelEditUnlocked: !p.travelEditUnlocked }),
+    });
+    setUnlocking(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '設定失敗' })); toast.error('設定失敗', j.error); return; }
+    toast.success(!p.travelEditUnlocked ? '已開放此人補填差旅與飲食' : '已關閉此人二階補填權限');
+    onClose();
     router.refresh();
   }
 
@@ -872,15 +888,15 @@ function AdminProfileDialog({
               })}
             </ul>
           )}
-          {/* UAT:逾填報時窗開放此人補填/變更(供逾期補填或申請變更;圖54:同一開關同時豁免一階意願/文件與二階差旅) */}
+          {/* UAT 圖55:一階(意願/文件/聯絡)補填開關——與二階差旅開關分離,各開各的 */}
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
             <div className="min-w-0">
-              <p className="text-caption font-medium text-ink-700">開放補填／變更（意願、文件與差旅）</p>
+              <p className="text-caption font-medium text-ink-700">開放補填／變更（意願與文件）</p>
               {/* UAT 圖52:開放為一次性——補填完成(意願+文件皆送出)即自動收回,不會無限期可改 */}
               <p className="text-caption text-ink-500">
                 {p.editUnlocked
-                  ? '已開放：此人可無視兩階段時窗編修並重新送出；意願與文件皆送出後自動收回開放。'
-                  : '逾填報時窗後此人不可再改；開放後可補填或變更意願、文件與差旅（補填送出即自動收回）。'}
+                  ? '已開放：此人可無視第一階段時窗編修並重新送出；意願與文件皆送出後自動收回開放。'
+                  : '逾填報時窗後此人不可再改；開放後可補填或變更意願與文件（補填送出即自動收回）。'}
               </p>
             </div>
             <Button size="sm" variant={p.editUnlocked ? 'danger' : 'tonal'} onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
@@ -893,13 +909,20 @@ function AdminProfileDialog({
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="text-label text-ink-900">差旅與飲食（第二階段）</h4>
-            {/* UAT 圖54:二階逾期未填就地開放補填(與上方同一開關,亦同時開放意願/文件) */}
-            {!p.editUnlocked && (
-              <Button size="sm" variant="text" onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>
-                開放補填
-              </Button>
-            )}
+            {/* UAT 圖54/55:二階補填為獨立開關——只開差旅/飲食,不連動一階;填齊自動收回 */}
+            <Button
+              size="sm"
+              variant={p.travelEditUnlocked ? 'danger' : 'text'}
+              onClick={toggleTravelUnlock}
+              loading={unlocking}
+              disabled={unlocking}
+            >
+              {p.travelEditUnlocked ? '關閉補填' : '開放補填'}
+            </Button>
           </div>
+          {p.travelEditUnlocked && (
+            <p className="mb-2 text-caption text-ink-500">已開放：此人可無視第二階段時窗補填差旅與飲食；填齊後自動收回開放。</p>
+          )}
           <div className="space-y-1 text-caption text-ink-700">
             {p.transport.length > 0 ? (
               p.transport.map((t, i) => <p key={i}>{t}</p>)

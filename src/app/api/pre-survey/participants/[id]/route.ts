@@ -26,8 +26,10 @@ const Body = z.object({
   committeeTypes: z.array(z.enum(SURVEY_COMMITTEE_TYPES)).max(SURVEY_COMMITTEE_TYPES.length).optional(),
   replyStatus: z.enum(SURVEY_REPLY_STATUSES).optional(),
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
-  // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願);僅中心可改。
+  // UAT:中心對此人「開放補填/變更(一階=意願/文件/聯絡)」開關(逾第一時窗仍可編修);僅中心可改。
   editUnlocked: z.boolean().optional(),
+  // UAT 圖55:二階(差旅/飲食)補填開放獨立開關,與一階分離;僅中心可改。
+  travelEditUnlocked: z.boolean().optional(),
   // UAT 圖36:委員是否已回傳領據(寄信收送;中心手動勾選供統計);僅中心可改。
   receiptReturned: z.boolean().optional(),
   // 自訂欄位單格值(mockup 改版;value 為空字串=清除該格)。中心可改任一欄;
@@ -69,6 +71,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       body.replyStatus !== undefined ||
       body.docHandover !== undefined ||
       body.editUnlocked !== undefined ||
+      body.travelEditUnlocked !== undefined ||
       body.receiptReturned !== undefined;
     if (adminOnlyTouched && !isAdmin) {
       return NextResponse.json({ error: '此欄位僅中心可調整' }, { status: 403 });
@@ -138,6 +141,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;
       if (body.editUnlocked !== undefined) data.editUnlocked = body.editUnlocked;
+      if (body.travelEditUnlocked !== undefined) data.travelEditUnlocked = body.travelEditUnlocked;
       if (body.receiptReturned !== undefined) data.receiptReturned = body.receiptReturned;
     }
     const cv = body.customValue; // 中心或(通過上方欄位閘的)本人;customValues 為 read-modify-write,另走交易避免遺失更新

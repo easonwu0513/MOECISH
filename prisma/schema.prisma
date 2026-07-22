@@ -688,7 +688,9 @@ model SurveyParticipant {
   submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
   // UAT 圖36:委員是否已回傳領據(寄信收送;中心手動勾選供統計)
   receiptReturned Boolean @default(false)
-  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更意願」;true=可無視填報時窗編修/送出意願(逾窗補填或變更用)
+  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更(一階=意願/文件/聯絡)」;true=可無視第一時窗編修/送出(逾窗補填或變更用)
+  // UAT 圖55:二階(差旅/飲食)補填開放獨立成欄——中心於差旅區開放不連動一階;二階填齊自動收回
+  travelEditUnlocked Boolean @default(false)
   // ── 批B:文件繳交審核(cv/切結書經 Evidence 上傳,狀態機於此) ──
   docStatus     String    @default("NONE") // NONE 未繳交 | SUBMITTED 已繳交 | RETURNED 待補件
   rejectReason  String? // 退補理由(docStatus=RETURNED 時有意義)

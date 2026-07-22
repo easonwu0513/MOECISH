@@ -273,6 +273,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     replyStatus: p.replyStatus,
     submittedAt: p.submittedAt?.toISOString() ?? null,
     editUnlocked: p.editUnlocked,
+    travelEditUnlocked: p.travelEditUnlocked,
     docStatus: p.docStatus,
     docReviewed: !!p.docReviewedAt,
     rejectReason: p.rejectReason,
