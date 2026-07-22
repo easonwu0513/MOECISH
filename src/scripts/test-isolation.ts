@@ -515,6 +515,19 @@ async function main() {
   });
   await expectAllowed('委員Z 委員窗開放可填(分窗)', jarZ, 'PUT', `/api/pre-survey/participants/${pZ.id}/availability`, { sessionId: sShared.id, status: 'OK' });
   await expectStatus('觀察員O1 觀察員窗逾期硬擋(分窗)', jarO1, 'PUT', `/api/pre-survey/participants/${pO1.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  // 圖52:補填開放為一次性——「意願+文件皆送出」後自動收回,逾窗即鎖不能再改
+  await prisma.surveyFillWindow.update({ where: { year: SURVEY_YEAR }, data: { closeAt: new Date(now.getTime() - 3600000) } });
+  await prisma.surveyParticipant.update({
+    where: { id: pY.id },
+    data: { email: 'y-isolation@test.local', phone: '0912345678', docStatus: 'SUBMITTED', editUnlocked: true },
+  });
+  await prisma.sessionAvailability.upsert({
+    where: { participantId_sessionId: { participantId: pY.id, sessionId: sMemberOnly.id } },
+    create: { participantId: pY.id, sessionId: sMemberOnly.id, status: 'OK' },
+    update: { status: 'OK' },
+  });
+  await expectAllowed('委員Y 補填期間送出意願(unlock 有效)', jarY, 'POST', `/api/pre-survey/participants/${pY.id}/submit`);
+  await expectStatus('委員Y 送出後再改意願(補填開放已自動收回)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
 
   console.log('\n── 持續列管隔離(批71;路線圖#4)──');
   const tracked1 = await prisma.trackedDeficiency.create({

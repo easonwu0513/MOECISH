@@ -876,10 +876,11 @@ function AdminProfileDialog({
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
             <div className="min-w-0">
               <p className="text-caption font-medium text-ink-700">開放補填／變更意願</p>
+              {/* UAT 圖52:開放為一次性——補填完成(意願+文件皆送出)即自動收回,不會無限期可改 */}
               <p className="text-caption text-ink-500">
                 {p.editUnlocked
-                  ? '已開放：此人可無視填報時窗編修並重新送出意願。'
-                  : '逾填報時窗後此人不可再改意願；開放後可補填或變更。'}
+                  ? '已開放：此人可無視填報時窗編修並重新送出；意願與文件皆送出後自動收回開放。'
+                  : '逾填報時窗後此人不可再改；開放後可補填或變更（補填送出即自動收回）。'}
               </p>
             </div>
             <Button size="sm" variant={p.editUnlocked ? 'danger' : 'tonal'} onClick={toggleUnlock} loading={unlocking} disabled={unlocking}>

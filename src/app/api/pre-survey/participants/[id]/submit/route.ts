@@ -52,9 +52,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
+    // UAT 圖52:補填開放(editUnlocked)為一次性——本人於補填期間「意願+文件皆送出」即自動收回,
+    // 逾窗後不能再改(否則中心已指派最終場次,受調者仍可改意願重送)。文件未齊者保留開放讓其補完,
+    // 由 docs/submit 側對稱收回;中心代送不消耗(開關本就由中心控制)。
+    const consumeUnlock = !isAdmin && participant.editUnlocked && participant.docStatus === 'SUBMITTED';
     await prisma.surveyParticipant.update({
       where: { id: participant.id },
-      data: { submittedAt: new Date() },
+      data: { submittedAt: new Date(), ...(consumeUnlock ? { editUnlocked: false } : {}) },
     });
 
     await writeAuditLog({
@@ -62,6 +66,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_WILLINGNESS_SUBMIT',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
+      after: consumeUnlock ? { editUnlockConsumed: true } : undefined,
       ...extractRequestMeta(req),
     });
 

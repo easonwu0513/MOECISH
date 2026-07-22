@@ -41,10 +41,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '請先上傳聘任同意暨保密切結書' }, { status: 400 });
     }
 
+    // UAT 圖52:補填開放為一次性——「意願+文件皆送出」即收回(對稱邏輯見 submit route)
+    const consumeUnlock = !isAdmin && participant.editUnlocked && participant.submittedAt !== null;
     await prisma.surveyParticipant.update({
       where: { id: participant.id },
       // 重新送審清 docReviewedAt(需中心重新核可)
-      data: { docStatus: 'SUBMITTED', docSubmittedAt: new Date(), rejectReason: null, docReviewedAt: null },
+      data: {
+        docStatus: 'SUBMITTED',
+        docSubmittedAt: new Date(),
+        rejectReason: null,
+        docReviewedAt: null,
+        ...(consumeUnlock ? { editUnlocked: false } : {}),
+      },
     });
 
     await writeAuditLog({
@@ -52,6 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_DOC_SUBMIT',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
+      after: consumeUnlock ? { editUnlockConsumed: true } : undefined,
       ...extractRequestMeta(req),
     });
 
