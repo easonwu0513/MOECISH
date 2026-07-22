@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { SURVEY_COMMITTEE_TYPES } from '@/lib/types';
+import { linkMemberToCycles } from '@/lib/pre-survey-linkage';
 
 const Body = z.object({
   // UAT 圖28:每場次指派可帶構面(管理面/策略面/技術面/管理面-OT;說明會等免構面=null)
@@ -74,18 +75,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
 
     // UAT 圖37:帶入場次(sourceCycleId)指派後,連動稽核週期——
-    //  - 委員:自動加入該週期「稽核委員指派」(AuditorAssignment;場次構面→負責構面 dimensions 聯集;
-    //    已指派者僅補構面)。COI:服務該機關(現職或有效授權)者跳過並回報。
+    //  - 委員:自動加入該週期「稽核委員指派」(核心抽至 lib/pre-survey-linkage,與帶入補標共用)。
     //  - 觀察員:CycleObserver 配對必填指導委員(mentorId),無法自動——回應提示至週期進階設定配對。
     //  - 僅做「加入」連動;自調查移除場次不反向移除週期指派(避免誤刪已有評分/審閱紀錄的指派)。
-    const SURVEY_TO_ASSIGN: Record<string, string> = {
-      管理面: 'MANAGEMENT',
-      策略面: 'STRATEGY',
-      技術面: 'TECHNICAL',
-      '管理面-OT': 'MANAGEMENT_OT',
-    };
-    const linkedCycles: string[] = [];
-    const skippedCoi: string[] = [];
+    let linkedCycles: string[] = [];
+    let skippedCoi: string[] = [];
     let observerHint = false;
     const srcSessions = wanted.length
       ? await prisma.surveySession.findMany({
@@ -95,60 +89,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       : [];
     if (srcSessions.length > 0) {
       if (participant.kind === 'MEMBER') {
-        const [pUser, grants, cycles] = await Promise.all([
-          prisma.user.findUnique({ where: { id: participant.userId }, select: { organizationId: true } }),
-          prisma.userRole.findMany({
-            where: { userId: participant.userId, endedAt: null, organizationId: { not: null } },
-            select: { organizationId: true },
-          }),
-          prisma.auditCycle.findMany({
-            where: { id: { in: srcSessions.map((s) => s.sourceCycleId as string) } },
-            select: { id: true, organizationId: true, organization: { select: { name: true, shortName: true } } },
-          }),
-        ]);
-        const servedOrgIds = new Set(
-          [pUser?.organizationId, ...grants.map((g) => g.organizationId)].filter(Boolean) as string[],
+        const linked = await linkMemberToCycles(
+          participant.userId,
+          srcSessions.map((s) => ({
+            cycleId: s.sourceCycleId as string,
+            aspect: entries.find((e) => e.sessionId === s.id)?.aspect ?? null,
+          })),
         );
-        const aspectByCycle = new Map(
-          srcSessions.map((s) => [s.sourceCycleId as string, entries.find((e) => e.sessionId === s.id)?.aspect ?? null]),
-        );
-        for (const c of cycles) {
-          const orgLabel = c.organization.shortName ?? c.organization.name;
-          if (servedOrgIds.has(c.organizationId)) {
-            skippedCoi.push(orgLabel);
-            continue;
-          }
-          const mapped = SURVEY_TO_ASSIGN[aspectByCycle.get(c.id) ?? ''] ?? null;
-          const existingAssign = await prisma.auditorAssignment.findUnique({
-            where: { cycleId_auditorId: { cycleId: c.id, auditorId: participant.userId } },
-            select: { id: true, dimensions: true },
-          });
-          if (!existingAssign) {
-            await prisma.auditorAssignment.create({
-              data: {
-                cycleId: c.id,
-                auditorId: participant.userId,
-                dimensions: mapped ? JSON.stringify([mapped]) : null,
-              },
-            });
-            linkedCycles.push(orgLabel);
-          } else if (mapped) {
-            let cur: string[] = [];
-            try {
-              const a = JSON.parse(existingAssign.dimensions ?? '[]');
-              cur = Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
-            } catch {
-              cur = [];
-            }
-            if (!cur.includes(mapped)) {
-              await prisma.auditorAssignment.update({
-                where: { id: existingAssign.id },
-                data: { dimensions: JSON.stringify([...cur, mapped]) },
-              });
-              linkedCycles.push(`${orgLabel}（補構面）`);
-            }
-          }
-        }
+        linkedCycles = linked.linkedCycles;
+        skippedCoi = linked.skippedCoi;
       } else {
         observerHint = true;
       }

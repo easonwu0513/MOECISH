@@ -1214,8 +1214,16 @@ function SessionManagerDialog({
     setImporting(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '帶入失敗' })); toast.error('帶入失敗', j.error); return; }
     const j = await res.json().catch(() => ({ created: 0, skipped: 0 }));
-    if (j.created > 0) toast.success(`已帶入 ${j.created} 個稽核場次`, j.skipped > 0 ? `另有 ${j.skipped} 個已存在略過` : undefined);
-    else toast.warning('無新場次可帶入', j.message ?? (j.skipped > 0 ? `${j.skipped} 個已存在` : undefined));
+    // UAT 圖37:帶入同時回報補標與週期連動結果(補標後既有指派自動連動,不需重存)
+    const extra: string[] = [];
+    if (j.skipped > 0) extra.push(`${j.skipped} 個場次已存在略過`);
+    if (j.backfilled > 0) extra.push(`補上 ${j.backfilled} 個場次的來源週期`);
+    if (j.linkedCycles?.length) extra.push(`已連動週期委員指派：${j.linkedCycles.join('、')}`);
+    if (j.skippedCoi?.length) extra.push(`因服務該機關跳過：${j.skippedCoi.join('、')}`);
+    if (j.observerHint) extra.push('觀察員請至週期進階設定完成師徒配對');
+    if (j.created > 0) toast.success(`已帶入 ${j.created} 個稽核場次`, extra.join('；') || undefined);
+    else if (j.backfilled > 0) toast.success('已補齊既有場次的來源週期', extra.join('；') || undefined);
+    else toast.warning('無新場次可帶入', j.message ?? (extra.join('；') || undefined));
     router.refresh();
   }
 
