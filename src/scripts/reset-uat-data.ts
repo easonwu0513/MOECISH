@@ -98,6 +98,7 @@ async function main() {
       await tx.surveyCustomColumn.deleteMany({});
       await tx.post.deleteMany({});
       await tx.notification.deleteMany({});
+      await tx.feedbackReport.deleteMany({});
       await tx.emailLog.deleteMany({});
       await tx.passwordResetToken.deleteMany({});
       await tx.auditLog.deleteMany({});

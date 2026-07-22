@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Role } from '@/lib/types';
 import {
   LayoutDashboard, ClipboardCheck, Users, History, Briefcase,
-  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings, Send, AlertTriangle, CalendarDays,
+  FileText, Folder, Mail, Megaphone, BarChart, CheckCircle, Settings, Send, AlertTriangle, CalendarDays, MessageSquare,
 } from '../icons';
 
 /**
@@ -17,7 +17,7 @@ import {
 
 export type NavIconKey =
   | 'dashboard' | 'cycles' | 'tracking' | 'presurvey' | 'journey' | 'orgs' | 'users' | 'crossCycles' | 'scores'
-  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog';
+  | 'checklists' | 'prepTemplate' | 'snippets' | 'journeyEdit' | 'posts' | 'emails' | 'letters' | 'mergeTool' | 'auditLog' | 'feedback';
 
 const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   dashboard: (s) => <LayoutDashboard size={s} />,
@@ -38,6 +38,7 @@ const ICONS: Record<NavIconKey, (size: number) => ReactNode> = {
   letters: (s) => <Send size={s} />,
   mergeTool: (s) => <Folder size={s} />,
   auditLog: (s) => <History size={s} />,
+  feedback: (s) => <MessageSquare size={s} />,
 };
 
 /** 取得指定鍵的圖示;尺寸由各消費端指定(側欄 20、⌘K 16),避免在資料層綁死尺寸。 */
@@ -100,6 +101,8 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/admin/emails',            label: '系統寄件紀錄', allow: ADMIN, iconKey: 'emails',      group: '公告與信件', cmdGroup: '管理', sidebar: false },
   // ── 工具 ──
   { href: '/admin/tools/audit-merge', label: '報告彙整工具', allow: ADMIN, iconKey: 'mergeTool',   group: '工具', cmdGroup: '管理' },
+  // UAT 圖50:右下角問題回饋小工具收集的回報,中心於此檢視處理
+  { href: '/admin/feedback',          label: '問題回饋',     allow: ADMIN, iconKey: 'feedback',    group: '工具', cmdGroup: '管理' },
   // 「設計系統」展示頁(開發用活文件)自導覽移除(UAT:承辦不需看);頁面保留可直接以網址開啟。
 ];
 

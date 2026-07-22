@@ -26,7 +26,7 @@ import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, f
 import { cn } from '@/lib/cn';
 import { fmtROC, fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
-import { SurveyProfileCard } from '@/components/dashboard/SurveyProfileCard';
+import { SurveyProfileCard, OpenSurveyButton } from '@/components/dashboard/SurveyProfileCard';
 import { loadDashboardSelfSurvey } from '@/lib/pre-survey-self';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { CrossOrgOverview } from '@/components/dashboard/CrossOrgOverview';
@@ -394,9 +394,8 @@ export default async function HomePage() {
                   <span className={cn('flex-1 text-body-sm', s.done === true ? 'text-ink-500 line-through' : 'text-ink-900')}>
                     {s.label}
                   </span>
-                  {s.done === false && (
-                    <Button href="/pre-survey?open=1" size="sm" variant="text">前往填寫</Button>
-                  )}
+                  {/* UAT 圖50:就地開填寫彈窗(SurveyProfileCard 同一彈窗),不跳轉調查頁 */}
+                  {s.done === false && <OpenSurveyButton />}
                   {s.done === null && <span className="text-caption text-ink-400">待中心完成場次分派後填報</span>}
                 </li>
               ))}

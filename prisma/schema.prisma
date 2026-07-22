@@ -74,6 +74,7 @@ model User {
   surveyParticipations SurveyParticipant[]    @relation("SurveyParticipations")
   // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
   roleGrants           UserRole[]
+  feedbackReports      FeedbackReport[] @relation("FeedbackSubmitter")
 }
 
 // ════════════════════════════════════════════
@@ -1025,4 +1026,21 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
   @@index([action, createdAt])
+}
+
+// UAT 圖50:問題回饋——右下角浮動小工具(取代 AI 小幫手)收集使用者操作問題與建議;
+// 中心於 /admin/feedback 檢視並標記處理。role/page 為送出當下快照;resolvedById 快照無 FK(比照停用操作者)。
+model FeedbackReport {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("FeedbackSubmitter", fields: [userId], references: [id])
+  role         String // 送出當下現用身分(Role)
+  page         String? // 送出當下頁面路徑(自動帶入)
+  content      String
+  status       String    @default("OPEN") // OPEN | RESOLVED
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  @@index([status, createdAt])
 }

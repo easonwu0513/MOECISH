@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
@@ -9,6 +9,15 @@ import { Pencil } from '@/components/icons';
 import { IdentityBand } from './IdentityBand';
 import SurveySelfForm, { type SelfDTO } from '@/app/pre-survey/SurveySelfForm';
 import { computeStatus, statusIcon } from '@/app/pre-survey/SurveySelfDashboard';
+
+/** UAT 圖50:總覽四步檢核用「前往填寫」鈕——派發事件請 SurveyProfileCard 就地開填寫彈窗(不跳頁)。 */
+export function OpenSurveyButton() {
+  return (
+    <Button size="sm" variant="text" onClick={() => window.dispatchEvent(new Event('moecish:open-survey'))}>
+      前往填寫
+    </Button>
+  );
+}
 
 /**
  * 儀表板身分帶(委員/觀察員且為事前場次調查受調者):
@@ -35,6 +44,12 @@ export function SurveyProfileCard({
   const status = computeStatus(data);
   // 關窗 refresh:自助頁樂觀存檔(意願/差旅)後同步狀態徽章與重開表單(同 SurveySelfDashboard)
   const close = () => { setOpen(false); router.refresh(); };
+  // UAT 圖50:總覽四步檢核的「前往填寫」就地開同一彈窗(OpenSurveyButton 派發事件),不再跳轉調查頁
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener('moecish:open-survey', onOpen);
+    return () => window.removeEventListener('moecish:open-survey', onOpen);
+  }, []);
 
   const avatarNode = (
     <button
