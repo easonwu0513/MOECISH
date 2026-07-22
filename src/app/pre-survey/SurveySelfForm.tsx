@@ -609,7 +609,8 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             );
           })()}
           <div className="mt-4">
-            <Textarea label="特殊備註（如需協助安排停車等，請註明車號）" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
+            {/* UAT 圖53:車號已有專屬欄位(協助停車勾選展開),標籤刪去重複的括號說明 */}
+            <Textarea label="特殊備註" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
             <div className="mt-2">
               <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存</Button>
             </div>
