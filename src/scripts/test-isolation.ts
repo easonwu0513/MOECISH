@@ -529,6 +529,8 @@ async function main() {
   await expectAllowed('委員Y 補填期間送出意願(unlock 有效)', jarY, 'POST', `/api/pre-survey/participants/${pY.id}/submit`);
   await expectStatus('委員Y 送出後再改意願(補填開放已自動收回)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
   // 圖55:一階/二階補填開關分離——二階開放不連動一階;二階(交通+飲食)填齊即自動收回
+  // 夾具:二階時窗(travelCloseAt)也要關,否則差旅閘因「窗開著」放行,測不到 unlock/收回(首跑踩到 200)
+  await prisma.surveyFillWindow.update({ where: { year: SURVEY_YEAR }, data: { travelCloseAt: new Date(now.getTime() - 3600000) } });
   await prisma.surveyFinalAssignment.create({ data: { participantId: pY.id, sessionId: sShared.id, assignedById: adminA.id } });
   await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { travelEditUnlocked: true } });
   await expectStatus('委員Y 二階開放仍不可改意願(開關分離)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
