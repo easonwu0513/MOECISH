@@ -60,6 +60,44 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
+    // UAT 圖56:迴避原則前置硬擋——場次來源週期的受稽機關若為該員服務機關(現職或有效授權),
+    // 整筆指派拒存(不再是「存了但跳過連動」;請中心取消勾選該場次)。無來源週期的場次(說明會等)不受限。
+    if (wanted.length > 0) {
+      const srcForCoi = await prisma.surveySession.findMany({
+        where: { id: { in: wanted }, sourceCycleId: { not: null } },
+        select: { id: true, name: true, sourceCycleId: true },
+      });
+      if (srcForCoi.length > 0) {
+        const [pUser, grants, coiCycles] = await Promise.all([
+          prisma.user.findUnique({ where: { id: participant.userId }, select: { organizationId: true } }),
+          prisma.userRole.findMany({
+            where: { userId: participant.userId, endedAt: null, organizationId: { not: null } },
+            select: { organizationId: true },
+          }),
+          prisma.auditCycle.findMany({
+            where: { id: { in: srcForCoi.map((s) => s.sourceCycleId as string) } },
+            select: { id: true, organizationId: true, organization: { select: { name: true, shortName: true } } },
+          }),
+        ]);
+        const servedOrgIds = new Set(
+          [pUser?.organizationId, ...grants.map((g) => g.organizationId)].filter(Boolean) as string[],
+        );
+        const cycleById = new Map(coiCycles.map((c) => [c.id, c]));
+        const conflicted = srcForCoi
+          .map((s) => ({ s, c: cycleById.get(s.sourceCycleId as string) }))
+          .filter((x) => x.c && servedOrgIds.has(x.c.organizationId));
+        if (conflicted.length > 0) {
+          const labels = conflicted
+            .map((x) => `${x.c!.organization.shortName ?? x.c!.organization.name}（場次：${x.s.name}）`)
+            .join('、');
+          return NextResponse.json(
+            { error: `依迴避原則，該員服務於受稽機關，不可指派下列場次：${labels}；請取消勾選後再儲存。` },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.surveyFinalAssignment.deleteMany({
         where: { participantId: participant.id, sessionId: { notIn: wanted.length ? wanted : ['__none__'] } },
