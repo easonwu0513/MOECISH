@@ -730,6 +730,8 @@ model SurveyTemplate {
 model SurveyCustomColumn {
   id           String    @id @default(cuid())
   year         Int
+  // UAT 圖58:欄位歸屬類別(MEMBER|OBSERVER);null=兩類共用(既有欄位相容)。新增欄位只建在當前分頁類別。
+  kind         String?
   title        String
   orderIndex   Int       @default(0)
   selfEditable Boolean   @default(false) // true=開放受調者於自助頁自行填寫(否則為中心內部欄,受調者看不到)

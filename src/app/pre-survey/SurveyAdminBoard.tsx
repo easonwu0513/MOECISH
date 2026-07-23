@@ -88,6 +88,7 @@ export default function SurveyAdminBoard({
   customColumns,
   fillWindow,
   initialKind = 'MEMBER',
+  readOnly = false,
 }: {
   yearROC: number;
   sessions: AdminSessionDTO[];
@@ -103,6 +104,7 @@ export default function SurveyAdminBoard({
     observerReceiptEnabled: boolean;
   } | null; // 該年度雙時窗×二身分 + 領據開關(UAT 圖30/41)
   initialKind?: SurveyParticipantKind; // 側欄「委員/觀察員」直達(page 由 ?kind 帶入)
+  readOnly?: boolean; // UAT 圖57:歷年資料唯讀(任何身分不可編修;伺服器端另有硬擋)
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -183,18 +185,25 @@ export default function SurveyAdminBoard({
   }
 
   async function addColumn() {
-    await call('/api/pre-survey/columns', 'POST', { year: yearROC + 1911, title: '新欄位' }, '已新增欄位');
+    // UAT 圖58:欄位只建在當前分頁類別(委員/觀察員各自獨立,不再兩邊連動)
+    await call('/api/pre-survey/columns', 'POST', { year: yearROC + 1911, title: '新欄位', kind }, '已新增欄位');
   }
   const renameColumn = (id: string, title: string) => call('/api/pre-survey/columns', 'PATCH', { id, title });
 
   return (
     <div className="space-y-6">
+      {/* UAT 圖57:歷年資料唯讀橫幅(伺服器端所有寫入 API 另有硬擋) */}
+      {readOnly && (
+        <div className="rounded-md border border-warning-300 bg-warning-50 px-4 py-2.5 text-body-sm text-ink-900">
+          {yearROC} 年度為歷年資料，僅供檢視與匯出，任何身分皆不可再編修。
+        </div>
+      )}
       {/* 系統檔案管理區(公版範本 + 個別委員舊版經歷說明書) */}
       <FileManagementCard
         kind={kind}
         templates={templates}
         members={participants.filter((p) => p.kind === 'MEMBER')}
-        onManageTemplates={() => setTemplateMgrOpen(true)}
+        onManageTemplates={readOnly ? undefined : () => setTemplateMgrOpen(true)}
         receiptEnabled={fillWindow?.observerReceiptEnabled ?? false}
       />
 
@@ -214,21 +223,28 @@ export default function SurveyAdminBoard({
           ]}
         />
         <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" variant="outlined" leadingIcon={<Plus size={15} />} onClick={addColumn} disabled={busy}>
-            新增欄位
-          </Button>
-          <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
-            管理場次
-          </Button>
-          <Button size="sm" variant="outlined" leadingIcon={<CalendarDays size={15} />} onClick={() => setFillWindowOpen(true)}>
-            填報時間
-          </Button>
+          {/* UAT 圖57:歷年唯讀——僅保留匯出;各編修入口整組隱藏 */}
+          {!readOnly && (
+            <>
+              <Button size="sm" variant="outlined" leadingIcon={<Plus size={15} />} onClick={addColumn} disabled={busy}>
+                新增欄位
+              </Button>
+              <Button size="sm" variant="outlined" leadingIcon={<Settings size={15} />} onClick={() => setSessionMgrOpen(true)}>
+                管理場次
+              </Button>
+              <Button size="sm" variant="outlined" leadingIcon={<CalendarDays size={15} />} onClick={() => setFillWindowOpen(true)}>
+                填報時間
+              </Button>
+            </>
+          )}
           <Button href={`/api/pre-survey/export?year=${yearROC + 1911}&kind=${kind}`} size="sm" variant="outlined" download>
             匯出 CSV
           </Button>
-          <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setAddOpen(true)}>
-            新增{kind === 'OBSERVER' ? '觀察員' : '委員'}
-          </Button>
+          {!readOnly && (
+            <Button size="sm" leadingIcon={<Plus size={15} />} onClick={() => setAddOpen(true)}>
+              新增{kind === 'OBSERVER' ? '觀察員' : '委員'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -299,10 +315,12 @@ export default function SurveyAdminBoard({
                     <div className="flex items-center gap-1">
                       <input
                         defaultValue={c.title}
+                        disabled={readOnly}
                         onBlur={(e) => { const t = e.target.value.trim(); if (t && t !== c.title) renameColumn(c.id, t); else if (!t) e.target.value = c.title; }}
                         className="w-full min-w-[52px] rounded bg-transparent px-1 py-0.5 text-caption font-medium text-ink-700 focus-ring hover:bg-paper"
                         aria-label="自訂欄位標題"
                       />
+                      {!readOnly && (
                       <button
                         type="button"
                         onClick={() => setColSettingsFor(c)}
@@ -311,6 +329,8 @@ export default function SurveyAdminBoard({
                       >
                         <Settings size={13} />
                       </button>
+                      )}
+                      {!readOnly && (
                       <button
                         type="button"
                         onClick={() => call('/api/pre-survey/columns', 'DELETE', { id: c.id }, '已刪除欄位')}
@@ -319,6 +339,7 @@ export default function SurveyAdminBoard({
                       >
                         <Trash2 size={13} />
                       </button>
+                      )}
                     </div>
                     {(c.selfEditable || c.dueDate) && (
                       <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-normal leading-tight text-ink-500">
@@ -359,8 +380,8 @@ export default function SurveyAdminBoard({
                     </td>
                     {kind === 'MEMBER' && (
                       <td className="px-3 py-2">
-                        {/* UAT 圖28:「專長」可複選(一位委員可擅長多構面) */}
-                        <SpecialtyCell p={p} busy={busy} onSave={(next) => patchParticipant(p.id, { committeeTypes: next })} />
+                        {/* UAT 圖28:「專長」可複選(一位委員可擅長多構面);圖57 歷年唯讀 */}
+                        <SpecialtyCell p={p} busy={busy || readOnly} onSave={(next) => patchParticipant(p.id, { committeeTypes: next })} />
                       </td>
                     )}
                     {/* 資料繳交(狀態 chip → 審核;催1/2階) */}
@@ -372,37 +393,41 @@ export default function SurveyAdminBoard({
                             return <Chip size="sm" tone={d.tone}>{d.label}</Chip>;
                           })()}
                         </button>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => remind(p, 1)}
-                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring"
-                            title="催辦一階：出席意願與文件"
-                          >
-                            催1階
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy || p.finalSessionIds.length === 0}
-                            onClick={() => remind(p, 2)}
-                            className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring disabled:opacity-40"
-                            title={p.finalSessionIds.length === 0 ? '未指派最終場次，無法催二階' : '催辦二階：差旅與飲食'}
-                          >
-                            催2階
-                          </button>
-                        </div>
+                        {/* UAT 圖57:歷年唯讀不催辦 */}
+                        {!readOnly && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => remind(p, 1)}
+                              className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring"
+                              title="催辦一階：出席意願與文件"
+                            >
+                              催1階
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || p.finalSessionIds.length === 0}
+                              onClick={() => remind(p, 2)}
+                              className="text-[11px] rounded border border-rule px-1.5 py-0.5 text-ink-600 hover:bg-paper-sunk focus-ring disabled:opacity-40"
+                              title={p.finalSessionIds.length === 0 ? '未指派最終場次，無法催二階' : '催辦二階：差旅與飲食'}
+                            >
+                              催2階
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
-                    {/* 最終場次(E UAT:內嵌下拉多選,免點進彈窗直接指派) */}
+                    {/* 最終場次(E UAT:內嵌下拉多選,免點進彈窗直接指派;圖57 歷年唯讀=只列不可編) */}
                     <td className="px-3 py-2">
-                      <FinalSessionCell p={p} sessions={visibleSessions} />
+                      <FinalSessionCell p={p} sessions={visibleSessions} readOnly={readOnly} />
                     </td>
                     {/* 場次意願 */}
                     {visibleSessions.map((s) => (
                       <td key={s.id} className="px-2 py-2 text-center">
                         <Select
                           value={p.availability[s.id] ?? ''}
+                          disabled={readOnly}
                           onChange={(e) => {
                             // 安全鎖:不直接寫入,先開「解鎖修改」視窗填變動原因(controlled value 未變,取消即回彈)
                             setUnlockReason('');
@@ -424,7 +449,7 @@ export default function SurveyAdminBoard({
                           type="checkbox"
                           className="rounded border-rule accent-primary-600"
                           checked={p.receiptReturned}
-                          disabled={busy}
+                          disabled={busy || readOnly}
                           onChange={(e) => patchParticipant(p.id, { receiptReturned: e.target.checked })}
                           aria-label={`${p.name} 是否已回傳領據`}
                         />
@@ -451,18 +476,20 @@ export default function SurveyAdminBoard({
                       <input
                         key={p.phone ?? ''}
                         defaultValue={p.phone ?? ''}
+                        disabled={readOnly}
                         onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.phone ?? null)) patchParticipant(p.id, { phone: e.target.value.trim() || null }); }}
                         placeholder="—"
-                        className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                        className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring disabled:bg-transparent disabled:border-transparent"
                       />
                     </td>
                     {/* 備註 */}
                     <td className="px-3 py-2">
                       <input
                         defaultValue={p.note ?? ''}
+                        disabled={readOnly}
                         onBlur={(e) => { if ((e.target.value.trim() || null) !== (p.note ?? null)) patchParticipant(p.id, { note: e.target.value.trim() || null }); }}
                         placeholder="—"
-                        className="w-full min-w-[110px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                        className="w-full min-w-[110px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring disabled:bg-transparent disabled:border-transparent"
                       />
                     </td>
                     {/* 自訂欄位值 */}
@@ -470,24 +497,27 @@ export default function SurveyAdminBoard({
                       <td key={c.id} className="px-2 py-2">
                         <input
                           defaultValue={p.customValues[c.id] ?? ''}
+                          disabled={readOnly}
                           onBlur={(e) => { if ((e.target.value.trim()) !== (p.customValues[c.id] ?? '')) setCustomValue(p.id, c.id, e.target.value.trim()); }}
                           placeholder="—"
-                          className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring"
+                          className="w-full min-w-[100px] rounded border border-rule bg-card px-2 py-1 text-caption focus-ring disabled:bg-transparent disabled:border-transparent"
                         />
                       </td>
                     ))}
-                    {/* 動作:移除 */}
+                    {/* 動作:移除(圖57 歷年唯讀不提供) */}
                     <td className="px-3 py-2">
-                      <div className="flex items-center justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setRemoveFor(p)}
-                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 focus-ring"
-                          title="移除"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+                      {!readOnly && (
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setRemoveFor(p)}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-500 hover:text-danger-600 hover:bg-danger-50 focus-ring"
+                            title="移除"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -516,8 +546,8 @@ export default function SurveyAdminBoard({
         existingUserIds={new Set(participants.filter((p) => p.kind === kind).map((p) => p.userId))}
       />
       <AssignDialog participant={assignFor} sessions={sessions} onClose={() => setAssignFor(null)} />
-      <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} />
-      <AdminProfileDialog participant={profileFor} sessions={sessions} onClose={() => setProfileFor(null)} />
+      <DocReviewDialog participant={reviewFor} onClose={() => setReviewFor(null)} readOnly={readOnly} />
+      <AdminProfileDialog participant={profileFor} sessions={sessions} onClose={() => setProfileFor(null)} readOnly={readOnly} />
       <ColumnSettingsDialog column={colSettingsFor} onClose={() => setColSettingsFor(null)} />
       <ConfirmDialog
         open={removeFor !== null}
@@ -582,7 +612,7 @@ function FileManagementCard({
   kind: SurveyParticipantKind;
   templates: AdminTemplateDTO[];
   members: AdminParticipantDTO[];
-  onManageTemplates: () => void;
+  onManageTemplates?: () => void; // UAT 圖57:歷年唯讀時不提供(隱藏管理/上傳,僅留下載)
   receiptEnabled: boolean;
 }) {
   const router = useRouter();
@@ -632,11 +662,13 @@ function FileManagementCard({
           <p className="mt-1 text-caption text-ink-500">
             {kind === 'OBSERVER' ? '觀察員專用的空白保密切結書' : '委員通用的空白保密切結書與經歷說明書'}等。目前已上傳 {uploadedCount} / {kindSlots.length} 槽。
           </p>
-          <div className="mt-3">
-            <Button size="sm" variant="outlined" leadingIcon={<Paperclip size={14} />} onClick={onManageTemplates}>
-              管理公版範本
-            </Button>
-          </div>
+          {onManageTemplates && (
+            <div className="mt-3">
+              <Button size="sm" variant="outlined" leadingIcon={<Paperclip size={14} />} onClick={onManageTemplates}>
+                管理公版範本
+              </Button>
+            </div>
+          )}
         </div>
         {/* 個別委員舊版經歷說明書(僅委員) */}
         {kind === 'MEMBER' && (
@@ -650,7 +682,7 @@ function FileManagementCard({
                   <option key={m.id} value={m.id}>{m.name}{m.priorCvFile ? '（已上傳）' : ''}</option>
                 ))}
               </Select>
-              <FileUploadButton size="sm" label="上傳" busy={busy} onChange={uploadPriorCv} />
+              {onManageTemplates && <FileUploadButton size="sm" label="上傳" busy={busy} onChange={uploadPriorCv} />}
             </div>
             {selected?.priorCvFile && (
               <p className="mt-2 text-caption text-ink-600 break-all">
@@ -658,7 +690,9 @@ function FileManagementCard({
                 <a href={`/api/pre-survey/files/${selected.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline">
                   {selected.priorCvFile.name}
                 </a>
-                <button type="button" onClick={removePriorCv} className="ml-2 text-danger-600 hover:underline focus-ring rounded">刪除</button>
+                {onManageTemplates && (
+                  <button type="button" onClick={removePriorCv} className="ml-2 text-danger-600 hover:underline focus-ring rounded">刪除</button>
+                )}
               </p>
             )}
           </div>
@@ -670,8 +704,8 @@ function FileManagementCard({
 
 // ── 個人資料彈窗(中心視角詳情:聯絡/文件/意願/差旅一覽,真實地名) ──
 function AdminProfileDialog({
-  participant, sessions, onClose,
-}: { participant: AdminParticipantDTO | null; sessions: AdminSessionDTO[]; onClose: () => void }) {
+  participant, sessions, onClose, readOnly = false,
+}: { participant: AdminParticipantDTO | null; sessions: AdminSessionDTO[]; onClose: () => void; readOnly?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [phone, setPhone] = useState('');
@@ -793,10 +827,10 @@ function AdminProfileDialog({
       }
     >
       <div className="space-y-5">
-        {/* 聯絡資訊 */}
+        {/* 聯絡資訊(圖57 歷年唯讀:欄位鎖定、不提供儲存) */}
         <section>
           <h4 className="text-label text-ink-900 mb-2">聯絡資訊</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <fieldset disabled={readOnly} className="grid gap-3 sm:grid-cols-2">
             <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} />
             <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <TextField label="電子郵件（次要）" value={email2} onChange={(e) => setEmail2(e.target.value)} placeholder="—" />
@@ -804,9 +838,9 @@ function AdminProfileDialog({
             <TextField label="代理人姓名/職稱" value={proxyName} onChange={(e) => setProxyName(e.target.value)} placeholder="如：王小明/秘書" />
             <TextField label="代理聯絡人信箱" value={proxyEmail} onChange={(e) => setProxyEmail(e.target.value)} placeholder="無代理則留空" />
             <TextField label="代理聯絡人電話" value={proxyPhone} onChange={(e) => setProxyPhone(e.target.value)} placeholder="無代理則留空" />
-          </div>
+          </fieldset>
           <div className="mt-2">
-            {contactReasonOpen ? (
+            {readOnly ? null : contactReasonOpen ? (
               <div className="w-full space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
                 <TextField
                   label="變動原因（必填，記入稽核軌跡）"
@@ -836,8 +870,8 @@ function AdminProfileDialog({
           {p.docStatus === 'RETURNED' && p.rejectReason && (
             <p className="mt-2 text-caption text-danger-600">退補理由：{p.rejectReason}</p>
           )}
-          {/* G UAT:已送審 → 中心可於此直接核可/退補(免另尋管考表「資料繳交」欄) */}
-          {p.docStatus === 'SUBMITTED' && (
+          {/* G UAT:已送審 → 中心可於此直接核可/退補(免另尋管考表「資料繳交」欄);圖57 歷年唯讀不提供 */}
+          {!readOnly && p.docStatus === 'SUBMITTED' && (
             <div className="mt-3 rounded-md border border-rule bg-paper-sunk/40 p-3">
               <p className="text-caption text-ink-600 mb-2">
                 {p.docReviewed ? '文件已核可；如需重審可退補。' : '受調者已送審文件，請審核：'}
@@ -888,7 +922,8 @@ function AdminProfileDialog({
               })}
             </ul>
           )}
-          {/* UAT 圖55:一階(意願/文件/聯絡)補填開關——與二階差旅開關分離,各開各的 */}
+          {/* UAT 圖55:一階(意願/文件/聯絡)補填開關——與二階差旅開關分離,各開各的;圖57 歷年唯讀不提供 */}
+          {!readOnly && (
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-md bg-paper-sunk/50 px-3 py-2">
             <div className="min-w-0">
               <p className="text-caption font-medium text-ink-700">開放補填／變更（意願與文件）</p>
@@ -903,24 +938,27 @@ function AdminProfileDialog({
               {p.editUnlocked ? '關閉補填' : '開放補填'}
             </Button>
           </div>
+          )}
         </section>
 
         {/* 差旅與飲食(本人填,唯讀;UAT 圖47:逐場次逐行,一眼可讀) */}
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="text-label text-ink-900">差旅與飲食（第二階段）</h4>
-            {/* UAT 圖54/55:二階補填為獨立開關——只開差旅/飲食,不連動一階;填齊自動收回 */}
-            <Button
-              size="sm"
-              variant={p.travelEditUnlocked ? 'danger' : 'text'}
-              onClick={toggleTravelUnlock}
-              loading={unlocking}
-              disabled={unlocking}
-            >
-              {p.travelEditUnlocked ? '關閉補填' : '開放補填'}
-            </Button>
+            {/* UAT 圖54/55:二階補填為獨立開關——只開差旅/飲食,不連動一階;填齊自動收回;圖57 歷年唯讀不提供 */}
+            {!readOnly && (
+              <Button
+                size="sm"
+                variant={p.travelEditUnlocked ? 'danger' : 'text'}
+                onClick={toggleTravelUnlock}
+                loading={unlocking}
+                disabled={unlocking}
+              >
+                {p.travelEditUnlocked ? '關閉補填' : '開放補填'}
+              </Button>
+            )}
           </div>
-          {p.travelEditUnlocked && (
+          {!readOnly && p.travelEditUnlocked && (
             <p className="mb-2 text-caption text-ink-500">已開放：此人可無視第二階段時窗補填差旅與飲食；填齊後自動收回開放。</p>
           )}
           <div className="space-y-1 text-caption text-ink-700">
@@ -1586,7 +1624,7 @@ function SpecialtyCell({ p, busy, onSave }: { p: AdminParticipantDTO; busy: bool
   );
 }
 
-function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[] }) {
+function FinalSessionCell({ p, sessions, readOnly = false }: { p: AdminParticipantDTO; sessions: AdminSessionDTO[]; readOnly?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -1655,6 +1693,31 @@ function FinalSessionCell({ p, sessions }: { p: AdminParticipantDTO; sessions: A
     if (j.observerHint) toast.warning('指導委員待設定', '觀察員已加入該稽核週期的觀察員配對，請至週期「進階設定」指定指導委員。');
     setOpen(false);
     router.refresh();
+  }
+
+  // UAT 圖57:歷年唯讀——只詳列指派結果,不提供編輯選單
+  if (readOnly) {
+    return (
+      <span className="inline-flex items-start gap-1 text-caption text-ink-700">
+        <MapPin size={13} className="shrink-0 mt-0.5 text-ink-400" />
+        {assigned.length > 0 ? (
+          <span className="flex flex-col gap-1">
+            {assigned.map((s) => (
+              <span key={s.id} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                {s.dateLabel} {s.name}
+                {p.finalAspects[s.id] && (
+                  <Chip size="sm" tone={ASPECT_CHIP_TONE[p.finalAspects[s.id] as string] ?? 'neutral'}>
+                    {p.finalAspects[s.id]}
+                  </Chip>
+                )}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-ink-400">未指派</span>
+        )}
+      </span>
+    );
   }
 
   return (
@@ -1816,7 +1879,7 @@ function AssignDialog({
 }
 
 // ── 文件審核對話框(檢視 cv/切結書 + 核可/退補) ──
-function DocReviewDialog({ participant, onClose }: { participant: AdminParticipantDTO | null; onClose: () => void }) {
+function DocReviewDialog({ participant, onClose, readOnly = false }: { participant: AdminParticipantDTO | null; onClose: () => void; readOnly?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [reason, setReason] = useState('');
@@ -1865,13 +1928,14 @@ function DocReviewDialog({ participant, onClose }: { participant: AdminParticipa
     router.refresh();
   }
 
-  const canReview = participant?.docStatus === 'SUBMITTED';
+  // UAT 圖57:歷年唯讀——只檢視文件,不提供核可/退補/代為送審
+  const canReview = !readOnly && participant?.docStatus === 'SUBMITTED';
   return (
     <Dialog
       open={participant !== null}
       onOpenChange={(o) => { if (!o) onClose(); }}
-      title={participant ? `${participant.name} 的文件審核` : ''}
-      description="檢視受調者繳交的文件；送審（已繳交）狀態可核可或退補。"
+      title={participant ? `${participant.name} 的文件${readOnly ? '（歷年檢視）' : '審核'}` : ''}
+      description={readOnly ? '歷年資料僅供檢視。' : '檢視受調者繳交的文件；送審（已繳交）狀態可核可或退補。'}
     >
       <div className="space-y-3 pt-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -1899,8 +1963,8 @@ function DocReviewDialog({ participant, onClose }: { participant: AdminParticipa
                 ? '已退補，待受調者補件並重新送審後再審核。'
                 : '受調者尚未送審文件。'}
             </p>
-            {/* UAT 圖51:檔案已齊但受調者未按送審即逾窗 → 中心可代為送審(伺服器對中心豁免時窗),再行審核 */}
-            {participant && !!participant.ndaFile && (participant.kind === 'OBSERVER' || !!participant.cvFile) && (
+            {/* UAT 圖51:檔案已齊但受調者未按送審即逾窗 → 中心可代為送審(伺服器對中心豁免時窗),再行審核;圖57 歷年不提供 */}
+            {!readOnly && participant && !!participant.ndaFile && (participant.kind === 'OBSERVER' || !!participant.cvFile) && (
               <div className="flex items-center gap-2">
                 <Button size="sm" variant="tonal" onClick={submitForParticipant} loading={busy} disabled={busy}>
                   代為送審

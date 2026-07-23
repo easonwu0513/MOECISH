@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { SURVEY_TEMPLATE_SLOTS, surveyTemplateSlotLabel, type SurveyTemplateSlot } from '@/lib/types';
 
 /**
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     if (!Number.isInteger(year) || year < 2000 || year > 2200) {
       return NextResponse.json({ error: '年度不正確' }, { status: 400 });
     }
+    assertSurveyYearWritable(year); // UAT 圖57:歷年資料唯讀
     if (!(SURVEY_TEMPLATE_SLOTS as readonly string[]).includes(slotRaw)) {
       return NextResponse.json({ error: '範本類別不正確' }, { status: 400 });
     }
@@ -97,8 +99,9 @@ export async function DELETE(req: Request) {
     const user = await requireRole('SUPER_ADMIN');
     const { id } = DeleteBody.parse(await req.json());
 
-    const template = await prisma.surveyTemplate.findUnique({ where: { id }, select: { id: true } });
+    const template = await prisma.surveyTemplate.findUnique({ where: { id }, select: { id: true, year: true } });
     if (!template) return NextResponse.json({ error: '範本不存在' }, { status: 404 });
+    assertSurveyYearWritable(template.year); // UAT 圖57:歷年資料唯讀
 
     const evs = await prisma.evidence.findMany({ where: { targetType: 'SURVEY_TEMPLATE', targetId: id } });
     for (const ev of evs) {

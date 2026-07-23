@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { SURVEY_AVAILABILITY_STATUSES } from '@/lib/types';
 
@@ -21,6 +21,7 @@ const Body = z.object({
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     const body = Body.parse(await req.json());
 
     // UAT 圖6 安全鎖(伺服器端強制,防繞過前端):中心於管考表代改意願,必附變動原因

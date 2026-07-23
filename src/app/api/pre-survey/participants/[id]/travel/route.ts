@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage2WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS, isValidTransportToken } from '@/lib/types';
 
@@ -30,6 +30,7 @@ const Body = z.object({
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const { participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     const body = Body.parse(await req.json());
 
     const assigned = await prisma.surveyFinalAssignment.count({ where: { participantId: participant.id } });

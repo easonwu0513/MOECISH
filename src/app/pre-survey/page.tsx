@@ -226,8 +226,10 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
   }));
 
   // 中心自訂欄位(mockup 改版;年度制)。#5:selfEditable=開放受調者填寫、dueDate=填報到期日(供催辦)
+  // UAT 圖58:欄位依分頁類別過濾(kind=null 舊欄位兩類共用;新增欄位只建在當前類別,兩分頁不再連動)
+  const adminKind = searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER';
   const customColumnRows = await prisma.surveyCustomColumn.findMany({
-    where: { year },
+    where: { year, OR: [{ kind: null }, { kind: adminKind }] },
     orderBy: { orderIndex: 'asc' },
     select: { id: true, title: true, selfEditable: true, dueDate: true },
   });
@@ -309,6 +311,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
       <SurveyAdminBoard
         key={searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER'}
         initialKind={searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER'}
+        readOnly={year < new Date(Date.now() + 8 * 3600 * 1000).getUTCFullYear()}
         yearROC={yearROC}
         sessions={sessionDTOs}
         participants={participantDTOs}

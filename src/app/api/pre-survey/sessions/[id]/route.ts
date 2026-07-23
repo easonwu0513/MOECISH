@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 const Body = z.object({
   name: z.string().trim().min(1).max(100).optional(),
@@ -26,9 +27,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const existing = await prisma.surveySession.findUnique({
       where: { id: params.id },
-      select: { id: true, sourceCycleId: true },
+      select: { id: true, sourceCycleId: true, year: true },
     });
     if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
 
     // UAT 圖13(伺服器端強制):由稽核週期帶入的場次,日期鎖定——僅隨該週期實地稽核日連動
     if (body.date !== undefined && existing.sourceCycleId) {
@@ -76,9 +78,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const user = await requireRole('SUPER_ADMIN');
     const existing = await prisma.surveySession.findUnique({
       where: { id: params.id },
-      select: { id: true, isBriefing: true },
+      select: { id: true, isBriefing: true, year: true },
     });
     if (!existing) return NextResponse.json({ error: '場次不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
     // UAT 圖14:受稽機關說明會為年度必備場次,不可刪除(名稱/日期可編輯)
     if (existing.isBriefing) {
       return NextResponse.json({ error: '「受稽機關說明會」為年度必備場次，不可刪除；可編輯其名稱與時間。' }, { status: 400 });

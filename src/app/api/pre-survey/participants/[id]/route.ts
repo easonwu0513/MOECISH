@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { deleteFileByKey } from '@/lib/storage';
 import { SURVEY_COMMITTEE_TYPES, SURVEY_REPLY_STATUSES, SURVEY_DOC_HANDOVER_STATUSES } from '@/lib/types';
@@ -62,6 +62,7 @@ function parseCustomValues(json: string | null): Record<string, string> {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     const body = Body.parse(await req.json());
 
     const adminOnlyTouched =
@@ -208,8 +209,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
-    const existing = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { id: true } });
+    const existing = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { id: true, year: true } });
     if (!existing) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
 
     const docs = await prisma.evidence.findMany({
       where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT'] }, targetId: params.id },

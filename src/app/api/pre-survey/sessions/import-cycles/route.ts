@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linkage';
 
 const Body = z.object({ year: z.number().int().min(2000).max(2200) });
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const { year } = Body.parse(await req.json());
+    assertSurveyYearWritable(year); // UAT 圖57:歷年資料唯讀
 
     const cycles = await prisma.auditCycle.findMany({
       where: { year, onsiteDate: { not: null } },

@@ -305,7 +305,7 @@ async function main() {
   // 對每位受調者,把其名下「該欄仍為空 且 進入催辦視窗」的欄位彙整成一封(到期前 7 日內一次、逾期每 7 天一次)。
   const cvCols = await prisma.surveyCustomColumn.findMany({
     where: { selfEditable: true, dueDate: { not: null } },
-    select: { id: true, year: true, title: true, dueDate: true },
+    select: { id: true, year: true, kind: true, title: true, dueDate: true },
   });
   if (cvCols.length > 0) {
     const yearsInvolved = [...new Set(cvCols.map((c) => c.year))];
@@ -315,6 +315,7 @@ async function main() {
         where: { year: y },
         select: {
           id: true,
+          kind: true,
           customValues: true,
           user: { select: { name: true, email: true, isActive: true } },
         },
@@ -324,6 +325,7 @@ async function main() {
         const values = parseCustomValues(p.customValues);
         const entries: { title: string; due: Date; overdue: boolean; key: string }[] = [];
         for (const col of yearCols) {
+          if (col.kind && col.kind !== p.kind) continue; // UAT 圖58:欄位歸屬類別不符者不催
           if ((values[col.id] ?? '').trim().length > 0) continue; // 已填 → 不催
           const due = col.dueDate!; // where dueDate not null 已保證
           const dleft = daysUntil(due, now);

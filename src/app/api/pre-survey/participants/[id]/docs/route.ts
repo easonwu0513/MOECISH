@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { sniffDocType } from '@/lib/pre-survey-files';
 
@@ -18,6 +18,7 @@ const SlotSchema = z.enum(['CV', 'NDA', 'RECEIPT']); // RECEIPT=觀察員差旅�
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
 
     if (!isAdmin && participant.docStatus === 'SUBMITTED') {
       return NextResponse.json({ error: '文件已送審，如需修改請待中心退補後再上傳。' }, { status: 400 });

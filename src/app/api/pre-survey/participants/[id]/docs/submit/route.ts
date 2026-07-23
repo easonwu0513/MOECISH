@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 
 /**
@@ -12,6 +12,7 @@ import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
 
     // 送審僅在 NONE(未繳交)或 RETURNED(待補件)時可觸發;已送審(SUBMITTED)不可重複送(防覆寫 docSubmittedAt/清 rejectReason)
     if (participant.docStatus === 'SUBMITTED') {

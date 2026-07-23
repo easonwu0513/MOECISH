@@ -54,7 +54,8 @@ export async function GET(req: Request) {
         },
         orderBy: { invitedAt: 'asc' },
       }),
-      prisma.surveyCustomColumn.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+      // UAT 圖58:自訂欄位依匯出類別過濾(kind=null 舊欄位兩類共用)
+      prisma.surveyCustomColumn.findMany({ where: { year, OR: [{ kind: null }, { kind }] }, orderBy: { orderIndex: 'asc' } }),
     ]);
 
     const parseObj = (json: string | null): Record<string, string> => {

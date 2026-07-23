@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 const Body = z.object({
   year: z.number().int().min(2000).max(3000),
@@ -30,6 +31,7 @@ export async function PUT(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
+    assertSurveyYearWritable(body.year); // UAT 圖57:歷年資料唯讀
     const openAt = body.openAt ? new Date(body.openAt) : null;
     const closeAt = body.closeAt ? new Date(body.closeAt) : null;
     const travelOpenAt = body.travelOpenAt ? new Date(body.travelOpenAt) : null;

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { SURVEY_PARTICIPANT_KINDS, SURVEY_COMMITTEE_TYPES } from '@/lib/types';
 
 const Body = z.object({
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
+    assertSurveyYearWritable(body.year); // UAT 圖57:歷年資料唯讀
 
     const requiredRole = body.kind === 'OBSERVER' ? 'OBSERVER' : 'AUDITOR';
     const account = await prisma.user.findUnique({

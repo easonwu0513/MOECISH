@@ -6,6 +6,7 @@ import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { SURVEY_COMMITTEE_TYPES } from '@/lib/types';
 import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linkage';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 const Body = z.object({
   // UAT 圖28:每場次指派可帶構面(管理面/策略面/技術面/管理面-OT;說明會等免構面=null)
@@ -32,6 +33,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       select: { id: true, year: true, kind: true, userId: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
 
     // 統一為 [{ sessionId, aspect }](assignments 優先;sessionIds 相容=無構面);同場次去重取先者
     const rawEntries =

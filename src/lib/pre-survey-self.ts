@@ -101,8 +101,9 @@ export async function buildSelfDTO(opts: {
   const receiptEv = myDocs.find((d) => d.targetType === 'SURVEY_RECEIPT') ?? null; // UAT 圖30
 
   // #5:中心開放受調者填寫的自訂欄位(selfEditable);帶各欄現值與到期日供本人填報
+  // UAT 圖58:依受調者類別過濾(kind=null 舊欄位兩類共用)
   const selfColumns = await prisma.surveyCustomColumn.findMany({
-    where: { year: participant.year, selfEditable: true },
+    where: { year: participant.year, selfEditable: true, OR: [{ kind: null }, { kind }] },
     orderBy: { orderIndex: 'asc' },
     select: { id: true, title: true, dueDate: true },
   });
