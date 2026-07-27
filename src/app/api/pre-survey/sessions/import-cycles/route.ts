@@ -10,6 +10,52 @@ import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linka
 const Body = z.object({ year: z.number().int().min(2000).max(2200) });
 
 /**
+ * P2:帶入的反向操作——移除本年度「由週期帶入且尚無任何意願/指派」的場次(對稱既有一鍵帶入)。
+ * 已有受調者填意願或已指派者一律保留(不刪有作業痕跡的場次),回報保留數供中心判斷。
+ */
+export async function DELETE(req: Request) {
+  try {
+    const user = await requireRole('SUPER_ADMIN');
+    const { year } = Body.parse(await req.json());
+    assertSurveyYearWritable(year); // UAT 圖57:歷年資料唯讀
+
+    // 對抗審查:①只刪「長得就是 import 產物」的場次——補標(圖37)會把手動建立的場次也寫上
+    // sourceCycleId,若僅以此為據會誤刪中心手動建立並自訂過的場次(備註/必參加/目標人數皆為預設才刪);
+    // ②條件全部下沉到 deleteMany 的 where(DB 端評估),避免 read-then-delete 空窗把剛送出的意願 cascade 掉。
+    const IMPORT_SHAPE = {
+      year,
+      sourceCycleId: { not: null },
+      isBriefing: false,
+      remark: null,
+      isRequired: false,
+      targetMemberCount: 0,
+      targetObserverCount: 0,
+    } as const;
+    const candidates = await prisma.surveySession.findMany({
+      where: { year, sourceCycleId: { not: null }, isBriefing: false },
+      select: { name: true, _count: { select: { availabilities: true, finalAssignments: true } } },
+    });
+    const { count: removed } = await prisma.surveySession.deleteMany({
+      where: { ...IMPORT_SHAPE, availabilities: { none: {} }, finalAssignments: { none: {} } },
+    });
+    const kept = candidates.length - removed;
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'SURVEY_SESSION_IMPORT_UNDO',
+      entityType: 'SurveySession',
+      entityId: String(year),
+      after: { removed, kept, candidates: candidates.map((s) => s.name) },
+      ...extractRequestMeta(req),
+    });
+
+    return NextResponse.json({ removed, kept });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+/**
  * 帶入當年度稽核場次(UAT;僅中心)。把該年度「已排定實地稽核日」的稽核週期,建成事前場次調查場次:
  *   日期＝實地稽核日(onsiteDate)、名稱＝受稽機關(shortName ?? name)。
  * 去重:同年度已存在「同名稱＋同日期」的場次則略過(可重複點擊、與手動新增並存)。

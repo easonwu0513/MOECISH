@@ -255,6 +255,26 @@ export default function ChecklistItemCard({
       // 意見待補數已由卡頭 Chip 呈現(收合可見),此處不重複 tab badge
       content: (
         <div className="space-y-2">
+          {/* P2(圖68 委員版):寫意見時要對照機關填答與佐證——就地摘要,免來回切分頁 */}
+          {userRole !== 'ORG_ADMIN' && (
+            <div className="rounded-md border border-rule bg-paper-sunk/50 p-3 text-body-sm">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-caption text-ink-500">機關填答</span>
+                {compliance ? (
+                  <Chip size="sm" tone={COMPLIANCE_TONE[compliance]}>{COMPLIANCE_LABELS[compliance]}</Chip>
+                ) : (
+                  <span className="text-caption text-ink-400">未作答</span>
+                )}
+              </div>
+              {/* 讀 props(伺服器最新值)而非本地編輯 state:委員不編輯這兩欄,refresh 後才不會新舊夾雜 */}
+              <p className="whitespace-pre-wrap text-ink-900 leading-relaxed">
+                {response?.description?.trim() || <span className="text-ink-400">（未填機關說明）</span>}
+              </p>
+              {response?.recordDocs?.trim() && (
+                <p className="mt-1.5 text-caption text-ink-600">紀錄文件：{response.recordDocs}</p>
+              )}
+            </div>
+          )}
           {(response?.comments ?? []).length === 0 ? (
             <p className="text-body-sm text-ink-500">本題尚無委員意見。</p>
           ) : (

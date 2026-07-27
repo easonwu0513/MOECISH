@@ -57,7 +57,8 @@ export function FeedbackWidget() {
       )}
 
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(92vw,380px)] flex flex-col rounded-lg border border-rule bg-card shadow-elev-3 overflow-hidden print:hidden">
+        // P2:矮視窗(手機橫向)時面板會頂出畫面上緣 → 限高並讓內容自身可捲
+        <div className="fixed bottom-5 right-5 z-50 w-[min(92vw,380px)] max-h-[calc(100dvh-2.5rem)] flex flex-col rounded-lg border border-rule bg-card shadow-elev-3 overflow-y-auto print:hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-rule bg-focus-wash">
             <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary-600 text-white">
               <MessageSquare size={16} aria-hidden />

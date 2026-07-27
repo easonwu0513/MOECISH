@@ -254,10 +254,13 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   async function toggleDiet(value: string) {
     const cur = diet;
     let next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
-    // UAT 圖64:葷/素互斥——點選其一自動取消另一(其餘忌口項可並選);伺服器端另有硬擋
+    // UAT 圖64:葷/素互斥——點選其一自動取消另一;伺服器端另有硬擋
     if (!cur.includes(value) && (value === '葷' || value === '素')) {
       next = next.filter((v) => v === value || (v !== '葷' && v !== '素'));
     }
+    // P2:「素」已排除所有葷食項目,再並選忌口項是冗餘且自相矛盾的組合(訂餐端會收到矛盾資訊)
+    if (value === '素' && !cur.includes('素')) next = ['素'];
+    if (next.includes('素') && value !== '素') next = next.filter((v) => v === '素');
     setDiet(next); // 樂觀
     setTravelBusy(true);
     const ok = await putTravel({ diet: next }, true);
@@ -637,7 +640,14 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                   ),
                 )}
                 {travelSessions.length > 0 && (
-                  <MultiPills label="飲食需求（全部場次一致，可複選；葷素僅能擇一）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleDiet(v)} />
+                  <MultiPills
+                    label="飲食需求（全部場次一致；葷素擇一，選「素」即涵蓋所有忌口）"
+                    options={SURVEY_DIET_OPTIONS}
+                    selected={diet}
+                    busy={travelBusy}
+                    onToggle={(v) => toggleDiet(v)}
+                    disabledOptions={diet.includes('素') ? SURVEY_DIET_OPTIONS.filter((d) => d !== '素') : undefined}
+                  />
                 )}
               </div>
             );
@@ -792,7 +802,8 @@ function SessionTransportPicker({
   const carParts = (car ?? '').split('：');
   const carAssist = carParts.length > 1;
   const [plate, setPlate] = useState(carParts[2] ?? '');
-  const basics = tokens.filter((t) => !transits.includes(t) && t !== car);
+  // P2:舊資料可能同時存有汽車與機車(新規則互斥)→ 讀取即正規化(以汽車為準),否則按任一鍵都被伺服器擋
+  const basics = tokens.filter((t) => !transits.includes(t) && t !== car && !(car && t === '機車'));
   const rest = [...(car ? [car] : []), ...transits];
   const selectedPills = [...basics, ...(car ? ['汽車'] : []), ...(transits.length ? [TRANSIT_PREFIX] : [])];
 
@@ -800,7 +811,11 @@ function SessionTransportPicker({
     if (v === TRANSIT_PREFIX) {
       onChange([...basics, ...(car ? [car] : []), ...(transits.length ? [] : [TRANSIT_PREFIX])]);
     } else if (v === '汽車') {
-      onChange([...basics, ...(car ? [] : ['汽車']), ...transits]);
+      // P2:汽車 ↔ 機車 互斥(單人往返不可能同時自駕兩種;且汽車帶協助停車/車號,並選資訊矛盾)
+      onChange([...basics.filter((x) => x !== '機車'), ...(car ? [] : ['汽車']), ...transits]);
+    } else if (v === '機車') {
+      const nextBasics = basics.includes('機車') ? basics.filter((x) => x !== '機車') : [...basics, '機車'];
+      onChange([...nextBasics, ...transits]); // 選機車即取消汽車(不帶 car token)
     } else {
       const nextBasics = basics.includes(v) ? basics.filter((x) => x !== v) : [...basics, v];
       onChange([...nextBasics, ...rest]);
@@ -905,13 +920,15 @@ function SessionTransportPicker({
 }
 
 function MultiPills({
-  label, options, selected, busy, onToggle,
+  label, options, selected, busy, onToggle, disabledOptions,
 }: {
   label: string;
   options: readonly string[];
   selected: string[];
   busy: boolean;
   onToggle: (value: string) => void;
+  /** P2:語意上被涵蓋而不可並選者(如選「素」後的各忌口項)——停用而非無聲失效 */
+  disabledOptions?: readonly string[];
 }) {
   return (
     <div>
@@ -919,14 +936,16 @@ function MultiPills({
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
           const on = selected.includes(opt);
+          const off = !on && !!disabledOptions?.includes(opt);
           return (
             <button
               key={opt}
               type="button"
-              disabled={busy}
+              disabled={busy || off}
+              title={off ? '選擇素食後無須再勾選其他忌口項目' : undefined}
               onClick={() => onToggle(opt)}
               aria-pressed={on}
-              className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors focus-ring ${
+              className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors focus-ring disabled:opacity-40 ${
                 on ? 'bg-primary-600 text-white border-transparent' : 'bg-card border-rule text-ink-600 hover:bg-paper-sunk'
               }`}
             >

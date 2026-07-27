@@ -16,7 +16,11 @@ const Body = z.object({
       transport: z
         .array(z.string().max(80))
         .max(10)
-        .refine((arr) => arr.every(isValidTransportToken), { message: '交通選項格式不正確' }),
+        .refine((arr) => arr.every(isValidTransportToken), { message: '交通選項格式不正確' })
+        // P2:汽車 ↔ 機車 互斥(單人往返不可能同時自駕兩種;協助停車資訊會矛盾)
+        .refine((arr) => !(arr.some((t) => t === '汽車' || t.startsWith('汽車：')) && arr.includes('機車')), {
+          message: '汽車與機車僅能擇一',
+        }),
     })
     .optional(),
   // UAT 圖64:葷/素互斥(前端自動切換,此為防繞過硬擋)
@@ -24,6 +28,8 @@ const Body = z.object({
     .array(z.enum(SURVEY_DIET_OPTIONS))
     .max(SURVEY_DIET_OPTIONS.length)
     .refine((arr) => !(arr.includes('葷') && arr.includes('素')), { message: '飲食需求中葷與素僅能擇一' })
+    // P2:素已排除所有葷食項目,不應再帶忌口項(冗餘且矛盾)
+    .refine((arr) => !(arr.includes('素') && arr.length > 1), { message: '選擇素食後無須再勾選其他忌口項目' })
     .optional(),
   travelNote: z.string().trim().max(1000).nullable().optional(),
 });

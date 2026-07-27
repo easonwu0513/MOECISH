@@ -651,7 +651,8 @@ function ScoreSection({
         </div>
       </div>
 
-      <details open className="mb-4 rounded-lg border border-rule bg-card overflow-hidden">
+      {/* P2:查閱型說明(非作業內容)預設收合,委員需要時再展開 */}
+      <details className="mb-4 rounded-lg border border-rule bg-card overflow-hidden">
         <summary className="cursor-pointer select-none px-5 py-3 text-body-sm font-medium text-ink-900 hover:bg-paper-sunk">
           五等第評分標準說明（依檢核結果「符合 / 部分符合 / 不符合」數量評定等第與分數；不適用項目不計）
         </summary>

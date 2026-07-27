@@ -105,8 +105,9 @@ export function LawPanel({
           <NumberedList text={expectedEvidence} />
         </LawSection>
       )}
+      {/* P2(圖59 延伸):逐字法條最長,預設收合讓「稽核重點/應備文件」貼近題目;需要時再展開 */}
       {auditBasis && (
-        <LawSection title="稽核依據（法規條文逐字引錄）">
+        <LawSection title="稽核依據（法規條文逐字引錄）" defaultOpen={false}>
           <div className="rounded-md bg-paper-sunk border border-rule/50 p-3.5 max-h-96 overflow-y-auto">
             <LawBasisText text={auditBasis} />
           </div>

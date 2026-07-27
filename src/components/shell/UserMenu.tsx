@@ -116,7 +116,8 @@ export function UserMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-2 w-72 bg-paper-sunk rounded-md shadow-elev-3 overflow-hidden animate-fade-in z-40"
+          // P2:多重身分帳號展開切換清單後可達 380px+,父層 sticky 頂帶使矮視窗捲不到 → 自身可捲
+          className="absolute right-0 top-full mt-2 w-72 max-h-[calc(100dvh-5rem)] overflow-y-auto bg-paper-sunk rounded-md shadow-elev-3 animate-fade-in z-40"
         >
           <div className="p-5 border-b border-rule">
             <div className="flex items-center gap-3">

@@ -42,7 +42,8 @@ export default async function AdminCyclesPage({
         deficiencies: { include: { action: { select: { status: true } } } },
         assignments: true,
       },
-      orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
+      // P2:表格呈現的是時程(矯正期限/停滯天數)→ 同年度依實地稽核日排(對齊 /cycles),createdAt 僅作 tie-breaker
+    orderBy: [{ year: 'desc' }, { onsiteDate: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }],
     }),
     prisma.organization.findMany({
       orderBy: { createdAt: 'asc' },

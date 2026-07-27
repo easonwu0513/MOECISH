@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { clampPopoverPos } from '@/lib/popover';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
@@ -1262,6 +1263,7 @@ function SessionManagerDialog({
   const [needsTravel, setNeedsTravel] = useState(true); // UAT 圖14:線上場次可關(免差旅二階)
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [undoImportOpen, setUndoImportOpen] = useState(false); // P2:移除帶入場次確認
   const [creatingBriefing, setCreatingBriefing] = useState(false);
   // UAT 圖4:新增場次表單預設收合(彈窗以管理既有場次為主),點標題列展開
   const [showAdd, setShowAdd] = useState(false);
@@ -1291,6 +1293,26 @@ function SessionManagerDialog({
     router.refresh();
   }
 
+  // P2:帶入的反向操作——移除本次帶入(僅刪尚無意願/指派的帶入場次;有作業痕跡者保留)
+  async function undoImport() {
+    setImporting(true);
+    const res = await fetch('/api/pre-survey/sessions/import-cycles', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year }),
+    });
+    setImporting(false);
+    setUndoImportOpen(false);
+    if (!res.ok) { const j = await res.json().catch(() => ({ error: '移除失敗' })); toast.error('移除失敗', j.error); return; }
+    const j = await res.json().catch(() => ({ removed: 0, kept: 0 }));
+    if (j.removed > 0) {
+      toast.success(`已移除 ${j.removed} 個帶入場次`, j.kept > 0 ? `另有 ${j.kept} 個已有意願或指派，予以保留。` : undefined);
+    } else {
+      toast.warning('沒有可移除的帶入場次', j.kept > 0 ? `${j.kept} 個帶入場次已有意願或指派，不予移除。` : '本年度沒有由稽核週期帶入的場次。');
+    }
+    router.refresh();
+  }
+
   async function add() {
     if (!name.trim()) { toast.error('請填寫場次名稱/地點'); return; }
     setBusy(true);
@@ -1315,6 +1337,10 @@ function SessionManagerDialog({
           <p className="mt-0.5 text-caption text-ink-500">將本年度已排定實地稽核日的稽核週期一鍵建成場次（日期＝實地稽核日、名稱＝受稽機關；已存在者略過）。仍可於下方手動新增。</p>
           <div className="mt-2">
             <Button size="sm" variant="outlined" onClick={importCycles} loading={importing} disabled={importing}>帶入當年度稽核場次</Button>
+            {/* P2:對稱的反向操作(僅移除尚無意願/指派的帶入場次) */}
+            {sessions.some((s) => s.sourceCycleId && !s.isBriefing) && (
+              <Button size="sm" variant="text" onClick={() => setUndoImportOpen(true)} disabled={importing}>移除帶入場次</Button>
+            )}
           </div>
         </div>
         {/* UAT 圖14:受稽機關說明會=年度必備場次(綁死不可刪;名稱/時間可編);未建立時提供一鍵建立 */}
@@ -1403,6 +1429,17 @@ function SessionManagerDialog({
           </div>
         )}
       </div>
+      {/* P2:移除帶入場次確認(對稱一鍵帶入;有意願/指派者不動) */}
+      <ConfirmDialog
+        open={undoImportOpen}
+        onOpenChange={(o) => !importing && !o && setUndoImportOpen(false)}
+        title="移除由稽核週期帶入的場次"
+        description="將移除本年度「由稽核週期帶入、且未經人工調整」的場次（無備註、未設必參加與目標人數）中，尚無任何出席意願也未指派任何人者；已有意願、已指派或經自訂過的場次一律保留。受稽機關說明會不受影響。移除後其餘場次對受調者呈現的匿名序號會重新編號。確定移除？"
+        confirmLabel="移除"
+        tone="warning"
+        onConfirm={undoImport}
+        loading={importing}
+      />
     </Dialog>
   );
 }
@@ -1618,8 +1655,8 @@ function SpecialtyCell({ p, busy, onSave }: { p: AdminParticipantDTO; busy: bool
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
-    // UAT 圖62:選單高度可達 320px——夾進視窗內,列在下方時往上收,避免被視窗下緣裁切
-    if (r) setPos({ top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 328)), left: r.left });
+    // UAT 圖62 + P2:兩軸皆夾進視窗(專長面板約 160×180;原僅夾垂直且高度常數取自另一個選單)
+    if (r) setPos(clampPopoverPos(r, 160, 180));
     setOpen(true);
   }
 
@@ -1681,8 +1718,8 @@ function FinalSessionCell({ p, sessions, readOnly = false }: { p: AdminParticipa
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
-    // UAT 圖62:選單 max-h-80(320px)——夾進視窗內,底部列開啟時往上收,委員多時不再被裁切
-    if (r) setPos({ top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 328)), left: r.left });
+    // UAT 圖62 + P2:兩軸皆夾進視窗(面板 min-w 300、max-h-80=320);橫捲矩陣最右欄不再超出右緣
+    if (r) setPos(clampPopoverPos(r, 300, 320));
     setDraft(Object.fromEntries(p.finalSessionIds.map((id) => [id, p.finalAspects[id] ?? null])));
     setOpen(true);
   }
