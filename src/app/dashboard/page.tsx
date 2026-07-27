@@ -273,7 +273,16 @@ export default async function HomePage() {
   if (survey) {
     const travelSessions = survey.assignedSessions.filter((a) => a.needsTravel);
     if (!survey.submittedAt || survey.docStatus !== 'SUBMITTED') {
-      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: '事前場次調查：請填寫出席意願並繳交文件（第一階段）', href: '/pre-survey?open=1', cta: '去填寫' });
+      // UAT 圖69:依實際缺口給文案——已填意願只差文件(或遭退補)時,不再誤稱「請填寫出席意願」
+      const stage1Title =
+        survey.docStatus === 'RETURNED'
+          ? '事前場次調查：文件遭退補，請補件並重新送審'
+          : survey.submittedAt
+            ? '事前場次調查：請上傳並送審個人文件（第一階段）'
+            : survey.docStatus === 'SUBMITTED'
+              ? '事前場次調查：請送出稽核場次出席意願（第一階段）'
+              : '事前場次調查：請填寫出席意願並繳交文件（第一階段）';
+      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: stage1Title, href: '/pre-survey?open=1', cta: '去填寫' });
     } else if (travelSessions.length > 0 && (travelSessions.some((a) => a.transport.length === 0) || survey.diet.length === 0)) {
       todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey?open=1', cta: '去填寫' });
     }

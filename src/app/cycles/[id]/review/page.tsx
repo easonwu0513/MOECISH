@@ -293,8 +293,9 @@ export default async function ReviewPage({
           />
         </Card>
       ) : (
+        // UAT 圖65:構面預設收合(details 不帶 open)——委員想看哪個構面再自行展開(原預設全展開要滑很久)
         grouped.map(({ dim, items }) => (
-          <details key={dim} id={`dim-${dim}`} open className="group mb-6 scroll-mt-4">
+          <details key={dim} id={`dim-${dim}`} className="group mb-6 scroll-mt-4">
             <summary className="flex items-center gap-2 mb-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
               <ChevronRight size={18} className="text-ink-400 shrink-0 transition-transform group-open:rotate-90" aria-hidden />
               <h2 className="text-title-md text-ink-900">{DIMENSION_LABELS[dim as Dimension]}</h2>

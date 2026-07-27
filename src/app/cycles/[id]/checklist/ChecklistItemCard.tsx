@@ -228,6 +228,24 @@ export default function ChecklistItemCard({
               {/* 存檔狀態只由卡頭那顆點呈現(收合也看得到);此處不重述 */}
             </div>
           )}
+          {/* UAT 圖68:機關填報把紀錄佐證併入填答之下——填「紀錄文件」時同畫面可見已上傳佐證,免切分頁 */}
+          {userRole === 'ORG_ADMIN' && (
+            <div className="mt-1 border-t border-rule pt-3">
+              <EvidenceBlock
+                cycleId={cycleId}
+                itemNo={item.itemNo}
+                initialResponseId={response?.id ?? null}
+                currentCompliance={compliance}
+                currentDescription={description}
+                currentRecordDocs={recordDocs}
+                currentVersion={version}
+                onSaved={bumpVersion}
+                canEdit={canEdit}
+                viewOnly={false}
+                expectedEvidence={item.expectedEvidence}
+              />
+            </div>
+          )}
         </div>
       ),
     },
@@ -297,7 +315,10 @@ export default function ChecklistItemCard({
     },
   ];
   // 委員審閱意見為委員私人註記,不開放受稽機關檢視 → 機關端隱藏「委員意見」分頁
-  const tabs = allTabs.filter((t) => !(t.id === 'comments' && userRole === 'ORG_ADMIN'));
+  // UAT 圖68:機關端紀錄佐證已併入「填答」之下 → 隱藏獨立「紀錄佐證」分頁(委員/中心維持分頁)
+  const tabs = allTabs.filter(
+    (t) => !(userRole === 'ORG_ADMIN' && (t.id === 'comments' || t.id === 'evidence')),
+  );
 
   return (
     <div

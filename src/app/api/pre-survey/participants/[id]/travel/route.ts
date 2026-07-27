@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { canEditAvailability, stage2WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
-import { SURVEY_TRANSPORT_OPTIONS, SURVEY_DIET_OPTIONS, isValidTransportToken } from '@/lib/types';
+import { SURVEY_DIET_OPTIONS, isValidTransportToken } from '@/lib/types';
 
 const Body = z.object({
   // UAT 圖14:交通(含住宿)改「逐指派場次」填(地點不同交通不同);飲食全場次一致仍存受調者。
@@ -12,13 +12,19 @@ const Body = z.object({
   sessionTransport: z
     .object({
       sessionId: z.string().min(1),
+      // UAT 圖64:大眾運輸工具可複選(轉乘情境)→ 上限放寬(基本選項+汽車複合+各運輸工具 token)
       transport: z
         .array(z.string().max(80))
-        .max(SURVEY_TRANSPORT_OPTIONS.length + 1)
+        .max(10)
         .refine((arr) => arr.every(isValidTransportToken), { message: '交通選項格式不正確' }),
     })
     .optional(),
-  diet: z.array(z.enum(SURVEY_DIET_OPTIONS)).max(SURVEY_DIET_OPTIONS.length).optional(),
+  // UAT 圖64:葷/素互斥(前端自動切換,此為防繞過硬擋)
+  diet: z
+    .array(z.enum(SURVEY_DIET_OPTIONS))
+    .max(SURVEY_DIET_OPTIONS.length)
+    .refine((arr) => !(arr.includes('葷') && arr.includes('素')), { message: '飲食需求中葷與素僅能擇一' })
+    .optional(),
   travelNote: z.string().trim().max(1000).nullable().optional(),
 });
 

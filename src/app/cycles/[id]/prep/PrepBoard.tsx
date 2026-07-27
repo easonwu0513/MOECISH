@@ -146,6 +146,8 @@ export default function PrepBoard({
   const [confirmStandardOpen, setConfirmStandardOpen] = useState(false);
   // 中心匯入「一鍵開放全部」(批66 M1):對所有已匯入待開放項迴圈呼叫單項開放 API
   const [confirmReleaseAll, setConfirmReleaseAll] = useState(false);
+  // UAT 圖67:一鍵收回全部(對稱操作)
+  const [confirmUnreleaseAll, setConfirmUnreleaseAll] = useState(false);
   const [releasingAll, setReleasingAll] = useState(false);
 
   const isAdmin = role === 'SUPER_ADMIN';
@@ -411,6 +413,11 @@ export default function PrepBoard({
     .filter((it) => catOf(it) === 'CENTER')
     .filter((it) => it.submission && it.submission.status !== 'CONFIRMED' && filesOf(it.submission.id).length > 0)
     .map((it) => it.submission!.id);
+  // UAT 圖67:已開放項(CONFIRMED)——供「一鍵收回全部」(對稱操作,逐項呼叫既有收回 API)
+  const centerReleasedSubIds = initialItems
+    .filter((it) => catOf(it) === 'CENTER')
+    .filter((it) => it.submission && it.submission.status === 'CONFIRMED')
+    .map((it) => it.submission!.id);
 
   // 一鍵開放全部(批66 M1):對每個待開放項迴圈呼叫「既有的單項開放 API」;逐項失敗不中斷,完成後總結
   async function releaseAllCenter() {
@@ -436,6 +443,27 @@ export default function PrepBoard({
     } else {
       toast.warning('部分項目開放失敗', `成功 ${ok} 項、失敗 ${fail} 項；失敗項可稍後重試或逐項開放。`);
     }
+    router.refresh();
+  }
+
+  // UAT 圖67:一鍵收回全部——對每個已開放項迴圈呼叫既有的單項收回 API(status: EMPTY)
+  async function unreleaseAllCenter() {
+    setReleasingAll(true);
+    let ok = 0;
+    let fail = 0;
+    for (const subId of centerReleasedSubIds) {
+      const res = await fetch(`/api/prep-submissions/${subId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'EMPTY' }),
+      }).catch(() => null);
+      if (res && res.ok) ok += 1;
+      else fail += 1;
+    }
+    setReleasingAll(false);
+    setConfirmUnreleaseAll(false);
+    if (fail === 0) toast.success('已收回全部開放', `共收回 ${ok} 項中心匯入資料（暫不開放委員檢視）。`);
+    else toast.warning('部分項目收回失敗', `成功 ${ok} 項、失敗 ${fail} 項；失敗項可稍後重試或逐項收回。`);
     router.refresh();
   }
 
@@ -710,6 +738,17 @@ export default function PrepBoard({
                       一鍵開放全部（{centerPendingSubIds.length}）
                     </Button>
                   )}
+                  {/* UAT 圖67:對稱的「一鍵收回全部」——有已開放項時顯示 */}
+                  {isAdmin && cat === 'CENTER' && adminCanImport && centerReleasedSubIds.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="text"
+                      loading={releasingAll}
+                      onClick={() => setConfirmUnreleaseAll(true)}
+                    >
+                      一鍵收回全部（{centerReleasedSubIds.length}）
+                    </Button>
+                  )}
                   {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
                   {isAdmin && cat !== 'CENTER' && (
                     <Button
@@ -858,6 +897,18 @@ export default function PrepBoard({
         description={`將開放 ${centerPendingSubIds.length} 項中心匯入資料供委員檢視。${centerReleaseEffective ? '' : '（目前尚在資料準備階段，會先標記開放，待進入資料齊備階段後對委員生效。）'}`}
         confirmLabel="開放全部"
         onConfirm={releaseAllCenter}
+        loading={releasingAll}
+      />
+
+      {/* UAT 圖67:「一鍵收回全部」確認 */}
+      <ConfirmDialog
+        open={confirmUnreleaseAll}
+        onOpenChange={(o) => !releasingAll && !o && setConfirmUnreleaseAll(false)}
+        title="收回全部中心匯入資料"
+        description={`將收回 ${centerReleasedSubIds.length} 項已開放的中心匯入資料，委員將暫時無法檢視；檔案保留，可再逐項或一鍵重新開放。`}
+        confirmLabel="收回全部"
+        tone="warning"
+        onConfirm={unreleaseAllCenter}
         loading={releasingAll}
       />
 

@@ -1582,7 +1582,8 @@ function SpecialtyCell({ p, busy, onSave }: { p: AdminParticipantDTO; busy: bool
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: r.left });
+    // UAT 圖62:選單高度可達 320px——夾進視窗內,列在下方時往上收,避免被視窗下緣裁切
+    if (r) setPos({ top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 328)), left: r.left });
     setOpen(true);
   }
 
@@ -1644,7 +1645,8 @@ function FinalSessionCell({ p, sessions, readOnly = false }: { p: AdminParticipa
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: r.left });
+    // UAT 圖62:選單 max-h-80(320px)——夾進視窗內,底部列開啟時往上收,委員多時不再被裁切
+    if (r) setPos({ top: Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 328)), left: r.left });
     setDraft(Object.fromEntries(p.finalSessionIds.map((id) => [id, p.finalAspects[id] ?? null])));
     setOpen(true);
   }

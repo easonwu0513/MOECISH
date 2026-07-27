@@ -203,13 +203,29 @@ export default async function CyclePage({ params, searchParams }: { params: { id
     if (pastDueDay(cycle.prepDueDate) && !facts.mechOnsiteAllSubmitted)
       alerts.push({ tone: 'danger', title: '實地稽核文件已逾繳交期限', desc: overdueDesc });
   }
-  if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION' && prepInsufficient + prepRemaining > 0) {
+  if ((user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN') && stForMod === 'PREPARATION') {
     // 批65 N2:依角色分述——機關端是「自己要繳」,對機關講「提醒機關」語意錯位(同批57 逾期分角色手法)。
-    alerts.push({
-      tone: 'warning',
-      title: `${prepInsufficient + prepRemaining} 項稽核前資料待補`,
-      desc: user.role === 'ORG_ADMIN' ? '尚有退補或未繳交項目，請儘速上傳並繳交。' : '尚有退補或未繳交項目，建議提醒機關。',
-    });
+    // UAT 圖66:中心視角再把「機關要繳的」與「中心匯入的」分開講——機關已繳齊時不再誤導「建議提醒機關」。
+    const orgSide =
+      user.role === 'ORG_ADMIN' ? prepInsufficient + prepRemaining : facts.mechInsufficient + facts.mechRemaining;
+    const centerSide =
+      user.role === 'SUPER_ADMIN'
+        ? facts.prepInsufficient + facts.prepRemaining - (facts.mechInsufficient + facts.mechRemaining)
+        : 0;
+    if (orgSide > 0) {
+      alerts.push({
+        tone: 'warning',
+        title: `${orgSide} 項稽核前資料待補（機關繳交）`,
+        desc: user.role === 'ORG_ADMIN' ? '尚有退補或未繳交項目，請儘速上傳並繳交。' : '尚有退補或未繳交項目，建議提醒機關。',
+      });
+    }
+    if (centerSide > 0) {
+      alerts.push({
+        tone: 'info',
+        title: `${centerSide} 項中心匯入資料待上傳／開放`,
+        desc: '由中心上傳並開放委員檢視，毋須提醒機關。',
+      });
+    }
   }
   if (user.role === 'SUPER_ADMIN' && (stForMod === 'ONSITE' || stForMod === 'REPORT_ISSUED') && committeeTotal > 0 && committeeScored < committeeTotal) {
     alerts.push({ tone: 'danger', title: `${committeeTotal - committeeScored} 位委員尚未完成評分`, desc: '影響後續報告產出，建議催辦。' });

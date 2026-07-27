@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Paperclip, X } from '@/components/icons';
+import { PdfCanvasViewer } from './PdfCanvasViewer';
 
 /**
  * 佐證檔連結。
@@ -96,14 +97,9 @@ export function ProtectedFileLink({
             onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
           >
             {isPdf ? (
-              // #toolbar=0&navpanes=0&statusbar=0:Chrome/Edge 內建 PDF viewer 隱藏工具列(含下載/列印鈕)。
-              // ⚠️誠實限制:此為 UI 層盡力移除便捷途徑,非密碼學防護——位元組已送達瀏覽器,無法絕對禁存;
-              // 且 Firefox 用自家 pdf.js viewer 不理會 #toolbar=0(仍顯示其工具列)。檔案本身已燒浮水印可溯源。
-              <iframe
-                src={`${url}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0`}
-                title={name}
-                className="w-full h-full min-h-[82vh] rounded-sm bg-card"
-              />
+              // UAT 圖60:改 pdf.js canvas 渲染——不再有瀏覽器原生 PDF 工具列(下載/列印)與 iframe 內右鍵另存;
+              // 伺服器端另以 x-moecish-viewer 標頭閘住 PDF 位元組(直開網址 403,參 evidences download route)。
+              <PdfCanvasViewer url={url} name={name} />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img

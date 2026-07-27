@@ -246,7 +246,11 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
   async function toggleDiet(value: string) {
     const cur = diet;
-    const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+    let next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+    // UAT 圖64:葷/素互斥——點選其一自動取消另一(其餘忌口項可並選);伺服器端另有硬擋
+    if (!cur.includes(value) && (value === '葷' || value === '素')) {
+      next = next.filter((v) => v === value || (v !== '葷' && v !== '素'));
+    }
     setDiet(next); // 樂觀
     setTravelBusy(true);
     const ok = await putTravel({ diet: next }, true);
@@ -255,6 +259,18 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   }
 
   async function saveTravelNote() {
+    // UAT 圖70:未完成差旅與飲食就按儲存 → 擋下要求補齊(不再空白也跳「已儲存」)
+    const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+    if (travelSessions.length > 0) {
+      const missingTransport = travelSessions.filter((a) => (sessionTransports[a.sessionId] ?? []).length === 0);
+      if (missingTransport.length > 0 || diet.length === 0) {
+        const parts: string[] = [];
+        if (missingTransport.length > 0) parts.push(`請選擇 ${missingTransport.map((a) => a.label).join('、')} 的往返交通方式`);
+        if (diet.length === 0) parts.push('請選擇飲食需求');
+        toast.error('差旅與飲食調查尚未完成', `${parts.join('；')}。`);
+        return;
+      }
+    }
     setSavingTravel(true);
     await putTravel({ travelNote: travelNote.trim() || null });
     setSavingTravel(false);
@@ -523,10 +539,20 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
       {data.sessions.length > 0 && (
         <div className="flex items-center gap-3">
-          <Button onClick={submit} loading={submitting} disabled={submitting || !data.canEditAvailability || busySession !== null} leadingIcon={<CheckCircle size={16} />}>
+          {/* UAT 圖63:文件須先送審才可送出意願(伺服器另有硬擋) */}
+          <Button
+            onClick={submit}
+            loading={submitting}
+            disabled={submitting || !data.canEditAvailability || busySession !== null || docStatus !== 'SUBMITTED'}
+            leadingIcon={<CheckCircle size={16} />}
+          >
             {data.submittedAt ? '重新送出意願' : '送出意願'}
           </Button>
-          <span className="text-caption text-ink-500">所有場次皆須填寫 OK 或 NO 才能送出；於開放期間內送出後仍可修改再送。</span>
+          <span className="text-caption text-ink-500">
+            {docStatus !== 'SUBMITTED'
+              ? `請先於「文件繳交」上傳${isObserver ? '切結書' : '經歷說明書與切結書'}並按「送審文件」，才能送出意願。`
+              : '所有場次皆須填寫 OK 或 NO 才能送出；於開放期間內送出後仍可修改再送。'}
+          </span>
         </div>
       )}
 
@@ -580,30 +606,31 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
               )}
             </div>
           </div>
-          {/* UAT 圖14:交通(含住宿)逐場次填(地點不同交通不同);線上場次免填;飲食全場次一致 */}
+          {/* UAT 圖14:交通(含住宿)逐場次填(地點不同交通不同);線上場次免填;飲食全場次一致
+              UAT 圖71:逐場次依辦理時間順序單一清單——線上場次(如說明會)依日期就地顯示說明,不再歸到中段 */}
           {(() => {
             const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
-            const onlineSessions = data.assignedSessions.filter((a) => !a.needsTravel);
             return (
               <div className="space-y-4">
-                {travelSessions.map((a) => (
-                  <div key={a.sessionId} className="rounded-md border border-rule bg-card p-3.5">
-                    <SessionTransportPicker
-                      sessionId={a.sessionId}
-                      label={`${a.label}：往返交通方式（含住宿，可複選）`}
-                      tokens={sessionTransports[a.sessionId] ?? []}
-                      busy={travelBusy}
-                      onChange={(next) => replaceSessionTransport(a.sessionId, next)}
-                    />
-                  </div>
-                ))}
-                {onlineSessions.length > 0 && (
-                  <p className="text-caption text-ink-500">
-                    {onlineSessions.map((a) => a.label).join('、')}：線上辦理，無需填寫交通住宿。
-                  </p>
+                {data.assignedSessions.map((a) =>
+                  a.needsTravel ? (
+                    <div key={a.sessionId} className="rounded-md border border-rule bg-card p-3.5">
+                      <SessionTransportPicker
+                        sessionId={a.sessionId}
+                        label={`${a.label}：往返交通方式（含住宿，可複選）`}
+                        tokens={sessionTransports[a.sessionId] ?? []}
+                        busy={travelBusy}
+                        onChange={(next) => replaceSessionTransport(a.sessionId, next)}
+                      />
+                    </div>
+                  ) : (
+                    <p key={a.sessionId} className="text-caption text-ink-500">
+                      {a.label}：線上辦理，無需填寫交通住宿。
+                    </p>
+                  ),
                 )}
                 {travelSessions.length > 0 && (
-                  <MultiPills label="飲食需求（全部場次一致，可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleDiet(v)} />
+                  <MultiPills label="飲食需求（全部場次一致，可複選；葷素僅能擇一）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleDiet(v)} />
                 )}
               </div>
             );
@@ -748,49 +775,55 @@ function DocSlot({
 function SessionTransportPicker({
   sessionId, label, tokens, busy, onChange,
 }: { sessionId: string; label: string; tokens: string[]; busy: boolean; onChange: (next: string[]) => void }) {
-  const transit = tokens.find((t) => t === TRANSIT_PREFIX || t.startsWith(`${TRANSIT_PREFIX}：`)) ?? null;
-  const parts = (transit ?? '').split('：');
-  const mode = parts[1] ?? null;
-  const [otherNote, setOtherNote] = useState(parts[2] ?? '');
+  // UAT 圖64:大眾運輸工具改「可複選」(委員可能客運轉高鐵等轉乘情境)——一場次可存多個複合 token
+  const transits = tokens.filter((t) => t === TRANSIT_PREFIX || t.startsWith(`${TRANSIT_PREFIX}：`));
+  const modes = transits.map((t) => t.split('：')[1]).filter(Boolean);
+  const otherToken = transits.find((t) => t.split('：')[1] === '其他') ?? null;
+  const [otherNote, setOtherNote] = useState(otherToken ? (otherToken.split('：')[2] ?? '') : '');
   // UAT 圖23:汽車複合 token(「汽車」「汽車：協助停車」「汽車：協助停車：車號」)
   const car = tokens.find((t) => t === '汽車' || t.startsWith('汽車：')) ?? null;
   const carParts = (car ?? '').split('：');
   const carAssist = carParts.length > 1;
   const [plate, setPlate] = useState(carParts[2] ?? '');
-  const basics = tokens.filter((t) => t !== transit && t !== car);
-  const rest = [...(car ? [car] : []), ...(transit ? [transit] : [])];
-  const selectedPills = [...basics, ...(car ? ['汽車'] : []), ...(transit ? [TRANSIT_PREFIX] : [])];
+  const basics = tokens.filter((t) => !transits.includes(t) && t !== car);
+  const rest = [...(car ? [car] : []), ...transits];
+  const selectedPills = [...basics, ...(car ? ['汽車'] : []), ...(transits.length ? [TRANSIT_PREFIX] : [])];
 
   function togglePill(v: string) {
     if (v === TRANSIT_PREFIX) {
-      onChange([...basics, ...(car ? [car] : []), ...(transit ? [] : [TRANSIT_PREFIX])]);
+      onChange([...basics, ...(car ? [car] : []), ...(transits.length ? [] : [TRANSIT_PREFIX])]);
     } else if (v === '汽車') {
-      onChange([...basics, ...(car ? [] : ['汽車']), ...(transit ? [transit] : [])]);
+      onChange([...basics, ...(car ? [] : ['汽車']), ...transits]);
     } else {
       const nextBasics = basics.includes(v) ? basics.filter((x) => x !== v) : [...basics, v];
       onChange([...nextBasics, ...rest]);
     }
   }
-  function setMode(m: string) {
+  // 勾/取消單一工具;全取消時保留裸「大眾運輸」占位讓面板續開
+  function toggleMode(m: string) {
     const token =
       m === '其他' && otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：${m}`;
-    onChange([...basics, ...(car ? [car] : []), token]);
+    const concrete = transits.filter((t) => t !== TRANSIT_PREFIX);
+    const next = modes.includes(m) ? concrete.filter((t) => t.split('：')[1] !== m) : [...concrete, token];
+    onChange([...basics, ...(car ? [car] : []), ...(next.length ? next : [TRANSIT_PREFIX])]);
   }
   function saveOtherNote() {
-    if (mode !== '其他') return;
+    if (!modes.includes('其他')) return;
     const token = otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：其他`;
-    if (token !== transit) onChange([...basics, ...(car ? [car] : []), token]);
+    if (token === otherToken) return;
+    const others = transits.filter((t) => t !== TRANSIT_PREFIX && t.split('：')[1] !== '其他');
+    onChange([...basics, ...(car ? [car] : []), ...others, token]);
   }
   function setCarAssist(checked: boolean) {
     const token = checked
       ? plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車'
       : '汽車';
-    onChange([...basics, token, ...(transit ? [transit] : [])]);
+    onChange([...basics, token, ...transits]);
   }
   function savePlate() {
     if (!car || !carAssist) return;
     const token = plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車';
-    if (token !== car) onChange([...basics, token, ...(transit ? [transit] : [])]);
+    if (token !== car) onChange([...basics, token, ...transits]);
   }
 
   return (
@@ -819,25 +852,26 @@ function SessionTransportPicker({
           )}
         </div>
       )}
-      {transit && (
+      {transits.length > 0 && (
         <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+          {/* UAT 圖64:改可複選(轉乘情境,如客運轉高鐵) */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm text-ink-700">
-            <span className="text-ink-500">大眾運輸工具：</span>
+            <span className="text-ink-500">大眾運輸工具（可複選，含轉乘）：</span>
             {SURVEY_TRANSIT_MODES.map((m) => (
               <label key={m} className="flex items-center gap-1.5 cursor-pointer">
                 <input
-                  type="radio"
+                  type="checkbox"
                   name={`transit-${sessionId}`}
-                  checked={mode === m}
+                  checked={modes.includes(m)}
                   disabled={busy}
-                  onChange={() => setMode(m)}
-                  className="accent-primary-600"
+                  onChange={() => toggleMode(m)}
+                  className="rounded border-rule accent-primary-600"
                 />
                 {m}
               </label>
             ))}
           </div>
-          {mode === '其他' && (
+          {modes.includes('其他') && (
             <TextField
               label="其他（請簡述）"
               value={otherNote}
@@ -846,13 +880,13 @@ function SessionTransportPicker({
               placeholder="如：自行安排交通"
             />
           )}
-          {mode === '高鐵' && (
+          {modes.includes('高鐵') && (
             <p className="rounded-md border border-primary-100 bg-primary-50/70 px-3 py-2 text-caption text-primary-800">
               ⓘ 本中心將統一安排<strong className="font-semibold">稽核當天</strong>往返高鐵站與受稽機關間之接駁
               （<strong className="font-semibold">僅限非臺北地區</strong>之受稽機關）。
             </p>
           )}
-          {(mode === '火車' || mode === '客運' || mode === '其他') && (
+          {modes.some((m) => m === '火車' || m === '客運' || m === '其他') && (
             <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-caption text-ink-700">
               ⓘ 若您選擇搭乘火車、客運或其他大眾運輸工具，中心將視最終登記人數，彈性評估是否安排接駁車服務，感謝您的配合！
             </p>

@@ -38,6 +38,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
+    // UAT 圖63:文件須先上傳並送審才可送出意願(防「只填意願不交文件」;中心代送不受限)
+    if (!isAdmin && participant.docStatus !== 'SUBMITTED') {
+      return NextResponse.json(
+        {
+          error:
+            participant.kind === 'OBSERVER'
+              ? '請先於「文件繳交」上傳聘任同意暨保密切結書並按「送審文件」後，再送出意願。'
+              : '請先於「文件繳交」上傳經歷說明書與聘任同意暨保密切結書並按「送審文件」後，再送出意願。',
+        },
+        { status: 400 },
+      );
+    }
+
     // 所有場次必填:僅計本身分「可見」場次(觀察員排除委員專屬),未答齊則擋下(不自動補 N/A)。
     const kindFilter = participant.kind === 'OBSERVER' ? { sharedWithObserver: true } : {};
     const [sessions, existing] = await Promise.all([
