@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Plus, Check, AlertCircle, FileText, X } from '@/components/icons';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
-import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, prepOrgCanEdit, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
+import { PREP_STATUS_LABELS, PREP_CATEGORY_LABELS, prepOrgEditable, prepCyclePhaseOpen, prepOrgCanEdit, isReadOnlyReviewRole, ORG_UPLOAD_ACCEPT, type PrepStatus, type PrepCategory } from '@/lib/types';
 import { fmtROCDateTime, fmtROC } from '@/lib/date';
 
 type Sub = {
@@ -560,7 +560,7 @@ export default function PrepBoard({
                         fileId={f.id}
                         name={f.originalName}
                         sizeKB={Math.round(f.sizeBytes / 1024)}
-                        viewOnly={role === 'AUDITOR'}
+                        viewOnly={isReadOnlyReviewRole(role)}
                       />
                       {((orgItemEditable) || (isCenter && adminCanImport)) && (
                         <button

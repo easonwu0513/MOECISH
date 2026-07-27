@@ -6,8 +6,18 @@ import { saveBuffer } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyCycleSignedReportSubmitted, orgAdminWhere } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
+import { applyWatermark } from '@/lib/watermark';
+import { fmtROC } from '@/lib/date';
 
 const ALLOWED = ['application/pdf', 'image/png', 'image/jpeg'];
+
+/** P0 安全批:以檔案 magic bytes 判定真實型別(不信任副檔名/Content-Type)——與 evidences POST 同手法。 */
+function sniffWatermarkableType(buf: Buffer): 'application/pdf' | 'image/png' | 'image/jpeg' | null {
+  if (buf.length >= 5 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'application/pdf'; // %PDF
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png'; // PNG
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'; // JPEG
+  return null;
+}
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
@@ -64,7 +74,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: '檔案超過 20MB 上限' }, { status: 400 });
     }
 
-    const buf = Buffer.from(await file.arrayBuffer());
+    // P0 安全批:①magic bytes 驗真實型別(擋改副檔名的 Word/Excel)②燒浮水印(機關密件,外流可溯源)
+    let buf: Buffer = Buffer.from(await file.arrayBuffer());
+    const realMime = sniffWatermarkableType(buf);
+    if (!realMime) {
+      return NextResponse.json(
+        { error: '檔案內容不是有效的 PDF / PNG / JPG（可能是改了副檔名的其他檔案）；請以掃描或另存 PDF 後上傳。' },
+        { status: 400 },
+      );
+    }
+    const org = await prisma.organization.findUnique({ where: { id: cycle.organizationId }, select: { name: true } });
+    buf = await applyWatermark(buf, realMime, {
+      tile: `${cycle.year - 1911}年度用印報告・請勿外流`,
+      footer: `${org?.name ?? ''}・${cycle.year - 1911}年度・${fmtROC(new Date())} 上傳`,
+    });
     const saved = await saveBuffer(buf, `signed-reports/${cycle.id}`, file.name);
 
     const item = await prisma.signedReport.create({

@@ -65,3 +65,47 @@ export function PdfCanvasViewer({ url, name }: { url: string; name: string }) {
     </div>
   );
 }
+
+/**
+ * P0 安全批:站內圖片檢視器——與 PDF 同以 fetch 帶 x-moecish-viewer 標頭取 blob
+ * (伺服器對圖片同樣直開網址 403),objectURL 餵 <img>,關窗即 revoke。
+ */
+export function ProtectedImageViewer({ url, name }: { url: string; name: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(url, { headers: { 'x-moecish-viewer': '1' } });
+        if (!res.ok) throw new Error(String(res.status));
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  if (error) return <p className="py-10 text-center text-body-sm text-white/80">檔案載入失敗，請關閉後重試。</p>;
+  if (!src) return <p className="py-10 text-center text-body-sm text-white/80">載入 {name} 中…</p>;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+      className="max-w-full h-auto select-none rounded-sm bg-card"
+    />
+  );
+}

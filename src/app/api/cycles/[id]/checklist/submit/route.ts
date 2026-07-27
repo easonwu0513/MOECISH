@@ -40,6 +40,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
+    // P0 安全批:內容完成度閘——「部分符合/不符合」必有機關說明(規範內容/執行方式/執行結果),
+    // 否則委員審閱時只有一枚選項無從判讀;缺者回列題號請補齊(比照 prep/submit 的缺項清單手法)。
+    const pcNc = await prisma.checklistResponse.findMany({
+      where: { cycleId: cycle.id, compliance: { in: ['PARTIALLY_COMPLIANT', 'NON_COMPLIANT'] } },
+      select: { description: true, checklistItem: { select: { itemNo: true } } },
+    });
+    // trim 判空(對抗審查:純空白字串可繞過 SQL 的 null/'' 判定)
+    const needDesc = pcNc.filter((r) => !r.description?.trim());
+    if (needDesc.length > 0) {
+      const nos = needDesc.map((r) => r.checklistItem.itemNo).slice(0, 20);
+      return NextResponse.json(
+        {
+          error: `下列「部分符合／不符合」題目尚未填寫機關說明，請補齊後再送出：${nos.join('、')}${needDesc.length > 20 ? `…（共 ${needDesc.length} 題）` : ''}`,
+        },
+        { status: 400 },
+      );
+    }
+
     const submittedAt = new Date();
     await prisma.$transaction(async (tx) => {
       await tx.auditCycle.update({

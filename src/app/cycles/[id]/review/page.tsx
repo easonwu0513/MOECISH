@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck, ChevronRight } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, reviewWindowStateForRole, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, isReadOnlyReviewRole, reviewWindowStateForRole, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPage';
 import { filterOwnComments } from '@/lib/auditor-visibility';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
@@ -360,7 +360,7 @@ export default async function ReviewPage({
                                     fileId={e.id}
                                     name={e.originalName}
                                     sizeKB={Math.max(1, Math.round(e.sizeBytes / 1024))}
-                                    viewOnly={session.user.role === 'AUDITOR'}
+                                    viewOnly={isReadOnlyReviewRole(session.user.role)}
                                   />
                                 </li>
                               ))}

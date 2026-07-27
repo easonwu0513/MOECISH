@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Paperclip, X } from '@/components/icons';
-import { PdfCanvasViewer } from './PdfCanvasViewer';
+import { PdfCanvasViewer, ProtectedImageViewer } from './PdfCanvasViewer';
 
 /**
  * 佐證檔連結。
@@ -100,15 +100,13 @@ export function ProtectedFileLink({
               // UAT 圖60:改 pdf.js canvas 渲染——不再有瀏覽器原生 PDF 工具列(下載/列印)與 iframe 內右鍵另存;
               // 伺服器端另以 x-moecish-viewer 標頭閘住 PDF 位元組(直開網址 403,參 evidences download route)。
               <PdfCanvasViewer url={url} name={name} />
+            ) : isImage ? (
+              // P0 安全批:圖片同走標頭閘 fetch(直開網址已 403),blob 後站內顯示
+              <ProtectedImageViewer url={url} name={name} />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={url}
-                alt={name}
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                className="max-w-full h-auto select-none rounded-sm bg-card"
-              />
+              <p className="py-10 text-center text-body-sm text-white/80">
+                此檔案類型（如 Word/Excel）僅開放機關與中心下載，無法於此線上檢視。
+              </p>
             )}
           </div>
         </div>,

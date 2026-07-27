@@ -28,6 +28,7 @@ import {
   type TrackedStatus,
   type TrackedReviewStatus,
   type Role,
+  isReadOnlyReviewRole,
 } from '@/lib/types';
 
 export type EvidenceDTO = { id: string; originalName: string; mimeType: string; sizeBytes: number };
@@ -377,7 +378,7 @@ export default function TrackedItem({
                     <ul className="mt-2 space-y-1">
                       {r.evidences.map((f) => (
                         <li key={f.id} className="flex items-center gap-2">
-                          <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={isAuditor} />
+                          <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={isReadOnlyReviewRole(role)} />
                           {canUpload && (
                             <button
                               type="button"

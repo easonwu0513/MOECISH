@@ -187,6 +187,11 @@ export const SURVEY_REPLY_STATUS_LABELS: Record<SurveyReplyStatus, string> = {
   NO: '否',
 };
 
+/** P0 安全批:唯讀審閱角色(佐證僅站內檢視,不提供下載連結)。批30 加觀察員後只判 AUDITOR 即 fail-open,統一由此判定。 */
+export function isReadOnlyReviewRole(role: string): boolean {
+  return role === 'AUDITOR' || role === 'OBSERVER';
+}
+
 /** 文件交接狀態(管考表欄位)。 */
 export const SURVEY_DOC_HANDOVER_STATUSES = ['PENDING', 'WAITING', 'UPDATED'] as const;
 export type SurveyDocHandover = (typeof SURVEY_DOC_HANDOVER_STATUSES)[number];

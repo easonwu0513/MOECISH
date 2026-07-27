@@ -38,9 +38,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           by: ['targetId'],
           where: { targetType: 'PREP_SUBMISSION', targetId: { in: subIds } },
           _count: { _all: true },
+          _max: { uploadedAt: true },
         })
       : [];
     const fileMap = new Map(fileGroups.map((g) => [g.targetId, g._count._all]));
+    const lastUploadMap = new Map(fileGroups.map((g) => [g.targetId, g._max.uploadedAt]));
     const addressed = (r: (typeof reqs)[number]) => {
       const sub = r.submission;
       if (!sub) return false;
@@ -60,6 +62,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `尚有必填項目未上傳檔案或敘明無檔理由：${missing.join('、')}` },
+        { status: 400 },
+      );
+    }
+
+    // P0 安全批(退補冪等洞):退回補正(INSUFFICIENT)項須「退補後有新動作」——退補時間之後
+    // 有新上傳檔案、或有更新說明/無檔理由——才能重繳;否則原封不動按繳交會清掉中心退補意見、
+    // 狀態翻回待審,形成無限循環且中心無從比對。(updatedAt 留 2 秒餘裕,避免與退補同筆寫入誤判)
+    const staleReturned = mechReqs
+      .filter((r) => {
+        const sub = r.submission;
+        if (!sub || sub.status !== 'INSUFFICIENT' || !sub.reviewedAt) return false;
+        const lastUpload = lastUploadMap.get(sub.id) ?? null;
+        const uploadedAfter = lastUpload ? lastUpload.getTime() > sub.reviewedAt.getTime() : false;
+        const editedAfter = sub.updatedAt.getTime() > sub.reviewedAt.getTime() + 2000;
+        return !uploadedAfter && !editedAfter;
+      })
+      .map((r) => r.title);
+    if (staleReturned.length > 0) {
+      return NextResponse.json(
+        { error: `下列退回補正項尚未補件或更新說明，請依退補意見處理後再繳交：${staleReturned.join('、')}` },
         { status: 400 },
       );
     }

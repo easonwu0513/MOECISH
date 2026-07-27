@@ -276,18 +276,15 @@ export default function ChecklistShell({
         onConfirm={submitChecklist}
         loading={submitBusy}
       />
+      {/* P0 安全批:移除「全標符合」(可零說明偽造整份自評);僅保留「未答全標不適用」 */}
       <ConfirmDialog
         open={bulkMode !== null}
         onOpenChange={(o) => !bulkBusy && !o && setBulkMode(null)}
-        title={bulkMode === 'COMPLIANT' ? '未作答全部標為符合' : '未作答全部標為不適用'}
-        description={
-          bulkMode === 'COMPLIANT'
-            ? `將把 ${total - filled} 題未作答標為「符合」（已作答不覆寫）。注意：應據實填報，沒有該項作為者應選「不適用」。之後請逐題確認例外。確定執行？`
-            : `將把 ${total - filled} 題未作答標為「不適用」（已作答不覆寫）。適用於本機關無此項作為者；有作為的請逐題改回符合/部分符合並補充說明。確定執行？`
-        }
-        confirmLabel={bulkMode === 'COMPLIANT' ? '全部標為符合' : '全部標為不適用'}
+        title="未作答全部標為不適用"
+        description={`將把 ${total - filled} 題未作答標為「不適用」（已作答不覆寫）。適用於本機關無此項作為者；有作為的請逐題改回符合/部分符合並補充說明。確定執行？`}
+        confirmLabel="全部標為不適用"
         tone="primary"
-        onConfirm={() => bulkFill(bulkMode === 'COMPLIANT' ? 'COMPLIANT' : 'NA')}
+        onConfirm={() => bulkFill('NA')}
         loading={bulkBusy}
       />
       {/* Sticky toolbar */}
@@ -306,14 +303,9 @@ export default function ChecklistShell({
           </div>
           <div className="flex items-center gap-1 flex-wrap">
             {canEdit && filled < total && (
-              <>
-                <Button size="sm" variant="tonal" onClick={() => setBulkMode('NA')} leadingIcon={<Check size={14} />}>
-                  未答全標不適用
-                </Button>
-                <Button size="sm" variant="text" onClick={() => setBulkMode('COMPLIANT')}>
-                  全標符合
-                </Button>
-              </>
+              <Button size="sm" variant="tonal" onClick={() => setBulkMode('NA')} leadingIcon={<Check size={14} />}>
+                未答全標不適用
+              </Button>
             )}
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>
               展開未作答

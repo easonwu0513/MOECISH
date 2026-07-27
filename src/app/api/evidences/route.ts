@@ -160,6 +160,15 @@ export async function POST(req: Request) {
       select: { id: true, originalName: true, mimeType: true, sizeBytes: true },
     });
 
+    // P0 安全批(與刪檔重算對稱):退回補正(INSUFFICIENT)項上傳新檔即翻回待繳交(UPLOADED),
+    // 機關補件後狀態即時反映;prep/submit 的「退補後須有新動作」閘亦以此為據。
+    if (targetType === 'PREP_SUBMISSION') {
+      await prisma.prepSubmission.updateMany({
+        where: { id: targetId, status: 'INSUFFICIENT' },
+        data: { status: 'UPLOADED' },
+      });
+    }
+
     const meta = extractRequestMeta(req);
     // 以 AuditCycle/cycleId 定址(批67 專審):活動流以「本週期」撈事件——若以 Evidence id 定址,
     // 佐證被硬刪後 id 查不回本週期,上傳/刪除事件會從活動流永久消失;佐證明細保留於 after payload。

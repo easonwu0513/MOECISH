@@ -6,13 +6,14 @@ import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { checklistOrgCanEdit } from '@/lib/types';
 
 /**
- * 一鍵將「未作答」項目全部標記(預設「不適用」,亦可指定「符合」)。
- * 只動未作答項,不覆寫既有作答。fill: 'NA'(預設) | 'COMPLIANT'。
+ * 一鍵將「未作答」項目全部標記為「不適用」。只動未作答項,不覆寫既有作答。
+ * P0 安全批:移除 fill: 'COMPLIANT' 捷徑——「全標符合」可零說明零佐證偽造整份自評
+ * (符合情形應逐題據實填報;不適用屬「本機關無此項目」的批次宣告,語意可接受批次)。
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const fill = (body as { fill?: string })?.fill === 'COMPLIANT' ? 'COMPLIANT' : 'NOT_APPLICABLE';
+    await req.json().catch(() => ({}));
+    const fill = 'NOT_APPLICABLE';
     const { user, cycle } = await assertCycleAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
       return NextResponse.json({ error: '僅機關管理員可操作' }, { status: 403 });

@@ -14,7 +14,7 @@ import { Paperclip, ChevronDown } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, isReadOnlyReviewRole, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
@@ -308,7 +308,7 @@ export default function ChecklistItemCard({
           currentVersion={version}
           onSaved={bumpVersion}
           canEdit={canEdit}
-          viewOnly={userRole === 'AUDITOR'}
+          viewOnly={isReadOnlyReviewRole(userRole)}
           expectedEvidence={item.expectedEvidence}
         />
       ),
