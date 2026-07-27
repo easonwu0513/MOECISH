@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/cn';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
@@ -178,9 +179,17 @@ export default function SurveyAdminBoard({
       return;
     }
     const j = await res.json().catch(() => ({ recipientCount: 0, skipped: false }));
-    if (j.recipientCount > 0) toast.success(`已寄出催辦（${stage === 2 ? '差旅' : '意願'}）`, p.name);
+    if (j.recipientCount > 0) toast.success(`已寄出催辦（${stage === 2 ? '差旅' : '意願與文件'}）`, p.name);
     else if (j.skipped) toast.warning('今日已催辦過', '24 小時內同一階段僅寄一次，避免重複打擾。');
-    else if (stage === 2) toast.warning('未寄送', '該人員尚未被指派最終場次，或帳號已停用。');
+    // P1:該階段已完成(或無此階段任務)→ 明確告知未寄,避免中心誤以為已催
+    else if (j.nothingToRemind) {
+      toast.info(
+        '無須催辦',
+        stage === 2
+          ? `${p.name} 的差旅與飲食已填齊，或其指派場次皆為線上辦理（無二階需填）。`
+          : `${p.name} 的意願與文件皆已送出，一階已完成。`,
+      );
+    } else if (stage === 2) toast.warning('未寄送', '該人員尚未被指派最終場次，或帳號已停用。');
     else toast.warning('未寄送', '該帳號已停用或查無收件人。');
   }
 
@@ -1351,7 +1360,7 @@ function SessionManagerDialog({
             <TextField label="場次名稱/地點" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：總院、斗六" />
             <TextField label="日期" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
-            <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
+            <TextField label="目標觀察員數" type="number" value={to} disabled={!shared} onChange={(e) => setTo(e.target.value)} />
           </div>
           <div className="mt-3">
             {/* UAT 圖42:備註改多行,長內容一次看全 */}
@@ -1371,10 +1380,10 @@ function SessionManagerDialog({
               <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
             </label>
             <label className="flex items-center gap-2 text-body-sm text-ink-700">
-              <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+              <input type="checkbox" checked={shared && anonO} disabled={!shared} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
             </label>
             <label className="flex items-center gap-2 text-body-sm text-ink-700">
-              <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
+              <input type="checkbox" checked={shared} onChange={(e) => { setShared(e.target.checked); if (!e.target.checked) setTo('0'); }} className="rounded border-rule" /> 委員與觀察員共同場次
             </label>
             <label className="flex items-center gap-2 text-body-sm text-ink-700">
               <input type="checkbox" checked={needsTravel} onChange={(e) => setNeedsTravel(e.target.checked)} className="rounded border-rule" /> 需第二階段差旅調查
@@ -1466,7 +1475,7 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
           helperText={s.sourceCycleId ? '由稽核週期帶入：日期鎖定，請至該週期修改「實地稽核日期」自動連動' : undefined}
         />
         <TextField label="目標委員數" type="number" value={tm} onChange={(e) => setTm(e.target.value)} />
-        <TextField label="目標觀察員數" type="number" value={to} onChange={(e) => setTo(e.target.value)} />
+        <TextField label="目標觀察員數" type="number" value={to} disabled={!shared} onChange={(e) => setTo(e.target.value)} />
       </div>
       <div className="mt-3">
         {/* UAT 圖42:備註改多行,長內容一次看全 */}
@@ -1480,10 +1489,10 @@ function SessionEditRow({ s }: { s: AdminSessionDTO }) {
           <input type="checkbox" checked={anonM} onChange={(e) => setAnonM(e.target.checked)} className="rounded border-rule" /> 對委員匿名地點
         </label>
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
-          <input type="checkbox" checked={anonO} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
+          <input type="checkbox" checked={shared && anonO} disabled={!shared} onChange={(e) => setAnonO(e.target.checked)} className="rounded border-rule" /> 對觀察員匿名地點
         </label>
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
-          <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="rounded border-rule" /> 委員與觀察員共同場次
+          <input type="checkbox" checked={shared} onChange={(e) => { setShared(e.target.checked); if (!e.target.checked) setTo('0'); }} className="rounded border-rule" /> 委員與觀察員共同場次
         </label>
         <label className="flex items-center gap-2 text-body-sm text-ink-700">
           <input type="checkbox" checked={needsTravel} onChange={(e) => setNeedsTravel(e.target.checked)} className="rounded border-rule" /> 需第二階段差旅調查
@@ -1509,7 +1518,8 @@ function AddParticipantDialog({
   const router = useRouter();
   const toast = useToast();
   const [userId, setUserId] = useState('');
-  const [committeeType, setCommitteeType] = useState('');
+  // P1(圖28 漏改):專長改複選,與表格內 SpecialtyCell 同一語意(原新增入口是單選 Select)
+  const [specialties, setSpecialties] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const label = kind === 'OBSERVER' ? '觀察員' : '委員';
 
@@ -1519,11 +1529,16 @@ function AddParticipantDialog({
     const res = await fetch('/api/pre-survey/participants', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ year: yearROC + 1911, userId, kind, committeeType: kind === 'MEMBER' ? committeeType || null : null }),
+      body: JSON.stringify({
+        year: yearROC + 1911,
+        userId,
+        kind,
+        committeeTypes: kind === 'MEMBER' ? specialties : [],
+      }),
     });
     setBusy(false);
     if (!res.ok) { const j = await res.json().catch(() => ({ error: '新增失敗' })); toast.error('新增失敗', j.error); return; }
-    setUserId(''); setCommitteeType('');
+    setUserId(''); setSpecialties([]);
     onOpenChange(false);
     toast.success(`已加入${label}`);
     router.refresh();
@@ -1542,10 +1557,31 @@ function AddParticipantDialog({
           ))}
         </Select>
         {kind === 'MEMBER' && (
-          <Select label="委員類型（選填）" value={committeeType} onChange={(e) => setCommitteeType(e.target.value)}>
-            <option value="">未分類</option>
-            {SURVEY_COMMITTEE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </Select>
+          <div>
+            <p className="text-caption text-ink-600 mb-1.5">專長（選填，可複選）</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {SURVEY_COMMITTEE_TYPES.map((t) => {
+                const on = specialties.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={on}
+                    onClick={() => setSpecialties((prev) => (on ? prev.filter((x) => x !== t) : [...prev, t]))}
+                    className={cn(
+                      'px-2.5 py-1 rounded-full text-caption border transition-colors focus-ring disabled:opacity-50',
+                      on
+                        ? 'bg-primary-600 border-primary-600 text-white'
+                        : 'border-neutral-400 bg-card text-ink-600 hover:bg-paper-sunk',
+                    )}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
     </Dialog>

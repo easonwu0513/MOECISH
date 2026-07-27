@@ -35,6 +35,49 @@ export function targetCountField(kind: SurveyParticipantKind): 'targetMemberCoun
   return kind === 'OBSERVER' ? 'targetObserverCount' : 'targetMemberCount';
 }
 
+/** JSON 字串陣列長度(壞資料/空值視為 0);供二階完成度判定共用。 */
+export function jsonArrayLength(json: string | null | undefined): number {
+  if (!json) return 0;
+  try {
+    const a = JSON.parse(json);
+    return Array.isArray(a) ? a.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * P1:一階(意願+文件)實際缺口——催辦信、總覽待辦、按鈕狀態共用同一判定,
+ * 避免「已送意願只差文件」的人收到「請填寫出席意願」(圖69 的信件版兄弟案)。
+ */
+export type Stage1Gap = 'DOC_RETURNED' | 'NEED_BOTH' | 'NEED_DOCS' | 'NEED_WILLINGNESS' | 'DONE';
+export function stage1Gap(submittedAt: Date | string | null, docStatus: string): Stage1Gap {
+  if (docStatus === 'RETURNED') return 'DOC_RETURNED';
+  const docsDone = docStatus === 'SUBMITTED';
+  if (!submittedAt && !docsDone) return 'NEED_BOTH';
+  if (!docsDone) return 'NEED_DOCS';
+  if (!submittedAt) return 'NEED_WILLINGNESS';
+  return 'DONE';
+}
+
+/**
+ * P1:二階(差旅/飲食)完成度——需差旅場次皆已填交通 + 已填飲食才算完成;
+ * 無「需差旅」場次者 applicable=false(全線上場次的人不該被催二階)。
+ */
+export function stage2Completeness(
+  assignments: { transport: string | null; needsTravel: boolean }[],
+  dietJson: string | null,
+): { applicable: boolean; complete: boolean; missingTransport: number } {
+  const travel = assignments.filter((a) => a.needsTravel);
+  if (travel.length === 0) return { applicable: false, complete: true, missingTransport: 0 };
+  const missingTransport = travel.filter((a) => jsonArrayLength(a.transport) === 0).length;
+  return {
+    applicable: true,
+    complete: missingTransport === 0 && jsonArrayLength(dietJson) > 0,
+    missingTransport,
+  };
+}
+
 /** 文件繳交狀態 → 色調(批B):未繳交灰 / 已繳交綠 / 待補件黃。 */
 export function surveyDocTone(status: string | null | undefined): Tone {
   switch (status as SurveyDocStatus) {

@@ -11,7 +11,9 @@ const Body = z.object({
   year: z.number().int().min(2000).max(2200),
   userId: z.string().min(1),
   kind: z.enum(SURVEY_PARTICIPANT_KINDS),
-  committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
+  committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(), // 舊形狀(單值)相容
+  // P1(圖28 漏改):專長複選,與 PATCH 同格式存 JSON 陣列
+  committeeTypes: z.array(z.enum(SURVEY_COMMITTEE_TYPES)).max(SURVEY_COMMITTEE_TYPES.length).optional(),
 });
 
 /**
@@ -48,7 +50,15 @@ export async function POST(req: Request) {
           year: body.year,
           userId: body.userId,
           kind: body.kind,
-          committeeType: body.kind === 'MEMBER' ? body.committeeType ?? null : null,
+          // 複選優先(存 JSON 陣列,與 PATCH/parseSpecialties 同格式);未給則相容舊單值
+          committeeType:
+            body.kind !== 'MEMBER'
+              ? null
+              : body.committeeTypes !== undefined
+                ? body.committeeTypes.length > 0
+                  ? JSON.stringify(body.committeeTypes)
+                  : null
+                : body.committeeType ?? null,
           invitedById: user.id,
         },
         select: { id: true },

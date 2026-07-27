@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { sendEmail } from './email';
 import { fmtROC } from './date';
+import { stage1Gap, stage2Completeness, type Stage1Gap } from './pre-survey';
 import { cycleTransitionNotify } from './notify-policy';
 import {
   DEFICIENCY_ASPECT_LABELS,
@@ -1233,7 +1234,11 @@ export async function notifyTrackedReviewed(opts: { reportId: string; appBaseUrl
 // 批A:事前場次調查催辦(中心催委員/觀察員填意願;事件驅動,不入週期矩陣)
 // ════════════════════════════════════════════
 
-/** 中心催辦某受調人員填一階意願(email + 站內鈴鐺;同人 24h 去重防轟炸)。skipped=true 表被去重未實際外寄。 */
+/**
+ * 中心催辦某受調人員填一階(email + 站內鈴鐺;同人 24h 去重防轟炸)。skipped=true 表被去重未實際外寄。
+ * P1:主旨/內文依「實際缺口」分述(文件遭退補/只差文件/只差意願/兩者皆缺);一階已完成者
+ * 回 nothingToRemind=true 且不寄信(圖69 dashboard 分述的信件版兄弟案)。
+ */
 export async function notifyPresurveyRemind(opts: { participantId: string; appBaseUrl: string }) {
   const participant = await prisma.surveyParticipant.findUnique({
     where: { id: opts.participantId },
@@ -1244,14 +1249,38 @@ export async function notifyPresurveyRemind(opts: { participantId: string; appBa
   const yearROC = participant.year - 1911;
   const link = `${opts.appBaseUrl}/pre-survey`;
   const u = participant.user;
+  const isObserver = participant.kind === 'OBSERVER';
+  const docNames = isObserver ? '聘任同意暨保密切結書' : '經歷說明書與聘任同意暨保密切結書';
+
+  const gap = stage1Gap(participant.submittedAt, participant.docStatus);
+  if (gap === 'DONE') return { recipientCount: 0, skipped: false, nothingToRemind: true };
+  const COPY: Record<Exclude<Stage1Gap, 'DONE'>, { subject: string; line: string }> = {
+    DOC_RETURNED: {
+      subject: '請補件並重新送審文件',
+      line: `您繳交的${docNames}經中心審核後退回補正，尚待補件並重新送審。`,
+    },
+    NEED_DOCS: {
+      subject: '請上傳並送審個人文件',
+      line: `您的出席意願已送出，尚待上傳${docNames}並按「送審文件」。`,
+    },
+    NEED_WILLINGNESS: {
+      subject: '請送出稽核場次出席意願',
+      line: '您的文件已送審，尚待填寫各場次出席意願（每個場次選擇 OK 或 NO）並送出。',
+    },
+    NEED_BOTH: {
+      subject: '請填寫出席意願並繳交文件',
+      line: `尚待您上傳${docNames}並送審，以及填寫各場次出席意願（每個場次選擇 OK 或 NO）後送出。`,
+    },
+  };
+  const copy = COPY[gap];
 
   const log = await sendEmail({
     to: u.email,
     toName: u.name,
-    subject: `[MOECISH] ${yearROC} 年度事前場次調查——請填寫出席意願`,
+    subject: `[MOECISH] ${yearROC} 年度事前場次調查——${copy.subject}`,
     body:
       `${u.name} 您好，\n\n` +
-      `${yearROC} 年度資通安全稽核事前場次調查尚待您填寫出席意願（每個場次選擇 OK 或 NO）並繳交相關文件。\n` +
+      `${yearROC} 年度資通安全稽核事前場次調查：${copy.line}\n` +
       `請登入平台完成填寫：\n\n${link}\n\n` +
       `— 教育部轄下醫療領域資訊安全推動中心`,
     kind: 'presurvey-remind',
@@ -1293,17 +1322,26 @@ export async function notifyPresurveyDocReturned(opts: { participantId: string; 
   return { recipientCount: 1 };
 }
 
-/** 中心催辦某受調人員填二階差旅與飲食(已指派最終場次者;email + 站內鈴鐺,同人 24h 去重)。 */
+/**
+ * 中心催辦某受調人員填二階差旅與飲食(已指派最終場次者;email + 站內鈴鐺,同人 24h 去重)。
+ * P1:①全線上場次(無 needsTravel 指派)者無二階可填,不催 ②已填齊者不催——
+ * 回 nothingToRemind=true 供前端明確提示(原本只擋「零指派」,其餘一律照催)。
+ */
 export async function notifyPresurveyTravelRemind(opts: { participantId: string; appBaseUrl: string }) {
   const participant = await prisma.surveyParticipant.findUnique({
     where: { id: opts.participantId },
     include: {
       user: { select: { name: true, email: true, isActive: true } },
-      finalAssignments: { select: { id: true } },
+      finalAssignments: { select: { transport: true, session: { select: { needsTravel: true } } } },
     },
   });
   if (!participant || !participant.user.isActive) return { recipientCount: 0, skipped: false };
   if (participant.finalAssignments.length === 0) return { recipientCount: 0, skipped: false }; // 未指派場次=二階未解鎖,不催
+  const stage2 = stage2Completeness(
+    participant.finalAssignments.map((a) => ({ transport: a.transport, needsTravel: a.session.needsTravel })),
+    participant.diet,
+  );
+  if (!stage2.applicable || stage2.complete) return { recipientCount: 0, skipped: false, nothingToRemind: true };
 
   const yearROC = participant.year - 1911;
   const link = `${opts.appBaseUrl}/pre-survey`;

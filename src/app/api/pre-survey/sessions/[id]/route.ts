@@ -50,6 +50,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (body.anonymizeForMember !== undefined) data.anonymizeForMember = body.anonymizeForMember;
     if (body.anonymizeForObserver !== undefined) data.anonymizeForObserver = body.anonymizeForObserver;
     if (body.sharedWithObserver !== undefined) data.sharedWithObserver = body.sharedWithObserver;
+    // P1:取消「共同場次」即清空目標觀察員數(該場次不對觀察員開放,留著會造成永遠不達標的假警示)
+    if (body.sharedWithObserver === false) data.targetObserverCount = 0;
     if (body.needsTravel !== undefined) data.needsTravel = body.needsTravel; // UAT 圖14
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: '未提供要更新的欄位' }, { status: 400 });

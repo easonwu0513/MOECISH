@@ -100,7 +100,8 @@ export default function ChecklistShell({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [collapsedDims, setCollapsedDims] = useState<Set<string>>(new Set());
-  const [bulkMode, setBulkMode] = useState<null | 'NA' | 'COMPLIANT'>(null);
+  const [bulkMode, setBulkMode] = useState<null | 'NA'>(null);
+  const [clearOpen, setClearOpen] = useState(false); // P1:批次標記復原確認
   const [bulkBusy, setBulkBusy] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitBusy, setSubmitBusy] = useState(false);
@@ -120,8 +121,8 @@ export default function ChecklistShell({
     router.refresh();
   }
 
-  // 一鍵將未作答全部標記(預設「不適用」,亦可「符合」),之後逐題調整例外
-  async function bulkFill(mode: 'NA' | 'COMPLIANT') {
+  // 一鍵將未作答全部標記「不適用」,之後逐題調整例外
+  async function bulkFill(mode: 'NA') {
     setBulkBusy(true);
     const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, {
       method: 'POST',
@@ -136,8 +137,32 @@ export default function ChecklistShell({
       return;
     }
     const j = await res.json();
-    const label = mode === 'COMPLIANT' ? '符合' : '不適用';
-    toast.success('已批次標記', `${j.updated} 題標為「${label}」；請逐題確認並調整例外。`);
+    toast.success('已批次標記', `${j.updated} 題標為「不適用」；請逐題確認並調整例外。`);
+    router.refresh();
+  }
+
+  // P1:批次標記的反向操作——把「不適用且無說明/紀錄文件/佐證」的題清回未作答(誤按的復原路徑)
+  async function bulkClear() {
+    setBulkBusy(true);
+    const res = await fetch(`/api/cycles/${cycleId}/checklist/bulk`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: 'CLEAR' }),
+    });
+    setBulkBusy(false);
+    setClearOpen(false);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: '操作失敗' }));
+      toast.error('復原失敗', j.error);
+      return;
+    }
+    const j = await res.json();
+    if (j.cleared > 0) {
+      // 誠實計數:kept 僅計「附有佐證而保留」者(已填說明/紀錄文件者本就不在候選內)
+      toast.success('已復原批次標記', `${j.cleared} 題清回未作答${j.kept > 0 ? `；${j.kept} 題因附有佐證予以保留` : ''}。`);
+    } else {
+      toast.info('沒有可復原的項目', '沒有「標為不適用且未填任何內容」的題目，未做變更。');
+    }
     router.refresh();
   }
 
@@ -287,6 +312,17 @@ export default function ChecklistShell({
         onConfirm={() => bulkFill('NA')}
         loading={bulkBusy}
       />
+      {/* P1:復原批次標記(反向操作) */}
+      <ConfirmDialog
+        open={clearOpen}
+        onOpenChange={(o) => !bulkBusy && !o && setClearOpen(false)}
+        title="復原批次標記"
+        description="將把「標為不適用、且未填寫機關說明／紀錄文件、也未上傳佐證」的題目清回未作答；已填寫內容或已附佐證的題目一律保留。確定復原？"
+        confirmLabel="復原"
+        tone="warning"
+        onConfirm={bulkClear}
+        loading={bulkBusy}
+      />
       {/* Sticky toolbar */}
       <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-3 pb-4 bg-card/95 backdrop-blur-sm border-b border-rule mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -305,6 +341,12 @@ export default function ChecklistShell({
             {canEdit && filled < total && (
               <Button size="sm" variant="tonal" onClick={() => setBulkMode('NA')} leadingIcon={<Check size={14} />}>
                 未答全標不適用
+              </Button>
+            )}
+            {/* P1:批次標記的反向操作(誤按可復原;只清無內容的不適用題) */}
+            {canEdit && filled > 0 && (
+              <Button size="sm" variant="text" onClick={() => setClearOpen(true)}>
+                復原批次標記
               </Button>
             )}
             <Button size="sm" variant="text" onClick={expandUnanswered} leadingIcon={<ChevronDown size={14} />}>

@@ -84,7 +84,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true });
+    // P1:回報本次是否消耗掉補填開放,供前端提示正確(否則會說「仍可修改」但實際已鎖)
+    return NextResponse.json({ ok: true, unlockConsumed: consumeUnlock });
   } catch (e) {
     return errorResponse(e);
   }

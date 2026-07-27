@@ -25,6 +25,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     let recipientCount = 0;
     let skipped = false;
+    // P1:該階段已完成者不寄信,回 nothingToRemind 供前端明確提示(避免中心誤以為已催)
+    let nothingToRemind = false;
     try {
       const r =
         stage === 2
@@ -32,6 +34,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           : await notifyPresurveyRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) });
       recipientCount = r.recipientCount;
       skipped = r.skipped;
+      nothingToRemind = 'nothingToRemind' in r ? !!r.nothingToRemind : false;
     } catch (e) {
       console.error('presurvey remind notify failed:', e);
     }
@@ -41,11 +44,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_REMIND',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { stage, recipientCount, skipped },
+      after: { stage, recipientCount, skipped, nothingToRemind },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, recipientCount, skipped });
+    return NextResponse.json({ ok: true, recipientCount, skipped, nothingToRemind });
   } catch (e) {
     return errorResponse(e);
   }

@@ -12,7 +12,10 @@ import { checklistOrgCanEdit } from '@/lib/types';
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    // P1:mode='CLEAR' 為批次標記的反向操作——把「僅有不適用、無任何說明/佐證/紀錄文件」的題
+    // 清回未作答(誤按一鍵標記的復原路徑);有填內容者一律不動,不會誤刪機關心血。
+    const mode = (body as { mode?: string })?.mode === 'CLEAR' ? 'CLEAR' : 'FILL';
     const fill = 'NOT_APPLICABLE';
     const { user, cycle } = await assertCycleAccess(params.id);
     if (user.role !== 'ORG_ADMIN') {
@@ -26,6 +29,53 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         { error: '填報已送出鎖定，如需修改請洽中心退回重填' },
         { status: 409 },
       );
+    }
+
+    // 復原路徑:清掉「不適用且無任何內容」的作答(有佐證檔者亦不動)
+    if (mode === 'CLEAR') {
+      const naEmpty = await prisma.checklistResponse.findMany({
+        where: {
+          cycleId: cycle.id,
+          compliance: 'NOT_APPLICABLE',
+          OR: [{ description: null }, { description: '' }],
+          AND: [{ OR: [{ recordDocs: null }, { recordDocs: '' }] }],
+        },
+        select: { id: true },
+      });
+      const ids = naEmpty.map((r) => r.id);
+      const withFiles = ids.length
+        ? await prisma.evidence.findMany({
+            where: { targetType: 'CHECKLIST_RESPONSE', targetId: { in: ids } },
+            select: { targetId: true },
+            distinct: ['targetId'],
+          })
+        : [];
+      const skip = new Set(withFiles.map((e) => e.targetId));
+      const clearIds = ids.filter((id) => !skip.has(id));
+      let cleared = 0;
+      if (clearIds.length > 0) {
+        // 對抗審查:謂詞隨 updateMany 重帶(讀-寫之間若有逐題 PUT 填入內容,該題不清)+
+        // version increment(全庫樂觀鎖不變式:任何寫入都 bump,與 FILL 分支對稱)
+        const upd = await prisma.checklistResponse.updateMany({
+          where: {
+            id: { in: clearIds },
+            compliance: 'NOT_APPLICABLE',
+            OR: [{ description: null }, { description: '' }],
+            AND: [{ OR: [{ recordDocs: null }, { recordDocs: '' }] }],
+          },
+          data: { compliance: null, version: { increment: 1 }, lastEditorId: user.id, lastEditedAt: new Date() },
+        });
+        cleared = upd.count;
+      }
+      await writeAuditLog({
+        actorId: user.id,
+        action: 'CHECKLIST_BULK_CLEAR',
+        entityType: 'AuditCycle',
+        entityId: cycle.id,
+        after: { cleared, skippedWithEvidence: ids.length - clearIds.length },
+        ...extractRequestMeta(req),
+      });
+      return NextResponse.json({ cleared, kept: ids.length - clearIds.length });
     }
 
     const items = await prisma.checklistItem.findMany({

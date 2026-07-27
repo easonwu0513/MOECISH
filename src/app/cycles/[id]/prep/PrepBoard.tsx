@@ -184,7 +184,12 @@ export default function PrepBoard({
       return s !== 'SUBMITTED' && s !== 'CONFIRMED' && addressedOf(it);
     }).length;
     const canSubmit = isOrg && cycleStatus === 'PREPARATION' && draftCount > 0 && requiredUnaddressed.length === 0;
-    return { items, requiredUnaddressed, draftCount, canSubmit };
+    // P1:該區尚待機關繳交的項數(全繳齊/已確認 → 中心不顯示催繳鈕,伺服器亦回 409)
+    const pendingCount = items.filter((it) => {
+      const s = it.submission?.status;
+      return s !== 'SUBMITTED' && s !== 'CONFIRMED';
+    }).length;
+    return { items, requiredUnaddressed, draftCount, canSubmit, pendingCount };
   };
 
   async function applyStandard() {
@@ -749,15 +754,15 @@ export default function PrepBoard({
                       一鍵收回全部（{centerReleasedSubIds.length}）
                     </Button>
                   )}
-                  {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料 */}
-                  {isAdmin && cat !== 'CENTER' && (
+                  {/* 中心催繳:寄信提醒機關管理員儘速繳交該區資料(P1:全區已繳齊則不顯示,避免催已完成的機關) */}
+                  {isAdmin && cat !== 'CENTER' && catState(cat).pendingCount > 0 && (
                     <Button
                       size="sm"
                       variant="text"
                       loading={reminding === cat}
                       onClick={() => remind(cat)}
                     >
-                      催繳
+                      催繳（{catState(cat).pendingCount}）
                     </Button>
                   )}
                   {/* 機關:確定繳交移到各區標題旁(UAT 批42:原獨立卡片區塊,離項目清單遠不直覺);

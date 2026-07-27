@@ -43,10 +43,12 @@ export async function POST(req: Request) {
         isRequired: body.isRequired ?? false,
         remark: body.remark?.trim() || null,
         targetMemberCount: body.targetMemberCount ?? 0,
-        targetObserverCount: body.targetObserverCount ?? 0,
         anonymizeForMember: body.anonymizeForMember ?? true,
+        // P1:非共同場次(委員專屬)無觀察員可參加——目標觀察員數強制 0,
+        // 否則達標卡顯示「觀察員 0/N 未達標」卻永遠補不滿(假警示)。
         anonymizeForObserver: body.anonymizeForObserver ?? true,
         sharedWithObserver: body.sharedWithObserver ?? true,
+        targetObserverCount: body.sharedWithObserver === false ? 0 : body.targetObserverCount ?? 0,
         needsTravel: body.needsTravel ?? true,
         isBriefing: body.isBriefing ?? false,
         orderIndex: (last?.orderIndex ?? -1) + 1,

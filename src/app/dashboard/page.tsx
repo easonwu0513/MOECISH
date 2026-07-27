@@ -28,6 +28,7 @@ import { fmtROC, fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
 import { SurveyProfileCard, OpenSurveyButton } from '@/components/dashboard/SurveyProfileCard';
 import { loadDashboardSelfSurvey } from '@/lib/pre-survey-self';
+import { stage1Gap } from '@/lib/pre-survey';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { CrossOrgOverview } from '@/components/dashboard/CrossOrgOverview';
 import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
@@ -274,17 +275,28 @@ export default async function HomePage() {
     const travelSessions = survey.assignedSessions.filter((a) => a.needsTravel);
     if (!survey.submittedAt || survey.docStatus !== 'SUBMITTED') {
       // UAT 圖69:依實際缺口給文案——已填意願只差文件(或遭退補)時,不再誤稱「請填寫出席意願」
+      // P1:判定改用共用 stage1Gap(與催辦信同一真值來源,避免兩處日後漂移)
+      const STAGE1_TITLE: Record<string, string> = {
+        DOC_RETURNED: '事前場次調查：文件遭退補，請補件並重新送審',
+        NEED_DOCS: '事前場次調查：請上傳並送審個人文件（第一階段）',
+        NEED_WILLINGNESS: '事前場次調查：請送出稽核場次出席意願（第一階段）',
+        NEED_BOTH: '事前場次調查：請填寫出席意願並繳交文件（第一階段）',
+      };
       const stage1Title =
-        survey.docStatus === 'RETURNED'
-          ? '事前場次調查：文件遭退補，請補件並重新送審'
-          : survey.submittedAt
-            ? '事前場次調查：請上傳並送審個人文件（第一階段）'
-            : survey.docStatus === 'SUBMITTED'
-              ? '事前場次調查：請送出稽核場次出席意願（第一階段）'
-              : '事前場次調查：請填寫出席意願並繳交文件（第一階段）';
+        STAGE1_TITLE[stage1Gap(survey.submittedAt, survey.docStatus)] ?? STAGE1_TITLE.NEED_BOTH;
       todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: stage1Title, href: '/pre-survey?open=1', cta: '去填寫' });
     } else if (travelSessions.length > 0 && (travelSessions.some((a) => a.transport.length === 0) || survey.diet.length === 0)) {
-      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）', href: '/pre-survey?open=1', cta: '去填寫' });
+      // P1(圖69 的二階版):依實際缺口分述——只差飲食的人不該被要求「填寫差旅」,
+      // 只差某幾場交通的人要知道是哪幾場。
+      const missTransport = travelSessions.filter((a) => a.transport.length === 0);
+      const missDiet = survey.diet.length === 0;
+      const stage2Title =
+        missTransport.length > 0 && missDiet
+          ? '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）'
+          : missTransport.length > 0
+            ? `事前場次調查：請填寫 ${missTransport.map((a) => a.label).join('、')} 的往返交通方式（第二階段）`
+            : '事前場次調查：請填寫飲食需求（第二階段）';
+      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: stage2Title, href: '/pre-survey?open=1', cta: '去填寫' });
     }
   }
   // UAT 圖32:調查前置四步檢核(空狀態面板用;done=null 表示待中心分派場次、尚不可填)

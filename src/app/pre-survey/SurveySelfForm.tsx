@@ -176,7 +176,14 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('已送出意願', '於開放期間內仍可修改後再送出。');
+    // P1:補填開放為一次性(圖52)——本次若消耗掉開放,不可再說「仍可修改」
+    const sj = await res.json().catch(() => ({}) as { unlockConsumed?: boolean });
+    toast.success(
+      '已送出意願',
+      sj.unlockConsumed
+        ? '本次補填開放已使用完畢，內容已鎖定；如需再修改請聯絡中心重新開放。'
+        : '於開放期間內仍可修改後再送出。',
+    );
     router.refresh();
   }
 
