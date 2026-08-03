@@ -75,7 +75,8 @@ export function AnswerNoteWithLaw({
       )}
       {lawText && open && (
         <div id={panelId} className="mt-2.5 border-t border-rule pt-2.5">
-          <p className="text-caption font-medium text-primary-800 mb-1.5">{lawLabel}</p>
+          {/* UAT:標題加註「(參考)」——委員審閱時這兩段是輔助判讀的參考資料,非逐條必檢清單 */}
+          <p className="text-caption font-medium text-primary-800 mb-1.5">{lawLabel}（參考）</p>
           <NumberedList text={lawText} />
         </div>
       )}
