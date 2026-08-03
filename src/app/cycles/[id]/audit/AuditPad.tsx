@@ -179,11 +179,12 @@ export default function AuditPad({
           </span>
         </div>
       )}
-      {/* 三塊合一同框(W3):左=評分+發現工作區,右=委員審閱筆記常駐側欄(寬螢幕 sticky,窄螢幕堆疊於下)。
+      {/* 評分表滿寬單欄;審閱筆記側欄自「稽核發現」段起才並排(UAT 圖80):筆記的主要用途是
+          撰寫發現時對照,與評分表並排只會把評分表壓窄。寬螢幕 sticky,窄螢幕堆疊於發現之下。
           側欄加寬 + 放大字級(頁面已 wide 吃滿寬),對年長委員更好讀。 */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
-        <div className="flex flex-col gap-8 min-w-0">
-          <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} practice={practice} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
+      <ScoreSection cycleId={cycleId} canEdit={canEdit} locked={locked} practice={practice} stats={stats} dimIssues={dimIssues} focusAspects={focusAspects} initialScores={initialScores} initialCounts={initialCounts} unsavedFindingsRef={unsavedFindingsRef} />
+      <div className="mt-2 grid gap-6 xl:grid-cols-[minmax(0,1fr)_30rem] xl:items-start">
+        <div className="min-w-0">
           <FindingSection cycleId={cycleId} canEdit={canEdit} practice={practice} itemContent={itemContent} itemLaw={itemLaw} dimIssues={dimIssues} snippets={snippets} focusAspects={focusAspects} initialFindings={initialFindings} unsavedFindingsRef={unsavedFindingsRef} />
         </div>
         <aside className="xl:sticky xl:top-4 min-w-0">
