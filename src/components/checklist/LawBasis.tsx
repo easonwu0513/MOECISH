@@ -67,6 +67,22 @@ export function NumberedList({ text, className }: { text: string; className?: st
   );
 }
 
+/**
+ * 稽核依據獨立面板(委員審閱題卡:與「委員意見」編輯框並排於題卡底部)。
+ * 逐字法條篇幅長 → 面板自身可捲(max-h),不把題卡撐得過長;無資料回 null 由呼叫端排版收斂。
+ */
+export function AuditBasisPanel({ auditBasis, className }: { auditBasis: string | null; className?: string }) {
+  if (!auditBasis) return null;
+  return (
+    <div className={cn(`rounded-md ${SURFACE_INFO} p-3`, className)}>
+      <p className="text-caption font-medium text-primary-800 mb-1.5">稽核依據（相關法規條文）</p>
+      <div className="max-h-72 overflow-y-auto pr-1">
+        <LawBasisText text={auditBasis} />
+      </div>
+    </div>
+  );
+}
+
 /** UAT 圖59:法規對照三段各自可收合——收起重點/文件即可讓稽核依據貼近題目,免來回捲動。 */
 function LawSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: ReactNode }) {
   return (

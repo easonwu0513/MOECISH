@@ -114,7 +114,8 @@ export default function ObserverCommentSection({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    // 間距歸呼叫端(review page 底部 grid 已有 mt-3;原自帶 mt-3 會與之疊加,兩欄頂線不齊)
+    <div className="flex flex-col gap-2">
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}

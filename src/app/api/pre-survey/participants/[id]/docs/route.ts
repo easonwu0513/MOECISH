@@ -118,7 +118,42 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ item });
+    // UAT 圖72:必備文件上傳齊全即自動送審——「上傳完還要另按送審」一直坑人
+    // (實例:委員傳齊 CV+NDA 卻停在未繳交,中心與本人都以為已完成)。
+    // 領據(RECEIPT)不在必備集,不觸發;退補(RETURNED)重傳補齊亦自動重新送審;
+    // 補填一次性消耗(圖52)語意與 docs/submit 對稱。
+    let autoSubmitted = false;
+    if (slot !== 'RECEIPT' && participant.docStatus !== 'SUBMITTED') {
+      const [cvCount, ndaCount] = await Promise.all([
+        prisma.evidence.count({ where: { targetType: 'SURVEY_CV', targetId: participant.id } }),
+        prisma.evidence.count({ where: { targetType: 'SURVEY_NDA', targetId: participant.id } }),
+      ]);
+      const complete = (participant.kind !== 'MEMBER' || cvCount > 0) && ndaCount > 0;
+      if (complete) {
+        const consumeUnlock = !isAdmin && participant.editUnlocked && participant.submittedAt !== null;
+        await prisma.surveyParticipant.update({
+          where: { id: participant.id },
+          data: {
+            docStatus: 'SUBMITTED',
+            docSubmittedAt: new Date(),
+            rejectReason: null,
+            docReviewedAt: null,
+            ...(consumeUnlock ? { editUnlocked: false } : {}),
+          },
+        });
+        autoSubmitted = true;
+        await writeAuditLog({
+          actorId: user.id,
+          action: 'SURVEY_DOC_SUBMIT',
+          entityType: 'SurveyParticipant',
+          entityId: participant.id,
+          after: { auto: true, ...(consumeUnlock ? { editUnlockConsumed: true } : {}) },
+          ...extractRequestMeta(req),
+        });
+      }
+    }
+
+    return NextResponse.json({ item, autoSubmitted });
   } catch (e) {
     return errorResponse(e);
   }

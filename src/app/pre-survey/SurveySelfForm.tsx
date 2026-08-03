@@ -206,7 +206,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
       toast.error('上傳失敗', j.error);
       return;
     }
-    toast.success('已上傳');
+    // UAT 圖72:必備文件齊全即自動送審——提示對齊實際狀態,不再要求另按送審
+    const uj = await res.json().catch(() => ({}) as { autoSubmitted?: boolean });
+    if (uj.autoSubmitted) toast.success('文件已上傳並自動送審', '已送交中心審核；如需修改請待退補後再上傳。');
+    else toast.success('已上傳');
     router.refresh();
   }
 
@@ -485,7 +488,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                 送審文件
               </Button>
               <span className="text-caption text-ink-500">
-                {isObserver ? '需繳交切結書' : '需繳交經歷說明書與切結書'}；送審後由中心審核。
+                {isObserver ? '需繳交切結書' : '需繳交經歷說明書與切結書'}；上傳齊全後系統將自動送審，由中心審核。
               </span>
             </>
           )}
