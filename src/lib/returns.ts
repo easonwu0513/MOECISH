@@ -177,10 +177,20 @@ export async function getOpenReturns(opts: {
       g.reportIds.push(r.id);
       byCycle.set(r.cycleId, g);
     }
-    const openReportIds = [...byCycle.values()].filter((g) => !g.anySubmitted).flatMap((g) => g.reportIds);
+    const openCycles = [...byCycle.entries()].filter(([, g]) => !g.anySubmitted);
+    const openReportIds = openCycles.flatMap(([, g]) => g.reportIds);
+    const openCycleIds = openCycles.map(([cid]) => cid);
     if (openReportIds.length > 0) {
+      // UAT 圖77:退回改為「整組」動作後,軌跡以 AuditCycle/cycleId 定址(掃描檔可被刪,
+      // 以 report id 定址的事件會消失);同時相容改版前以 SignedReport/report.id 記錄的歷史軌跡。
       const logs = await prisma.auditLog.findMany({
-        where: { action: 'SIGNED_REPORT_RETURN', entityType: 'SignedReport', entityId: { in: openReportIds } },
+        where: {
+          action: 'SIGNED_REPORT_RETURN',
+          OR: [
+            { entityType: 'SignedReport', entityId: { in: openReportIds } },
+            { entityType: 'AuditCycle', entityId: { in: openCycleIds } },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
         select: { entityId: true, createdAt: true },
       });
@@ -188,7 +198,8 @@ export async function getOpenReturns(opts: {
       const latestByCycle = new Map<string, Date>();
       const reportToCycle = new Map(reports.map((r) => [r.id, r.cycleId]));
       for (const l of logs) {
-        const cid = reportToCycle.get(l.entityId);
+        // entityId 可能是 report id(舊格式)或 cycle id(新格式)
+        const cid = reportToCycle.get(l.entityId) ?? (byCycle.has(l.entityId) ? l.entityId : null);
         if (cid && !latestByCycle.has(cid)) latestByCycle.set(cid, l.createdAt);
       }
       for (const [cid, when] of latestByCycle) {

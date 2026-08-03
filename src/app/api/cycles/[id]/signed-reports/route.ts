@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { assertCycleAccess } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
-import { saveBuffer } from '@/lib/storage';
+import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
 import { notifyCycleSignedReportSubmitted, orgAdminWhere } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
@@ -104,8 +104,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await writeAuditLog({
       actorId: user.id,
       action: 'SIGNED_REPORT_UPLOAD',
-      entityType: 'SignedReport',
-      entityId: item.id,
+      // 以 AuditCycle/cycleId 定址(比照批67 佐證):掃描檔日後被刪,上傳事件仍留在活動流
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
       after: { fileName: item.fileName, sha256: item.sha256 },
       ...meta,
     });
@@ -117,23 +118,35 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 
 /**
- * action=submit → 機關管理員「確認繳交」:鎖定此掃描檔為正式繳交版本 + 通知中心(email + 站內)
- * action=return → 最高管理員退回:解除鎖定,讓機關可重新上傳/繳交(站內通知機關)
- * action=confirm(預設)→ 最高管理員確認(結案前置條件),須機關已確認繳交
+ * 用印掃描檔的繳交/退回/確認——UAT 圖77 起改為「整組」語意:
+ * 一份用印改善報告可能分成多個掃描檔(頁數多、或受單檔 20MB 上限所限),故三個動作皆以
+ * 「本週期全部掃描檔」為單位。原本以單一 reportId 操作,繳交其中一份就把其餘永遠鎖在
+ * 「未繳交」且無法補繳(可上傳多份卻只能繳一份=語意矛盾)。
+ *   action=submit → 機關管理員「確認繳交」:把尚未繳交的掃描檔整組鎖定 + 通知中心
+ *   action=return → 最高管理員退回:整組解除鎖定,機關可增刪重傳後再繳交
+ *   action=confirm(預設)→ 最高管理員確認(結案前置),把已繳交者整組標記確認
+ * reportId 參數已不需要(仍相容舊請求,忽略之);單檔刪除改走 DELETE。
  */
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, cycle } = await assertCycleAccess(params.id);
     const url = new URL(req.url);
-    const reportId = url.searchParams.get('reportId') ?? '';
     const action = url.searchParams.get('action') ?? 'confirm';
-    if (!reportId) return NextResponse.json({ error: '請求參數不完整，請重新整理後再試' }, { status: 400 });
-
-    // 只操作本週期下的掃描檔,避免跨週期竄改
-    const report = await prisma.signedReport.findUnique({ where: { id: reportId } });
-    if (!report || report.cycleId !== cycle.id) {
-      return NextResponse.json({ error: '找不到用印掃描檔' }, { status: 404 });
+    // 用印掃描檔僅中心/機關經手:角色閘前置,避免委員/觀察員由「查無/無權」錯誤差異探知檔案是否存在(同 GET :27)
+    if (user.role !== 'SUPER_ADMIN' && user.role !== 'ORG_ADMIN') {
+      return NextResponse.json({ error: '用印掃描檔僅機關與中心可操作' }, { status: 403 });
     }
+
+    const reports = await prisma.signedReport.findMany({
+      where: { cycleId: cycle.id },
+      orderBy: { uploadedAt: 'asc' },
+    });
+    if (reports.length === 0) {
+      return NextResponse.json({ error: '本週期尚未上傳用印掃描檔' }, { status: 404 });
+    }
+    // 通知/軌跡用的整組摘要(首檔名 + 份數)
+    const summary = (list: typeof reports) =>
+      `${list[0]?.fileName ?? ''}${list.length > 1 ? ` 等 ${list.length} 份` : ''}`;
 
     if (action === 'submit') {
       if (user.role !== 'ORG_ADMIN') {
@@ -145,53 +158,36 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (cycle.status !== 'REMEDIATION') {
         return NextResponse.json({ error: '用印掃描檔於「矯正執行」階段方可上傳' }, { status: 400 });
       }
-      if (report.submittedAt) {
-        return NextResponse.json({ error: '此掃描檔已確認繳交，不需重複繳交' }, { status: 409 });
-      }
-      // 一份週期只留一個正式繳交版本。用可序列化交易讓「檢查其他鎖定版本 + 標記繳交」原子化,
-      // 避免兩份草稿同時繳交造成雙鎖定版本(count-then-update race)。
-      let outcome;
-      try {
-        outcome = await prisma.$transaction(
-          async (tx) => {
-            const otherLocked = await tx.signedReport.count({
-              where: {
-                cycleId: cycle.id,
-                id: { not: reportId },
-                OR: [{ submittedAt: { not: null } }, { confirmedAt: { not: null } }],
-              },
-            });
-            if (otherLocked > 0) return { conflict: true as const, item: null };
-            const updated = await tx.signedReport.update({
-              where: { id: reportId },
-              data: { submittedById: user.id, submittedAt: new Date() },
-            });
-            return { conflict: false as const, item: updated };
-          },
-          { isolationLevel: 'Serializable' },
-        );
-      } catch (e) {
-        // 兩筆繳交同時競爭時其中一筆會序列化失敗(P2034)→ 轉為 409 請重試
-        if ((e as { code?: string }).code === 'P2034') {
-          return NextResponse.json({ error: '系統忙碌，請稍後再試' }, { status: 409 });
-        }
-        throw e;
-      }
-      if (outcome.conflict) {
+      if (reports.some((r) => r.confirmedAt)) {
         return NextResponse.json(
-          { error: '已有繳交版本，不可重複繳交；如需更換請聯繫中心退回' },
+          { error: '已有經中心確認的版本，不可再繳交；如需更換請聯繫中心退回' },
           { status: 409 },
         );
       }
-      const item = outcome.item;
+      const pending = reports.filter((r) => !r.submittedAt);
+      if (pending.length === 0) {
+        return NextResponse.json({ error: '掃描檔已全部確認繳交，不需重複繳交' }, { status: 409 });
+      }
+      // 單一 updateMany 即原子操作(where 帶 submittedAt: null),不需可序列化交易:
+      // 併發重複按只有一次會命中未繳交列,另一次影響 0 列。
+      const { count } = await prisma.signedReport.updateMany({
+        where: { cycleId: cycle.id, submittedAt: null },
+        data: { submittedById: user.id, submittedAt: new Date() },
+      });
+      // 併發重按:後到者命中 0 列 → 不重複寫軌跡、不重複寄信(以實際影響列數為準,非前面的讀取快照)
+      if (count === 0) {
+        return NextResponse.json({ error: '掃描檔已全部確認繳交，不需重複繳交' }, { status: 409 });
+      }
 
       const meta = extractRequestMeta(req);
       await writeAuditLog({
         actorId: user.id,
         action: 'SIGNED_REPORT_SUBMIT',
-        entityType: 'SignedReport',
-        entityId: item.id,
-        after: { fileName: item.fileName },
+        // 以 AuditCycle/cycleId 定址(比照批67 佐證作法):整組動作無單一檔案主體,
+        // 且掃描檔日後被刪不致讓活動流事件消失。
+        entityType: 'AuditCycle',
+        entityId: cycle.id,
+        after: { fileNames: pending.map((r) => r.fileName), count: pending.length },
         ...meta,
       });
 
@@ -199,36 +195,40 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       await notifyCycleSignedReportSubmitted({
         cycleId: cycle.id,
         submittedByName: user.name,
-        fileName: item.fileName,
+        fileName: summary(pending),
         appBaseUrl: appBaseUrl(req),
       }).catch((e) => console.error('[signed-report] notify failed:', (e as Error).message));
 
-      return NextResponse.json({ item });
+      return NextResponse.json({ submitted: pending.length });
     }
 
     if (action === 'return') {
-      // 中心退回:解除鎖定,讓機關可重新上傳/繳交正確版本(這是各處提示「聯繫中心退回」的實際入口)
+      // 中心退回:整組解除鎖定,讓機關重新整理版本(這是各處提示「聯繫中心退回」的實際入口)
       if (user.role !== 'SUPER_ADMIN') {
         return NextResponse.json({ error: '僅最高管理員可退回用印掃描檔' }, { status: 403 });
       }
       if (cycle.status === 'CLOSED') {
         return NextResponse.json({ error: '週期已結案，不可退回' }, { status: 409 });
       }
-      if (!report.submittedAt && !report.confirmedAt) {
-        return NextResponse.json({ error: '此掃描檔尚未繳交，無須退回' }, { status: 409 });
+      const locked = reports.filter((r) => r.submittedAt || r.confirmedAt);
+      if (locked.length === 0) {
+        return NextResponse.json({ error: '掃描檔尚未繳交，無須退回' }, { status: 409 });
       }
-      const item = await prisma.signedReport.update({
-        where: { id: reportId },
+      const { count } = await prisma.signedReport.updateMany({
+        where: { cycleId: cycle.id, OR: [{ submittedAt: { not: null } }, { confirmedAt: { not: null } }] },
         data: { submittedById: null, submittedAt: null, confirmedById: null, confirmedAt: null },
       });
+      if (count === 0) {
+        return NextResponse.json({ error: '掃描檔尚未繳交，無須退回' }, { status: 409 });
+      }
 
       const meta = extractRequestMeta(req);
       await writeAuditLog({
         actorId: user.id,
         action: 'SIGNED_REPORT_RETURN',
-        entityType: 'SignedReport',
-        entityId: item.id,
-        after: { fileName: item.fileName },
+        entityType: 'AuditCycle',
+        entityId: cycle.id,
+        after: { fileNames: locked.map((r) => r.fileName), count: locked.length },
         ...meta,
       });
 
@@ -253,35 +253,101 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         console.error('[signed-report] return notify failed:', (e as Error).message);
       }
 
-      return NextResponse.json({ item });
+      return NextResponse.json({ returned: locked.length });
     }
 
-    // action === 'confirm':最高管理員確認(結案前置),須機關已確認繳交
+    // action === 'confirm':最高管理員確認(結案前置),須機關已確認繳交;整組一次確認
     if (user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: '僅最高管理員可確認' }, { status: 403 });
     }
     if (cycle.status !== 'REMEDIATION' && cycle.status !== 'CLOSED') {
       return NextResponse.json({ error: '尚未進入矯正執行階段，無法確認' }, { status: 400 });
     }
-    if (!report.submittedAt) {
+    if (!reports.some((r) => r.submittedAt)) {
       return NextResponse.json({ error: '機關尚未確認繳交，無法確認' }, { status: 409 });
     }
+    const toConfirm = reports.filter((r) => r.submittedAt && !r.confirmedAt);
+    if (toConfirm.length === 0) {
+      return NextResponse.json({ error: '掃描檔已全部確認' }, { status: 409 });
+    }
 
-    const item = await prisma.signedReport.update({
-      where: { id: reportId },
+    const { count } = await prisma.signedReport.updateMany({
+      where: { cycleId: cycle.id, submittedAt: { not: null }, confirmedAt: null },
       data: { confirmedById: user.id, confirmedAt: new Date() },
     });
+    if (count === 0) {
+      return NextResponse.json({ error: '掃描檔已全部確認' }, { status: 409 });
+    }
 
     const meta = extractRequestMeta(req);
     await writeAuditLog({
       actorId: user.id,
       action: 'SIGNED_REPORT_CONFIRM',
-      entityType: 'SignedReport',
-      entityId: item.id,
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
+      after: { fileNames: toConfirm.map((r) => r.fileName), count: toConfirm.length },
       ...meta,
     });
 
-    return NextResponse.json({ item });
+    return NextResponse.json({ confirmed: toConfirm.length });
+  } catch (e) {
+    return errorResponse(e);
+  }
+}
+
+/**
+ * 刪除尚未繳交的用印掃描檔(僅機關管理員;UAT 圖77)。
+ * 整組繳交語意下,誤傳的檔案必須能移除,否則會被連帶繳交進正式版本。
+ * 已繳交/已確認者不可刪(須先由中心退回),週期結案後亦不可刪。
+ */
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const { user, cycle } = await assertCycleAccess(params.id);
+    if (user.role !== 'ORG_ADMIN') {
+      return NextResponse.json({ error: '僅機關管理員可刪除用印掃描檔' }, { status: 403 });
+    }
+    const reportId = new URL(req.url).searchParams.get('reportId') ?? '';
+    if (!reportId) return NextResponse.json({ error: '請求參數不完整，請重新整理後再試' }, { status: 400 });
+
+    const report = await prisma.signedReport.findUnique({ where: { id: reportId } });
+    if (!report || report.cycleId !== cycle.id) {
+      return NextResponse.json({ error: '找不到用印掃描檔' }, { status: 404 });
+    }
+    if (cycle.status === 'CLOSED') {
+      return NextResponse.json({ error: '週期已結案，不可刪除' }, { status: 409 });
+    }
+    if (report.submittedAt || report.confirmedAt) {
+      return NextResponse.json(
+        { error: '此掃描檔已確認繳交，不可刪除；如需更換請聯繫中心退回' },
+        { status: 409 },
+      );
+    }
+
+    // 條件式刪除(對抗審查):read-then-delete 之間該檔可能剛被繳交/確認,謂詞隨 deleteMany 重帶
+    const { count } = await prisma.signedReport.deleteMany({
+      where: { id: reportId, cycleId: cycle.id, submittedAt: null, confirmedAt: null },
+    });
+    if (count === 0) {
+      return NextResponse.json(
+        { error: '此掃描檔已確認繳交，不可刪除；如需更換請聯繫中心退回' },
+        { status: 409 },
+      );
+    }
+    // 實體檔清除失敗不擋(DB 已無參照),但要留下運維可見的軌跡
+    await deleteFileByKey(report.fileKey).catch((e) =>
+      console.error('[signed-report] file delete failed:', report.fileKey, (e as Error).message),
+    );
+
+    await writeAuditLog({
+      actorId: user.id,
+      action: 'SIGNED_REPORT_DELETE',
+      entityType: 'AuditCycle',
+      entityId: cycle.id,
+      after: { fileName: report.fileName },
+      ...extractRequestMeta(req),
+    });
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);
   }

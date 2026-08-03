@@ -38,6 +38,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   SIGNED_REPORT_SUBMIT: '確認繳交用印掃描檔',
   SIGNED_REPORT_CONFIRM: '確認了用印掃描檔',
   SIGNED_REPORT_RETURN: '退回了用印掃描檔',
+  SIGNED_REPORT_DELETE: '刪除了未繳交的用印掃描檔',
 };
 
 export type CycleActivity = { id: string; who: string; what: string; at: Date };
