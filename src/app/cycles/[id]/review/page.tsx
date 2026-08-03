@@ -14,11 +14,11 @@ import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPag
 import { filterOwnComments } from '@/lib/auditor-visibility';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
-import { AuditBasisPanel } from '@/components/checklist/LawBasis';
 import { AnswerNoteWithLaw } from '@/components/checklist/AnswerNoteWithLaw';
 import { NoteBox } from '@/components/cycle/NoteBox';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
+import { CommentWorkbench } from './CommentWorkbench';
 import ReviewNote from './ReviewNote';
 import ObserverCommentSection from './ObserverCommentSection';
 import SaveAllReviewNotes from './SaveAllReviewNotes';
@@ -394,33 +394,29 @@ export default async function ReviewPage({
                           </div>
                         )}
 
-                        {/* UAT:委員意見編輯框與稽核依據並排(寬螢幕左右各半、窄螢幕上下堆疊)——
-                            撰寫意見時法條逐字條文就在同一視野,不必上下捲動或切換面板。
+                        {/* UAT 圖78:意見工作台(CommentWorkbench)——編輯框與稽核依據同盒,比照作答盒的
+                            收合設計(版面工整勻稱);稽核依據預設收合,按「新增意見」時自動展開。
                             觀察員意見(批42)比照辦理:存獨立 PracticeComment 表,僅本人/指導者/中心可見。 */}
-                        {/* 缺稽核依據的題目(auditBasis 可空)→ AuditBasisPanel 回 null,此時不開第二欄,
-                            否則 grid 仍保留兩條 1fr 軌道、意見欄被壓成半寬右半空白 */}
-                        <div className={`mt-3 grid gap-3${item.auditBasis ? ' lg:grid-cols-2 lg:items-start' : ''}`}>
-                          <div className="min-w-0">
-                            {isObserverView ? (
-                              r ? (
-                                <ObserverCommentSection
-                                  responseId={r.id}
-                                  comments={(practiceByResponse.get(r.id) ?? []).map((c) => ({
-                                    id: c.id,
-                                    content: c.content,
-                                    timeLabel: fmtROCDateTime(c.createdAt),
-                                  }))}
-                                />
-                              ) : (
-                                <p className="text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
-                              )
-                            ) : r ? (
-                              <CommentForm responseId={r.id} />
+                        <div className="mt-3">
+                          {isObserverView ? (
+                            r ? (
+                              <ObserverCommentSection
+                                responseId={r.id}
+                                auditBasis={item.auditBasis}
+                                comments={(practiceByResponse.get(r.id) ?? []).map((c) => ({
+                                  id: c.id,
+                                  content: c.content,
+                                  timeLabel: fmtROCDateTime(c.createdAt),
+                                }))}
+                              />
                             ) : (
-                              <p className="text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
-                            )}
-                          </div>
-                          <AuditBasisPanel auditBasis={item.auditBasis} className="min-w-0" />
+                              <CommentWorkbench label="觀察員意見（練習）" auditBasis={item.auditBasis} emptyHint="（填報人尚未作答，暫無法留言）" />
+                            )
+                          ) : r ? (
+                            <CommentForm responseId={r.id} auditBasis={item.auditBasis} />
+                          ) : (
+                            <CommentWorkbench label="委員意見" auditBasis={item.auditBasis} emptyHint="（填報人尚未作答，暫無法留言）" />
+                          )}
                         </div>
                       </div>
                     </div>

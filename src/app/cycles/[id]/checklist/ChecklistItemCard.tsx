@@ -306,7 +306,7 @@ export default function ChecklistItemCard({
           {userRole === 'AUDITOR' &&
             (response ? (
               <div className="pt-1">
-                <CommentForm responseId={response.id} />
+                <CommentForm responseId={response.id} auditBasis={item.auditBasis} />
               </div>
             ) : (
               <p className="text-caption text-ink-500">（機關尚未作答，暫無法留言）</p>
