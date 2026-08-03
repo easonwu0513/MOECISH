@@ -17,7 +17,10 @@ import {
   SURVEY_AVAILABILITY_STATUSES,
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_TRANSPORT_OPTIONS,
+  SURVEY_TRANSIT_MODES,
+  TRANSIT_PREFIX,
   SURVEY_DIET_OPTIONS,
+  surveyTemplateSlotLabel,
   type SurveyAvailabilityStatus,
   type SurveyDocStatus,
 } from '@/lib/types';
@@ -39,9 +42,16 @@ export type SelfDTO = {
   email: string | null;
   phone2: string | null; // 次要聯絡電話
   email2: string | null; // 次要聯絡信箱
+  proxyName: string | null; // 代理聯絡人姓名/職稱(如「王小明/秘書」)
+  proxyEmail: string | null; // 代理聯絡人信箱(null=無代理)
+  proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: string | null;
   // UAT 填報時窗:canEditAvailability=false 時鎖定意願編修/送出並顯示時窗說明
+  contactIncomplete: boolean; // UAT 圖29:主要聯絡(信箱+電話)未填寫完整
   canEditAvailability: boolean;
+  canUploadDocs: boolean; // UAT 圖7:文件上傳與意願共用第一時窗
+  canEditTravel: boolean; // UAT 圖7:差旅(交通/飲食)走第二時窗
+  travelWindow: { openAt: string | null; closeAt: string | null; state: 'OPEN' | 'BEFORE' | 'AFTER' } | null;
   editUnlocked: boolean;
   fillWindow: { openAt: string | null; closeAt: string | null; state: 'OPEN' | 'BEFORE' | 'AFTER' } | null;
   docStatus: string;
@@ -50,6 +60,8 @@ export type SelfDTO = {
   cvFile: { id: string; name: string } | null;
   ndaFile: { id: string; name: string } | null;
   priorCvFile: { id: string; name: string } | null; // 中心提供的舊版經歷說明書參考(僅委員;供參考)
+  receiptEnabled: boolean; // UAT 圖30:本年度是否開放觀察員填寫差旅費領據
+  receiptFile: { id: string; name: string } | null; // 觀察員已上傳的領據
   templates: SelfTemplateDTO[];
   transport: string[];
   diet: string[];
@@ -57,6 +69,8 @@ export type SelfDTO = {
   // #5:中心開放受調者自行填寫的自訂欄位(selfEditable);dueDate 供本人參考,逾期由 timer 催辦
   customFields: { id: string; title: string; dueDate: string | null; value: string }[];
   assignedLabels: string[]; // 已指派的最終場次(含真實地名,指派後揭露)
+  // UAT 圖14:逐場次差旅——交通(含住宿)依場次各填;needsTravel=false(線上)場次免填
+  assignedSessions: { sessionId: string; label: string; needsTravel: boolean; transport: string[] }[];
   sessions: SelfSessionDTO[];
 };
 
@@ -70,6 +84,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [email2, setEmail2] = useState(data.email2 ?? '');
   const [phone2, setPhone2] = useState(data.phone2 ?? '');
   const [showSecondary, setShowSecondary] = useState(!!(data.email2 || data.phone2));
+  const [proxyName, setProxyName] = useState(data.proxyName ?? '');
+  const [proxyEmail, setProxyEmail] = useState(data.proxyEmail ?? '');
+  const [proxyPhone, setProxyPhone] = useState(data.proxyPhone ?? '');
+  const [hasProxy, setHasProxy] = useState(!!(data.proxyName || data.proxyEmail || data.proxyPhone));
   const [statuses, setStatuses] = useState<Record<string, SurveyAvailabilityStatus | null>>(
     Object.fromEntries(data.sessions.map((s) => [s.id, s.status])),
   );
@@ -77,10 +95,13 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const [submitting, setSubmitting] = useState(false);
   const [busySession, setBusySession] = useState<string | null>(null);
   // 文件繳交
-  const [uploadingSlot, setUploadingSlot] = useState<'CV' | 'NDA' | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<'CV' | 'NDA' | 'RECEIPT' | null>(null);
   const [submittingDocs, setSubmittingDocs] = useState(false);
   // 差旅二階(樂觀 local state)
-  const [transport, setTransport] = useState<string[]>(data.transport);
+  // UAT 圖14:交通逐場次(Record<sessionId, string[]>);飲食全場次一致
+  const [sessionTransports, setSessionTransports] = useState<Record<string, string[]>>(
+    Object.fromEntries(data.assignedSessions.map((a) => [a.sessionId, a.transport])),
+  );
   const [diet, setDiet] = useState<string[]>(data.diet);
   const [travelNote, setTravelNote] = useState(data.travelNote ?? '');
   const [savingTravel, setSavingTravel] = useState(false);
@@ -90,8 +111,12 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
   const isAssigned = data.assignedLabels.length > 0;
   const docStatus = data.docStatus as SurveyDocStatus;
   const docLocked = docStatus === 'SUBMITTED'; // 送審後鎖上傳(待中心審核/退補)
+  const docsWindowLocked = !data.canUploadDocs; // UAT 圖7:文件上傳逾第一時窗鎖定(editUnlocked 豁免已算入)
 
   async function saveContact() {
+    // UAT 圖21:主要聯絡方式必填(信箱+電話);後端同步強制
+    if (!email.trim()) { toast.error('請填寫主要電子郵件'); return; }
+    if (!phone.trim()) { toast.error('請填寫主要聯絡電話'); return; }
     setSavingContact(true);
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}`, {
       method: 'PATCH',
@@ -101,6 +126,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         email: email.trim() || null,
         phone2: phone2.trim() || null,
         email2: email2.trim() || null,
+        // 取消勾選「有代理聯絡人」時送 null 清除,避免殘留舊代理個資
+        proxyName: hasProxy ? proxyName.trim() || null : null,
+        proxyEmail: hasProxy ? proxyEmail.trim() || null : null,
+        proxyPhone: hasProxy ? proxyPhone.trim() || null : null,
       }),
     });
     setSavingContact(false);
@@ -147,11 +176,18 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
       toast.error('送出失敗', j.error);
       return;
     }
-    toast.success('已送出意願', '於開放期間內仍可修改後再送出。');
+    // P1:補填開放為一次性(圖52)——本次若消耗掉開放,不可再說「仍可修改」
+    const sj = await res.json().catch(() => ({}) as { unlockConsumed?: boolean });
+    toast.success(
+      '已送出意願',
+      sj.unlockConsumed
+        ? '本次補填開放已使用完畢，內容已鎖定；如需再修改請聯絡中心重新開放。'
+        : '於開放期間內仍可修改後再送出。',
+    );
     router.refresh();
   }
 
-  async function uploadDoc(slot: 'CV' | 'NDA', e: React.ChangeEvent<HTMLInputElement>) {
+  async function uploadDoc(slot: 'CV' | 'NDA' | 'RECEIPT', e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -170,7 +206,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
       toast.error('上傳失敗', j.error);
       return;
     }
-    toast.success('已上傳');
+    // UAT 圖72:必備文件齊全即自動送審——提示對齊實際狀態,不再要求另按送審
+    const uj = await res.json().catch(() => ({}) as { autoSubmitted?: boolean });
+    if (uj.autoSubmitted) toast.success('文件已上傳並自動送審', '已送交中心審核；如需修改請待退補後再上傳。');
+    else toast.success('已上傳');
     router.refresh();
   }
 
@@ -187,7 +226,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     router.refresh();
   }
 
-  async function putTravel(patch: { transport?: string[]; diet?: string[]; travelNote?: string | null }, silent = false) {
+  async function putTravel(
+    patch: { sessionTransport?: { sessionId: string; transport: string[] }; diet?: string[]; travelNote?: string | null },
+    silent = false,
+  ) {
     const res = await fetch(`/api/pre-survey/participants/${data.participantId}/travel`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -202,22 +244,46 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
     return true;
   }
 
-  async function toggleMulti(kind: 'transport' | 'diet', value: string) {
-    const cur = kind === 'transport' ? transport : diet;
-    const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
-    if (kind === 'transport') setTransport(next);
-    else setDiet(next); // 樂觀
+  // UAT 圖14/20:交通逐場次整組替換(picker 內含大眾運輸複合 token 邏輯);失敗顯式回滾本地 state
+  async function replaceSessionTransport(sessionId: string, next: string[]) {
+    const cur = sessionTransports[sessionId] ?? [];
+    setSessionTransports((prev) => ({ ...prev, [sessionId]: next })); // 樂觀
     setTravelBusy(true);
-    const ok = await putTravel({ [kind]: next }, true);
+    const ok = await putTravel({ sessionTransport: { sessionId, transport: next } }, true);
     setTravelBusy(false);
-    if (!ok) {
-      // 顯式回滾本地 state(router.refresh 不會重置 useState;失敗不可讓 pill 停在錯誤選取)
-      if (kind === 'transport') setTransport(cur);
-      else setDiet(cur);
+    if (!ok) setSessionTransports((prev) => ({ ...prev, [sessionId]: cur }));
+  }
+
+  async function toggleDiet(value: string) {
+    const cur = diet;
+    let next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value];
+    // UAT 圖64:葷/素互斥——點選其一自動取消另一;伺服器端另有硬擋
+    if (!cur.includes(value) && (value === '葷' || value === '素')) {
+      next = next.filter((v) => v === value || (v !== '葷' && v !== '素'));
     }
+    // P2:「素」已排除所有葷食項目,再並選忌口項是冗餘且自相矛盾的組合(訂餐端會收到矛盾資訊)
+    if (value === '素' && !cur.includes('素')) next = ['素'];
+    if (next.includes('素') && value !== '素') next = next.filter((v) => v === '素');
+    setDiet(next); // 樂觀
+    setTravelBusy(true);
+    const ok = await putTravel({ diet: next }, true);
+    setTravelBusy(false);
+    if (!ok) setDiet(cur); // 顯式回滾(router.refresh 不會重置 useState)
   }
 
   async function saveTravelNote() {
+    // UAT 圖70:未完成差旅與飲食就按儲存 → 擋下要求補齊(不再空白也跳「已儲存」)
+    const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+    if (travelSessions.length > 0) {
+      const missingTransport = travelSessions.filter((a) => (sessionTransports[a.sessionId] ?? []).length === 0);
+      if (missingTransport.length > 0 || diet.length === 0) {
+        const parts: string[] = [];
+        if (missingTransport.length > 0) parts.push(`請選擇 ${missingTransport.map((a) => a.label).join('、')} 的往返交通方式`);
+        if (diet.length === 0) parts.push('請選擇飲食需求');
+        toast.error('差旅與飲食調查尚未完成', `${parts.join('；')}。`);
+        return;
+      }
+    }
     setSavingTravel(true);
     await putTravel({ travelNote: travelNote.trim() || null });
     setSavingTravel(false);
@@ -239,13 +305,14 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
         </Card>
       )}
 
-      {/* 聯絡資訊(主要信箱預設代入帳號;可另加次要聯絡) */}
+      {/* 聯絡資訊(主要信箱預設代入帳號;可另加次要聯絡;UAT 圖44:納入第一時窗,逾窗鎖定並註明截止時間) */}
       <Card variant="outlined">
         <h3 className="text-label text-ink-900 mb-1">聯絡資訊</h3>
         <p className="text-caption text-ink-500 mb-3">主要電子郵件已預先代入您的帳號信箱；如需以其他信箱、電話聯繫，可修改或新增次要聯絡。</p>
+        <fieldset disabled={docsWindowLocked} className={docsWindowLocked ? 'opacity-60' : undefined}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="電子郵件（主要）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
-          <TextField label="聯絡電話（主要）" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <TextField label="電子郵件（主要，必填）" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="用於場次調查聯繫" />
+          <TextField label="聯絡電話（主要，必填）" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="必填" />
         </div>
         {showSecondary ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -261,10 +328,51 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             ＋ 新增次要聯絡信箱／電話
           </button>
         )}
+        {/* 代理聯絡人(UAT):勾選展開;取消勾選並儲存即清除 */}
+        <label className="mt-3 flex items-center gap-2.5 cursor-pointer text-body-sm text-ink-900">
+          <input
+            type="checkbox"
+            className="accent-primary-600"
+            checked={hasProxy}
+            onChange={(e) => setHasProxy(e.target.checked)}
+          />
+          有代理聯絡人（由他人代為聯絡時勾選）
+        </label>
+        {hasProxy && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <TextField
+              label="代理人姓名/職稱"
+              value={proxyName}
+              onChange={(e) => setProxyName(e.target.value)}
+              placeholder="如：王小明/秘書"
+            />
+            <TextField
+              label="代理聯絡人電子郵件"
+              value={proxyEmail}
+              onChange={(e) => setProxyEmail(e.target.value)}
+              placeholder="代理聯絡人的信箱"
+            />
+            <TextField
+              label="代理聯絡人電話"
+              value={proxyPhone}
+              onChange={(e) => setProxyPhone(e.target.value)}
+              placeholder="代理聯絡人的電話"
+            />
+          </div>
+        )}
+        </fieldset>
         <div className="mt-3">
-          <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>
-            儲存聯絡資訊
-          </Button>
+          {docsWindowLocked ? (
+            <p className="text-caption text-ink-500">
+              {data.fillWindow?.state === 'BEFORE'
+                ? `聯絡資訊填寫尚未開始${data.fillWindow.openAt ? `（開放時間：${fmtROCDateTime(data.fillWindow.openAt)} 起）` : ''}。`
+                : `聯絡資訊填寫已截止${data.fillWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.fillWindow.closeAt)}）` : ''}。如需更改，請聯絡中心開放。`}
+            </p>
+          ) : (
+            <Button size="sm" variant="tonal" onClick={saveContact} loading={savingContact} disabled={savingContact}>
+              儲存聯絡資訊
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -292,7 +400,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
         {/* 下載公版範本 */}
         <div className="mb-4">
-          <p className="text-caption text-ink-500 mb-2">下載公版範本</p>
+          <p className="text-caption text-ink-500 mb-2">下載待填文件</p>
           {data.templates.length === 0 ? (
             <p className="text-caption text-ink-400">中心尚未提供公版範本。</p>
           ) : (
@@ -304,10 +412,10 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                       href={`/api/pre-survey/files/${t.fileId}/download`}
                       className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-primary-700 hover:bg-paper-sunk focus-ring"
                     >
-                      <Paperclip size={13} /> {t.label}
+                      <Paperclip size={13} /> {surveyTemplateSlotLabel(t.slot, data.yearROC)}
                     </a>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-ink-400">{t.label}（無檔案）</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-rule bg-card px-3 py-1.5 text-caption text-ink-400">{surveyTemplateSlotLabel(t.slot, data.yearROC)}（無檔案）</span>
                   )}
                 </li>
               ))}
@@ -315,16 +423,19 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           )}
         </div>
 
-        {/* 中心提供的舊版經歷說明書參考(僅委員) */}
+        {/* 中心提供的舊版經歷說明書參考(僅委員;UAT 圖19:加「歷史文件參考」小標,前綴動態去年度全銜) */}
         {!isObserver && data.priorCvFile && (
-          <div className="mb-4 flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
-            <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
-            <p className="text-caption text-ink-700">
-              中心提供您的舊版經歷說明書供參考：
-              <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
-                {data.priorCvFile.name}
-              </a>
-            </p>
+          <div className="mb-4">
+            <p className="text-caption text-ink-500 mb-2">歷史文件參考</p>
+            <div className="flex items-start gap-2 rounded-md bg-primary-50/60 border border-primary-100 px-3 py-2">
+              <Paperclip size={14} className="mt-0.5 shrink-0 text-primary-700" />
+              <p className="text-caption text-ink-700">
+                {data.yearROC - 1} 年度稽核委員候選人經歷說明書：
+                <a href={`/api/pre-survey/files/${data.priorCvFile.id}/download`} className="ml-1 text-primary-700 hover:underline break-all">
+                  {data.priorCvFile.name}
+                </a>
+              </p>
+            </div>
           </div>
         )}
 
@@ -334,7 +445,7 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
             <DocSlot
               title="經歷說明書"
               file={data.cvFile}
-              locked={docLocked}
+              locked={docLocked || docsWindowLocked}
               uploading={uploadingSlot === 'CV'}
               onUpload={(e) => uploadDoc('CV', e)}
             />
@@ -342,22 +453,42 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
           <DocSlot
             title="聘任同意暨保密切結書"
             file={data.ndaFile}
-            locked={docLocked}
+            locked={docLocked || docsWindowLocked}
             uploading={uploadingSlot === 'NDA'}
             onUpload={(e) => uploadDoc('NDA', e)}
           />
+          {/* UAT 圖30/34:領據——委員常設(報支出席費/差旅費/評鑑費);觀察員依年度開關;皆不綁一階送審 */}
+          {data.receiptEnabled && (
+            <DocSlot
+              title={isObserver ? '差旅費領據' : '費用領據（出席費／差旅費／評鑑費）'}
+              file={data.receiptFile}
+              locked={false}
+              uploading={uploadingSlot === 'RECEIPT'}
+              onUpload={(e) => uploadDoc('RECEIPT', e)}
+            />
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-3">
           {docLocked ? (
-            <span className="text-caption text-ink-500">文件已送審，待中心審核；如需修改請待退補後再上傳。</span>
+            <span className="text-caption text-ink-500">
+              {data.docReviewed
+                ? '文件已核可，如需變更文件，請聯絡中心協助處理！'
+                : '文件已送審，待中心審核；如需修改請待退補後再上傳。'}
+            </span>
+          ) : docsWindowLocked ? (
+            <span className="text-caption text-ink-500">
+              {data.fillWindow?.state === 'BEFORE'
+                ? `文件上傳尚未開始${data.fillWindow.openAt ? `（開放時間：${fmtROCDateTime(data.fillWindow.openAt)} 起）` : ''}。`
+                : `文件上傳已截止${data.fillWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.fillWindow.closeAt)}）` : ''}。如需補件，請聯絡中心開放。`}
+            </span>
           ) : (
             <>
               <Button size="sm" onClick={submitDocs} loading={submittingDocs} disabled={submittingDocs}>
                 送審文件
               </Button>
               <span className="text-caption text-ink-500">
-                {isObserver ? '需繳交切結書' : '需繳交經歷說明書與切結書'}；送審後由中心審核。
+                {isObserver ? '需繳交切結書' : '需繳交經歷說明書與切結書'}；上傳齊全後系統將自動送審，由中心審核。
               </span>
             </>
           )}
@@ -387,7 +518,8 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
                     <span className="text-body-sm font-medium text-ink-900">{s.anonLabel}</span>
                     {s.isRequired && <Chip size="sm" tone="danger">必參加</Chip>}
                   </div>
-                  {s.remark && <p className="mt-0.5 text-caption text-ink-500">{s.remark}</p>}
+                  {/* UAT 圖48:備註保留管理端輸入的換行,委員/觀察員看到的段落與最高管理者一致 */}
+                  {s.remark && <p className="mt-0.5 text-caption text-ink-500 whitespace-pre-line">{s.remark}</p>}
                 </div>
                 <div className="inline-flex rounded-lg bg-paper-sunk p-1" role="group" aria-label={`${s.anonLabel} 意願`}>
                   {SURVEY_AVAILABILITY_STATUSES.map((opt) => {
@@ -420,31 +552,114 @@ export default function SurveySelfForm({ data, hideHeader }: { data: SelfDTO; hi
 
       {data.sessions.length > 0 && (
         <div className="flex items-center gap-3">
-          <Button onClick={submit} loading={submitting} disabled={submitting || !data.canEditAvailability || busySession !== null} leadingIcon={<CheckCircle size={16} />}>
+          {/* UAT 圖63:文件須先送審才可送出意願(伺服器另有硬擋) */}
+          <Button
+            onClick={submit}
+            loading={submitting}
+            disabled={submitting || !data.canEditAvailability || busySession !== null || docStatus !== 'SUBMITTED'}
+            leadingIcon={<CheckCircle size={16} />}
+          >
             {data.submittedAt ? '重新送出意願' : '送出意願'}
           </Button>
-          <span className="text-caption text-ink-500">所有場次皆須填寫 OK 或 NO 才能送出；於開放期間內送出後仍可修改再送。</span>
+          <span className="text-caption text-ink-500">
+            {docStatus !== 'SUBMITTED'
+              ? `請先於「文件繳交」上傳${isObserver ? '切結書' : '經歷說明書與切結書'}並按「送審文件」，才能送出意願。`
+              : '所有場次皆須填寫 OK 或 NO 才能送出；於開放期間內送出後仍可修改再送。'}
+          </span>
         </div>
       )}
 
-      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下) */}
-      {isAssigned ? (
+      {/* 差旅二階(指派後解鎖;UAT:置於稽核場次意願之下;圖7:另受第二時窗管制)
+          UAT 圖39:逾窗仍顯示已填內容(唯讀)——受調者看得到自己填了什麼,僅不可修改 */}
+      {isAssigned && !data.canEditTravel ? (
+        <Card variant="outlined" className="bg-paper-sunk/40">
+          <div className="flex items-start gap-2">
+            <MapPin size={18} className="mt-0.5 shrink-0 text-ink-500" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-label text-ink-700">第二階段：差旅與飲食調查</h3>
+              <p className="mt-1 text-caption text-ink-500">
+                {data.travelWindow?.state === 'BEFORE'
+                  ? `差旅調查尚未開放${data.travelWindow.openAt ? `（開放時間：${fmtROCDateTime(data.travelWindow.openAt)} 起）` : ''}。`
+                  : `差旅調查已截止${data.travelWindow?.closeAt ? `（截止時間：${fmtROCDateTime(data.travelWindow.closeAt)}）` : ''}。如需補填或變更，請聯絡中心開放。`}
+              </p>
+              {/* 已填內容唯讀呈現(UAT 圖45:依辦理日期順序單一清單,不分組) */}
+              <div className="mt-3 space-y-1.5 text-body-sm text-ink-700">
+                {data.assignedSessions.map((a) => (
+                  <p key={a.sessionId}>
+                    <span className="text-ink-500">{a.label}：</span>
+                    {a.needsTravel
+                      ? a.transport.length > 0 ? a.transport.join('、') : '未填'
+                      : '線上辦理，無需填寫交通住宿。'}
+                  </p>
+                ))}
+                <p>
+                  <span className="text-ink-500">飲食需求：</span>
+                  {data.diet.length > 0 ? data.diet.join('、') : '未填'}
+                </p>
+                {data.travelNote && (
+                  <p>
+                    <span className="text-ink-500">特殊備註：</span>
+                    {data.travelNote}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : isAssigned ? (
         <Card variant="outlined" className="border-l-[3px] border-l-success-500">
           <div className="flex items-start gap-2 mb-3">
             <MapPin size={18} className="mt-0.5 shrink-0 text-success-700" />
             <div>
               <h3 className="text-label text-ink-900">第二階段：差旅與飲食調查</h3>
               <p className="mt-1 text-body-sm text-ink-900">您被指派的最終場次：{data.assignedLabels.join('、')}</p>
+              {/* UAT 圖33/35:僅觀察員——費用自理說明 */}
+              {isObserver && (
+                <p className="mt-1 text-caption text-ink-500">本年度稽核活動須自行負擔交通及住宿費用。</p>
+              )}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MultiPills label="往返交通方式（含住宿，可複選）" options={SURVEY_TRANSPORT_OPTIONS} selected={transport} busy={travelBusy} onToggle={(v) => toggleMulti('transport', v)} />
-            <MultiPills label="飲食需求（可複選）" options={SURVEY_DIET_OPTIONS} selected={diet} busy={travelBusy} onToggle={(v) => toggleMulti('diet', v)} />
-          </div>
+          {/* UAT 圖14:交通(含住宿)逐場次填(地點不同交通不同);線上場次免填;飲食全場次一致
+              UAT 圖71:逐場次依辦理時間順序單一清單——線上場次(如說明會)依日期就地顯示說明,不再歸到中段 */}
+          {(() => {
+            const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+            return (
+              <div className="space-y-4">
+                {data.assignedSessions.map((a) =>
+                  a.needsTravel ? (
+                    <div key={a.sessionId} className="rounded-md border border-rule bg-card p-3.5">
+                      <SessionTransportPicker
+                        sessionId={a.sessionId}
+                        label={`${a.label}：往返交通方式（含住宿，可複選）`}
+                        tokens={sessionTransports[a.sessionId] ?? []}
+                        busy={travelBusy}
+                        onChange={(next) => replaceSessionTransport(a.sessionId, next)}
+                      />
+                    </div>
+                  ) : (
+                    <p key={a.sessionId} className="text-caption text-ink-500">
+                      {a.label}：線上辦理，無需填寫交通住宿。
+                    </p>
+                  ),
+                )}
+                {travelSessions.length > 0 && (
+                  <MultiPills
+                    label="飲食需求（全部場次一致；葷素擇一，選「素」即涵蓋所有忌口）"
+                    options={SURVEY_DIET_OPTIONS}
+                    selected={diet}
+                    busy={travelBusy}
+                    onToggle={(v) => toggleDiet(v)}
+                    disabledOptions={diet.includes('素') ? SURVEY_DIET_OPTIONS.filter((d) => d !== '素') : undefined}
+                  />
+                )}
+              </div>
+            );
+          })()}
           <div className="mt-4">
-            <Textarea label="特殊備註（如需協助安排停車等，請註明車號）" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
+            {/* UAT 圖53:車號已有專屬欄位(協助停車勾選展開),標籤刪去重複的括號說明 */}
+            <Textarea label="特殊備註" value={travelNote} onChange={(e) => setTravelNote(e.target.value)} rows={2} placeholder="請填寫此場次備註" />
             <div className="mt-2">
-              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存備註</Button>
+              <Button size="sm" variant="tonal" onClick={saveTravelNote} loading={savingTravel} disabled={savingTravel}>儲存</Button>
             </div>
           </div>
         </Card>
@@ -572,14 +787,151 @@ function DocSlot({
 }
 
 // ── 多選 pill(交通/飲食) ──
+/**
+ * UAT 圖20:單場次交通選擇器。基本選項為 pills(可複選);「大眾運輸」選取後展開
+ * 單選工具(高鐵/火車/客運/其他:簡述),以複合 token 存於 transport 陣列
+ * (「大眾運輸：高鐵」「大眾運輸：其他：簡述」);高鐵/非高鐵顯示不同接駁提示。
+ */
+function SessionTransportPicker({
+  sessionId, label, tokens, busy, onChange,
+}: { sessionId: string; label: string; tokens: string[]; busy: boolean; onChange: (next: string[]) => void }) {
+  // UAT 圖64:大眾運輸工具改「可複選」(委員可能客運轉高鐵等轉乘情境)——一場次可存多個複合 token
+  const transits = tokens.filter((t) => t === TRANSIT_PREFIX || t.startsWith(`${TRANSIT_PREFIX}：`));
+  const modes = transits.map((t) => t.split('：')[1]).filter(Boolean);
+  const otherToken = transits.find((t) => t.split('：')[1] === '其他') ?? null;
+  const [otherNote, setOtherNote] = useState(otherToken ? (otherToken.split('：')[2] ?? '') : '');
+  // UAT 圖23:汽車複合 token(「汽車」「汽車：協助停車」「汽車：協助停車：車號」)
+  const car = tokens.find((t) => t === '汽車' || t.startsWith('汽車：')) ?? null;
+  const carParts = (car ?? '').split('：');
+  const carAssist = carParts.length > 1;
+  const [plate, setPlate] = useState(carParts[2] ?? '');
+  // P2:舊資料可能同時存有汽車與機車(新規則互斥)→ 讀取即正規化(以汽車為準),否則按任一鍵都被伺服器擋
+  const basics = tokens.filter((t) => !transits.includes(t) && t !== car && !(car && t === '機車'));
+  const rest = [...(car ? [car] : []), ...transits];
+  const selectedPills = [...basics, ...(car ? ['汽車'] : []), ...(transits.length ? [TRANSIT_PREFIX] : [])];
+
+  function togglePill(v: string) {
+    if (v === TRANSIT_PREFIX) {
+      onChange([...basics, ...(car ? [car] : []), ...(transits.length ? [] : [TRANSIT_PREFIX])]);
+    } else if (v === '汽車') {
+      // P2:汽車 ↔ 機車 互斥(單人往返不可能同時自駕兩種;且汽車帶協助停車/車號,並選資訊矛盾)
+      onChange([...basics.filter((x) => x !== '機車'), ...(car ? [] : ['汽車']), ...transits]);
+    } else if (v === '機車') {
+      const nextBasics = basics.includes('機車') ? basics.filter((x) => x !== '機車') : [...basics, '機車'];
+      onChange([...nextBasics, ...transits]); // 選機車即取消汽車(不帶 car token)
+    } else {
+      const nextBasics = basics.includes(v) ? basics.filter((x) => x !== v) : [...basics, v];
+      onChange([...nextBasics, ...rest]);
+    }
+  }
+  // 勾/取消單一工具;全取消時保留裸「大眾運輸」占位讓面板續開
+  function toggleMode(m: string) {
+    const token =
+      m === '其他' && otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：${m}`;
+    const concrete = transits.filter((t) => t !== TRANSIT_PREFIX);
+    const next = modes.includes(m) ? concrete.filter((t) => t.split('：')[1] !== m) : [...concrete, token];
+    onChange([...basics, ...(car ? [car] : []), ...(next.length ? next : [TRANSIT_PREFIX])]);
+  }
+  function saveOtherNote() {
+    if (!modes.includes('其他')) return;
+    const token = otherNote.trim() ? `${TRANSIT_PREFIX}：其他：${otherNote.trim()}` : `${TRANSIT_PREFIX}：其他`;
+    if (token === otherToken) return;
+    const others = transits.filter((t) => t !== TRANSIT_PREFIX && t.split('：')[1] !== '其他');
+    onChange([...basics, ...(car ? [car] : []), ...others, token]);
+  }
+  function setCarAssist(checked: boolean) {
+    const token = checked
+      ? plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車'
+      : '汽車';
+    onChange([...basics, token, ...transits]);
+  }
+  function savePlate() {
+    if (!car || !carAssist) return;
+    const token = plate.trim() ? `汽車：協助停車：${plate.trim()}` : '汽車：協助停車';
+    if (token !== car) onChange([...basics, token, ...transits]);
+  }
+
+  return (
+    <div>
+      <MultiPills label={label} options={SURVEY_TRANSPORT_OPTIONS} selected={selectedPills} busy={busy} onToggle={togglePill} />
+      {car && (
+        <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+          <label className="flex items-center gap-2 text-body-sm text-ink-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={carAssist}
+              disabled={busy}
+              onChange={(e) => setCarAssist(e.target.checked)}
+              className="rounded border-rule accent-primary-600"
+            />
+            需要協助安排停車
+          </label>
+          {carAssist && (
+            <TextField
+              label="車號"
+              value={plate}
+              onChange={(e) => setPlate(e.target.value)}
+              onBlur={savePlate}
+              placeholder="如：ABC-1234"
+            />
+          )}
+        </div>
+      )}
+      {transits.length > 0 && (
+        <div className="mt-3 space-y-2 rounded-md border border-rule bg-paper-sunk/50 p-3">
+          {/* UAT 圖64:改可複選(轉乘情境,如客運轉高鐵) */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-sm text-ink-700">
+            <span className="text-ink-500">大眾運輸工具（可複選，含轉乘）：</span>
+            {SURVEY_TRANSIT_MODES.map((m) => (
+              <label key={m} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name={`transit-${sessionId}`}
+                  checked={modes.includes(m)}
+                  disabled={busy}
+                  onChange={() => toggleMode(m)}
+                  className="rounded border-rule accent-primary-600"
+                />
+                {m}
+              </label>
+            ))}
+          </div>
+          {modes.includes('其他') && (
+            <TextField
+              label="其他（請簡述）"
+              value={otherNote}
+              onChange={(e) => setOtherNote(e.target.value)}
+              onBlur={saveOtherNote}
+              placeholder="如：自行安排交通"
+            />
+          )}
+          {modes.includes('高鐵') && (
+            <p className="rounded-md border border-primary-100 bg-primary-50/70 px-3 py-2 text-caption text-primary-800">
+              ⓘ 本中心將統一安排<strong className="font-semibold">稽核當天</strong>往返高鐵站與受稽機關間之接駁
+              （<strong className="font-semibold">僅限非臺北地區</strong>之受稽機關）。
+            </p>
+          )}
+          {modes.some((m) => m === '火車' || m === '客運' || m === '其他') && (
+            <p className="rounded-md border border-warning-200 bg-warning-50 px-3 py-2 text-caption text-ink-700">
+              ⓘ 若您選擇搭乘火車、客運或其他大眾運輸工具，中心將視最終登記人數，彈性評估是否安排接駁車服務，感謝您的配合！
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MultiPills({
-  label, options, selected, busy, onToggle,
+  label, options, selected, busy, onToggle, disabledOptions,
 }: {
   label: string;
   options: readonly string[];
   selected: string[];
   busy: boolean;
   onToggle: (value: string) => void;
+  /** P2:語意上被涵蓋而不可並選者(如選「素」後的各忌口項)——停用而非無聲失效 */
+  disabledOptions?: readonly string[];
 }) {
   return (
     <div>
@@ -587,14 +939,16 @@ function MultiPills({
       <div className="flex flex-wrap gap-2">
         {options.map((opt) => {
           const on = selected.includes(opt);
+          const off = !on && !!disabledOptions?.includes(opt);
           return (
             <button
               key={opt}
               type="button"
-              disabled={busy}
+              disabled={busy || off}
+              title={off ? '選擇素食後無須再勾選其他忌口項目' : undefined}
               onClick={() => onToggle(opt)}
               aria-pressed={on}
-              className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors focus-ring ${
+              className={`px-3 py-1.5 rounded-full text-caption font-medium border transition-colors focus-ring disabled:opacity-40 ${
                 on ? 'bg-primary-600 text-white border-transparent' : 'bg-card border-rule text-ink-600 hover:bg-paper-sunk'
               }`}
             >

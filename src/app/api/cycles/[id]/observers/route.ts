@@ -11,6 +11,30 @@ import { appBaseUrl } from '@/lib/baseUrl';
 import type { CycleStatus } from '@/lib/types';
 
 /**
+ * UAT 圖61:觀察員配對池連動事前場次調查——本週期有對應調查場次(sourceCycleId)時,
+ * 只有「該場次意願 OK 或已被最終指派該場次」的觀察員可配對(避免把不能出席者配進來)。
+ * 查無對應調查場次(舊資料/未帶入)→ 不限縮,維持全池。回傳 null=不限;Set=允許之 userId。
+ */
+async function eligibleObserverIdsForCycle(cycleId: string): Promise<Set<string> | null> {
+  const session = await prisma.surveySession.findFirst({
+    where: { sourceCycleId: cycleId },
+    select: { id: true, year: true },
+  });
+  if (!session) return null;
+  const parts = await prisma.surveyParticipant.findMany({
+    where: { year: session.year, kind: 'OBSERVER' },
+    select: {
+      userId: true,
+      availabilities: { where: { sessionId: session.id, status: 'OK' }, select: { id: true } },
+      finalAssignments: { where: { sessionId: session.id }, select: { id: true } },
+    },
+  });
+  return new Set(
+    parts.filter((p) => p.availabilities.length > 0 || p.finalAssignments.length > 0).map((p) => p.userId),
+  );
+}
+
+/**
  * 觀察員配對(批30 師徒制;SUPER_ADMIN 專用):
  * - GET:本週期配對清單 + 可選觀察員池(現用身分=OBSERVER 或持有效 UserRole 觀察員授權)+ 可選指導池(=本週期已指派委員 ∪ 中心人員)
  * - POST:新增/改指導者(upsert)——mentor 必須是本週期 AuditorAssignment 中的正式委員,或中心人員(初期場次由中心帶審)
@@ -47,12 +71,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       orderBy: { name: 'asc' },
     });
     // J UAT:標記「本員為受稽機關的機關管理員」(現用身分或 ORG_ADMIN 授權)→ 前端配對前提示 COI(後端 POST 另硬擋)。roleGrants 不外傳,只回布林。
-    const observers = observerUsers.map((o) => ({
-      id: o.id,
-      name: o.name,
-      email: o.email,
-      coiOrgAdmin: !!orgId && (o.organizationId === orgId || o.roleGrants.some((g) => g.organizationId === orgId)),
-    }));
+    // UAT 圖61:連動事前場次調查——有對應調查場次時,池只列「意願 OK 或已被指派該場次」的觀察員
+    const eligibleIds = await eligibleObserverIdsForCycle(params.id);
+    const observers = observerUsers
+      .filter((o) => eligibleIds === null || eligibleIds.has(o.id))
+      .map((o) => ({
+        id: o.id,
+        name: o.name,
+        email: o.email,
+        coiOrgAdmin: !!orgId && (o.organizationId === orgId || o.roleGrants.some((g) => g.organizationId === orgId)),
+      }));
     // 指導池=本週期已指派委員 ∪ 中心人員(UAT:觀察員初期場次由中心人員帶審,第三場起才由委員;
     // 中心恆存在,亦解決開立中尚未指派委員時池空無法配對的問題)。中心人員名稱加註以資區別。
     const mentors = await prisma.auditorAssignment.findMany({
@@ -102,6 +130,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       observer && (observer.role === 'OBSERVER' || observer.roleGrants.some((g) => g.role === 'OBSERVER'));
     if (!observer || !observer.isActive || !holdsObserverIdentity) {
       return NextResponse.json({ error: '觀察員不存在或已停用（帳號須具「觀察員」身分）' }, { status: 400 });
+    }
+    // UAT 圖61(縱深,與 GET 池同規則):有對應調查場次時,非「意願 OK/已指派該場次」者不可配對
+    const eligibleIds = await eligibleObserverIdsForCycle(params.id);
+    if (eligibleIds !== null && !eligibleIds.has(body.observerId)) {
+      return NextResponse.json(
+        { error: '該觀察員於事前場次調查未對本場次表達可出席（或未被指派該場次），不可配對。' },
+        { status: 400 },
+      );
     }
     // 迴避原則(比照委員):觀察員不得觀摩自己服務之機關——含現用身分之機關,
     // 以及多重身分授權(UserRole)中持有該機關「機關管理員」授權者(利益迴避查授權全集,非只現用身分)。

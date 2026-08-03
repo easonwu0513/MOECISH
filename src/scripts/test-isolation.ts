@@ -12,6 +12,8 @@
  * 任何 FAIL 以非零退出碼結束(可掛 CI)。
  */
 import bcrypt from 'bcryptjs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import path from 'node:path';
 import { prisma } from '../lib/db';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3001';
@@ -383,6 +385,61 @@ async function main() {
   await expectStatus('B管理員 列A佐證', jarB, 'GET', eviListA, [403]);
   await expectStatus('未指派委員X 列A佐證', jarX, 'GET', eviListA, [403]);
   await expectStatus('B管理員 下載A佐證', jarB, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
+
+  // ── P0 安全批:佐證檔案閘(magic bytes 判型;PDF/圖片僅站內檢視器;Office 類唯讀角色 403)──
+  // 夾具:實體檔寫進 STORAGE_DIR(./uploads)供 readFileByKey 取用
+  const storeRoot = path.resolve(process.env.STORAGE_DIR ?? './uploads');
+  const eviDir = path.join(storeRoot, 'evidences', 'AUDIT_CYCLE', cycleA.id);
+  mkdirSync(eviDir, { recursive: true });
+  writeFileSync(path.join(eviDir, 'iso-p0.pdf'), Buffer.from('%PDF-1.4\n%isotest\n'));
+  writeFileSync(path.join(eviDir, 'iso-p0.txt'), Buffer.from('isotest office-like bytes'));
+  const eviPdf = await prisma.evidence.create({
+    data: {
+      targetType: 'AUDIT_CYCLE', targetId: cycleA.id,
+      fileName: 'iso-p0.pdf', originalName: 'iso-p0.pdf', mimeType: 'application/pdf',
+      sizeBytes: 18, storageKey: `evidences/AUDIT_CYCLE/${cycleA.id}/iso-p0.pdf`, sha256: 'isohash-pdf',
+      uploadedById: adminA.id,
+    },
+  });
+  const eviTxt = await prisma.evidence.create({
+    data: {
+      // mimeType 故意亂標 pdf:閘門須以位元組 sniff 為準,不信任 DB mimeType
+      targetType: 'AUDIT_CYCLE', targetId: cycleA.id,
+      fileName: 'iso-p0.txt', originalName: 'iso-p0.txt', mimeType: 'application/pdf',
+      sizeBytes: 25, storageKey: `evidences/AUDIT_CYCLE/${cycleA.id}/iso-p0.txt`, sha256: 'isohash-txt',
+      uploadedById: adminA.id,
+    },
+  });
+  await expectStatus('A管理員 直開 PDF 佐證(無檢視器標頭)', jarA, 'GET', `/api/evidences/${eviPdf.id}/download?inline=1`, [403]);
+  await expectStatus('委員Y 直開 PDF 佐證(無檢視器標頭)', jarY, 'GET', `/api/evidences/${eviPdf.id}/download`, [403]);
+  {
+    // 帶站內檢視器標頭 → 200 inline(以真實位元組 sniff 為 pdf)
+    const res = await fetch(`${BASE}/api/evidences/${eviPdf.id}/download`, {
+      headers: { cookie: cookieHeader(jarY), 'x-moecish-viewer': '1' },
+    });
+    const disp = res.headers.get('content-disposition') ?? '';
+    if (res.status === 200 && disp.startsWith('inline')) {
+      passCount++;
+      console.log('  [PASS] 委員Y 檢視器標頭取 PDF(200 inline)');
+    } else {
+      failures.push(`委員Y 檢視器標頭取 PDF: status=${res.status}, disp=${disp}`);
+      console.log(`  [FAIL] 委員Y 檢視器標頭取 PDF — status=${res.status}, disp=${disp}`);
+    }
+  }
+  // mimeType 偽標 pdf 但位元組是文字檔 → 不進 inline 白名單:唯讀審閱角色一律 403;機關可下載(octet-stream)
+  await expectStatus('委員Y 下載 Office 類佐證(唯讀角色拒)', jarY, 'GET', `/api/evidences/${eviTxt.id}/download`, [403]);
+  {
+    const res = await fetch(`${BASE}/api/evidences/${eviTxt.id}/download`, { headers: { cookie: cookieHeader(jarA) } });
+    const ct = res.headers.get('content-type') ?? '';
+    if (res.status === 200 && ct.includes('application/octet-stream')) {
+      passCount++;
+      console.log('  [PASS] A管理員 下載 Office 類佐證(octet-stream 供檔,不信 DB mimeType)');
+    } else {
+      failures.push(`A管理員 下載 Office 類佐證: status=${res.status}, ct=${ct}`);
+      console.log(`  [FAIL] A管理員 下載 Office 類佐證 — status=${res.status}, ct=${ct}`);
+    }
+  }
+  rmSync(eviDir, { recursive: true, force: true });
   await expectStatus('未指派委員X 下載A佐證', jarX, 'GET', `/api/evidences/${eviA.id}/download`, [403]);
   await expectStatus('匿名 列A佐證', null, 'GET', eviListA, [401]);
 
@@ -508,6 +565,37 @@ async function main() {
   await expectStatus('委員Y 逾窗填意願(時窗硬擋)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'NA' });
   await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { editUnlocked: true } });
   await expectAllowed('委員Y 經開放補填續填(editUnlocked)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, { sessionId: sShared.id, status: 'NA' });
+  // 圖41:委員與觀察員時窗分開設定——各看各的窗,互不影響
+  await prisma.surveyFillWindow.update({
+    where: { year: SURVEY_YEAR },
+    data: { closeAt: new Date(now.getTime() + 7 * 86400000), observerCloseAt: new Date(now.getTime() - 3600000) },
+  });
+  await expectAllowed('委員Z 委員窗開放可填(分窗)', jarZ, 'PUT', `/api/pre-survey/participants/${pZ.id}/availability`, { sessionId: sShared.id, status: 'OK' });
+  await expectStatus('觀察員O1 觀察員窗逾期硬擋(分窗)', jarO1, 'PUT', `/api/pre-survey/participants/${pO1.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  // 圖52:補填開放為一次性——「意願+文件皆送出」後自動收回,逾窗即鎖不能再改
+  await prisma.surveyFillWindow.update({ where: { year: SURVEY_YEAR }, data: { closeAt: new Date(now.getTime() - 3600000) } });
+  await prisma.surveyParticipant.update({
+    where: { id: pY.id },
+    data: { email: 'y-isolation@test.local', phone: '0912345678', docStatus: 'SUBMITTED', editUnlocked: true },
+  });
+  await prisma.sessionAvailability.upsert({
+    where: { participantId_sessionId: { participantId: pY.id, sessionId: sMemberOnly.id } },
+    create: { participantId: pY.id, sessionId: sMemberOnly.id, status: 'OK' },
+    update: { status: 'OK' },
+  });
+  await expectAllowed('委員Y 補填期間送出意願(unlock 有效)', jarY, 'POST', `/api/pre-survey/participants/${pY.id}/submit`);
+  await expectStatus('委員Y 送出後再改意願(補填開放已自動收回)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  // 圖55:一階/二階補填開關分離——二階開放不連動一階;二階(交通+飲食)填齊即自動收回
+  // 夾具:二階時窗(travelCloseAt)也要關,否則差旅閘因「窗開著」放行,測不到 unlock/收回(首跑踩到 200)
+  await prisma.surveyFillWindow.update({ where: { year: SURVEY_YEAR }, data: { travelCloseAt: new Date(now.getTime() - 3600000) } });
+  await prisma.surveyFinalAssignment.create({ data: { participantId: pY.id, sessionId: sShared.id, assignedById: adminA.id } });
+  await prisma.surveyParticipant.update({ where: { id: pY.id }, data: { travelEditUnlocked: true } });
+  await expectStatus('委員Y 二階開放仍不可改意願(開關分離)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/availability`, [403], { sessionId: sShared.id, status: 'OK' });
+  await expectAllowed('委員Y 二階開放可填差旅(開關分離)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/travel`, {
+    sessionTransport: { sessionId: sShared.id, transport: ['汽車'] },
+    diet: ['葷'],
+  });
+  await expectStatus('委員Y 二階填齊後自動收回(一次性)', jarY, 'PUT', `/api/pre-survey/participants/${pY.id}/travel`, [403], { diet: ['素'] });
 
   console.log('\n── 持續列管隔離(批71;路線圖#4)──');
   const tracked1 = await prisma.trackedDeficiency.create({

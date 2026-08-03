@@ -43,17 +43,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       // 驗證+設鎖包進可序列化交易,防「驗證後、鎖定前」在途的評分 PUT 把唯一完整構面改回不完整(TOCTOU)。
       try {
         await prisma.$transaction(async (tx) => {
-          const [itemGroups, myScores] = await Promise.all([
+          const [itemGroups, myScores, findingCount] = await Promise.all([
             tx.checklistItem.groupBy({
               by: ['dimension'],
               where: { versionId: cycle.checklistVersionId },
               _count: { _all: true },
             }),
             tx.practiceScore.findMany({ where: { cycleId: cycle.id, observerId: user.id } }),
+            tx.practiceFinding.count({ where: { cycleId: cycle.id, observerId: user.id } }),
           ]);
           const totalByDim = new Map(itemGroups.map((g) => [g.dimension, g._count._all]));
           if (!auditorScoringComplete([], myScores, totalByDim)) {
             throw new LockValidationError('請至少完整填寫一個構面（評分，且判定數量合計等於該構面題數）後，再送出。');
+          }
+          // P1:練習的產出主體是「稽核發現撰寫練習」——零則發現送出後,指導委員只有分數可看、
+          // 無標的可回饋(練習回饋機制即失去對象)。故至少須有一則練習發現。
+          if (findingCount === 0) {
+            throw new LockValidationError('請至少撰寫一則稽核發現練習後，再送出（指導委員將就您撰寫的發現給予回饋）。');
           }
           await tx.cycleObserver.update({ where: { id: pairing.id }, data: { practiceLockedAt: new Date() } });
         }, { isolationLevel: 'Serializable' });

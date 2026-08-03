@@ -4,9 +4,18 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { SURVEY_COMMITTEE_TYPES } from '@/lib/types';
+import { linkMemberToCycles, linkObserverToCycles } from '@/lib/pre-survey-linkage';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 const Body = z.object({
-  sessionIds: z.array(z.string().min(1)).max(50),
+  // UAT 圖28:每場次指派可帶構面(管理面/策略面/技術面/管理面-OT;說明會等免構面=null)
+  assignments: z
+    .array(z.object({ sessionId: z.string().min(1), aspect: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional() }))
+    .max(50)
+    .optional(),
+  // 舊形狀(無構面)向後相容
+  sessionIds: z.array(z.string().min(1)).max(50).optional(),
 });
 
 /**
@@ -21,11 +30,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
-      select: { id: true, year: true, kind: true },
+      select: { id: true, year: true, kind: true, userId: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
 
-    const wanted = Array.from(new Set(body.sessionIds));
+    // 統一為 [{ sessionId, aspect }](assignments 優先;sessionIds 相容=無構面);同場次去重取先者
+    const rawEntries =
+      body.assignments ?? (body.sessionIds ?? []).map((sessionId) => ({ sessionId, aspect: null as string | null }));
+    const entries = rawEntries.filter(
+      (e, i) => rawEntries.findIndex((x) => x.sessionId === e.sessionId) === i,
+    );
+    const wanted = entries.map((e) => e.sessionId);
     if (wanted.length > 0) {
       // D 防禦縱深:觀察員不得被指派到「委員專屬」場次(sharedWithObserver=false),與自助頁/達標卡排除一致。
       const where =
@@ -46,35 +62,101 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       }
     }
 
+    // UAT 圖56:迴避原則前置硬擋——場次來源週期的受稽機關若為該員服務機關(現職或有效授權),
+    // 整筆指派拒存(不再是「存了但跳過連動」;請中心取消勾選該場次)。無來源週期的場次(說明會等)不受限。
+    if (wanted.length > 0) {
+      const srcForCoi = await prisma.surveySession.findMany({
+        where: { id: { in: wanted }, sourceCycleId: { not: null } },
+        select: { id: true, name: true, sourceCycleId: true },
+      });
+      if (srcForCoi.length > 0) {
+        const [pUser, grants, coiCycles] = await Promise.all([
+          prisma.user.findUnique({ where: { id: participant.userId }, select: { organizationId: true } }),
+          prisma.userRole.findMany({
+            where: { userId: participant.userId, endedAt: null, organizationId: { not: null } },
+            select: { organizationId: true },
+          }),
+          prisma.auditCycle.findMany({
+            where: { id: { in: srcForCoi.map((s) => s.sourceCycleId as string) } },
+            select: { id: true, organizationId: true, organization: { select: { name: true, shortName: true } } },
+          }),
+        ]);
+        const servedOrgIds = new Set(
+          [pUser?.organizationId, ...grants.map((g) => g.organizationId)].filter(Boolean) as string[],
+        );
+        const cycleById = new Map(coiCycles.map((c) => [c.id, c]));
+        const conflicted = srcForCoi
+          .map((s) => ({ s, c: cycleById.get(s.sourceCycleId as string) }))
+          .filter((x) => x.c && servedOrgIds.has(x.c.organizationId));
+        if (conflicted.length > 0) {
+          const labels = conflicted
+            .map((x) => `${x.c!.organization.shortName ?? x.c!.organization.name}（場次：${x.s.name}）`)
+            .join('、');
+          return NextResponse.json(
+            { error: `依迴避原則，該員服務於受稽機關，不可指派下列場次：${labels}；請取消勾選後再儲存。` },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.surveyFinalAssignment.deleteMany({
         where: { participantId: participant.id, sessionId: { notIn: wanted.length ? wanted : ['__none__'] } },
       });
-      const existing = await tx.surveyFinalAssignment.findMany({
-        where: { participantId: participant.id },
-        select: { sessionId: true },
-      });
-      const have = new Set(existing.map((a) => a.sessionId));
-      const toAdd = wanted.filter((sid) => !have.has(sid));
-      if (toAdd.length > 0) {
-        // skipDuplicates:並發相同指派冪等,不撞 @@unique 觸發偽 409(@@unique 仍保證不產生重複指派列)
-        await tx.surveyFinalAssignment.createMany({
-          data: toAdd.map((sid) => ({ participantId: participant.id, sessionId: sid, assignedById: user.id })),
-          skipDuplicates: true,
+      // upsert 逐筆(≤50):新指派帶構面建立、既有指派更新構面(UAT 圖28);並發冪等(@@unique 保證不重複)
+      for (const e of entries) {
+        await tx.surveyFinalAssignment.upsert({
+          where: { participantId_sessionId: { participantId: participant.id, sessionId: e.sessionId } },
+          create: { participantId: participant.id, sessionId: e.sessionId, aspect: e.aspect ?? null, assignedById: user.id },
+          update: { aspect: e.aspect ?? null },
         });
       }
     });
+
+    // UAT 圖37/49:帶入場次(sourceCycleId)指派後,連動稽核週期(核心抽至 lib/pre-survey-linkage)——
+    //  - 委員:自動加入該週期「稽核委員指派」(AuditorAssignment;構面聯集)。
+    //  - 觀察員:自動加入該週期「觀察員配對」(CycleObserver;指導委員待設定,由中心至進階設定指定)。
+    //  - 僅做「加入」連動;自調查移除場次不反向移除週期指派(避免誤刪已有評分/審閱/練習紀錄)。
+    let linkedCycles: string[] = [];
+    let skippedCoi: string[] = [];
+    let skippedOther: string[] = [];
+    let observerHint = false;
+    const srcSessions = wanted.length
+      ? await prisma.surveySession.findMany({
+          where: { id: { in: wanted }, sourceCycleId: { not: null } },
+          select: { id: true, sourceCycleId: true },
+        })
+      : [];
+    if (srcSessions.length > 0) {
+      const items = srcSessions.map((s) => ({
+        cycleId: s.sourceCycleId as string,
+        aspect: entries.find((e) => e.sessionId === s.id)?.aspect ?? null,
+      }));
+      if (participant.kind === 'MEMBER') {
+        const linked = await linkMemberToCycles(participant.userId, items);
+        linkedCycles = linked.linkedCycles;
+        skippedCoi = linked.skippedCoi;
+        skippedOther = linked.skippedOther;
+      } else {
+        const linked = await linkObserverToCycles(participant.userId, items);
+        linkedCycles = linked.linkedCycles;
+        skippedCoi = linked.skippedCoi;
+        skippedOther = linked.skippedOther;
+        observerHint = linked.created > 0; // 真的新增「指導委員待設定」列才提示(補構面不跳)
+      }
+    }
 
     await writeAuditLog({
       actorId: user.id,
       action: 'SURVEY_FINAL_ASSIGN',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { sessionIds: wanted },
+      after: { assignments: entries, linkedCycles, skippedCoi, skippedOther },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, linkedCycles, skippedCoi, skippedOther, observerHint });
   } catch (e) {
     return errorResponse(e);
   }

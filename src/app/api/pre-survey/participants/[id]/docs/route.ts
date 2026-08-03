@@ -4,10 +4,11 @@ import { prisma } from '@/lib/db';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
+import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { sniffDocType } from '@/lib/pre-survey-files';
 
-const SlotSchema = z.enum(['CV', 'NDA']);
+const SlotSchema = z.enum(['CV', 'NDA', 'RECEIPT']); // RECEIPT=觀察員差旅費領據(UAT 圖30;年度開關制)
 
 /**
  * 上傳個人文件(批B):CV=經歷說明書(僅委員)、NDA=聘任同意暨保密切結書。本人或中心可傳。
@@ -17,9 +18,21 @@ const SlotSchema = z.enum(['CV', 'NDA']);
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
 
     if (!isAdmin && participant.docStatus === 'SUBMITTED') {
       return NextResponse.json({ error: '文件已送審，如需修改請待中心退補後再上傳。' }, { status: 400 });
+    }
+
+    // UAT 圖7/41:文件上傳與意願共用第一時窗(依身分取窗;中心不受限、editUnlocked 豁免)
+    if (!isAdmin) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: YEAR_WINDOWS_SELECT,
+      });
+      if (!canEditAvailability(stage1WindowFor(win, participant.kind), participant.editUnlocked, new Date())) {
+        return NextResponse.json({ error: '文件上傳未在開放時間內；如需補件，請聯絡中心開放。' }, { status: 403 });
+      }
     }
 
     const fd = await req.formData();
@@ -45,7 +58,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
-    const targetType = slot === 'CV' ? 'SURVEY_CV' : 'SURVEY_NDA';
+    const targetType = slot === 'CV' ? 'SURVEY_CV' : slot === 'RECEIPT' ? 'SURVEY_RECEIPT' : 'SURVEY_NDA';
+
+    // UAT 圖30/36:領據上傳僅觀察員(年度開關制);委員領據改寄信收送,不走系統上傳
+    if (slot === 'RECEIPT') {
+      if (participant.kind !== 'OBSERVER') {
+        return NextResponse.json({ error: '委員領據以寄信方式收送，不於系統上傳。' }, { status: 400 });
+      }
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: { observerReceiptEnabled: true },
+      });
+      if (!win?.observerReceiptEnabled) {
+        return NextResponse.json({ error: '本年度未開放填寫差旅費領據。' }, { status: 400 });
+      }
+    }
 
     // 取代同槽舊檔:先寫新檔成功、再刪舊檔(delete-after-write),避免「先刪舊→寫新失敗」使已核可/已送審文件平白遺失。
     const old = await prisma.evidence.findMany({
@@ -91,7 +118,42 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ item });
+    // UAT 圖72:必備文件上傳齊全即自動送審——「上傳完還要另按送審」一直坑人
+    // (實例:委員傳齊 CV+NDA 卻停在未繳交,中心與本人都以為已完成)。
+    // 領據(RECEIPT)不在必備集,不觸發;退補(RETURNED)重傳補齊亦自動重新送審;
+    // 補填一次性消耗(圖52)語意與 docs/submit 對稱。
+    let autoSubmitted = false;
+    if (slot !== 'RECEIPT' && participant.docStatus !== 'SUBMITTED') {
+      const [cvCount, ndaCount] = await Promise.all([
+        prisma.evidence.count({ where: { targetType: 'SURVEY_CV', targetId: participant.id } }),
+        prisma.evidence.count({ where: { targetType: 'SURVEY_NDA', targetId: participant.id } }),
+      ]);
+      const complete = (participant.kind !== 'MEMBER' || cvCount > 0) && ndaCount > 0;
+      if (complete) {
+        const consumeUnlock = !isAdmin && participant.editUnlocked && participant.submittedAt !== null;
+        await prisma.surveyParticipant.update({
+          where: { id: participant.id },
+          data: {
+            docStatus: 'SUBMITTED',
+            docSubmittedAt: new Date(),
+            rejectReason: null,
+            docReviewedAt: null,
+            ...(consumeUnlock ? { editUnlocked: false } : {}),
+          },
+        });
+        autoSubmitted = true;
+        await writeAuditLog({
+          actorId: user.id,
+          action: 'SURVEY_DOC_SUBMIT',
+          entityType: 'SurveyParticipant',
+          entityId: participant.id,
+          after: { auto: true, ...(consumeUnlock ? { editUnlockConsumed: true } : {}) },
+          ...extractRequestMeta(req),
+        });
+      }
+    }
+
+    return NextResponse.json({ item, autoSubmitted });
   } catch (e) {
     return errorResponse(e);
   }

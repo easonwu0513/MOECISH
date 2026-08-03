@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/Dialog';
 import { NoteBox } from '@/components/cycle/NoteBox';
 import { Plus } from '@/components/icons';
 import { onFlushReviewNotes } from './flush-review-notes';
+import { CommentWorkbench } from './CommentWorkbench';
 
 type ObserverComment = { id: string; content: string; timeLabel: string };
 
@@ -19,9 +20,11 @@ type ObserverComment = { id: string; content: string; timeLabel: string };
 export default function ObserverCommentSection({
   responseId,
   comments,
+  auditBasis,
 }: {
   responseId: string;
   comments: ObserverComment[];
+  auditBasis: string | null;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -114,7 +117,8 @@ export default function ObserverCommentSection({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2">
+    // 間距歸呼叫端(review page 底部 grid 已有 mt-3;原自帶 mt-3 會與之疊加,兩欄頂線不齊)
+    <div className="flex flex-col gap-2">
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
@@ -156,24 +160,29 @@ export default function ObserverCommentSection({
           </NoteBox>
         ),
       )}
-      {open ? (
-        <div className="flex flex-col gap-2">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={3}
-            placeholder="觀察員意見…"
-          />
-          <div className="flex gap-2">
-            <Button size="sm" loading={busy} onClick={() => create()}>送出意見</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setText(''); }}>取消</Button>
-          </div>
-        </div>
-      ) : (
-        <Button size="sm" variant="ghost" leadingIcon={<Plus size={14} />} onClick={() => setOpen(true)} className="self-start">
-          新增觀察員意見
-        </Button>
-      )}
+      {/* UAT 圖78:與委員意見同款工作台——新增時自動展開稽核依據 */}
+      <CommentWorkbench label="觀察員意見（練習）" auditBasis={auditBasis}>
+        {({ openBasis }) =>
+          open ? (
+            <div className="flex flex-col gap-2">
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={3}
+                placeholder="觀察員意見…"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" loading={busy} onClick={() => create()}>送出意見</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setText(''); }}>取消</Button>
+              </div>
+            </div>
+          ) : (
+            <Button size="sm" variant="ghost" leadingIcon={<Plus size={14} />} onClick={() => { setOpen(true); openBasis(); }} className="self-start">
+              新增觀察員意見
+            </Button>
+          )
+        }
+      </CommentWorkbench>
     </div>
   );
 }

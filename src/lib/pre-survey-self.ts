@@ -1,7 +1,7 @@
 import { prisma } from './db';
 import { anonymousSessionLabel } from './pre-survey';
 import { rocSlashWeekday } from './date';
-import { canEditAvailability, fillWindowState } from './pre-survey-window';
+import { canEditAvailability, fillWindowState, stage1WindowFor, stage2WindowFor, YEAR_WINDOWS_SELECT } from './pre-survey-window';
 import { SURVEY_TEMPLATE_SLOTS_BY_KIND, type SurveyAvailabilityStatus, type SurveyParticipantKind } from './types';
 import type { SelfDTO } from '@/app/pre-survey/SurveySelfForm';
 
@@ -47,8 +47,12 @@ export type SelfParticipant = {
   email: string | null;
   phone2: string | null;
   email2: string | null;
+  proxyName: string | null; // 代理聯絡人姓名/職稱(UAT 圖16)
+  proxyEmail: string | null; // 代理聯絡人信箱(UAT;null=無代理)
+  proxyPhone: string | null; // 代理聯絡人電話
   submittedAt: Date | null;
-  editUnlocked: boolean; // 中心對此人開放補填/變更意願(逾填報時窗仍可編修)
+  editUnlocked: boolean; // 中心對此人開放一階補填/變更(意願/文件;逾第一時窗仍可編修)
+  travelEditUnlocked: boolean; // 圖55:二階(差旅/飲食)補填開放獨立開關
   docStatus: string;
   docReviewedAt: Date | null;
   rejectReason: string | null;
@@ -57,7 +61,7 @@ export type SelfParticipant = {
   travelNote: string | null;
   customValues: string | null; // #5:中心自訂欄位的值(JSON Record<columnId,string>)
   availabilities: { sessionId: string; status: string }[];
-  finalAssignments: { session: { id: string; name: string; date: Date | null } }[];
+  finalAssignments: { transport?: string | null; session: { id: string; name: string; date: Date | null; needsTravel?: boolean } }[];
 };
 export type SelfSession = {
   id: string;
@@ -88,16 +92,18 @@ export async function buildSelfDTO(opts: {
   const statusMap = new Map(participant.availabilities.map((a) => [a.sessionId, a.status]));
 
   const myDocs = await prisma.evidence.findMany({
-    where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: participant.id },
+    where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT'] }, targetId: participant.id },
     select: { id: true, targetType: true, originalName: true },
   });
   const cvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV') ?? null;
   const ndaEv = myDocs.find((d) => d.targetType === 'SURVEY_NDA') ?? null;
   const priorCvEv = myDocs.find((d) => d.targetType === 'SURVEY_CV_PRIOR') ?? null;
+  const receiptEv = myDocs.find((d) => d.targetType === 'SURVEY_RECEIPT') ?? null; // UAT 圖30
 
   // #5:中心開放受調者填寫的自訂欄位(selfEditable);帶各欄現值與到期日供本人填報
+  // UAT 圖58:依受調者類別過濾(kind=null 舊欄位兩類共用)
   const selfColumns = await prisma.surveyCustomColumn.findMany({
-    where: { year: participant.year, selfEditable: true },
+    where: { year: participant.year, selfEditable: true, OR: [{ kind: null }, { kind }] },
     orderBy: { orderIndex: 'asc' },
     select: { id: true, title: true, dueDate: true },
   });
@@ -109,13 +115,19 @@ export async function buildSelfDTO(opts: {
     value: cvValues[c.id] ?? '',
   }));
 
-  // UAT:意願填報時窗(逾窗鎖定編修/送出;中心可對本人 editUnlocked 開放補填)
+  // UAT 圖41:意願填報時窗依身分分流(委員/觀察員各自四欄;逾窗鎖定編修/送出;editUnlocked 兩窗皆豁免)
   const fillWin = await prisma.surveyFillWindow.findUnique({
     where: { year: participant.year },
-    select: { openAt: true, closeAt: true },
+    select: { ...YEAR_WINDOWS_SELECT, observerReceiptEnabled: true },
   });
+  // UAT 圖30/36:領據上傳僅觀察員(依年度開關);委員領據改寄信收送,不走系統
+  const receiptEnabled = kind === 'MEMBER' ? false : !!fillWin?.observerReceiptEnabled;
   const now = new Date();
-  const canEdit = canEditAvailability(fillWin, participant.editUnlocked, now);
+  const stage1Win = stage1WindowFor(fillWin, kind);
+  const canEdit = canEditAvailability(stage1Win, participant.editUnlocked, now);
+  // UAT 圖55:二階豁免改讀 travelEditUnlocked(一階/二階開放各自獨立,互不連動)
+  const travelWin = stage2WindowFor(fillWin, kind);
+  const canTravel = canEditAvailability(travelWin, participant.travelEditUnlocked, now);
 
   return {
     participantId: participant.id,
@@ -126,15 +138,31 @@ export async function buildSelfDTO(opts: {
     email: participant.email,
     phone2: participant.phone2,
     email2: participant.email2,
+    proxyName: participant.proxyName,
+    proxyEmail: participant.proxyEmail,
+    proxyPhone: participant.proxyPhone,
     submittedAt: participant.submittedAt?.toISOString() ?? null,
+    // UAT 圖29:主要聯絡(信箱+電話)未填寫完整——總覽身分帶警示用
+    contactIncomplete: !participant.email?.trim() || !participant.phone?.trim(),
     // UAT 填報時窗:canEditAvailability=false 時自助頁鎖定意願編修並顯示時窗說明
     canEditAvailability: canEdit,
-    editUnlocked: participant.editUnlocked,
-    fillWindow: fillWin
+    // UAT 圖7:文件上傳與意願同窗;差旅走第二時窗
+    canUploadDocs: canEdit,
+    canEditTravel: canTravel,
+    travelWindow: travelWin && (travelWin.openAt || travelWin.closeAt)
       ? {
-          openAt: fillWin.openAt?.toISOString() ?? null,
-          closeAt: fillWin.closeAt?.toISOString() ?? null,
-          state: fillWindowState(fillWin, now),
+          openAt: travelWin.openAt?.toISOString() ?? null,
+          closeAt: travelWin.closeAt?.toISOString() ?? null,
+          state: fillWindowState(travelWin, now),
+        }
+      : null,
+    editUnlocked: participant.editUnlocked,
+    // UAT 圖41:顯示端亦依身分取窗(觀察員看觀察員自己的區間)
+    fillWindow: stage1Win
+      ? {
+          openAt: stage1Win.openAt?.toISOString() ?? null,
+          closeAt: stage1Win.closeAt?.toISOString() ?? null,
+          state: fillWindowState(stage1Win, now),
         }
       : null,
     docStatus: participant.docStatus,
@@ -143,17 +171,34 @@ export async function buildSelfDTO(opts: {
     cvFile: cvEv ? { id: cvEv.id, name: cvEv.originalName } : null,
     ndaFile: ndaEv ? { id: ndaEv.id, name: ndaEv.originalName } : null,
     priorCvFile: priorCvEv ? { id: priorCvEv.id, name: priorCvEv.originalName } : null,
-    // 依身分過濾公版範本(委員=CV+委員切結書;觀察員=觀察員切結書)
-    templates: templateDTOs.filter((t) => kindSlots.includes(t.slot)),
+    // UAT 圖30:領據(觀察員;年度開關制)
+    receiptEnabled,
+    receiptFile: receiptEv ? { id: receiptEv.id, name: receiptEv.originalName } : null,
+    // 依身分過濾公版範本;觀察員領據範本僅開放年度顯示(委員費用領據常設)
+    templates: templateDTOs.filter(
+      (t) => kindSlots.includes(t.slot) && (t.slot !== 'RECEIPT_OBSERVER' || receiptEnabled),
+    ),
     transport: parseArr(participant.transport),
     diet: parseArr(participant.diet),
     travelNote: participant.travelNote,
     customFields,
     // D UAT 隱私:已指派標籤只列本 kind 可見場次(觀察員排除委員專屬,如場次事後改為委員專屬亦不外洩);
     // 真實地名保留供指派後差旅二階使用(本人只見自己被指派的場次,非跨人清單)。
-    assignedLabels: participant.finalAssignments
+    // UAT 圖26:指派場次一律依辦理日期排序(未定最後),與場次清單同一時間軸
+    assignedLabels: [...participant.finalAssignments]
       .filter((fa) => kindSessionIds.has(fa.session.id))
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
       .map((fa) => `${mdLabel(fa.session.date)} ${fa.session.name}`),
+    // UAT 圖14:逐場次差旅——每個被指派場次的交通各自填(needsTravel=false 的線上場次免填)
+    assignedSessions: [...participant.finalAssignments]
+      .filter((fa) => kindSessionIds.has(fa.session.id))
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
+      .map((fa) => ({
+        sessionId: fa.session.id,
+        label: `${mdLabel(fa.session.date)} ${fa.session.name}`,
+        needsTravel: fa.session.needsTravel ?? true,
+        transport: parseArr(fa.transport ?? null),
+      })),
     sessions: kindSessions.map((s, i) => {
       // UAT:每場次可各自關閉對委員/觀察員的匿名(如委員共識會議);關閉則顯真實地名,否則仍以穩定序號匿名。
       // 僅送出計算後的 anonLabel,匿名場次的真實地名不會外洩到 client。
@@ -181,14 +226,18 @@ export async function loadDashboardSelfSurvey(userId: string, accountEmail: stri
     orderBy: [{ year: 'desc' }, { kind: 'asc' }],
     include: {
       availabilities: { select: { sessionId: true, status: true } },
-      finalAssignments: { include: { session: { select: { id: true, name: true, date: true } } } },
+      finalAssignments: { include: { session: { select: { id: true, name: true, date: true, needsTravel: true } } } },
     },
   });
   if (!participant) return null;
 
   const year = participant.year;
   const [sessions, templates] = await Promise.all([
-    prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+    // UAT 圖2:依辦理日期排序(未定最後、同日依序號)——序號隨清單順序重編,與中心管考/匯出一致
+    prisma.surveySession.findMany({
+      where: { year },
+      orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+    }),
     prisma.surveyTemplate.findMany({ where: { year }, orderBy: { slot: 'asc' } }),
   ]);
   const templateFiles = templates.length

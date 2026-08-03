@@ -12,7 +12,8 @@ import { cn } from '@/lib/cn';
 import { ASSIGN_ASPECTS, ASSIGN_ASPECT_LABELS, parseAssignDimensions, type AssignAspect } from '@/lib/audit-score';
 
 type PersonRef = { id: string; name: string; email?: string; coiOrgAdmin?: boolean };
-type Pairing = { id: string; observer: PersonRef; mentor: PersonRef; dimensions?: string | null };
+// UAT 圖49:mentor 可為 null=由事前場次調查連動加入、指導委員待設定
+type Pairing = { id: string; observer: PersonRef; mentor: PersonRef | null; dimensions?: string | null };
 
 /**
  * 觀察員配對(批30 師徒制;中心進階設定):為觀察員指派本場次的「指導委員」。
@@ -234,19 +235,22 @@ export default function AssignObserversPanel({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-caption text-ink-500">指導委員</span>
+                {/* UAT 圖49:連動加入的配對 mentor 為空 → 顯示待設定並可直接於此指定 */}
+                {p.mentor === null && <Chip size="sm" tone="warning">待設定</Chip>}
                 {canAssign ? (
                   <Select
                     aria-label={`${p.observer.name} 的指導委員`}
-                    value={p.mentor.id}
+                    value={p.mentor?.id ?? ''}
                     disabled={busy}
                     onChange={(e) => changeMentor(p.observer.id, e.target.value)}
                   >
+                    {p.mentor === null && <option value="">請選擇指導委員…</option>}
                     {mentors.map((m) => (
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </Select>
                 ) : (
-                  <span className="text-body-sm text-ink-900">{p.mentor.name}</span>
+                  <span className="text-body-sm text-ink-900">{p.mentor?.name ?? '指導委員待設定'}</span>
                 )}
                 {canAssign && (
                   <Button

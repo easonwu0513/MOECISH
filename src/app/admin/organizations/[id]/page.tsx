@@ -29,7 +29,8 @@ export default async function OrganizationDetail({ params }: { params: { id: str
           checklistVersion: { select: { year: true } },
           _count: { select: { responses: true, deficiencies: true } },
         },
-        orderBy: { year: 'desc' },
+        // P2:同年度多筆時序不定 → 補實地稽核日次序(與 /cycles、/admin/cycles 一致)
+        orderBy: [{ year: 'desc' }, { onsiteDate: 'asc' }],
       },
     },
   });

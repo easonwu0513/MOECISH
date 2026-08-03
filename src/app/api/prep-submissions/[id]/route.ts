@@ -62,6 +62,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const nextReason =
       body.noFileReason !== undefined ? (body.noFileReason?.trim() || null) : sub.noFileReason;
     const addressed = fileCount > 0 || !!nextReason;
+
+    // P0 安全批(對抗審查):退回補正(INSUFFICIENT)項須「有實質變更」才解鎖——
+    // 空 body 或原字重存(note/無檔理由皆與現值相同)不翻狀態、不清退補意見;
+    // 否則「退補後須有新動作」的重繳閘會被零變更 PUT 架空。新上傳檔案另由 evidences POST 解鎖。
+    const substantiveChange =
+      (body.note !== undefined && body.note !== (sub.note ?? '')) ||
+      (body.noFileReason !== undefined && nextReason !== sub.noFileReason);
+    if (sub.status === 'INSUFFICIENT' && !substantiveChange) {
+      return NextResponse.json({ item: sub });
+    }
+
     const nextStatus = addressed ? 'UPLOADED' : 'EMPTY';
 
     const updated = await prisma.prepSubmission.update({

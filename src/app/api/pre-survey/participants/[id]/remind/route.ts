@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { notifyPresurveyRemind, notifyPresurveyTravelRemind } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
@@ -17,12 +18,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const stage = new URL(req.url).searchParams.get('stage') === '2' ? 2 : 1;
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
-      select: { id: true },
+      select: { id: true, year: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀(歷年不再催辦)
 
     let recipientCount = 0;
     let skipped = false;
+    // P1:該階段已完成者不寄信,回 nothingToRemind 供前端明確提示(避免中心誤以為已催)
+    let nothingToRemind = false;
     try {
       const r =
         stage === 2
@@ -30,6 +34,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           : await notifyPresurveyRemind({ participantId: participant.id, appBaseUrl: appBaseUrl(req) });
       recipientCount = r.recipientCount;
       skipped = r.skipped;
+      nothingToRemind = 'nothingToRemind' in r ? !!r.nothingToRemind : false;
     } catch (e) {
       console.error('presurvey remind notify failed:', e);
     }
@@ -39,11 +44,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'SURVEY_REMIND',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { stage, recipientCount, skipped },
+      after: { stage, recipientCount, skipped, nothingToRemind },
       ...extractRequestMeta(req),
     });
 
-    return NextResponse.json({ ok: true, recipientCount, skipped });
+    return NextResponse.json({ ok: true, recipientCount, skipped, nothingToRemind });
   } catch (e) {
     return errorResponse(e);
   }

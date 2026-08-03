@@ -118,7 +118,8 @@ export function Menu({
           aria-label={typeof label === 'string' ? label : undefined}
           onKeyDown={onMenuKey}
           className={cn(
-            'absolute z-50 mt-1 min-w-[13rem] rounded-md border border-rule bg-card shadow-elev-3 p-1',
+            // P2:通用下拉補高度上限(選項多或視窗矮時自身可捲,不被視窗下緣吃掉)
+            'absolute z-50 mt-1 min-w-[13rem] max-h-[60vh] overflow-y-auto rounded-md border border-rule bg-card shadow-elev-3 p-1',
             align === 'end' ? 'right-0' : 'left-0',
           )}
         >

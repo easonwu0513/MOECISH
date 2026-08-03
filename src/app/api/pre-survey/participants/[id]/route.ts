@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { loadParticipantForAccess } from '@/lib/pre-survey-server';
+import { loadParticipantForAccess, assertSurveyYearWritable } from '@/lib/pre-survey-server';
+import { canEditAvailability, stage1WindowFor, YEAR_WINDOWS_SELECT } from '@/lib/pre-survey-window';
 import { deleteFileByKey } from '@/lib/storage';
 import { SURVEY_COMMITTEE_TYPES, SURVEY_REPLY_STATUSES, SURVEY_DOC_HANDOVER_STATUSES } from '@/lib/types';
 
@@ -14,17 +15,32 @@ const Body = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   phone2: z.string().trim().max(50).nullable().optional(),
   email2: z.string().trim().max(200).nullable().optional(),
+  // 代理聯絡人(UAT:勾選「有代理聯絡人」後填;取消勾選=送 null 清除)
+  proxyName: z.string().trim().max(100).nullable().optional(),
+  proxyEmail: z.string().trim().max(200).nullable().optional(),
+  proxyPhone: z.string().trim().max(50).nullable().optional(),
   // 僅中心可改的管考欄位(note=中心對受調者的內部管理註記,自助頁不顯示,故不對本人開放)
   note: z.string().trim().max(1000).nullable().optional(),
   committeeType: z.enum(SURVEY_COMMITTEE_TYPES).nullable().optional(),
+  // UAT 圖28:「專長」可複選(存 JSON 陣列於 committeeType 欄;空陣列=清除;舊單值字串讀取端相容)
+  committeeTypes: z.array(z.enum(SURVEY_COMMITTEE_TYPES)).max(SURVEY_COMMITTEE_TYPES.length).optional(),
   replyStatus: z.enum(SURVEY_REPLY_STATUSES).optional(),
   docHandover: z.enum(SURVEY_DOC_HANDOVER_STATUSES).optional(),
-  // UAT:中心對此人「開放補填/變更意願」開關(逾填報時窗仍可編修意願);僅中心可改。
+  // UAT:中心對此人「開放補填/變更(一階=意願/文件/聯絡)」開關(逾第一時窗仍可編修);僅中心可改。
   editUnlocked: z.boolean().optional(),
+  // UAT 圖55:二階(差旅/飲食)補填開放獨立開關,與一階分離;僅中心可改。
+  travelEditUnlocked: z.boolean().optional(),
+  // UAT 圖36:委員是否已回傳領據(寄信收送;中心手動勾選供統計);僅中心可改。
+  receiptReturned: z.boolean().optional(),
   // 自訂欄位單格值(mockup 改版;value 為空字串=清除該格)。中心可改任一欄;
   // 受調者本人僅限已開放填寫(selfEditable)的欄位(於下方 PATCH 內把關)。
   customValue: z.object({ columnId: z.string().min(1), value: z.string().max(500) }).optional(),
+  // UAT 圖24 安全鎖:聯絡資訊為受調者本人填報結果,中心代改必附變動原因(進稽核軌跡);本人自改不需
+  reason: z.string().trim().max(500).optional(),
 });
+
+/** 聯絡資訊欄組(UAT 圖24:中心改動需原因解鎖) */
+const CONTACT_FIELDS = ['phone', 'email', 'phone2', 'email2', 'proxyName', 'proxyEmail', 'proxyPhone'] as const;
 
 /** 解析 customValues JSON;壞資料回空物件。 */
 function parseCustomValues(json: string | null): Record<string, string> {
@@ -46,14 +62,18 @@ function parseCustomValues(json: string | null): Record<string, string> {
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const { user, participant, isAdmin } = await loadParticipantForAccess(params.id);
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     const body = Body.parse(await req.json());
 
     const adminOnlyTouched =
       body.note !== undefined ||
       body.committeeType !== undefined ||
+      body.committeeTypes !== undefined ||
       body.replyStatus !== undefined ||
       body.docHandover !== undefined ||
-      body.editUnlocked !== undefined;
+      body.editUnlocked !== undefined ||
+      body.travelEditUnlocked !== undefined ||
+      body.receiptReturned !== undefined;
     if (adminOnlyTouched && !isAdmin) {
       return NextResponse.json({ error: '此欄位僅中心可調整' }, { status: 403 });
     }
@@ -70,20 +90,60 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
+    // UAT 圖24 安全鎖(伺服器端強制,防繞過前端):中心修改聯絡資訊欄組必附變動原因
+    const contactTouched = CONTACT_FIELDS.some((f) => body[f] !== undefined);
+    if (isAdmin && contactTouched && !body.reason) {
+      return NextResponse.json({ error: '中心修改受調者聯絡資訊須填寫變動原因（解鎖修改）' }, { status: 400 });
+    }
+
+    // UAT 圖44:聯絡資訊納入第一時窗——本人逾窗不可改(editUnlocked 豁免;中心不受限)
+    if (!isAdmin && contactTouched) {
+      const win = await prisma.surveyFillWindow.findUnique({
+        where: { year: participant.year },
+        select: YEAR_WINDOWS_SELECT,
+      });
+      if (!canEditAvailability(stage1WindowFor(win, participant.kind), participant.editUnlocked, new Date())) {
+        return NextResponse.json(
+          { error: '聯絡資訊填寫已截止；如需更改，請聯絡中心開放。' },
+          { status: 403 },
+        );
+      }
+    }
+
+    // UAT 圖21:主要聯絡方式必填——不允許將主要信箱/電話清為空(伺服器端強制)
+    if (body.email !== undefined && !body.email?.trim()) {
+      return NextResponse.json({ error: '主要電子郵件為必填，不可清空。' }, { status: 400 });
+    }
+    if (body.phone !== undefined && !body.phone?.trim()) {
+      return NextResponse.json({ error: '主要聯絡電話為必填，不可清空。' }, { status: 400 });
+    }
+
     const data: Record<string, unknown> = {};
     if (body.phone !== undefined) data.phone = body.phone?.trim() || null;
     if (body.email !== undefined) data.email = body.email?.trim() || null;
     if (body.phone2 !== undefined) data.phone2 = body.phone2?.trim() || null;
     if (body.email2 !== undefined) data.email2 = body.email2?.trim() || null;
+    if (body.proxyName !== undefined) data.proxyName = body.proxyName?.trim() || null;
+    if (body.proxyEmail !== undefined) data.proxyEmail = body.proxyEmail?.trim() || null;
+    if (body.proxyPhone !== undefined) data.proxyPhone = body.proxyPhone?.trim() || null;
     if (isAdmin) {
       if (body.note !== undefined) data.note = body.note?.trim() || null;
       if (body.committeeType !== undefined) {
         // 觀察員無委員細分構面
         data.committeeType = participant.kind === 'MEMBER' ? body.committeeType : null;
       }
+      if (body.committeeTypes !== undefined) {
+        // UAT 圖28:專長複選(JSON 陣列存同欄;觀察員無構面)
+        data.committeeType =
+          participant.kind === 'MEMBER' && body.committeeTypes.length > 0
+            ? JSON.stringify(body.committeeTypes)
+            : null;
+      }
       if (body.replyStatus !== undefined) data.replyStatus = body.replyStatus;
       if (body.docHandover !== undefined) data.docHandover = body.docHandover;
       if (body.editUnlocked !== undefined) data.editUnlocked = body.editUnlocked;
+      if (body.travelEditUnlocked !== undefined) data.travelEditUnlocked = body.travelEditUnlocked;
+      if (body.receiptReturned !== undefined) data.receiptReturned = body.receiptReturned;
     }
     const cv = body.customValue; // 中心或(通過上方欄位閘的)本人;customValues 為 read-modify-write,另走交易避免遺失更新
     if (Object.keys(data).length === 0 && cv === undefined) {
@@ -126,7 +186,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       action: 'SURVEY_PARTICIPANT_UPDATE',
       entityType: 'SurveyParticipant',
       entityId: participant.id,
-      after: { fields: [...Object.keys(data), ...(cv !== undefined ? ['customValues'] : [])], byAdmin: isAdmin },
+      after: {
+        fields: [...Object.keys(data), ...(cv !== undefined ? ['customValues'] : [])],
+        byAdmin: isAdmin,
+        // UAT 圖24:中心改聯絡欄的變動原因留痕
+        ...(isAdmin && contactTouched && body.reason ? { reason: body.reason } : {}),
+      },
       ...extractRequestMeta(req),
     });
 
@@ -144,11 +209,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
-    const existing = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { id: true } });
+    const existing = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { id: true, year: true } });
     if (!existing) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
 
     const docs = await prisma.evidence.findMany({
-      where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR'] }, targetId: params.id },
+      where: { targetType: { in: ['SURVEY_CV', 'SURVEY_NDA', 'SURVEY_CV_PRIOR', 'SURVEY_RECEIPT'] }, targetId: params.id },
       select: { id: true, storageKey: true },
     });
 

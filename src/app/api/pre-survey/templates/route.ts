@@ -5,7 +5,8 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
-import { SURVEY_TEMPLATE_SLOTS, SURVEY_TEMPLATE_SLOT_LABELS, type SurveyTemplateSlot } from '@/lib/types';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
+import { SURVEY_TEMPLATE_SLOTS, surveyTemplateSlotLabel, type SurveyTemplateSlot } from '@/lib/types';
 
 /**
  * 上傳公版範本(批B;僅中心)。範本為空白表單(如經歷說明書/切結書 Word 或 PDF),受調者下載填寫。
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     if (!Number.isInteger(year) || year < 2000 || year > 2200) {
       return NextResponse.json({ error: '年度不正確' }, { status: 400 });
     }
+    assertSurveyYearWritable(year); // UAT 圖57:歷年資料唯讀
     if (!(SURVEY_TEMPLATE_SLOTS as readonly string[]).includes(slotRaw)) {
       return NextResponse.json({ error: '範本類別不正確' }, { status: 400 });
     }
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
     let template: { id: string };
     try {
       template = await prisma.surveyTemplate.create({
-        data: { year, slot, label: label || SURVEY_TEMPLATE_SLOT_LABELS[slot], uploadedById: user.id },
+        data: { year, slot, label: label || surveyTemplateSlotLabel(slot, year - 1911), uploadedById: user.id },
         select: { id: true },
       });
     } catch (err) {
@@ -97,8 +99,9 @@ export async function DELETE(req: Request) {
     const user = await requireRole('SUPER_ADMIN');
     const { id } = DeleteBody.parse(await req.json());
 
-    const template = await prisma.surveyTemplate.findUnique({ where: { id }, select: { id: true } });
+    const template = await prisma.surveyTemplate.findUnique({ where: { id }, select: { id: true, year: true } });
     if (!template) return NextResponse.json({ error: '範本不存在' }, { status: 404 });
+    assertSurveyYearWritable(template.year); // UAT 圖57:歷年資料唯讀
 
     const evs = await prisma.evidence.findMany({ where: { targetType: 'SURVEY_TEMPLATE', targetId: id } });
     for (const ev of evs) {

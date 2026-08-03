@@ -187,6 +187,11 @@ export const SURVEY_REPLY_STATUS_LABELS: Record<SurveyReplyStatus, string> = {
   NO: '否',
 };
 
+/** P0 安全批:唯讀審閱角色(佐證僅站內檢視,不提供下載連結)。批30 加觀察員後只判 AUDITOR 即 fail-open,統一由此判定。 */
+export function isReadOnlyReviewRole(role: string): boolean {
+  return role === 'AUDITOR' || role === 'OBSERVER';
+}
+
 /** 文件交接狀態(管考表欄位)。 */
 export const SURVEY_DOC_HANDOVER_STATUSES = ['PENDING', 'WAITING', 'UPDATED'] as const;
 export type SurveyDocHandover = (typeof SURVEY_DOC_HANDOVER_STATUSES)[number];
@@ -208,22 +213,58 @@ export const SURVEY_DOC_STATUS_LABELS: Record<SurveyDocStatus, string> = {
 };
 
 /** 公版範本槽位(中心上傳、受調者下載)。CV_* 僅委員;切結書委員與觀察員各一份(UAT:觀察員切結書不同,分開)。 */
-export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER'] as const;
+export const SURVEY_TEMPLATE_SLOTS = ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK', 'NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER', 'RECEIPT_MEMBER'] as const;
 export type SurveyTemplateSlot = (typeof SURVEY_TEMPLATE_SLOTS)[number];
 export const SURVEY_TEMPLATE_SLOT_LABELS: Record<SurveyTemplateSlot, string> = {
   CV_SAMPLE: '舊版經歷說明書（參考）',
   CV_BLANK: '空白經歷說明書',
   NDA_BLANK: '空白保密切結書（委員）',
   NDA_BLANK_OBSERVER: '空白保密切結書（觀察員）',
+  RECEIPT_OBSERVER: '差旅費領據（觀察員）',
+  RECEIPT_MEMBER: '費用領據（委員）',
 };
+/**
+ * UAT 圖9:公版範本標籤動態代入年度(民國)——顯示端一律用本函式(DB label 僅為 fallback)。
+ * CV_SAMPLE=去年度(如調查為 115 年度則顯示 114 年度)、其餘=調查當年度。
+ */
+export function surveyTemplateSlotLabel(slot: string, yearROC: number): string {
+  switch (slot) {
+    case 'CV_SAMPLE': return `${yearROC - 1} 年度稽核委員候選人經歷說明書`;
+    case 'CV_BLANK': return `${yearROC} 年度稽核委員候選人經歷說明書`;
+    case 'NDA_BLANK': return `${yearROC} 年度稽核委員聘任同意暨保密切結書`;
+    case 'NDA_BLANK_OBSERVER': return `${yearROC} 年度觀察員聘任同意暨保密切結書`;
+    case 'RECEIPT_OBSERVER': return `${yearROC} 年度觀察員差旅費領據`;
+    case 'RECEIPT_MEMBER': return `${yearROC} 年度稽核委員費用領據`;
+    default: return SURVEY_TEMPLATE_SLOT_LABELS[slot as SurveyTemplateSlot] ?? slot;
+  }
+}
 /** 各受調身分適用的公版範本槽(委員/觀察員的切結書分開上傳、各自下載) */
 export const SURVEY_TEMPLATE_SLOTS_BY_KIND: Record<SurveyParticipantKind, readonly SurveyTemplateSlot[]> = {
-  MEMBER: ['CV_SAMPLE', 'CV_BLANK', 'NDA_BLANK'],
-  OBSERVER: ['NDA_BLANK_OBSERVER'],
+  // UAT 圖15:移除 CV_SAMPLE(去年度經歷說明書)公版槽——個別委員舊版經歷改走右側逐人上傳(prior-cv)
+  // UAT 圖36:委員領據改回「寄信收送」不走系統上傳(RECEIPT_MEMBER 槽移除;管考表以 receiptReturned 勾選統計)
+  MEMBER: ['CV_BLANK', 'NDA_BLANK'],
+  // UAT 圖30:RECEIPT_OBSERVER(差旅費領據)為年度開關制——該年度有報銷差旅費才開放(SurveyFillWindow.observerReceiptEnabled)
+  OBSERVER: ['NDA_BLANK_OBSERVER', 'RECEIPT_OBSERVER'],
 };
 
 /** 交通方式(差旅二階,可複選)。 */
-export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸', '接駁'] as const;
+// UAT 圖20:刪「接駁」選項;「大眾運輸」需再選單一工具(高鐵/火車/客運/其他),
+// 以複合值存於逐場次 transport JSON(如「大眾運輸：高鐵」「大眾運輸：其他：簡述」),不動 schema。
+export const SURVEY_TRANSPORT_OPTIONS = ['住宿', '汽車', '機車', '大眾運輸'] as const;
+export const SURVEY_TRANSIT_MODES = ['高鐵', '火車', '客運', '其他'] as const;
+export const TRANSIT_PREFIX = '大眾運輸';
+/**
+ * 驗證 transport 陣列元素:基本選項、「大眾運輸」複合 token(含未選工具的過渡態),
+ * 或「汽車」複合 token(UAT 圖23:協助停車+車號──「汽車：協助停車」「汽車：協助停車：ABC-1234」)。
+ */
+export function isValidTransportToken(t: string): boolean {
+  if ((SURVEY_TRANSPORT_OPTIONS as readonly string[]).includes(t)) return true;
+  if (t === TRANSIT_PREFIX) return true;
+  if (t === '汽車：協助停車') return true;
+  if (/^汽車：協助停車：.{1,20}$/.test(t)) return true;
+  const m = t.match(/^大眾運輸：(高鐵|火車|客運|其他)(：(.{0,50}))?$/);
+  return !!m && (m[1] === '其他' || m[2] === undefined);
+}
 /** 飲食需求(差旅二階,可複選)。 */
 export const SURVEY_DIET_OPTIONS = ['葷', '素', '不吃豬', '不吃牛', '不吃家禽', '不吃海鮮'] as const;
 

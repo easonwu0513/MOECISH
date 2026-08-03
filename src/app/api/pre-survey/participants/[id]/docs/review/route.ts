@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 import { notifyPresurveyDocReturned } from '@/lib/notify';
 import { appBaseUrl } from '@/lib/baseUrl';
 
@@ -28,9 +29,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
-      select: { id: true, docStatus: true },
+      select: { id: true, docStatus: true, year: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     if (participant.docStatus !== 'SUBMITTED') {
       return NextResponse.json({ error: '此文件目前不在待審（已繳交）狀態' }, { status: 400 });
     }

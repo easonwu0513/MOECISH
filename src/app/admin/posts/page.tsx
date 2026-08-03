@@ -23,7 +23,8 @@ export default async function AdminPostsPage({ searchParams }: { searchParams: {
   const user = session!.user;
 
   const all = await prisma.post.findMany({
-    orderBy: [{ pinned: 'desc' }, { updatedAt: 'desc' }],
+    // P2:前台(/news、首頁)以 publishedAt 排序;後台原用 updatedAt,改個舊公告就跳到最上面 → 兩端統一
+    orderBy: [{ pinned: 'desc' }, { publishedAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }],
   });
 
   const now = new Date();

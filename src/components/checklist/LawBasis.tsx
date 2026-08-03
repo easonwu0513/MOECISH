@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 import { arabicizeLawRefs } from '@/lib/law-numerals';
 import { SURFACE_INFO } from '@/lib/tone';
@@ -66,6 +67,19 @@ export function NumberedList({ text, className }: { text: string; className?: st
   );
 }
 
+/** UAT 圖59:法規對照三段各自可收合——收起重點/文件即可讓稽核依據貼近題目,免來回捲動。 */
+function LawSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: ReactNode }) {
+  return (
+    <details open={defaultOpen} className="group">
+      <summary className="flex cursor-pointer select-none items-center gap-1 text-label text-primary-800 mb-1.5 focus-ring rounded list-none [&::-webkit-details-marker]:hidden">
+        <span className="inline-block transition-transform group-open:rotate-90" aria-hidden>▸</span>
+        {title}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 /** 法規對照完整面板(委員審閱/填報頁共用)。 */
 export function LawPanel({
   auditBasis,
@@ -82,24 +96,22 @@ export function LawPanel({
   return (
     <div className="flex flex-col gap-4">
       {auditFocus && (
-        <div>
-          <p className="text-label text-primary-800 mb-1.5">稽核重點</p>
+        <LawSection title="稽核重點">
           <NumberedList text={auditFocus} />
-        </div>
+        </LawSection>
       )}
       {expectedEvidence && (
-        <div>
-          <p className="text-label text-primary-800 mb-1.5">應備文件</p>
+        <LawSection title="應備文件">
           <NumberedList text={expectedEvidence} />
-        </div>
+        </LawSection>
       )}
+      {/* P2(圖59 延伸):逐字法條最長,預設收合讓「稽核重點/應備文件」貼近題目;需要時再展開 */}
       {auditBasis && (
-        <div>
-          <p className="text-label text-primary-800 mb-1.5">稽核依據（法規條文逐字引錄）</p>
+        <LawSection title="稽核依據（法規條文逐字引錄）" defaultOpen={false}>
           <div className="rounded-md bg-paper-sunk border border-rule/50 p-3.5 max-h-96 overflow-y-auto">
             <LawBasisText text={auditBasis} />
           </div>
-        </div>
+        </LawSection>
       )}
     </div>
   );

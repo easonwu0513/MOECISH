@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { saveBuffer, deleteFileByKey } from '@/lib/storage';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 /**
  * 個別委員「去年舊版經歷說明書」(mockup 改版;僅中心上傳,供該委員參考、本人可下載)。
@@ -15,9 +16,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const user = await requireRole('SUPER_ADMIN');
     const participant = await prisma.surveyParticipant.findUnique({
       where: { id: params.id },
-      select: { id: true, kind: true },
+      select: { id: true, kind: true, year: true },
     });
     if (!participant) return NextResponse.json({ error: '受調人員不存在' }, { status: 404 });
+    assertSurveyYearWritable(participant.year); // UAT 圖57:歷年資料唯讀
     if (participant.kind !== 'MEMBER') {
       return NextResponse.json({ error: '僅委員有經歷說明書，觀察員無須提供舊版參考' }, { status: 400 });
     }
@@ -82,6 +84,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
     const user = await requireRole('SUPER_ADMIN');
+    // UAT 圖57:歷年資料唯讀(此 handler 原不載入 participant,補查 year 供檢查;查無人時循原流程 404)
+    const participant = await prisma.surveyParticipant.findUnique({ where: { id: params.id }, select: { year: true } });
+    if (participant) assertSurveyYearWritable(participant.year);
     const old = await prisma.evidence.findMany({ where: { targetType: 'SURVEY_CV_PRIOR', targetId: params.id } });
     if (old.length === 0) return NextResponse.json({ error: '無舊版參考件' }, { status: 404 });
     for (const o of old) {

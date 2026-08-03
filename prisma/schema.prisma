@@ -74,6 +74,7 @@ model User {
   surveyParticipations SurveyParticipant[]    @relation("SurveyParticipations")
   // 多重身分授權(批31):此帳號「可用的身分集合」;User.role 語義=現用身分(見 UserRole 註解)
   roleGrants           UserRole[]
+  feedbackReports      FeedbackReport[] @relation("FeedbackSubmitter")
 }
 
 // ════════════════════════════════════════════
@@ -324,8 +325,10 @@ model CycleObserver {
   observer         User       @relation("ObserverAssignments", fields: [observerId], references: [id])
   // 指導委員(師徒制,需求二-3):必須是本週期 AuditorAssignment 中的正式委員(API 驗證;
   // 委員被抽換前需先改配對)。指導委員可檢視「自己帶的」觀察員練習並回饋。
-  mentorId         String
-  mentor           User       @relation("MentorAssignments", fields: [mentorId], references: [id])
+  // UAT 圖49:可空=「事前場次調查連動加入、指導委員待設定」;mentor 權限判定皆 === 比對,null 恆 fail-closed。
+  // onDelete 明寫 Restrict:可空 relation 預設會變 SetNull,明寫以維持與 0_init 相同 FK 行為(migration 才不需重建 FK)
+  mentorId         String?
+  mentor           User?      @relation("MentorAssignments", fields: [mentorId], references: [id], onDelete: Restrict)
   // 觀察員負責構面(比照 AuditorAssignment.dimensions;JSON 陣列 AssignAspect)。
   // 純練習聚焦標籤(練習工作台標示負責構面),不影響任何授權;null/空=未指定(視同全構面)。
   dimensions       String?
@@ -645,10 +648,17 @@ model SurveySession {
   // D UAT:此場次是否為委員與觀察員「共同場次」(預設 true);false=委員專屬(如委員共識會議),觀察員自助頁與達標卡不含此場次
   sharedWithObserver   Boolean  @default(true)
   isRequired          Boolean  @default(false) // 必參加
+  // UAT 圖14:此場次是否需要第二階段差旅(交通住宿)調查;線上會議(如共識會議)設 false 免填
+  needsTravel         Boolean  @default(true)
+  // UAT 圖14:受稽機關說明會(年度必備場次,不可刪除;名稱/日期可編)
+  isBriefing          Boolean  @default(false)
   remark              String? // 給受調者看的備註
   targetMemberCount   Int      @default(0) // 目標委員數(達標儀表卡分母)
   targetObserverCount Int      @default(0) // 目標觀察員數
   orderIndex          Int      @default(0) // 穩定排序 → 決定受調者看到的匿名序號
+  // UAT 圖13:由稽核週期「帶入」時的來源週期 id(手動場次為 null)。帶入場次的 date 鎖定,
+  // 僅隨該週期實地稽核日連動變更;無 FK(週期刪除後場次留存,連動自然失效)。
+  sourceCycleId       String?
   createdById         String // 建立者快照(權責分立)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -669,11 +679,18 @@ model SurveyParticipant {
   email         String? // 主要聯絡信箱(自助頁預設代入帳號 email,本人可改)
   phone2        String? // 次要聯絡電話(UAT:本人可自行新增另一組聯絡)
   email2        String? // 次要聯絡信箱(UAT:另一組聯絡帳號)
+  proxyName     String? // 代理聯絡人姓名/職稱(UAT 圖16;如「王小明/秘書」)
+  proxyEmail    String? // 代理聯絡人信箱(UAT:勾選「有代理聯絡人」後填;無代理=null)
+  proxyPhone    String? // 代理聯絡人電話
   note          String? // 中心對受調者的內部管理註記(自助頁不顯示;僅中心可改)
   replyStatus   String    @default("NO") // 意願回信:YES | NO
   docHandover   String    @default("PENDING") // 文件交接:PENDING | WAITING | UPDATED
   submittedAt   DateTime? // 一階意願送出時間(null=尚未送出)
-  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更意願」;true=可無視填報時窗編修/送出意願(逾窗補填或變更用)
+  // UAT 圖36:委員是否已回傳領據(寄信收送;中心手動勾選供統計)
+  receiptReturned Boolean @default(false)
+  editUnlocked  Boolean   @default(false) // UAT:中心對此人「開放補填/變更(一階=意願/文件/聯絡)」;true=可無視第一時窗編修/送出(逾窗補填或變更用)
+  // UAT 圖55:二階(差旅/飲食)補填開放獨立成欄——中心於差旅區開放不連動一階;二階填齊自動收回
+  travelEditUnlocked Boolean @default(false)
   // ── 批B:文件繳交審核(cv/切結書經 Evidence 上傳,狀態機於此) ──
   docStatus     String    @default("NONE") // NONE 未繳交 | SUBMITTED 已繳交 | RETURNED 待補件
   rejectReason  String? // 退補理由(docStatus=RETURNED 時有意義)
@@ -713,6 +730,8 @@ model SurveyTemplate {
 model SurveyCustomColumn {
   id           String    @id @default(cuid())
   year         Int
+  // UAT 圖58:欄位歸屬類別(MEMBER|OBSERVER);null=兩類共用(既有欄位相容)。新增欄位只建在當前分頁類別。
+  kind         String?
   title        String
   orderIndex   Int       @default(0)
   selfEditable Boolean   @default(false) // true=開放受調者於自助頁自行填寫(否則為中心內部欄,受調者看不到)
@@ -728,11 +747,22 @@ model SurveyCustomColumn {
 // openAt/closeAt 皆可為 null=該端不限;兩者皆 null 或無此列=永遠開放(向後相容)。
 // 逾窗後受調者不可改/送出意願;中心(SUPER_ADMIN)代填不受限;中心亦可對個別受調者開放補填(SurveyParticipant.editUnlocked)。
 model SurveyFillWindow {
-  year        Int       @id
-  openAt      DateTime?
-  closeAt     DateTime?
-  updatedById String // 最後設定者快照
-  updatedAt   DateTime  @updatedAt
+  year          Int       @id
+  openAt        DateTime?
+  closeAt       DateTime?
+  // UAT 圖7:第二時窗——差旅(交通/飲食)調查區間;意願與文件上傳共用第一時窗(openAt/closeAt)。
+  // 場次確定後才開放差旅填報,故與第一時窗分開設定;皆可 null=該端不限。
+  // UAT 圖41:委員與觀察員時窗分開——原四欄=委員用;觀察員專屬四欄如下(獨立設定,null=該端不限)。
+  travelOpenAt  DateTime?
+  travelCloseAt DateTime?
+  observerOpenAt        DateTime?
+  observerCloseAt       DateTime?
+  observerTravelOpenAt  DateTime?
+  observerTravelCloseAt DateTime?
+  // UAT 圖30:本年度是否開放觀察員填寫差旅費領據(有報銷差旅費的年度才開;預設關)
+  observerReceiptEnabled Boolean @default(false)
+  updatedById   String // 最後設定者快照
+  updatedAt     DateTime  @updatedAt
 }
 
 model SessionAvailability {
@@ -754,6 +784,11 @@ model SurveyFinalAssignment {
   participant   SurveyParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   sessionId     String
   session       SurveySession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // UAT 圖14:逐場次交通方式(含住宿;JSON string[])——地點不同交通不同,故存於指派而非受調者;
+  // 飲食(diet)全場次一致,仍存 SurveyParticipant。
+  transport     String?
+  // UAT 圖28:該場次被指派的構面(管理面/策略面/技術面/管理面-OT;說明會等不分構面=null)
+  aspect        String?
   assignedById  String // 指派者快照
   assignedAt    DateTime          @default(now())
 
@@ -995,4 +1030,21 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
   @@index([action, createdAt])
+}
+
+// UAT 圖50:問題回饋——右下角浮動小工具(取代 AI 小幫手)收集使用者操作問題與建議;
+// 中心於 /admin/feedback 檢視並標記處理。role/page 為送出當下快照;resolvedById 快照無 FK(比照停用操作者)。
+model FeedbackReport {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("FeedbackSubmitter", fields: [userId], references: [id])
+  role         String // 送出當下現用身分(Role)
+  page         String? // 送出當下頁面路徑(自動帶入)
+  content      String
+  status       String    @default("OPEN") // OPEN | RESOLVED
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  @@index([status, createdAt])
 }

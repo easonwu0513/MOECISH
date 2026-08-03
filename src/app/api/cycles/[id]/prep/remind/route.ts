@@ -56,6 +56,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       dedupeKey = `prep-remind-item:${cycle.id}:${requirementId}`;
     } else {
       cat = category as 'TECH' | 'ONSITE';
+      // P1:整區催繳補狀態檢查(比照逐項)——該區項目全已繳交/已確認時不催,
+      // 否則機關剛繳齊等審核卻收到「尚有項目待繳交」(圖66 誤導的兄弟案)。
+      const catReqs = await prisma.prepRequirement.findMany({
+        where: { cycleId: cycle.id, category: cat },
+        select: { submission: { select: { status: true } } },
+      });
+      if (catReqs.length === 0) {
+        return NextResponse.json({ error: '本區尚無應備資料項目，無須催繳' }, { status: 400 });
+      }
+      const pending = catReqs.filter(
+        (r) => r.submission?.status !== 'SUBMITTED' && r.submission?.status !== 'CONFIRMED',
+      ).length;
+      if (pending === 0) {
+        return NextResponse.json(
+          { error: '本區資料機關均已繳交（或中心已確認齊備），無須催繳' },
+          { status: 409 },
+        );
+      }
       dedupeKey = `prep-remind:${cycle.id}:${cat}`;
     }
 

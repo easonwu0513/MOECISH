@@ -26,8 +26,9 @@ import { PROCESS_STEPS, ROLE_STEP_DUTIES, deriveCycleFacts, nextActionForRole, f
 import { cn } from '@/lib/cn';
 import { fmtROC, fmtROCWeekday } from '@/lib/date';
 import { IdentityBand } from '@/components/dashboard/IdentityBand';
-import { SurveyProfileCard } from '@/components/dashboard/SurveyProfileCard';
+import { SurveyProfileCard, OpenSurveyButton } from '@/components/dashboard/SurveyProfileCard';
 import { loadDashboardSelfSurvey } from '@/lib/pre-survey-self';
+import { stage1Gap } from '@/lib/pre-survey';
 import { PrimaryActionBanner } from '@/components/dashboard/PrimaryActionBanner';
 import { CrossOrgOverview } from '@/components/dashboard/CrossOrgOverview';
 import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
@@ -78,7 +79,7 @@ export default async function HomePage() {
       checklistVersion: { select: { _count: { select: { items: true } } } },
       responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
       // 委員視角:帶出本人於各週期受指派的構面(卡片標註負責構面);其他角色查無、回空陣列
-      assignments: { where: { auditorId: user.id }, select: { dimensions: true } },
+      assignments: { where: { auditorId: user.id }, select: { dimensions: true, scoreLockedAt: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -194,6 +195,18 @@ export default async function HomePage() {
           href: `${base}/review`, cta: '去檢視',
         });
       }
+      // UAT 圖79:委員的主要交付=線上評分與稽核發現,原本只在週期頁「待完成事項」出現,
+      // 總覽待辦清單看不到 → 補入(以本人指派的 scoreLockedAt 判定;定稿後不再列)。
+      // 實地稽核起可填;缺失發布後仍未定稿者續列(委員未交=中心無法產報告)。
+      if ((st === 'ONSITE' || st === 'REPORT_ISSUED') && c.assignments.some((a) => !a.scoreLockedAt)) {
+        todos.push({
+          key: `${c.id}-score-self`,
+          tone: 'primary',
+          title: `${org}：請填寫委員評分與稽核發現`,
+          href: `${base}/audit`,
+          cta: '去填寫',
+        });
+      }
       if (e.submitted > 0) {
         todos.push({ key: `${c.id}-rev`, tone: 'warning', title: `${org}:${e.submitted} 項矯正待審查`, href: `${base}/deficiencies?status=submitted`, cta: '去審查' });
       }
@@ -264,6 +277,62 @@ export default async function HomePage() {
         : user.role === 'OBSERVER'
           ? `觀察員 · 受配對 ${cycles.length} 個週期`
           : `中心 · 監督 ${orgCount} 院`;
+  // UAT:委員/觀察員的事前場次調查整合進總覽身分帶(頭像/狀態徽章開彈窗),不再側欄單列一個入口。
+  const survey =
+    user.role === 'AUDITOR' || user.role === 'OBSERVER'
+      ? await loadDashboardSelfSurvey(user.id, user.email ?? null)
+      : null;
+  // UAT 圖18:調查待辦入列(置頂)——未被指派稽核週期前,委員的首要待辦即事前場次調查一階/二階
+  if (survey) {
+    const travelSessions = survey.assignedSessions.filter((a) => a.needsTravel);
+    if (!survey.submittedAt || survey.docStatus !== 'SUBMITTED') {
+      // UAT 圖69:依實際缺口給文案——已填意願只差文件(或遭退補)時,不再誤稱「請填寫出席意願」
+      // P1:判定改用共用 stage1Gap(與催辦信同一真值來源,避免兩處日後漂移)
+      const STAGE1_TITLE: Record<string, string> = {
+        DOC_RETURNED: '事前場次調查：文件遭退補，請補件並重新送審',
+        NEED_DOCS: '事前場次調查：請上傳並送審個人文件（第一階段）',
+        NEED_WILLINGNESS: '事前場次調查：請送出稽核場次出席意願（第一階段）',
+        NEED_BOTH: '事前場次調查：請填寫出席意願並繳交文件（第一階段）',
+      };
+      const stage1Title =
+        STAGE1_TITLE[stage1Gap(survey.submittedAt, survey.docStatus)] ?? STAGE1_TITLE.NEED_BOTH;
+      todos.unshift({ key: 'presurvey-stage1', tone: 'primary', title: stage1Title, href: '/pre-survey?open=1', cta: '去填寫' });
+    } else if (travelSessions.length > 0 && (travelSessions.some((a) => a.transport.length === 0) || survey.diet.length === 0)) {
+      // P1(圖69 的二階版):依實際缺口分述——只差飲食的人不該被要求「填寫差旅」,
+      // 只差某幾場交通的人要知道是哪幾場。
+      const missTransport = travelSessions.filter((a) => a.transport.length === 0);
+      const missDiet = survey.diet.length === 0;
+      const stage2Title =
+        missTransport.length > 0 && missDiet
+          ? '事前場次調查：請填寫差旅（交通住宿）與飲食需求（第二階段）'
+          : missTransport.length > 0
+            ? `事前場次調查：請填寫 ${missTransport.map((a) => a.label).join('、')} 的往返交通方式（第二階段）`
+            : '事前場次調查：請填寫飲食需求（第二階段）';
+      todos.unshift({ key: 'presurvey-stage2', tone: 'primary', title: stage2Title, href: '/pre-survey?open=1', cta: '去填寫' });
+    }
+  }
+  // UAT 圖32:調查前置四步檢核(空狀態面板用;done=null 表示待中心分派場次、尚不可填)
+  const surveySteps: { key: string; label: string; done: boolean | null }[] | null = survey
+    ? (() => {
+        const ts = survey.assignedSessions.filter((a) => a.needsTravel);
+        const stage2Done: boolean | null =
+          ts.length > 0 ? ts.every((a) => a.transport.length > 0) && survey.diet.length > 0 : null;
+        return [
+          { key: 'contact', label: '填寫並儲存聯絡資訊（主要電子郵件與聯絡電話）', done: !survey.contactIncomplete },
+          {
+            key: 'docs',
+            label:
+              survey.kind === 'OBSERVER'
+                ? '上傳並送審文件（聘任同意暨保密切結書）'
+                : '上傳並送審文件（經歷說明書與聘任同意暨保密切結書）',
+            done: survey.docStatus === 'SUBMITTED',
+          },
+          { key: 'stage1', label: '送出第一階段：稽核場次出席意願', done: !!survey.submittedAt },
+          { key: 'stage2', label: '填寫第二階段：差旅（交通住宿）與飲食需求', done: stage2Done },
+        ];
+      })()
+    : null;
+
   const topTodo = todos[0];
   // 橫幅大標去機讀句:把「院簡稱:動作」的院名拆到副標,大標只留動作句
   const topMatch = topTodo ? topTodo.title.match(/^(.+?)[:：]\s*(.+)$/) : null;
@@ -272,12 +341,6 @@ export default async function HomePage() {
   // 中心跨院總覽讀數(院數型,對齊中心心智模型)
   const remediationCount = enriched.filter((e) => e.status === 'REMEDIATION').length;
   const confirmOrgs = orgsWith((e) => e.prepToConfirm);
-
-  // UAT:委員/觀察員的事前場次調查整合進總覽身分帶(頭像/狀態徽章開彈窗),不再側欄單列一個入口。
-  const survey =
-    user.role === 'AUDITOR' || user.role === 'OBSERVER'
-      ? await loadDashboardSelfSurvey(user.id, user.email ?? null)
-      : null;
   const identityRoleChip = <Chip tone={ROLE_TONE[user.role]} size="sm">{ROLE_LABELS[user.role]}</Chip>;
   const identityRight =
     todos.length > 0 ? (
@@ -325,13 +388,53 @@ export default async function HomePage() {
 
       {/* 委員 / 觀察員首次登入的歡迎引導(角色化文案 + 第一步 CTA;localStorage 記住已關,中心/機關不顯示) */}
       {(user.role === 'AUDITOR' || user.role === 'OBSERVER') && (
-        <WelcomeOnboarding role={user.role} firstHref={topAction?.href} firstLabel={topAction?.cta} />
+        <WelcomeOnboarding
+          role={user.role}
+          firstHref={topAction?.href}
+          firstLabel={topAction?.cta}
+          // UAT 圖8:歡迎卡提醒首要=事前場次調查(一階=意願+文件;一階完成且已指派則提醒二階差旅)
+          surveyStage={
+            survey
+              ? !survey.submittedAt || survey.docStatus !== 'SUBMITTED'
+                ? 1
+                : (() => {
+                    // UAT 圖14:二階=需差旅場次逐場次交通皆填+飲食;全線上場次免二階
+                    const ts = survey.assignedSessions.filter((a) => a.needsTravel);
+                    return ts.length > 0 && (ts.some((a) => a.transport.length === 0) || survey.diet.length === 0) ? 2 : null;
+                  })()
+              : null
+          }
+        />
       )}
 
       {/* 退回收件匣:散落各頁的退回待補正收斂於此(機關 / 中心;無退回則不顯示) */}
       <ReturnsInbox items={openReturns} showOrg={isSuper} />
 
       {cycles.length === 0 ? (
+        surveySteps ? (
+          /* UAT 圖32:有稽核任務前,空狀態面板改顯示調查前置四步檢核(完成打勾/未完成跳轉/待分派灰態) */
+          <Card variant="outlined">
+            <h2 className="text-label text-ink-900 mb-1">開始稽核任務前，請先完成以下事項</h2>
+            <p className="text-caption text-ink-500 mb-4">完成後待中心指派稽核週期，您的稽核任務將顯示於此。</p>
+            <ul className="space-y-2.5">
+              {surveySteps.map((s) => (
+                <li key={s.key} className="flex items-center gap-3">
+                  {s.done === true ? (
+                    <CheckCircle size={18} className="shrink-0 text-success-600" />
+                  ) : (
+                    <span className="h-[18px] w-[18px] shrink-0 rounded-full border-2 border-rule" aria-hidden />
+                  )}
+                  <span className={cn('flex-1 text-body-sm', s.done === true ? 'text-ink-500 line-through' : 'text-ink-900')}>
+                    {s.label}
+                  </span>
+                  {/* UAT 圖50:就地開填寫彈窗(SurveyProfileCard 同一彈窗),不跳轉調查頁 */}
+                  {s.done === false && <OpenSurveyButton />}
+                  {s.done === null && <span className="text-caption text-ink-400">待中心完成場次分派後填報</span>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : (
         <Card variant="outlined" padded={false}>
           <div className="p-6">
             <EmptyState
@@ -349,6 +452,7 @@ export default async function HomePage() {
             />
           </div>
         </Card>
+        )
       ) : (
         <>
           {/* 中心:跨院總覽 4 讀數(移至矩陣之上;其餘角色有各自的讀數,不顯示這排缺失導向統計) */}

@@ -4,11 +4,9 @@ import { errorResponse } from '@/lib/api';
 import {
   SURVEY_AVAILABILITY_LABELS,
   SURVEY_REPLY_STATUS_LABELS,
-  SURVEY_DOC_HANDOVER_LABELS,
   SURVEY_DOC_STATUS_LABELS,
   type SurveyAvailabilityStatus,
   type SurveyReplyStatus,
-  type SurveyDocHandover,
   type SurveyDocStatus,
 } from '@/lib/types';
 
@@ -29,7 +27,7 @@ function parseArr(json: string | null): string[] {
 
 /**
  * 匯出某年度某類別(委員/觀察員)管考清單為 CSV(批B;僅中心)。BOM + UTF-8,Excel 可直開。
- * 欄序:姓名, 類型, 文件繳交, 意願送出, [各場次 日期 地點], 最終場次, 意願回信, 文件交接, 交通, 飲食, 備註。
+ * 欄序:姓名, 專長, 文件繳交, 意願送出, [各場次 日期 地點], 最終場次, 回傳領據(委員), 交通, 飲食, 備註, 聯絡欄位, 自訂欄位。
  */
 export async function GET(req: Request) {
   try {
@@ -42,17 +40,22 @@ export async function GET(req: Request) {
     }
 
     const [sessions, participants, customCols] = await Promise.all([
-      prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+      // UAT 圖2:與管考表/自助頁同序(辦理日期升冪、未定最後)
+      prisma.surveySession.findMany({
+        where: { year },
+        orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+      }),
       prisma.surveyParticipant.findMany({
         where: { year, kind },
         include: {
           user: { select: { name: true } },
           availabilities: { select: { sessionId: true, status: true } },
-          finalAssignments: { include: { session: { select: { name: true, date: true } } } },
+          finalAssignments: { select: { transport: true, aspect: true, session: { select: { name: true, date: true, needsTravel: true } } } },
         },
         orderBy: { invitedAt: 'asc' },
       }),
-      prisma.surveyCustomColumn.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } }),
+      // UAT 圖58:自訂欄位依匯出類別過濾(kind=null 舊欄位兩類共用)
+      prisma.surveyCustomColumn.findMany({ where: { year, OR: [{ kind: null }, { kind }] }, orderBy: { orderIndex: 'asc' } }),
     ]);
 
     const parseObj = (json: string | null): Record<string, string> => {
@@ -74,13 +77,12 @@ export async function GET(req: Request) {
 
     const header = [
       '姓名',
-      '類型',
+      '專長',
       '文件繳交',
       '意願送出',
       ...sessions.map((s) => `${md(s.date)} ${s.name}`),
       '最終場次',
-      '意願回信',
-      '文件交接',
+      ...(kind === 'MEMBER' ? ['是否回傳領據'] : []),
       '交通',
       '飲食',
       '備註',
@@ -88,16 +90,31 @@ export async function GET(req: Request) {
       '聯絡電話',
       '次要信箱',
       '次要電話',
+      '代理人姓名/職稱',
+      '代理聯絡人信箱',
+      '代理聯絡人電話',
       ...customCols.map((c) => c.title),
     ];
 
     const rows = participants.map((p) => {
       const availMap = new Map(p.availabilities.map((a) => [a.sessionId, a.status]));
-      const finalLabels = p.finalAssignments.map((fa) => `${md(fa.session.date)} ${fa.session.name}`);
+      // UAT 圖28:最終場次帶構面;專長 JSON 陣列 parse(舊單值相容)
+      const finalLabels = p.finalAssignments.map(
+        (fa) => `${md(fa.session.date)} ${fa.session.name}${fa.aspect ? `（${fa.aspect}）` : ''}`,
+      );
       const custom = parseObj(p.customValues);
+      const specialties = (() => {
+        if (!p.committeeType) return kind === 'OBSERVER' ? '觀察員' : '';
+        try {
+          const a = JSON.parse(p.committeeType);
+          return Array.isArray(a) ? a.join('、') : p.committeeType;
+        } catch {
+          return p.committeeType;
+        }
+      })();
       return [
         p.user.name,
-        p.committeeType ?? (kind === 'OBSERVER' ? '觀察員' : ''),
+        specialties,
         SURVEY_DOC_STATUS_LABELS[p.docStatus as SurveyDocStatus] ?? p.docStatus,
         p.submittedAt ? '已送出' : '未送出',
         ...sessions.map((s) => {
@@ -106,15 +123,24 @@ export async function GET(req: Request) {
           return st ? (SURVEY_AVAILABILITY_LABELS[st] ?? st) : '未填寫';
         }),
         finalLabels.join(' / '),
-        SURVEY_REPLY_STATUS_LABELS[p.replyStatus as SurveyReplyStatus] ?? p.replyStatus,
-        SURVEY_DOC_HANDOVER_LABELS[p.docHandover as SurveyDocHandover] ?? p.docHandover,
-        parseArr(p.transport).join(' / '),
+        ...(kind === 'MEMBER' ? [p.receiptReturned ? '已回傳' : '未回傳'] : []),
+        // UAT 圖14:交通逐場次(「場次:選項」;線上場次不列)
+        p.finalAssignments
+          .filter((fa) => fa.session.needsTravel)
+          .map((fa) => {
+            const arr = parseArr(fa.transport);
+            return `${fa.session.name}：${arr.length > 0 ? arr.join('、') : '未填'}`;
+          })
+          .join(' / '),
         parseArr(p.diet).join(' / '),
         (p.note ?? '') + (p.travelNote ? ` / 差旅備註：${p.travelNote}` : ''),
         p.email ?? '',
         p.phone ?? '',
         p.email2 ?? '',
         p.phone2 ?? '',
+        p.proxyName ?? '',
+        p.proxyEmail ?? '',
+        p.proxyPhone ?? '',
         ...customCols.map((c) => custom[c.id] ?? ''),
       ].map((v) => cell(String(v)));
     });

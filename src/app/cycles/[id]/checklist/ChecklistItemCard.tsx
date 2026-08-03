@@ -14,7 +14,7 @@ import { Paperclip, ChevronDown } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { FileUploadButton } from '@/components/ui/FileUploadButton';
 import { SaveStatus } from '@/components/ui/SaveStatus';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, type ComplianceLevel } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, COMPLIANCE_BAR, ORG_UPLOAD_ACCEPT, isReadOnlyReviewRole, type ComplianceLevel } from '@/lib/types';
 import { fmtROCDateTime } from '@/lib/date';
 import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
 import CommentForm from '../review/CommentForm';
@@ -228,6 +228,24 @@ export default function ChecklistItemCard({
               {/* 存檔狀態只由卡頭那顆點呈現(收合也看得到);此處不重述 */}
             </div>
           )}
+          {/* UAT 圖68:機關填報把紀錄佐證併入填答之下——填「紀錄文件」時同畫面可見已上傳佐證,免切分頁 */}
+          {userRole === 'ORG_ADMIN' && (
+            <div className="mt-1 border-t border-rule pt-3">
+              <EvidenceBlock
+                cycleId={cycleId}
+                itemNo={item.itemNo}
+                initialResponseId={response?.id ?? null}
+                currentCompliance={compliance}
+                currentDescription={description}
+                currentRecordDocs={recordDocs}
+                currentVersion={version}
+                onSaved={bumpVersion}
+                canEdit={canEdit}
+                viewOnly={false}
+                expectedEvidence={item.expectedEvidence}
+              />
+            </div>
+          )}
         </div>
       ),
     },
@@ -237,6 +255,26 @@ export default function ChecklistItemCard({
       // 意見待補數已由卡頭 Chip 呈現(收合可見),此處不重複 tab badge
       content: (
         <div className="space-y-2">
+          {/* P2(圖68 委員版):寫意見時要對照機關填答與佐證——就地摘要,免來回切分頁 */}
+          {userRole !== 'ORG_ADMIN' && (
+            <div className="rounded-md border border-rule bg-paper-sunk/50 p-3 text-body-sm">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-caption text-ink-500">機關填答</span>
+                {compliance ? (
+                  <Chip size="sm" tone={COMPLIANCE_TONE[compliance]}>{COMPLIANCE_LABELS[compliance]}</Chip>
+                ) : (
+                  <span className="text-caption text-ink-400">未作答</span>
+                )}
+              </div>
+              {/* 讀 props(伺服器最新值)而非本地編輯 state:委員不編輯這兩欄,refresh 後才不會新舊夾雜 */}
+              <p className="whitespace-pre-wrap text-ink-900 leading-relaxed">
+                {response?.description?.trim() || <span className="text-ink-400">（未填機關說明）</span>}
+              </p>
+              {response?.recordDocs?.trim() && (
+                <p className="mt-1.5 text-caption text-ink-600">紀錄文件：{response.recordDocs}</p>
+              )}
+            </div>
+          )}
           {(response?.comments ?? []).length === 0 ? (
             <p className="text-body-sm text-ink-500">本題尚無委員意見。</p>
           ) : (
@@ -268,7 +306,7 @@ export default function ChecklistItemCard({
           {userRole === 'AUDITOR' &&
             (response ? (
               <div className="pt-1">
-                <CommentForm responseId={response.id} />
+                <CommentForm responseId={response.id} auditBasis={item.auditBasis} />
               </div>
             ) : (
               <p className="text-caption text-ink-500">（機關尚未作答，暫無法留言）</p>
@@ -290,14 +328,17 @@ export default function ChecklistItemCard({
           currentVersion={version}
           onSaved={bumpVersion}
           canEdit={canEdit}
-          viewOnly={userRole === 'AUDITOR'}
+          viewOnly={isReadOnlyReviewRole(userRole)}
           expectedEvidence={item.expectedEvidence}
         />
       ),
     },
   ];
   // 委員審閱意見為委員私人註記,不開放受稽機關檢視 → 機關端隱藏「委員意見」分頁
-  const tabs = allTabs.filter((t) => !(t.id === 'comments' && userRole === 'ORG_ADMIN'));
+  // UAT 圖68:機關端紀錄佐證已併入「填答」之下 → 隱藏獨立「紀錄佐證」分頁(委員/中心維持分頁)
+  const tabs = allTabs.filter(
+    (t) => !(userRole === 'ORG_ADMIN' && (t.id === 'comments' || t.id === 'evidence')),
+  );
 
   return (
     <div

@@ -24,8 +24,14 @@ export function computeStatus(data: SelfDTO): Status {
   const willingnessSent = !!data.submittedAt;
   const needsStage1 = !willingnessSent || !docsSubmitted;
   const isAssigned = data.assignedLabels.length > 0;
-  const needsStage2 = !needsStage1 && isAssigned && (data.transport.length === 0 || data.diet.length === 0);
-  const waitingForAssignment = !needsStage1 && !isAssigned;
+  // UAT 圖14:二階=「需差旅的指派場次」逐場次交通皆填 + 飲食;全為線上場次(needsTravel=false)則二階免填
+  const travelSessions = data.assignedSessions.filter((a) => a.needsTravel);
+  const needsStage2 =
+    !needsStage1 &&
+    travelSessions.length > 0 &&
+    (travelSessions.some((a) => a.transport.length === 0) || data.diet.length === 0);
+  // UAT 圖18:改判「尚無任何需差旅的指派場次」——只被指派線上場次(免差旅)時仍屬「待分派後填報」,不誤顯已完成
+  const waitingForAssignment = !needsStage1 && travelSessions.length === 0;
 
   if (docsReturned) {
     const extra = willingnessSent ? '' : '另出席意願尚未送出，請一併於下方送出。';
@@ -38,13 +44,15 @@ export function computeStatus(data: SelfDTO): Status {
     return { tone: 'warning', label: '第一階段待完成', hint: `尚待完成：${missing.join('、')}。`, cta: '前往填寫' };
   }
   if (waitingForAssignment) {
-    return { tone: 'neutral', label: '待中心指派場次', hint: '第一階段已完成。待中心指派最終場次後，再填寫第二階段差旅與飲食。', cta: '檢視' };
+    // UAT 圖18:提醒色 + 明示「等中心分派完場次才填」——含「僅被指派免差旅場次(如線上說明會)」情境
+    return { tone: 'warning', label: '第二階段待中心完成場次分派後填報', hint: '第一階段已完成。待中心完成場次分派後，再填寫第二階段差旅（交通住宿）與飲食。', cta: '檢視' };
   }
   if (needsStage2) {
+    // UAT 圖18/25:與待分派態統一字樣與提醒色(使用者指定文案;hint 仍引導立即填寫)
     return {
-      tone: 'primary',
-      label: '第二階段待完成',
-      hint: `您已獲指派：${data.assignedLabels.join('、')}。請填寫往返交通方式與飲食需求。`,
+      tone: 'warning',
+      label: '第二階段待中心完成場次分派後填報',
+      hint: `您已獲指派：${data.assignedLabels.join('、')}。請填寫各場次往返交通方式與飲食需求。`,
       cta: '前往填寫',
     };
   }
@@ -67,9 +75,10 @@ export function statusIcon(tone: Tone) {
  * 委員/觀察員自助「總覽」(mockup 改版):問候卡 + 狀態徽章指引 → 點開彈窗填寫/檢視。
  * 表單本體沿用 SurveySelfForm(全部後端保證不變),只是改由總覽卡引導入口。
  */
-export default function SurveySelfDashboard({ data, userName }: { data: SelfDTO; userName: string }) {
+export default function SurveySelfDashboard({ data, userName, autoOpen = false }: { data: SelfDTO; userName: string; autoOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // UAT 圖46:?open=1 深連結直接開填寫視窗(總覽四步檢核/待辦「前往填寫」免二次點擊)
+  const [open, setOpen] = useState(autoOpen);
   const status = computeStatus(data);
   // 關窗時 refresh:意願鈕/差旅 pill 為樂觀存檔(不各自 refresh),關窗才同步伺服器狀態回本卡,
   // 使總覽徽章 computeStatus(data) 正確、重開表單以最新 data 初始化(否則會像資料未存)。

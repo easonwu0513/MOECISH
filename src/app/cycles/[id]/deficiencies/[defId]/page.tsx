@@ -19,6 +19,7 @@ import {
   type ExecStatus,
   type ComplianceLevel,
   type CycleStatus,
+  isReadOnlyReviewRole,
 } from '@/lib/types';
 import { actionStatusTone, actionEditable, CYCLE_STATUS_LABELS } from '@/lib/state-machine';
 import { findRepeatDeficiencies } from '@/lib/deficiency-history';
@@ -399,7 +400,7 @@ export default async function DeficiencyDetailPage({
       <ActionForm
         deficiencyId={deficiency.id}
         editable={canFill}
-        viewOnly={user.role === 'AUDITOR'}
+        viewOnly={isReadOnlyReviewRole(user.role)}
         roundSubmit={user.role === 'ORG_ADMIN'}
         nextHref={user.role === 'ORG_ADMIN' ? nextHref : null}
         remaining={user.role === 'ORG_ADMIN' ? remaining : 0}

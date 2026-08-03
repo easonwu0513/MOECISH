@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useToast } from '@/components/ui/Toast';
 import { Plus } from '@/components/icons';
 import { onFlushReviewNotes } from './flush-review-notes';
+import { CommentWorkbench } from './CommentWorkbench';
 
-export default function CommentForm({ responseId }: { responseId: string }) {
+export default function CommentForm({ responseId, auditBasis }: { responseId: string; auditBasis: string | null }) {
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -47,26 +48,34 @@ export default function CommentForm({ responseId }: { responseId: string }) {
   flushRef.current = () => (open && text.trim() ? submit({ silent: true }) : null);
   useEffect(() => onFlushReviewNotes(() => flushRef.current()), []);
 
-  if (!open) {
-    return (
-      <Button size="sm" variant="ghost" leadingIcon={<Plus size={14} />} onClick={() => setOpen(true)}>
-        新增委員意見
-      </Button>
-    );
-  }
-
+  // UAT 圖78:編輯框與稽核依據同住一個工作台盒;按「新增」時自動展開稽核依據(撰寫時法條同視野)
   return (
-    <div className="flex flex-col gap-2">
-      <Textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={3}
-        placeholder="委員意見…"
-      />
-      <div className="flex gap-2">
-        <Button size="sm" loading={saving} onClick={() => submit()}>送出意見</Button>
-        <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setText(''); }}>取消</Button>
-      </div>
-    </div>
+    <CommentWorkbench label="委員意見" auditBasis={auditBasis}>
+      {({ openBasis }) =>
+        open ? (
+          <div className="flex flex-col gap-2">
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={3}
+              placeholder="委員意見…"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" loading={saving} onClick={() => submit()}>送出意見</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setOpen(false); setText(''); }}>取消</Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            leadingIcon={<Plus size={14} />}
+            onClick={() => { setOpen(true); openBasis(); }}
+          >
+            新增委員意見
+          </Button>
+        )
+      }
+    </CommentWorkbench>
   );
 }

@@ -10,7 +10,12 @@ const D = /^\d{4}-\d{2}-\d{2}$/;
 const Body = z.object({
   year: z.number().int().min(1900).max(9999),
   checklistVersionId: z.string().min(1),
-  organizationIds: z.array(z.string().min(1)).min(1),
+  // UAT 圖10:每機關可各自附實地稽核日期;organizations 優先,organizationIds 保留向後相容
+  organizations: z
+    .array(z.object({ organizationId: z.string().min(1), onsiteDate: z.string().regex(D).nullable().optional() }))
+    .min(1)
+    .optional(),
+  organizationIds: z.array(z.string().min(1)).min(1).optional(),
   dueDate: z.string().regex(D).nullable().optional(),
   prepDueDate: z.string().regex(D).nullable().optional(),
   prepDueTech: z.string().regex(D).nullable().optional(),
@@ -27,10 +32,20 @@ export async function POST(req: Request) {
     const version = await prisma.checklistVersion.findUnique({ where: { id: body.checklistVersionId } });
     if (!version) return NextResponse.json({ error: '題庫版本不存在' }, { status: 400 });
 
+    // 統一為 [{ organizationId, onsiteDate }] 形狀:organizations 優先(UAT 圖10 每機關日期),
+    // organizationIds 走統一 onsiteDate(向後相容);兩者皆缺=400。
+    const entries =
+      body.organizations ??
+      body.organizationIds?.map((id) => ({ organizationId: id, onsiteDate: body.onsiteDate ?? null }));
+    if (!entries || entries.length === 0) {
+      return NextResponse.json({ error: '請至少選擇一個機關' }, { status: 400 });
+    }
+
     const created: { organizationId: string; name: string; cycleId: string }[] = [];
     const skipped: string[] = [];
 
-    for (const orgId of body.organizationIds) {
+    for (const entry of entries) {
+      const orgId = entry.organizationId;
       const org = await prisma.organization.findUnique({ where: { id: orgId } });
       if (!org) { skipped.push(`（不存在的機關 ${orgId})`); continue; }
 
@@ -48,7 +63,7 @@ export async function POST(req: Request) {
           dueDate: body.dueDate ? new Date(`${body.dueDate}T00:00:00+08:00`) : null,
           prepDueDate: body.prepDueDate ? new Date(`${body.prepDueDate}T00:00:00+08:00`) : null,
           prepDueTech: body.prepDueTech ? new Date(`${body.prepDueTech}T00:00:00+08:00`) : null,
-          onsiteDate: body.onsiteDate ? new Date(`${body.onsiteDate}T00:00:00+08:00`) : null,
+          onsiteDate: entry.onsiteDate ? new Date(`${entry.onsiteDate}T00:00:00+08:00`) : null,
           status: 'DRAFT',
         },
       });

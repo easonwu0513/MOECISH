@@ -51,9 +51,15 @@ export function JourneyChecklist({
 }) {
   const toast = useToast();
   const [stages, setStages] = useState(initialStages);
-  const [open, setOpen] = useState<Set<string>>(
-    () => new Set(defaultOpenStageKey ? [defaultOpenStageKey] : initialStages.map((s) => s.stageKey)),
-  );
+  // P2:未指定預設展開階段時,只展開「目前進行中」的階段(第一個尚有未完成項目者;全完成則展開最後一個)。
+  // 原本全階段展開,年度 runbook 一進頁就是滿版清單,得長距離捲動才找得到當前工作。
+  const [open, setOpen] = useState<Set<string>>(() => {
+    if (defaultOpenStageKey) return new Set([defaultOpenStageKey]);
+    const current =
+      initialStages.find((s) => s.items.some((i) => !i.done && !i.informational)) ??
+      initialStages[initialStages.length - 1];
+    return new Set(current ? [current.stageKey] : []);
+  });
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   // CYCLE 為唯讀(server 依系統實況計算);router.refresh 軟刷新後同步最新進度。

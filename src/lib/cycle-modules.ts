@@ -144,7 +144,9 @@ export function buildModuleNav(i: ModuleNavInput): ModuleNavItem[] {
         title: '資通安全檢核表',
         sub: '逐題檢視機關自評',
         href: `${base}/review`,
-        status: onsitePast ? '已完成' : auditorReviewActive ? '進行中' : '待開放',
+        // P1:實地稽核已過只代表「審閱窗口結束」,與本委員是否審過無關(審閱意見本為選填)→
+        // 用「已結束」而非「已完成」(與觀察員版一致),避免委員誤以為自己有完成交付。
+        status: onsitePast ? '已結束' : auditorReviewActive ? '進行中' : '待開放',
         statusTone: auditorReviewActive ? 'primary' : 'default',
         caption: '檢視填報、逐題留審查意見',
         muted: !auditorReviewActive,

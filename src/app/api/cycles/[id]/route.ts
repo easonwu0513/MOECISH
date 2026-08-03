@@ -86,6 +86,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       ...meta,
     });
 
+    // UAT 圖13:實地稽核日變更 → 由本週期「帶入」的事前調查場次日期自動連動
+    // (帶入場次的 date 於場次端鎖定,唯一變更途徑即此;清空實地稽核日則場次回「待定」)。
+    if (body.onsiteDate !== undefined) {
+      await prisma.surveySession.updateMany({
+        where: { sourceCycleId: cycle.id },
+        data: { date: updated.onsiteDate },
+      });
+    }
+
     // 觀察員審閱窗口設定/變更後(批66 M2):若週期已 ≥ 資料齊備(READY),補通知本週期「已配對」觀察員。
     // (READY 轉換當下觀察員窗口可能尚未設,故此後才設定/變更時 READY 通知已過 → 於此補發;DRAFT/PREPARATION
     //  尚未開放審閱,交由日後 READY 轉換通知。)notify 函式的 dedupeKey 含窗口值,防重複轟炸。失敗不影響存檔。

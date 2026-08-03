@@ -9,15 +9,16 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ClipboardCheck, ChevronRight } from '@/components/icons';
 import { ProtectedFileLink } from '@/components/cycle/ProtectedFileLink';
 import { DIMENSION_LABELS, DIMENSION_ORDER } from '@/lib/dimension';
-import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, reviewWindowStateForRole, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
+import { COMPLIANCE_LABELS, COMPLIANCE_TONE, auditorCanViewChecklistContent, isReadOnlyReviewRole, reviewWindowStateForRole, type ComplianceLevel, type Dimension, type CycleStatus } from '@/lib/types';
 import { ReviewWindowLockedPage } from '@/components/cycle/ReviewWindowLockedPage';
 import { filterOwnComments } from '@/lib/auditor-visibility';
 import { CycleHubBar } from '@/components/cycle/CycleHubBar';
 import { CYCLE_STATUS_LABELS } from '@/lib/state-machine';
-import { LawReferenceCollapsible, LawReferenceSticky, hasLawRef } from '@/components/checklist/LawBasis';
+import { AnswerNoteWithLaw } from '@/components/checklist/AnswerNoteWithLaw';
 import { NoteBox } from '@/components/cycle/NoteBox';
 import { FilterChipLink, FilterChipCount } from '@/components/ui/FilterChip';
 import CommentForm from './CommentForm';
+import { CommentWorkbench } from './CommentWorkbench';
 import ReviewNote from './ReviewNote';
 import ObserverCommentSection from './ObserverCommentSection';
 import SaveAllReviewNotes from './SaveAllReviewNotes';
@@ -293,8 +294,9 @@ export default async function ReviewPage({
           />
         </Card>
       ) : (
+        // UAT 圖65:構面預設收合(details 不帶 open)——委員想看哪個構面再自行展開(原預設全展開要滑很久)
         grouped.map(({ dim, items }) => (
-          <details key={dim} id={`dim-${dim}`} open className="group mb-6 scroll-mt-4">
+          <details key={dim} id={`dim-${dim}`} className="group mb-6 scroll-mt-4">
             <summary className="flex items-center gap-2 mb-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
               <ChevronRight size={18} className="text-ink-400 shrink-0 transition-transform group-open:rotate-90" aria-hidden />
               <h2 className="text-title-md text-ink-900">{DIMENSION_LABELS[dim as Dimension]}</h2>
@@ -304,15 +306,13 @@ export default async function ReviewPage({
               {items.map((item) => {
                 const r = responsesByItem.get(item.id);
                 const c = r?.compliance as ComplianceLevel | null;
-                const hasLaw = hasLawRef(item);
                 return (
                   <Card key={item.id} variant="outlined">
                     <div className="flex items-start gap-3">
                       <Chip tone="sage" size="sm" className="font-mono shrink-0 mt-0.5">{item.itemNo}</Chip>
                       <div className="flex-1 min-w-0">
-                        {/* 法規對照 lg 以上移右欄常駐(sticky),審閱/留意見不再上下來回捲;窄螢幕維持下方摺疊面板 */}
-                        <div className={hasLaw ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5' : ''}>
-                        <div className="min-w-0">
+                        {/* UAT:法規對照拆進「被對照的對象」旁——稽核重點併入機關說明、應備文件併入紀錄文件
+                            (就地展開,免右欄來回);稽核依據改與委員意見編輯框並排於題卡底部。 */}
                         <p className="text-body text-ink-900 leading-relaxed">{item.content}</p>
                         <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                           {c ? (
@@ -333,17 +333,25 @@ export default async function ReviewPage({
                             </Chip>
                           )}
                         </div>
-                        {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點 */}
-                        {r?.description && (
-                          <NoteBox prominent label="機關說明（規範內容、執行方式、執行結果）" className="mt-3">
-                            <p className="text-body text-ink-900 leading-relaxed whitespace-pre-wrap">{r.description}</p>
-                          </NoteBox>
-                        )}
-                        {r?.recordDocs && (
-                          <NoteBox label="紀錄文件" className="mt-2">
-                            <p className="text-body-sm text-ink-500 leading-relaxed whitespace-pre-wrap">{r.recordDocs}</p>
-                          </NoteBox>
-                        )}
+                        {/* 層1 機關作答主體:機關說明 prominent 作為題卡錨點;標題列附「稽核重點」就地展開
+                            (一律渲染,未填時明示——委員無論機關是否作答都需要對照稽核重點) */}
+                        <AnswerNoteWithLaw
+                          prominent
+                          label="機關說明（規範內容、執行方式、執行結果）"
+                          text={r?.description ?? null}
+                          emptyHint="（填報人未填機關說明）"
+                          lawLabel="稽核重點"
+                          lawText={item.auditFocus}
+                          className="mt-3"
+                        />
+                        <AnswerNoteWithLaw
+                          label="紀錄文件"
+                          text={r?.recordDocs ?? null}
+                          emptyHint="（填報人未填紀錄文件）"
+                          lawLabel="應備文件"
+                          lawText={item.expectedEvidence}
+                          className="mt-2"
+                        />
                         {/* 層2 往返對話:機關補正回應以 primary tone 承載 */}
                         {r?.orgRevisionNote && (
                           <NoteBox tone="primary" label="機關補正回應（針對委員意見）" className="mt-2">
@@ -359,7 +367,7 @@ export default async function ReviewPage({
                                     fileId={e.id}
                                     name={e.originalName}
                                     sizeKB={Math.max(1, Math.round(e.sizeBytes / 1024))}
-                                    viewOnly={session.user.role === 'AUDITOR'}
+                                    viewOnly={isReadOnlyReviewRole(session.user.role)}
                                   />
                                 </li>
                               ))}
@@ -386,45 +394,29 @@ export default async function ReviewPage({
                           </div>
                         )}
 
-                        {/* 觀察員意見(批42):比照委員意見,存獨立 PracticeComment 表(僅本人/指導者/中心可見) */}
-                        {isObserverView ? (
-                          r ? (
-                            <ObserverCommentSection
-                              responseId={r.id}
-                              comments={(practiceByResponse.get(r.id) ?? []).map((c) => ({
-                                id: c.id,
-                                content: c.content,
-                                timeLabel: fmtROCDateTime(c.createdAt),
-                              }))}
-                            />
+                        {/* UAT 圖78:意見工作台(CommentWorkbench)——編輯框與稽核依據同盒,比照作答盒的
+                            收合設計(版面工整勻稱);稽核依據預設收合,按「新增意見」時自動展開。
+                            觀察員意見(批42)比照辦理:存獨立 PracticeComment 表,僅本人/指導者/中心可見。 */}
+                        <div className="mt-3">
+                          {isObserverView ? (
+                            r ? (
+                              <ObserverCommentSection
+                                responseId={r.id}
+                                auditBasis={item.auditBasis}
+                                comments={(practiceByResponse.get(r.id) ?? []).map((c) => ({
+                                  id: c.id,
+                                  content: c.content,
+                                  timeLabel: fmtROCDateTime(c.createdAt),
+                                }))}
+                              />
+                            ) : (
+                              <CommentWorkbench label="觀察員意見（練習）" auditBasis={item.auditBasis} emptyHint="（填報人尚未作答，暫無法留言）" />
+                            )
+                          ) : r ? (
+                            <CommentForm responseId={r.id} auditBasis={item.auditBasis} />
                           ) : (
-                            <p className="mt-2 text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
-                          )
-                        ) : r ? (
-                          <div className="mt-3">
-                            <CommentForm responseId={r.id} />
-                          </div>
-                        ) : (
-                          <p className="mt-2 text-caption text-ink-500">（填報人尚未作答，暫無法留言）</p>
-                        )}
-                        {/* 窄螢幕(<lg):法規對照沿用可摺疊面板置於題卡下方 */}
-                        {hasLaw && (
-                          <LawReferenceCollapsible
-                            auditBasis={item.auditBasis}
-                            auditFocus={item.auditFocus}
-                            expectedEvidence={item.expectedEvidence}
-                            className="mt-3 lg:hidden"
-                          />
-                        )}
-                        </div>
-                        {/* 寬螢幕(lg+):法規對照常駐右欄 sticky */}
-                        {hasLaw && (
-                          <LawReferenceSticky
-                            auditBasis={item.auditBasis}
-                            auditFocus={item.auditFocus}
-                            expectedEvidence={item.expectedEvidence}
-                          />
-                        )}
+                            <CommentWorkbench label="委員意見" auditBasis={item.auditBasis} emptyHint="（填報人尚未作答，暫無法留言）" />
+                          )}
                         </div>
                       </div>
                     </div>

@@ -4,11 +4,22 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 const Body = z.object({
   year: z.number().int().min(2000).max(3000),
   openAt: z.string().datetime().nullable().optional(), // ISO(含時區)或 null=不限起始
   closeAt: z.string().datetime().nullable().optional(), // ISO(含時區)或 null=不限截止
+  // UAT 圖7:第二時窗(差旅/飲食調查);意願與文件上傳共用第一時窗
+  travelOpenAt: z.string().datetime().nullable().optional(),
+  travelCloseAt: z.string().datetime().nullable().optional(),
+  // UAT 圖30:本年度是否開放觀察員填寫差旅費領據(單獨切換;未提供=不變)
+  observerReceiptEnabled: z.boolean().optional(),
+  // UAT 圖41:觀察員專屬時窗(與委員分開設定;各端 null=不限)
+  observerOpenAt: z.string().datetime().nullable().optional(),
+  observerCloseAt: z.string().datetime().nullable().optional(),
+  observerTravelOpenAt: z.string().datetime().nullable().optional(),
+  observerTravelCloseAt: z.string().datetime().nullable().optional(),
 });
 
 /**
@@ -20,22 +31,71 @@ export async function PUT(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const body = Body.parse(await req.json());
+    assertSurveyYearWritable(body.year); // UAT 圖57:歷年資料唯讀
     const openAt = body.openAt ? new Date(body.openAt) : null;
     const closeAt = body.closeAt ? new Date(body.closeAt) : null;
+    const travelOpenAt = body.travelOpenAt ? new Date(body.travelOpenAt) : null;
+    const travelCloseAt = body.travelCloseAt ? new Date(body.travelCloseAt) : null;
+    const observerOpenAt = body.observerOpenAt ? new Date(body.observerOpenAt) : null;
+    const observerCloseAt = body.observerCloseAt ? new Date(body.observerCloseAt) : null;
+    const observerTravelOpenAt = body.observerTravelOpenAt ? new Date(body.observerTravelOpenAt) : null;
+    const observerTravelCloseAt = body.observerTravelCloseAt ? new Date(body.observerTravelCloseAt) : null;
     if (openAt && closeAt && openAt > closeAt) {
       return NextResponse.json({ error: '開放起始時間不得晚於截止時間' }, { status: 400 });
     }
+    if (travelOpenAt && travelCloseAt && travelOpenAt > travelCloseAt) {
+      return NextResponse.json({ error: '差旅調查起始時間不得晚於截止時間' }, { status: 400 });
+    }
+    if (observerOpenAt && observerCloseAt && observerOpenAt > observerCloseAt) {
+      return NextResponse.json({ error: '觀察員第一區間起始時間不得晚於截止時間' }, { status: 400 });
+    }
+    if (observerTravelOpenAt && observerTravelCloseAt && observerTravelOpenAt > observerTravelCloseAt) {
+      return NextResponse.json({ error: '觀察員差旅調查起始時間不得晚於截止時間' }, { status: 400 });
+    }
+    // undefined-preserving:各欄「未提供=不變」——開關可單獨切換而不清掉時窗(UAT 圖30)
     await prisma.surveyFillWindow.upsert({
       where: { year: body.year },
-      create: { year: body.year, openAt, closeAt, updatedById: user.id },
-      update: { openAt, closeAt, updatedById: user.id },
+      create: {
+        year: body.year,
+        openAt,
+        closeAt,
+        travelOpenAt,
+        travelCloseAt,
+        observerOpenAt,
+        observerCloseAt,
+        observerTravelOpenAt,
+        observerTravelCloseAt,
+        observerReceiptEnabled: body.observerReceiptEnabled ?? false,
+        updatedById: user.id,
+      },
+      update: {
+        openAt: body.openAt === undefined ? undefined : openAt,
+        closeAt: body.closeAt === undefined ? undefined : closeAt,
+        travelOpenAt: body.travelOpenAt === undefined ? undefined : travelOpenAt,
+        travelCloseAt: body.travelCloseAt === undefined ? undefined : travelCloseAt,
+        observerOpenAt: body.observerOpenAt === undefined ? undefined : observerOpenAt,
+        observerCloseAt: body.observerCloseAt === undefined ? undefined : observerCloseAt,
+        observerTravelOpenAt: body.observerTravelOpenAt === undefined ? undefined : observerTravelOpenAt,
+        observerTravelCloseAt: body.observerTravelCloseAt === undefined ? undefined : observerTravelCloseAt,
+        observerReceiptEnabled: body.observerReceiptEnabled,
+        updatedById: user.id,
+      },
     });
     await writeAuditLog({
       actorId: user.id,
       action: 'SURVEY_FILL_WINDOW_SET',
       entityType: 'SurveyFillWindow',
       entityId: String(body.year),
-      after: { openAt: openAt?.toISOString() ?? null, closeAt: closeAt?.toISOString() ?? null },
+      after: {
+        openAt: openAt?.toISOString() ?? null,
+        closeAt: closeAt?.toISOString() ?? null,
+        travelOpenAt: travelOpenAt?.toISOString() ?? null,
+        travelCloseAt: travelCloseAt?.toISOString() ?? null,
+        observerOpenAt: observerOpenAt?.toISOString() ?? null,
+        observerCloseAt: observerCloseAt?.toISOString() ?? null,
+        observerTravelOpenAt: observerTravelOpenAt?.toISOString() ?? null,
+        observerTravelCloseAt: observerTravelCloseAt?.toISOString() ?? null,
+      },
       ...extractRequestMeta(req),
     });
     return NextResponse.json({ ok: true });

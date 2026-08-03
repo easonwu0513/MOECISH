@@ -32,7 +32,8 @@
     "seed:test-accounts": "tsx src/scripts/seed-test-accounts.ts",
     "audit:verify-chain": "tsx src/scripts/verify-audit-chain.ts",
     "graph:refresh": "tsx src/scripts/refresh-graph-token.ts",
-    "lint:punct": "tsx src/scripts/lint-fullwidth-punct.ts"
+    "lint:punct": "tsx src/scripts/lint-fullwidth-punct.ts",
+    "postinstall": "node -e \"require('fs').copyFileSync(require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs'), 'public/pdf.worker.min.mjs')\""
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.0",
@@ -45,6 +46,7 @@
     "next": "^14.2.15",
     "next-auth": "^4.24.10",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.1.200",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8"

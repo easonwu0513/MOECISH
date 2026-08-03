@@ -18,3 +18,4 @@ prisma/dev.db-journal
 Thumbs.db
 # M365 OAuth token 快取(含 refresh_token,嚴禁進版控)
 .graph-token.json
+public/pdf.worker.min.mjs

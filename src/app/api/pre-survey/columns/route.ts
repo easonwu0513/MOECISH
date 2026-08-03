@@ -4,15 +4,18 @@ import { prisma } from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { errorResponse } from '@/lib/api';
 import { writeAuditLog, extractRequestMeta } from '@/lib/audit-log';
+import { assertSurveyYearWritable } from '@/lib/pre-survey-server';
 
 /**
  * 管考表自訂欄位 CRUD(mockup 改版;僅中心)。欄位為年度制;其「值」存於 SurveyParticipant.customValues JSON。
  * 刪欄不連動清值(殘鍵渲染/匯出時忽略,無害)。
+ * UAT 圖58:欄位歸屬類別 kind(MEMBER|OBSERVER)——新增只建在當前分頁類別,兩分頁不再連動;null=舊欄位兩類共用。
  */
 
 const CreateBody = z.object({
   year: z.number().int().min(2000).max(2200),
   title: z.string().trim().min(1).max(60),
+  kind: z.enum(['MEMBER', 'OBSERVER']).optional(),
 });
 const PatchBody = z.object({
   id: z.string().min(1),
@@ -26,14 +29,15 @@ const DeleteBody = z.object({ id: z.string().min(1) });
 export async function POST(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
-    const { year, title } = CreateBody.parse(await req.json());
+    const { year, title, kind } = CreateBody.parse(await req.json());
+    assertSurveyYearWritable(year); // UAT 圖57:歷年資料唯讀
     const last = await prisma.surveyCustomColumn.findFirst({
       where: { year },
       orderBy: { orderIndex: 'desc' },
       select: { orderIndex: true },
     });
     const col = await prisma.surveyCustomColumn.create({
-      data: { year, title, orderIndex: (last?.orderIndex ?? -1) + 1, createdById: user.id },
+      data: { year, title, kind: kind ?? null, orderIndex: (last?.orderIndex ?? -1) + 1, createdById: user.id },
       select: { id: true },
     });
     await writeAuditLog({
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
       action: 'SURVEY_COLUMN_CREATE',
       entityType: 'SurveyCustomColumn',
       entityId: col.id,
-      after: { year, title },
+      after: { year, title, kind: kind ?? null },
       ...extractRequestMeta(req),
     });
     return NextResponse.json({ id: col.id });
@@ -55,8 +59,9 @@ export async function PATCH(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const body = PatchBody.parse(await req.json());
-    const existing = await prisma.surveyCustomColumn.findUnique({ where: { id: body.id }, select: { id: true } });
+    const existing = await prisma.surveyCustomColumn.findUnique({ where: { id: body.id }, select: { id: true, year: true } });
     if (!existing) return NextResponse.json({ error: '欄位不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
 
     const data: Record<string, unknown> = {};
     if (body.title !== undefined) data.title = body.title;
@@ -87,8 +92,9 @@ export async function DELETE(req: Request) {
   try {
     const user = await requireRole('SUPER_ADMIN');
     const { id } = DeleteBody.parse(await req.json());
-    const existing = await prisma.surveyCustomColumn.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.surveyCustomColumn.findUnique({ where: { id }, select: { id: true, year: true } });
     if (!existing) return NextResponse.json({ error: '欄位不存在' }, { status: 404 });
+    assertSurveyYearWritable(existing.year); // UAT 圖57:歷年資料唯讀
     await prisma.surveyCustomColumn.delete({ where: { id } });
     await writeAuditLog({
       actorId: user.id,

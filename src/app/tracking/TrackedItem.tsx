@@ -28,6 +28,7 @@ import {
   type TrackedStatus,
   type TrackedReviewStatus,
   type Role,
+  isReadOnlyReviewRole,
 } from '@/lib/types';
 
 export type EvidenceDTO = { id: string; originalName: string; mimeType: string; sizeBytes: number };
@@ -95,6 +96,8 @@ export default function TrackedItem({
   const canReviewItem = item.status === 'TRACKING' && (isCenter || (isAuditor && item.assignedAuditorId === userId));
 
   const pendingReport = item.reports.find((r) => r.reviewStatus === 'PENDING') ?? null;
+  // P2:回報歷程預設只展開最新一筆(季報逐年累積,全展開難以掃讀)
+  const [showAllReports, setShowAllReports] = useState(false);
 
   // 機關新回報表單
   const [content, setContent] = useState('');
@@ -346,12 +349,23 @@ export default function TrackedItem({
         </div>
       )}
 
-      {/* 回報歷程 */}
+      {/* 回報歷程(P2:列管項會累積多年季報 → 預設只展開最新一筆,其餘按需展開) */}
       {item.reports.length > 0 && (
         <div className="mt-4">
-          <p className="text-label text-ink-500 mb-2">回報歷程</p>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-label text-ink-500">回報歷程（{item.reports.length}）</p>
+            {item.reports.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowAllReports((v) => !v)}
+                className="text-caption text-primary-700 hover:underline focus-ring rounded"
+              >
+                {showAllReports ? '只顯示最新一筆' : `顯示其餘 ${item.reports.length - 1} 筆歷史回報`}
+              </button>
+            )}
+          </div>
           <ul className="space-y-3">
-            {item.reports.map((r) => {
+            {(showAllReports ? item.reports : item.reports.slice(0, 1)).map((r) => {
               const canUpload = isOrg && r.reviewStatus === 'PENDING';
               const viewerCanReviewThis = canReviewItem && r.reviewStatus === 'PENDING';
               return (
@@ -377,7 +391,7 @@ export default function TrackedItem({
                     <ul className="mt-2 space-y-1">
                       {r.evidences.map((f) => (
                         <li key={f.id} className="flex items-center gap-2">
-                          <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={isAuditor} />
+                          <ProtectedFileLink fileId={f.id} name={f.originalName} viewOnly={isReadOnlyReviewRole(role)} />
                           {canUpload && (
                             <button
                               type="button"
@@ -520,8 +534,9 @@ function OriginActionBlock({ a }: { a: OriginActionDTO }) {
   ];
   if (!rows.some((r) => r.value.trim())) return null;
 
+  // P2:唯讀對照件(來源週期矯正填報)預設收合(不帶 open),需要時再展開
   return (
-    <details className="mt-3 rounded-md border border-rule bg-card px-3.5 py-2.5" open>
+    <details className="mt-3 rounded-md border border-rule bg-card px-3.5 py-2.5">
       <summary className="text-label text-ink-500 cursor-pointer select-none">
         來源週期矯正填報
         {a.submittedAt && (

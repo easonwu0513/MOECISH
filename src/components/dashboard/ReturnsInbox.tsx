@@ -44,8 +44,9 @@ export function ReturnsInbox({ items, showOrg }: { items: ReturnItem[]; showOrg:
                   <p className="mt-0.5 text-caption text-ink-700 line-clamp-2 leading-relaxed">{it.reason}</p>
                 )}
               </div>
+              {/* P1:中心視角看的是「全機關退件」,補正的是機關不是中心 → CTA 依角色分述 */}
               <span className="shrink-0 self-center inline-flex items-center gap-0.5 text-label-lg font-medium text-primary-700">
-                前往補正
+                {showOrg ? '查看' : '前往補正'}
                 <ChevronRight size={14} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </Link>

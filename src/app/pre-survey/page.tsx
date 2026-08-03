@@ -46,7 +46,7 @@ function parseObj(json: string | null): Record<string, string> {
   }
 }
 
-export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string; kind?: string } }) {
+export default async function PreSurveyPage({ searchParams }: { searchParams: { year?: string; kind?: string; open?: string } }) {
   const session = await auth();
   if (!session) redirect('/login?callbackUrl=/pre-survey');
   const user = session.user;
@@ -66,7 +66,11 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     searchParams.year && yearSet.has(Number(searchParams.year)) ? Number(searchParams.year) : years[0] ?? currentYear;
   const yearROC = year - 1911;
 
-  const sessions = await prisma.surveySession.findMany({ where: { year }, orderBy: { orderIndex: 'asc' } });
+  // UAT 圖2:場次一律依辦理日期排序(未定日期排最後、同日依手動序號);匿名序號隨清單順序重編,中心/自助/匯出三面一致
+  const sessions = await prisma.surveySession.findMany({
+    where: { year },
+    orderBy: [{ date: { sort: 'asc', nulls: 'last' } }, { orderIndex: 'asc' }],
+  });
 
   // 公版範本(批B;兩視角共用):SurveyTemplate + 其實體檔 Evidence
   const templates = await prisma.surveyTemplate.findMany({ where: { year }, orderBy: { slot: 'asc' } });
@@ -107,7 +111,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
       orderBy: { kind: 'asc' }, // 確定性:MEMBER 在前(雙身分預設頁籤)
       include: {
         availabilities: { select: { sessionId: true, status: true } },
-        finalAssignments: { include: { session: { select: { id: true, name: true, date: true } } } },
+        finalAssignments: { include: { session: { select: { id: true, name: true, date: true, needsTravel: true } } } },
       },
     });
     const dual = myParts.length > 1;
@@ -149,7 +153,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
             const selfData = await buildSelfDTO({ participant, sessions, templateDTOs, accountEmail: user.email ?? null });
             // 總覽卡 key 綁 participant.id(穩定;雙身分切換時 id 變→重掛):送出/審核後不重掛總覽 → 彈窗保持開啟。
             // 表單本體的重掛(反映最新伺服器狀態)由 SurveySelfDashboard 內部以 submittedAt/docStatus 為 key 處理。
-            return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} />;
+            return <SurveySelfDashboard key={participant.id} data={selfData} userName={user.name} autoOpen={searchParams.open === '1'} />;
           })()
         )}
       </AppShell>
@@ -162,7 +166,8 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     include: {
       user: { select: { name: true } },
       availabilities: { select: { sessionId: true, status: true } },
-      finalAssignments: { select: { sessionId: true } },
+      // UAT 圖14/47:交通逐場次(存指派列),帶場次名/needsTravel/date 供管考顯示(依日期排序)
+      finalAssignments: { select: { sessionId: true, transport: true, aspect: true, session: { select: { name: true, needsTravel: true, date: true } } } },
     },
     orderBy: { invitedAt: 'asc' },
   });
@@ -182,10 +187,25 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
 
   const fillWindowRow = await prisma.surveyFillWindow.findUnique({
     where: { year },
-    select: { openAt: true, closeAt: true },
+    select: {
+      openAt: true, closeAt: true, travelOpenAt: true, travelCloseAt: true,
+      observerOpenAt: true, observerCloseAt: true, observerTravelOpenAt: true, observerTravelCloseAt: true,
+      observerReceiptEnabled: true,
+    },
   });
   const fillWindow = fillWindowRow
-    ? { openAt: fillWindowRow.openAt?.toISOString() ?? null, closeAt: fillWindowRow.closeAt?.toISOString() ?? null }
+    ? {
+        openAt: fillWindowRow.openAt?.toISOString() ?? null,
+        closeAt: fillWindowRow.closeAt?.toISOString() ?? null,
+        travelOpenAt: fillWindowRow.travelOpenAt?.toISOString() ?? null,
+        travelCloseAt: fillWindowRow.travelCloseAt?.toISOString() ?? null,
+        // 圖41:觀察員專屬時窗(與委員分開設定)
+        observerOpenAt: fillWindowRow.observerOpenAt?.toISOString() ?? null,
+        observerCloseAt: fillWindowRow.observerCloseAt?.toISOString() ?? null,
+        observerTravelOpenAt: fillWindowRow.observerTravelOpenAt?.toISOString() ?? null,
+        observerTravelCloseAt: fillWindowRow.observerTravelCloseAt?.toISOString() ?? null,
+        observerReceiptEnabled: fillWindowRow.observerReceiptEnabled,
+      }
     : null;
 
   const sessionDTOs: AdminSessionDTO[] = sessions.map((s) => ({
@@ -200,11 +220,16 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     anonymizeForMember: s.anonymizeForMember,
     anonymizeForObserver: s.anonymizeForObserver,
     sharedWithObserver: s.sharedWithObserver,
+    sourceCycleId: s.sourceCycleId,
+    needsTravel: s.needsTravel,
+    isBriefing: s.isBriefing,
   }));
 
   // 中心自訂欄位(mockup 改版;年度制)。#5:selfEditable=開放受調者填寫、dueDate=填報到期日(供催辦)
+  // UAT 圖58:欄位依分頁類別過濾(kind=null 舊欄位兩類共用;新增欄位只建在當前類別,兩分頁不再連動)
+  const adminKind = searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER';
   const customColumnRows = await prisma.surveyCustomColumn.findMany({
-    where: { year },
+    where: { year, OR: [{ kind: null }, { kind: adminKind }] },
     orderBy: { orderIndex: 'asc' },
     select: { id: true, title: true, selfEditable: true, dueDate: true },
   });
@@ -243,23 +268,35 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
     email: p.email,
     phone2: p.phone2,
     email2: p.email2,
+    proxyName: p.proxyName,
+    proxyEmail: p.proxyEmail,
+    proxyPhone: p.proxyPhone,
     note: p.note,
     replyStatus: p.replyStatus,
-    docHandover: p.docHandover,
     submittedAt: p.submittedAt?.toISOString() ?? null,
     editUnlocked: p.editUnlocked,
+    travelEditUnlocked: p.travelEditUnlocked,
     docStatus: p.docStatus,
     docReviewed: !!p.docReviewedAt,
     rejectReason: p.rejectReason,
     cvFile: docBy.get(p.id)?.cv ?? null,
     ndaFile: docBy.get(p.id)?.nda ?? null,
     priorCvFile: docBy.get(p.id)?.priorCv ?? null,
-    transport: parseArr(p.transport),
+    // UAT 圖14/45/47:交通逐場次(「場次名:選項」;僅列需差旅場次,依辦理日期排序);線上場次不列
+    transport: [...p.finalAssignments]
+      .filter((fa) => fa.session.needsTravel)
+      .sort((a, b) => (a.session.date?.getTime() ?? Infinity) - (b.session.date?.getTime() ?? Infinity))
+      .map((fa) => {
+        const arr = parseArr(fa.transport);
+        return `${fa.session.name}：${arr.length > 0 ? arr.join('、') : '未填'}`;
+      }),
     diet: parseArr(p.diet),
     travelNote: p.travelNote,
     customValues: parseObj(p.customValues),
     availability: Object.fromEntries(p.availabilities.map((a) => [a.sessionId, a.status])),
     finalSessionIds: p.finalAssignments.map((fa) => fa.sessionId),
+    finalAspects: Object.fromEntries(p.finalAssignments.map((fa) => [fa.sessionId, fa.aspect])),
+    receiptReturned: p.receiptReturned,
   }));
 
   return (
@@ -274,6 +311,7 @@ export default async function PreSurveyPage({ searchParams }: { searchParams: { 
       <SurveyAdminBoard
         key={searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER'}
         initialKind={searchParams.kind === 'OBSERVER' ? 'OBSERVER' : 'MEMBER'}
+        readOnly={year < new Date(Date.now() + 8 * 3600 * 1000).getUTCFullYear()}
         yearROC={yearROC}
         sessions={sessionDTOs}
         participants={participantDTOs}
