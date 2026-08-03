@@ -79,7 +79,7 @@ export default async function HomePage() {
       checklistVersion: { select: { _count: { select: { items: true } } } },
       responses: { select: { compliance: true, comments: { where: { resolvedAt: null }, select: { id: true } } } },
       // 委員視角:帶出本人於各週期受指派的構面(卡片標註負責構面);其他角色查無、回空陣列
-      assignments: { where: { auditorId: user.id }, select: { dimensions: true } },
+      assignments: { where: { auditorId: user.id }, select: { dimensions: true, scoreLockedAt: true } },
     },
     orderBy: [{ year: 'desc' }, { createdAt: 'desc' }],
   });
@@ -193,6 +193,18 @@ export default async function HomePage() {
           key: `${c.id}-review`, tone: 'neutral',
           title: `${org}:${st === 'READY' ? '資料齊備，可先逐題檢視機關自評熟悉背景（選填）' : '可逐題檢視機關自評、留審閱註記（選填）'}`,
           href: `${base}/review`, cta: '去檢視',
+        });
+      }
+      // UAT 圖79:委員的主要交付=線上評分與稽核發現,原本只在週期頁「待完成事項」出現,
+      // 總覽待辦清單看不到 → 補入(以本人指派的 scoreLockedAt 判定;定稿後不再列)。
+      // 實地稽核起可填;缺失發布後仍未定稿者續列(委員未交=中心無法產報告)。
+      if ((st === 'ONSITE' || st === 'REPORT_ISSUED') && c.assignments.some((a) => !a.scoreLockedAt)) {
+        todos.push({
+          key: `${c.id}-score-self`,
+          tone: 'primary',
+          title: `${org}：請填寫委員評分與稽核發現`,
+          href: `${base}/audit`,
+          cta: '去填寫',
         });
       }
       if (e.submitted > 0) {
